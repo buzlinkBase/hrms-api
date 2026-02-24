@@ -1,0 +1,14 @@
+﻿    var mock = new Mock<PayrollProcessorService>();
+    var returnPayload = new List<PayrollSummaryLine>
+    {
+        new PayrollSummaryLine {
+        BasicSalaryItems=new List<BasicRateModel>
+        {
+        }},
+    };
+
+    mock.Setup(s => s.Calculate(It.IsAny<PayrollCalcPayload>()))
+        .ReturnsAsync(returnPayload);
+
+    var resultx = await mock.Object.Calculate(new PayrollCalcPayload(DateOnly.MinValue, DateOnly.MinValue, null, null, null, null));
+    Assert.Equal(returnPayload, resultx);

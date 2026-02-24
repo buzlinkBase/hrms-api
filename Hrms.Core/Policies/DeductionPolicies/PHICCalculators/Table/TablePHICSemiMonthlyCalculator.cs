@@ -1,0 +1,78 @@
+﻿using Hrms.Core;
+using Hrms.Core.Policies.DeductionPolicies;
+
+public class TablePHICSemiMonthlyCalculator : IDeductionCalculator
+{
+    public DeductionPipeData Calculate(DeductionPayloadContext context, DeductionPipeData line)
+    {
+        var resolver = new CutoffPolicyResolver();
+
+        if (line.IsLimit) return line;
+
+        var baseRate = StatutoryHelper.GetSemiMonthlyGrossBaseRate(context);
+        var table = PHICHelper.GetTable(context, baseRate);
+        if (table == null) return line;
+
+        // Use helper to get balances
+        var balances = PHICHelper.GetBalance(context, table.EmployeeShare, table.EmployerShare);
+
+        if (balances.EEBalance == 0) return line;
+        if (line.RemainingGrossBalance < balances.EEBalance) return line;
+
+        int divisor = 2; // default semi-monthly split
+
+        // Cross-month payroll → deduct all remaining immediately
+        if (new IsCrossMonth().IsSatisfiedBy(context.Payload))
+        {
+            divisor = 1;
+        }
+        // Mid-period hire → half deduction if joined after first cutoff
+        else if (context.Employee.HireDate.Year == context.Payload.FromDate.Year &&
+                 context.Employee.HireDate.Month == context.Payload.FromDate.Month)
+        {
+            var currentCutoff = resolver.GetCurrentCutoff(context);
+            if (context.Employee.HireDate.Day > currentCutoff.Day)
+            {
+                divisor = 2;
+            }
+        }
+
+        var date = context.Payload.FromDate;
+
+        try
+        {
+            if (resolver.IsFirstCutoff(context))
+            {
+                // First cutoff → half deduction (or prorated if late hire)
+                var payload = new PHICTablePayload(
+                    StatutoryHelper.CalcRemainingBalance(table.EmployeeShare, balances.EEBalance, divisor),
+                    StatutoryHelper.CalcRemainingBalance(table.EmployerShare, balances.ERBalance, divisor));
+
+                return PHICHelper.ApplyTable(context, line, payload, date);
+            }
+            else if (resolver.IsSecondCutoff(context))
+            {
+                // Second cutoff → deduct remaining balances
+                var payload = new PHICTablePayload(
+                    balances.EEBalance,
+                    balances.ERBalance);
+
+                return PHICHelper.ApplyTable(context, line, payload, date);
+            }
+        }
+        catch (CutoffMismatchException ex)
+        {
+            // Audit log: mismatch detected
+            //AuditLogger.Warn(ex.Message);
+
+            // Fallback: deduct at end of period
+            var payload = new PHICTablePayload(
+                balances.EEBalance,
+                balances.ERBalance);
+
+            return PHICHelper.ApplyTable(context, line, payload, date);
+        }
+
+        return line;
+    }
+}

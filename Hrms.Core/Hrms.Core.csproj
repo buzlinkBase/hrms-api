@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Elastic.Clients.Elasticsearch" />
+		<PackageReference Include="Google.Protobuf" />
+		<PackageReference Include="Grpc.AspNetCore" />
+		<PackageReference Include="Grpc.Tools" />
+		<PackageReference Include="Confluent.Kafka" />
+
+		<PackageReference Include="MessagePack" />
+		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
+		<PackageReference Include="MessagePackAnalyzer" />
+
+		<PackageReference Include="BuzlinkRepository" />
+		<PackageReference Include="ExcelMapper" />
+		<PackageReference Include="FluentValidation" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+		<PackageReference Include="Newtonsoft.Json" />
+		<PackageReference Include="AutoMapper" />
+		
+		<PackageReference Include="Serilog.AspNetCore" />
+		<PackageReference Include="Serilog.Sinks.Console" />
+		<PackageReference Include="Serilog.Sinks.File" />
+		<PackageReference Include="Serilog.Sinks.Seq" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
+		<ProjectReference Include="..\hrms.Infrastructure\hrms.Infrastructure.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>hrms.test</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Folder Include="Utilities\" />
+	</ItemGroup>
+
+</Project>

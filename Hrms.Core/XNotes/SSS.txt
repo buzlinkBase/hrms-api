@@ -1,0 +1,37 @@
+﻿SSS Policies
+
+1. Indetify the SSS rate Computation basis (None,Fixed,Table)
+2. Check the Payroll Frequency to identify how to devide the month SSS rate (Daily,Weekly,Semi,Monthly)
+3. Identity if how ss is computated [UseMonthly,UsePayrollRange]-> this is only applicable if crosses month
+4. GetBaseRate and Segrated per month it belongs depends on  [UseMonthly,UsePayrollRange] rule.
+ 
+
+
+ employee add 
+
+
+ Policy -> add cut off period per employee
+
+ I. TABLE BASE SSS RATE POLICY
+	Note: baserate which is the basis for sss table comparison
+	a.monthly
+		1. if employee starts > cutoff + 15th Days
+			- compute half rate only
+		2. employee starts < 15th
+			- compute full
+		Note:
+			if we need an adjustment additive/subtraction, we have to use sss adjustments function
+	b. semi-monthly
+		1. if employee starts >= 15th
+			- compute half rate
+		2. employee starts < 15th
+			- compute full
+		Note:
+			if we need an adjustment additive/subtraction, we have to use sss adjustments function
+	c. weekly
+		1. compute each payroll via sssrate/numberofweeks in a month
+		2. if cross date -> add remaining balance
+		3. if employee late, computed prorated rate based on the total days work 
+
+	d. Daily
+		1. rate / numberofDaysinamonth * currentDay

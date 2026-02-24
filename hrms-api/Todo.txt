@@ -1,0 +1,75 @@
+﻿Architecture
+sync strategy across WinForms and Web API — with clear separation for online, 
+offline, and hybrid DTR-HR setups.
+
+🧩 Sync & Multi-Tenant Strategy: Refined Breakdown
+🖥️ 1. Install WinForms App Normally
+- App installs with no tenant binding.
+- Generates a local installation ID for future onboarding.
+- Stores config in %AppData% or encrypted registry.
+
+🔐 2. Identify Mode via Licensing
+- Licensing module determines:
+- Mode = Standalone → no sync
+- Mode = OfflineDTRWithHR → local HR sync via named pipe
+- Mode = OnlineWithWebHR → full sync with Web API + RabbitMQ
+
+🌐 3. Online with WebApp HR (Cloud-Connected Mode)
+🔹 a. Register Tenant via Web API
+- App calls /api/tenant/register with installation ID.
+- Receives TenantId, SyncToken, and optional RMQEndpoint.
+🔹 b. Publish Registration to MQ
+- Web API publishes TenantRegistered event to RabbitMQ.
+- Allows other services to react (e.g., provision queues, audit logs).
+🔹 c. Dial RabbitMQ & Start Background Sync
+- WinForms app connects to cloud-hosted RabbitMQ.
+- Starts background consumer:
+- Filters by routingKey = tenant.{TenantId}.*
+- Uses BasicAck for audit-safe delivery
+🔹 d. Use Outbox Pattern for Sync Monitoring
+- Local changes (e.g., new departments) are written to OutboxMessages table.
+- Background sync worker pushes to Web API or MQ when online.
+🔹 e. Start Syncing Data
+- Background service:
+- Pulls updates from Web API (/api/sync?since=lastSync)
+- Pushes local outbox messages
+- Logs all sync events with TenantId, CorrelationId, and timestamps
+
+📴 4. Offline Standalone Mode
+- ❌ No RabbitMQ connection
+- ❌ No background sync service
+- ❌ No outbox pattern
+- ✅ Operates fully local
+- ✅ Can upgrade to online mode later via onboarding flow
+
+🔁 5. Offline DTR with WinForms HR System
+🔹 a. Use Outbox Pattern
+- DTR and HR apps use separate local DBs.
+- DTR writes sync messages to outbox (e.g., new time logs).
+🔹 b. Sync via Named Pipe
+- HR app hosts a named pipe server.
+- DTR app pushes outbox messages via pipe.
+- HR app processes and acknowledges messages.
+🔹 c. No RabbitMQ
+- ❌ No MQ connection
+- ✅ Local-only sync between apps
+- ✅ Audit-traceable via outbox + pipe logs
+
+🛡️ Enhancements You Can Add
+- Sync metadata: Include Source, Timestamp, CorrelationId in every message.
+- Retry logic: For outbox dispatch and pipe sync.
+- Conflict resolution: Use versioning or timestamps.
+- Audit hooks: Log every sync attempt, success, and failure.
+
+
+ 
+ policies:
+ regular Holiday
+	employment Type:
+		Mothly:Paid
+		semi:Paid
+		Daily: Not Paid
+
+
+
+//TODO double special and Special+holiday is not yet covered

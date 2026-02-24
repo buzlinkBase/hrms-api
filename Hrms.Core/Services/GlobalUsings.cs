@@ -1,0 +1,8 @@
+﻿global using BuzlinkRepository;
+global using Hrms.Core.Extensions;
+global using Hrms.Core.Pipelines;
+global using Hrms.Core.Services;
+global using Hrms.Domain;
+global using Hrms.Domain.ValueObjects;
+global using Hrms.Infrastructure;
+global using Microsoft.EntityFrameworkCore;

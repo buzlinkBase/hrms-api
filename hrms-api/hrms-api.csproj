@@ -1,0 +1,49 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Hrms.Api</RootNamespace>
+        <UserSecretsId>86b0bb2c-6312-466e-9a1f-b89ccbb70ac6</UserSecretsId>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+    <ItemGroup>
+      <Compile Remove="Messaging\Message Handlers\**" />
+      <Content Remove="Messaging\Message Handlers\**" />
+      <EmbeddedResource Remove="Messaging\Message Handlers\**" />
+      <None Remove="Messaging\Message Handlers\**" />
+    </ItemGroup>
+    <ItemGroup>
+		<PackageReference Include="MessagePack" />
+		<PackageReference Include="MessagePackAnalyzer">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Refit.HttpClientFactory" />
+		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
+		<PackageReference Include="Microsoft.AspNetCore.HeaderPropagation" /> 
+        <PackageReference Include="BuzlinkRepository" />
+        <PackageReference Include="FluentValidation" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" />
+        <PackageReference Include="Newtonsoft.Json" />
+        <PackageReference Include="RabbitMQ.Client" />
+        <PackageReference Include="Serilog.AspNetCore" />
+        <PackageReference Include="Serilog.Exceptions" />
+        <PackageReference Include="Serilog.Sinks.Console" />
+        <PackageReference Include="Serilog.Sinks.File" />
+        <PackageReference Include="Serilog.Sinks.Seq" />
+        <PackageReference Include="StackExchange.Redis" />
+        <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
+        <PackageReference Include="AutoMapper" />
+		<PackageReference Include="Swashbuckle.AspNetCore" />
+		<PackageReference Include="Asp.Versioning.Http" />
+		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\dtr-api\DTR.Core\DTR.Core.csproj" />
+        <ProjectReference Include="..\Hrms.Core\Hrms.Core.csproj" />
+        <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
+        <ProjectReference Include="..\hrms.Infrastructure\hrms.Infrastructure.csproj" />
+    </ItemGroup>
+</Project>

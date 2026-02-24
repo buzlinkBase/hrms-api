@@ -1,0 +1,10 @@
+﻿COLA must be computed hourly but setup as daily COLA rate in employee setup
+COLA must be computed hourly but setup as daily COLA rate in employee setup
+Policy may only apply if COLA is set separately
+Policies:  
+
+1. For Monthly Employee 
+	- Deduct absenses and LWOP days
+	- Deduct lates and UT
+2. For Variable
+	- Only Present days have cola computation

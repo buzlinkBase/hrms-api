@@ -1,0 +1,75 @@
+﻿
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using Hrms.Domain.Entities;
+
+namespace Hrms.Core.Services;
+
+public class PHICService : BaseService<PHICTable>
+{
+    private readonly IMapper _mapper;
+
+    public PHICService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    {
+        _mapper = mapper;
+    }
+    public async Task AddAsync(PHICTable model, CancellationToken token)
+    {
+        model.TotalContribution = model.EmployeeShare + model.EmployerShare;
+        await CreateAsync(model, token);
+        await CommitChangesAsync(token);
+    }
+    public async Task UpdateAsync(PHICTable model, CancellationToken token)
+    {
+        model.TotalContribution = model.EmployeeShare + model.EmployerShare;
+        await ModifyAsync(model, token);
+        await CommitChangesAsync(token);
+    }
+
+ 
+    public async Task<List<DateOnly>> Versions(DateOnly effectivity)
+    {
+        return await GetQueryable()
+            .GroupBy(x => x.EffectiveDate)
+            .Select(x => x.Key)
+            .ToListAsync();
+    }
+
+    public async Task<List<PHICTable>> FindAllAsync(DateOnly effectivity, CancellationToken token)
+    {
+        return await GetQueryable()
+            .Where(x => x.EffectiveDate == effectivity)
+            .ToListAsync(token);
+    }
+
+    public async Task<List<PHICModel>> LoadForPayrollrunAsync(DateOnly effectivity, CancellationToken token)
+    {
+        var latest = await _uow.Context.GovPHICs
+            .Where(x => x.EffectiveDate <= effectivity)
+            .OrderByDescending(x => x.EffectiveDate)
+            .FirstOrDefaultAsync(token);
+
+        return await GetQueryable()
+            .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
+            .ProjectTo<PHICModel>(_mapper.ConfigurationProvider)
+            .ToListAsync(token);
+
+    }
+
+
+    public async Task<PHICTable?> FineOneAsync(Guid Id, CancellationToken token)
+    {
+        return await GetOneAsync(Id, token);
+    }
+    public async Task Delete(Guid Id, CancellationToken token)
+    {
+        await RemoveAsync(Id, token);
+        await CommitChangesAsync(token); 
+    }
+    public async Task DeleteAllAsync(CancellationToken token)
+    {
+        await RemoveAllAsync();
+        await CommitChangesAsync(token);
+    }
+}
+

@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWindowsForms>true</UseWindowsForms>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+    <ItemGroup>
+        <EmbeddedResource Remove="UI\DTR\**" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="AutoMapper" />
+        <PackageReference Include="BuzlinkRepository" />
+        <PackageReference Include="DevExpress.Win.Design" />
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="people.ico" />
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\..\d\3rd\approval\Shared.Contracts\Shared.Contracts.csproj" />
+      <ProjectReference Include="..\..\d\3rd\gsopos\Common\AuthUI\AuthUI.csproj" />
+      <ProjectReference Include="..\Hrms.Core\Hrms.Core.csproj" />
+      <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
+      <ProjectReference Include="..\hrms.Infrastructure\hrms.Infrastructure.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+      <None Update="appsettings.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+</Project>
