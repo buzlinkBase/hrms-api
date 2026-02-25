@@ -88,7 +88,7 @@ public class ImportEmployeeProfileService
         mapper.AddMapping<EmployeeImportModel>("CutoffDate2", p => p.CutoffDate2);
 
     }
-    public void Upload(string path, int maxEmpCount, CancellationToken token)
+    public async Task Upload(string path, int maxEmpCount, CancellationToken token)
     {
         var mapper = new ExcelMapper(path)
         {
@@ -100,7 +100,7 @@ public class ImportEmployeeProfileService
         var data = mapper.Fetch<EmployeeImportModel>().ToList();
         SetDefaults(data);
 
-        var branches = ExtractBranchesAsync(data, token);
+        List<(Guid Id, string Code)> branches = await ExtractBranchesAsync(data, token);
         var shifts = ExtractShifts(data);
         var clients = ExtractClients(data);
         var pyGroups = ExtractPayrollGroups(data);
@@ -311,10 +311,10 @@ public class ImportEmployeeProfileService
         }
     }
 
-    public async Task<List<(Guid Id,string Code)>> ExtractBranchesAsync(List<EmployeeImportModel> data, CancellationToken token)
+    public async Task<List<(Guid Id, string Code)>> ExtractBranchesAsync(List<EmployeeImportModel> data, CancellationToken token)
     {
         HashSet<string> uniqueIds = data
-            .Where(x=>!string.IsNullOrWhiteSpace(x.BranchCode))
+            .Where(x => !string.IsNullOrWhiteSpace(x.BranchCode))
             .Select(x => x.BranchCode)
             .Select(g => g)
             .ToHashSet();
@@ -434,30 +434,35 @@ public class ImportEmployeeProfileService
 
     public Dictionary<string, CreateDepartment> ExtractDepartments(
         List<EmployeeImportModel> data,
-        List<Guid> branches)
+        List<(Guid Id, string Code)> branches)
     {
-        var branchSet = branches.ToHashSet();
+        var branchLookup = branches
+            .Where(b => !string.IsNullOrEmpty(b.Code))
+            .ToDictionary(b => b.Code, b => b.Id, StringComparer.OrdinalIgnoreCase);
+
         return data
             .GroupBy(x => new
             {
-                Name = string.IsNullOrWhiteSpace(x.DepartmentName) ? "--" : x.DepartmentName,
-                BranchId = GetBranch(x, branchSet)
+                Name = string.IsNullOrWhiteSpace(x.DepartmentName) ? "--" : x.DepartmentName.Trim(),
+                BranchId = GetBranch(x, branchLookup)
             })
             .Select(g => new CreateDepartment
             {
                 Name = g.Key.Name,
                 BranchId = g.Key.BranchId
             })
-            .ToDictionary(x => $"{x.Name}_{x.BranchId}", x => x);
+            .ToDictionary(x => $"{x.Name}_{x.Code}", x => x);
     }
 
-    private Guid? GetBranch(EmployeeImportModel item, HashSet<Guid> branchSet)
+    private Guid? GetBranch(EmployeeImportModel item, Dictionary<string, Guid> branchLookup)
     {
-        if (Guid.TryParse(item.BranchId, out var parsedGuid) && branchSet.Contains(parsedGuid))
-        {
-            return parsedGuid;
-        }
-        return null;
+        if (string.IsNullOrWhiteSpace(item.BranchCode))
+            return null;
+
+        // TryGetValue is the safest and fastest way to check a dictionary
+        return branchLookup.TryGetValue(item.BranchCode.Trim(), out var branchId)
+            ? branchId
+            : null;
     }
 
     public Dictionary<string, RestDay> ExtractRestDay(List<EmployeeImportModel> data)
