@@ -17,3 +17,9 @@ public class CompanyPolicyRule
     //public decimal StatutoryCap { get; set; }
     //public decimal _13thMonthCap { get; set; } = 90_000;
 }
+
+
+public class PayrollGroupQuery
+{
+    public RecordStatus? Status { get; set; } = RecordStatus.Any;
+}

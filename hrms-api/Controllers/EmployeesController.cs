@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using AutoMapper;
+using ClosedXML.Excel;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -72,5 +73,36 @@ namespace Hrms.Api.Controllers
             await _service.Delete(id,token);
             return Ok();
         }
+
+        [HttpPost("upload-employees")]
+        public async Task<IActionResult> Upload(IFormFile excelFile, CancellationToken token)
+        {
+            if (excelFile == null || excelFile.Length == 0)
+                return BadRequest("Please select a file.");
+
+
+            var list = new List<UploadEmployeeDto>();
+            using (var stream = new MemoryStream())
+            {
+                await excelFile.CopyToAsync(stream, token);
+                using (var workbook = new XLWorkbook(stream))
+                {
+                    var worksheet = workbook.Worksheet(1);
+                    // Project rows to your model, skipping the header (row 1)
+                    list = worksheet.RangeUsed().RowsUsed()
+                        .Skip(1)
+                        .Select(row => new  UploadEmployeeDto 
+                        {
+                            FirstName = row.Cell(1).GetValue<string>(),
+                            Email = row.Cell(2).GetValue<string>()
+                        })
+                        .ToList();
+                }
+            }
+
+            return Ok(list);
+        }
     }
 }
+public record struct ShiftKey(string ShiftName, TimeSpan am, TimeSpan pm, TimeSpan? l1, TimeSpan? l2);
+

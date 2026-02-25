@@ -8,12 +8,8 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <ItemGroup>
-      <Compile Remove="Messaging\Message Handlers\**" />
-      <Content Remove="Messaging\Message Handlers\**" />
-      <EmbeddedResource Remove="Messaging\Message Handlers\**" />
-      <None Remove="Messaging\Message Handlers\**" />
-    </ItemGroup>
-    <ItemGroup>
+		<PackageReference Include="ClosedXML" />
+		<PackageReference Include="ExcelToEnumerable" />
 		<PackageReference Include="MessagePack" />
 		<PackageReference Include="MessagePackAnalyzer">
 		  <PrivateAssets>all</PrivateAssets>
@@ -26,7 +22,6 @@
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="Microsoft.Extensions.Hosting" />
         <PackageReference Include="Newtonsoft.Json" />
-        <PackageReference Include="RabbitMQ.Client" />
         <PackageReference Include="Serilog.AspNetCore" />
         <PackageReference Include="Serilog.Exceptions" />
         <PackageReference Include="Serilog.Sinks.Console" />

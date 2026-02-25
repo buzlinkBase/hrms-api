@@ -5,15 +5,12 @@ using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
 using Hrms.Api.Messaging;
 using Hrms.Api.Providers;
-using Hrms.Domain.ValueObjects;
 using Hrms.Infrastructure;
 using Hrms.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using StackExchange.Redis;
 using System.Text;
 
@@ -23,21 +20,21 @@ namespace Hrms.Api.Extensions
     {
         public static void RegisterSelfServices(this WebApplicationBuilder builder)
         {
+            builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<IDbConnectionProvider, EfConnectionMetadataProvider>();
             builder.Services.AddScoped<IAppConfigurationProvider, WebAppConfigurationProvider>();
             builder.Services.AddScoped<ITenantContextAccessor, WebTenantContextAccessor>();
-            builder.Services.AddLogging();
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
             builder.Services.AddScoped<IHMACService, HMACService>();
+            builder.Services.AddScoped<ICacheService, RedisCacheService>();
             builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
             builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
-            builder.Services.AddScoped<ICacheService, RedisCacheService>();
             var elasticSettings = new ElasticSettings();
             builder.Configuration.GetSection("ElasticSettings").Bind(elasticSettings);
             builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
             {
-                var configuration = builder.Configuration.GetConnectionString("Redis");
+                var configuration = builder.Configuration.GetConnectionString("Redis")!;
                 return ConnectionMultiplexer.Connect(configuration);
             });
 
@@ -105,66 +102,9 @@ namespace Hrms.Api.Extensions
 
             // Swagger (defer versioned docs to Program.cs)
             builder.Services.AddEndpointsApiExplorer();
-
-            builder.Services.AddSwaggerGen(options =>
-            {
-                options.OperationFilter<SwaggerHeader>();
-                options.SwaggerDoc("v1", new OpenApiInfo
-                {
-                    Title = "OnePunch HRMS API",
-                    Version = "v1"
-                });
-
-                // JWT Bearer
-                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-                {
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.ApiKey,
-                    Scheme = "Bearer",
-                    BearerFormat = "JWT",
-                    In = ParameterLocation.Header,
-                    Description = "Enter 'Bearer' [space] and then your valid JWT token.\nExample: \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...\""
-                });
-
-                // API Key
-                options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
-                {
-                    Description = "API Key needed to access the endpoints. Example: \"X-Api-Key: {key}\"",
-                    Name = "X-Api-Key",
-                    In = ParameterLocation.Header,
-                    Type = SecuritySchemeType.ApiKey,
-                    Scheme = "ApiKeyScheme"
-                });
-
-                // Apply both globally
-                options.AddSecurityRequirement(new OpenApiSecurityRequirement
-        {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        },
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "ApiKey"
-                }
-            },
-            Array.Empty<string>()
-        } });
-            });
-
+            builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
+            builder.Services.AddSwaggerGen(); 
             var signingKey = builder.Configuration["JwtSettings:SigningKey"];
-
             if (string.IsNullOrWhiteSpace(signingKey))
             {
                 throw new InvalidOperationException(

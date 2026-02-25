@@ -1,9 +1,8 @@
-﻿namespace DTR.Core;
+﻿namespace Hrms.Domain.ValueObjects;
 
-public class EmployeeImportModel
+public class UploadEmployeeDto
 {
     public int BioId { get; set; }
-    public string BranchCode  { get; set; }
     public string FirstName { get; set; }
     public string MiddleName { get; set; }
     public string LastName { get; set; }
@@ -11,26 +10,14 @@ public class EmployeeImportModel
     public string Gender { get; set; }
     public string RestDay1 { get; set; }
     public string RestDay2 { get; set; }
-
     public string DepartmentName { get; set; }
     public string ClientName { get; set; }
     public string PayrollGroup { get; set; }
     public string ShiftName { get; set; }
     public string ShiftType { get; set; }
-    //public string CrossDate { get; set; }
     public string AMIn { get; set; }
-    public string PMOut { get; set; }
     public string NoonBreakOut { get; set; }
     public string NoonBreakIn { get; set; }
-    public bool PaidLunchBreak { get; set; } 
+    public string PMOut { get; set; }
 
-    public double BreakDuration  { get; set; }
-    public double MaxWorkingMinutes  { get; set; }
-
-    //for payrollgroup
-    public string PayrollFrequency { get; set; }
-    public int CutoffDate1 { get; set; }
-    public bool IsEndOfMonth1 { get; set; }
-    public int CutoffDate2 { get; set; }
-    public bool IsEndOfMonth2 { get; set; }
 }

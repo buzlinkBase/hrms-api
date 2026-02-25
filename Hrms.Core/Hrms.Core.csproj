@@ -5,11 +5,17 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 	<ItemGroup>
+	  <Compile Remove="Utilities\**" />
+	  <EmbeddedResource Remove="Utilities\**" />
+	  <None Remove="Utilities\**" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="Elastic.Clients.Elasticsearch" />
 		<PackageReference Include="Google.Protobuf" />
 		<PackageReference Include="Grpc.AspNetCore" />
 		<PackageReference Include="Grpc.Tools" />
 		<PackageReference Include="Confluent.Kafka" />
+		<PackageReference Include="ExcelToEnumerable" />
 
 		<PackageReference Include="MessagePack" />
 		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
@@ -36,10 +42,6 @@
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
 			<_Parameter1>hrms.test</_Parameter1>
 		</AssemblyAttribute>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Folder Include="Utilities\" />
 	</ItemGroup>
 
 </Project>

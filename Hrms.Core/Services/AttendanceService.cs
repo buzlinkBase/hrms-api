@@ -94,7 +94,6 @@ public class AttendanceService : BaseService<Attendance>
                 g => g.Key,
                 g => g.OrderBy(x => x.WorkDateTime).ToList()
             );
-
         return result;
     }
 

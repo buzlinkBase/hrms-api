@@ -1,4 +1,5 @@
 ﻿
+using AutoMapper;
 using Elastic.Clients.Elasticsearch.Core.TermVectors;
 using Hrms.Domain.Entities.EmployeeEntities;
 
@@ -6,12 +7,16 @@ namespace Hrms.Core.Services;
 
 public class RestDayDateService : BaseService<RestDayDate>
 {
-    public RestDayDateService(IUnitOfWorkService uow) : base(uow)
-    {
-    }
-    public async Task AddOrUpdate(CreateRestDayDate payload, CancellationToken token)
-    {
+    private readonly IMapper _mapper;
 
+    public RestDayDateService(IUnitOfWorkService uow,
+        IMapper mapper) : base(uow)
+    {
+        _mapper = mapper;
+    }
+
+    public async Task<RestDayModel> AddOrUpdate(CreateRestDayDate payload, CancellationToken token)
+    {
         var existingEntity = await GetQueryable(x =>
                 x.EmployeeId == payload.EmployeeId &&
                 x.PayrollDate == payload.PayrollDate)
@@ -22,6 +27,9 @@ public class RestDayDateService : BaseService<RestDayDate>
             existingEntity.EmployeeId = payload.EmployeeId;
             existingEntity.PayrollDate = payload.PayrollDate;
             await CreateOrUpdateAsync(existingEntity, token);
+            await SaveChangesAsync(token);
+            await CommitChangesAsync(token);
+            return _mapper.Map<RestDayModel>(existingEntity);
         }
         else
         {
@@ -31,9 +39,28 @@ public class RestDayDateService : BaseService<RestDayDate>
                 PayrollDate = payload.PayrollDate
             };
             await CreateOrUpdateAsync(newModel, token);
+            await CommitChangesAsync(token);
+            return _mapper.Map<RestDayModel>(newModel);
         }
+    }
 
-        await CommitChangesAsync(token);
+
+    public async Task<List<RestDayDateModel>> FindAllAsync(Guid empId, CancellationToken token)
+    {
+        var data = await GetQueryable(x => x.EmployeeId == empId)
+            .ToListAsync(token);
+        return _mapper.Map<List<RestDayDateModel>>(data);
+    }
+
+    public async Task<RestDayDateModel> FindOneAsync(Guid Id, CancellationToken token)
+    {
+        var data = await GetOneAsync(Id, token);
+        return _mapper.Map<RestDayDateModel>(data);
+    }
+
+    public async Task Remove(Guid Id, CancellationToken token)
+    {
+        await RemoveAsync(Id, token);
     }
 
     public async Task<Dictionary<ResDaykey, RestDayDate>> LoadRestDayDate(

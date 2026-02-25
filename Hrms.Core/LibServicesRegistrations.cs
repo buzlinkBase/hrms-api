@@ -9,7 +9,7 @@ public static class LibServicesRegistrations
     {
         AddLibraryAssemblyDependencies(services, "Hrms.Core");
         services.AddScoped<ApplyTenantInterceptor>();
-        services.AddScoped<IUnitOfWorkService, UCommand>();
+        services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
     }
 
     public static void AddLibraryAssemblyDependencies(IServiceCollection services, string assemblyName)

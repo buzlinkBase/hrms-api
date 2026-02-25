@@ -237,5 +237,9 @@ public class MappingProfile : Profile
         CreateMap<SSSContributionModel, SSSContribution>().ReverseMap();
         CreateMap<PHICContributionModel, PHICContribution>().ReverseMap();
         CreateMap<HDMFContributionModel, HDMFContribution>().ReverseMap();
+
+        CreateMap<CreateRestDayDate, RestDayDate>();
+        CreateMap< RestDayDate, RestDayDateModel>();
+
     }
 }

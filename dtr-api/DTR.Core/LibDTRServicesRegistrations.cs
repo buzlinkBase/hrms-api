@@ -12,7 +12,7 @@ public static class LibDTRServicesRegistrations
         services.AddScoped<HolidayResolver>();
         services.AddScoped<CurrentRangeDTRPayloadService>();
         services.AddScoped<ApplyTenantInterceptor>();
-        services.AddScoped<IUnitOfWorkService, UCommand>();
+        services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
     }
 
     public static void AddLibraryAssemblyDependencies(IServiceCollection services, string assemblyName)

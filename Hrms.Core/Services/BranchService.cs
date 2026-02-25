@@ -39,15 +39,28 @@ public class BranchService : BaseService<Branch>
     {
         return await GetQueryable().ToListAsync(token);
     }
+
+
     public async Task<Branch?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return await GetOneAsync(Id, token);
     }
+
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
-
     }
+
+    public async Task<List<(Guid Id, string Code)>> GetByCodes(HashSet<string> codes, CancellationToken token)
+    {
+        if (codes == null || !codes.Any())
+            return new List<(Guid Id, string Code)>();
+        var data = await GetQueryable(x => codes.Contains(x.Code))
+            .Select(x => new { x.Id, x.Code })
+            .ToListAsync(token);
+        return data.Select(x => (x.Id, x.Code)).ToList();
+    }
+
 }
 

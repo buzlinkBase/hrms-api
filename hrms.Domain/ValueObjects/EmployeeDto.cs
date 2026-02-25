@@ -21,7 +21,6 @@ public class EmployeeDto
 
     public List<RestDayDto> RestDays { get; set; } = new();
 }
-
 public class RestDayDto
 {
     public Guid Id { get; set; }

@@ -8,12 +8,10 @@ public class CreateRestDayDate
     public DateOnly PayrollDate { get; set; }
 }
 
-public class UpdateRestDayDate
+public class RestDayDateModel
 {
     public Guid Id { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollDate { get; set; }
 }
-public class RestDayDateModel  : UpdateRestDayDate
-{
-}
+ 

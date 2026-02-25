@@ -14,7 +14,6 @@ namespace Hrms.Api;
 //        return config.CreateMapper();
 //    }
 //}
-
 public class AspAutoMapperProfile : Profile
 {
     public AspAutoMapperProfile()
