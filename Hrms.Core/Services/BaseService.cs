@@ -10,8 +10,8 @@ public abstract class BaseService<T> where T : class, IEntity
     {
         _uow = service;
     }
-    protected IRepository Repository => _uow.Repository;
-    protected HrmsContext Context => _uow.Context;
+    public IRepository Repository => _uow.Repository;
+    public HrmsContext Context => _uow.Context;
     protected virtual async Task<EvaluationResult> CreateValidatorAsync(T model, CancellationToken token = default) => EvaluationResult.OK;
     public async Task<bool> CommitChangesAsync(CancellationToken token = default) => await _uow.CommitChangesAsync("", token); 
     public int SaveChanges()=> _uow.SaveChanges(); 

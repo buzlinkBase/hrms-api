@@ -120,7 +120,7 @@ public class EmployeeService : BaseService<Employee>
         return data;
     }
 
-    public async Task<List<Employee>> FindAll(CancellationToken token)
+    public async Task<List<Employee>> FindAllAsync(CancellationToken token)
     {
         var data = await GetQueryable()
             .ToListAsync(token);

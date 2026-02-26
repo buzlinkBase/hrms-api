@@ -50,7 +50,6 @@ public class PayrollGroupService : BaseService<PayrollGroup>
     {
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
-
     }
     public async Task UpdateAsync(PayrollGroup model, CancellationToken token)
     {

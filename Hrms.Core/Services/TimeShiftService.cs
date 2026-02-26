@@ -13,14 +13,14 @@ public class TimeShiftService : BaseService<TimeShift>
     {
         _mapper = mapper;
     }
-    public async Task<TimeShiftModel> AddAsync(CreateTimeShift payload,
-        CancellationToken token)
+    public async Task<TimeShiftModel> AddAsync(CreateTimeShift payload, CancellationToken token)
     {
         var model = _mapper.Map<TimeShift>(payload);
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
         return _mapper.Map<TimeShiftModel>(model);
     }
+ 
 
     public async Task<TimeShiftModel> UpdateAsync(Guid id, UpdateTimeShift payload,
         CancellationToken token)
@@ -45,7 +45,7 @@ public class TimeShiftService : BaseService<TimeShift>
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
-        await  CommitChangesAsync(token);
+        await CommitChangesAsync(token);
 
     }
 }

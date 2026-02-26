@@ -23,6 +23,10 @@ public class ClientService : BaseService<Client>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
+    public async Task AddRangeAsync(List<Client> model, CancellationToken token)
+    {
+        await CreateRangeAsync(model, token);
+    }
     public async Task UpdateAsync(Client model, CancellationToken token)
     {
         await ModifyAsync(model, token);

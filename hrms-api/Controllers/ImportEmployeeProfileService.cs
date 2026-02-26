@@ -1,21 +1,40 @@
-﻿using Ganss.Excel;
+﻿using AutoMapper;
+using EFCore.BulkExtensions;
+using Ganss.Excel;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Infrastructure.EntityConfig;
+using Microsoft.EntityFrameworkCore;
 
 public class ImportEmployeeProfileService
 {
+    private readonly IMapper _mapper;
+    private readonly IUnitOfWorkService _uow;
     private readonly EmployeeService _employeeService;
     private readonly TimeShiftService _timeShiftService;
+    private readonly DepartmentService _departmentService;
+    private readonly PayrollGroupService _payrollGroupService;
+    private readonly ClientService _clientService;
     private readonly BranchService _branchService;
 
     public event Action<string> OnMessage;
     public ImportEmployeeProfileService(
+        IMapper mapper,
+        IUnitOfWorkService uow,
         EmployeeService employeeService,
         TimeShiftService timeShiftService,
+        DepartmentService departmentService,
+        PayrollGroupService payrollGroupService,
+        ClientService clientService,
         BranchService branchService)
     {
+        _mapper = mapper;
+        _uow = uow;
         _employeeService = employeeService;
         _timeShiftService = timeShiftService;
+        _departmentService = departmentService;
+        _payrollGroupService = payrollGroupService;
+        _clientService = clientService;
         _branchService = branchService;
     }
 
@@ -61,7 +80,6 @@ public class ImportEmployeeProfileService
 
     private void MapFields(ExcelMapper mapper)
     {
-
         mapper.AddMapping<EmployeeImportModel>("BioId", p => p.BioId);
         mapper.AddMapping<EmployeeImportModel>("BranchCode", p => p.BranchCode);
         mapper.AddMapping<EmployeeImportModel>("LastName", p => p.LastName);
@@ -100,26 +118,38 @@ public class ImportEmployeeProfileService
         var data = mapper.Fetch<EmployeeImportModel>().ToList();
         SetDefaults(data);
 
-        List<(Guid Id, string Code)> branches = await ExtractBranchesAsync(data, token);
+        var branches = await ExtractBranchesAsync(data, token);
         var shifts = ExtractShifts(data);
         var clients = ExtractClients(data);
         var pyGroups = ExtractPayrollGroups(data);
         var departments = ExtractDepartments(data, branches);
         var restDays = ExtractRestDay(data);
 
-        StoreShift(shifts);
-        StoreClients(clients);
-        StorePayrollGroups(pyGroups);
-        StoreDepartments(departments);
+        await _uow.BeginTransactionAsync(token);
+        await StoreShiftAsync(shifts, token);
+        await StoreClientsAsync(clients, token);
+        await StorePayrollGroupsAsync(pyGroups, token);
+        await StoreDepartmentsAsync(departments, token);
+        await _uow.SaveChangesAsync(token);//reflect setup Ids
 
         List<Employee> employees = new List<Employee>();
+        var allEmployees = await _employeeService.GetQueryable()
+            .Select(x => new BasicEmployeeInfo
+            {
+                Id = x.Id,
+                BioId = x.BioId,
+                FirstName = x.FirstName,
+                MiddleName = x.MiddleName,
+                LastName = x.LastName,
+                Suffix = x.Suffix
+            }).ToListAsync(token);
+
         foreach (var item in data)
         {
             if (string.IsNullOrWhiteSpace(item.RestDay1)) item.RestDay1 = "";
             if (string.IsNullOrWhiteSpace(item.RestDay2)) item.RestDay2 = "";
         }
         var rests = new List<RestDay>();
-        var progressPercent = data.Count / 100 - 1;
 
         foreach (var item in data)
         {
@@ -127,14 +157,17 @@ public class ImportEmployeeProfileService
             var endTime = GetEndTime(item);
             var lunchOut = GetLunchOut(item);
             var lunchIn = GetLunchIn(item);
-            var shiftKey = new ShiftKey(item.ShiftName, startTime, endTime, lunchOut, lunchIn);
-            shifts.TryGetValue(shiftKey, out CreateTimeShift timeShift);
-            clients.TryGetValue(item.ClientName, out Client client);
-            pyGroups.TryGetValue(item.PayrollGroup, out PayrollGroup pg);
-            departments.TryGetValue(item.DepartmentName, out Department? department);
-            //int.TryParse(item.BioId, out int bioId);
-            int bioId = item.BioId;
 
+            var shiftKey = new ShiftKey(item.ShiftName, startTime, endTime, lunchOut, lunchIn);
+            shifts.TryGetValue(shiftKey, out TimeShift? timeShift);
+            clients.TryGetValue(item.ClientName, out Client? client);
+            pyGroups.TryGetValue(item.PayrollGroup, out PayrollGroup? pg);
+            departments.TryGetValue(item.DepartmentName, out Department? department);
+            var branch = branches.FirstOrDefault(x => x.Code == item.BranchCode);
+            Guid? BranchId = branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
+            if (pg == null) pg = pyGroups.Values.FirstOrDefault();
+
+            int bioId = item.BioId;
             var employee = new Employee()
             {
                 FirstName = item?.FirstName ?? "",
@@ -142,15 +175,27 @@ public class ImportEmployeeProfileService
                 MiddleName = item?.MiddleName ?? "",
                 Suffix = item?.Suffix ?? "",
                 Gender = item?.Gender ?? "Male",
-                TimeShiftId = timeShift?.Id ?? Guid.Empty,
-                ClientId = client?.Id ?? Guid.Empty,
+                TimeShiftId = timeShift?.Id,
+                ClientId = client?.Id,
                 PayrollGroupId = pg?.Id ?? Guid.Empty,
-                DepartmentId = department?.Id ?? Guid.Empty,
+                DepartmentId = department?.Id,
                 BioId = bioId,
+                BranchId = BranchId,
             };
 
-            employee.RestDays.Clear();
+            var existing = allEmployees
+                .FirstOrDefault(x => x.FirstName == employee.FirstName &&
+                x.MiddleName == employee.MiddleName &&
+                x.LastName == employee.LastName &&
+                x.Suffix == employee.Suffix)
+                ;
 
+            if (existing != null)
+            {
+                employee.Id = existing.Id;
+            }
+
+            employee.RestDays.Clear();
             if (!string.IsNullOrWhiteSpace(item.RestDay1) && restDays.TryGetValue(item.RestDay1, out var r1))
             {
                 employee.RestDays.Add(new RestDay
@@ -159,7 +204,6 @@ public class ImportEmployeeProfileService
                     EmployeeId = employee.Id
                 });
             }
-
             if (!string.IsNullOrWhiteSpace(item.RestDay2) && restDays.TryGetValue(item.RestDay2, out var r2))
             {
                 employee.RestDays.Add(new RestDay
@@ -169,30 +213,50 @@ public class ImportEmployeeProfileService
                 });
             }
             employees.Add(employee);
-            progressPercent += 1;
         }
-        var Service = _employeeService;
 
-        Service.AddRange(employees);
+        //validate Bio Id existence
+        GuardBiodId(allEmployees, employees.Where(x => x.Id == Guid.Empty).ToList());
+        _employeeService.Context.BulkInsertOrUpdate(employees);
+        await _employeeService.CommitChangesAsync(token);
+
+    }
+
+    private void GuardBiodId(List<BasicEmployeeInfo> dbEmployees, List<Employee> newEmployees)
+    {
+        var newBioIds = CleanUp(newEmployees)
+            .Select(x => x.BioId)
+            .ToHashSet();
+
+        var duplicateEmployees = dbEmployees
+            .Where(x => newBioIds.Contains(x.BioId))
+            .ToList();
+
+        if (duplicateEmployees.Any())
+        {
+            var existingIds = string.Join(", ", duplicateEmployees.Select(x => x.BioId));
+            throw new Exception($"The following BioIds already exist in the database: {existingIds}");
+        }
     }
 
     private List<Employee> CleanUp(List<Employee> employees)
     {
-        if (employees == null) return [];
+        if (employees == null) return new List<Employee>();
         return employees
             .GroupBy(x => x.BioId)
-            .Select(x => x.First())
+            .Select(g => g.First())
             .ToList();
     }
 
-    public void StoreShift(Dictionary<ShiftKey, CreateTimeShift> shifts)
+    public async Task StoreShiftAsync(Dictionary<ShiftKey, TimeShift> shifts, CancellationToken token)
     {
-        var models = shifts.Values.ToList();
+        if (shifts == null || !shifts.Any()) return;
+        var models = _mapper.Map<List<TimeShift>>(shifts.Values.ToList());
         if (models == null || models.Count == 0) return;
 
-        var existing = _timeShiftService.FindAll()
+        var existing = await _timeShiftService.GetQueryable()
          .GroupBy(x => x.ShiftName)
-         .ToDictionary(x => x.Key.ToLowerInvariant(), x => x.First().Id);
+         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
 
         var newRecords = models
             .Where(x => !existing.ContainsKey(x.ShiftName.Trim().ToLowerInvariant()))
@@ -202,16 +266,16 @@ public class ImportEmployeeProfileService
         {
             if (existing.TryGetValue(item.ShiftName.Trim().ToLowerInvariant(), out Guid curId))
             {
-                item.Id = curId;
+                item.Id = curId;    //set the ids for tagging at the next process
             }
         }
         if (newRecords.Count > 0)
         {
-            _timeShiftService.AddRange(newRecords);
+            await _timeShiftService.Repository.AddRangeAsync(newRecords, token);
         }
     }
 
-    public void StoreClients(Dictionary<string, CreateClient> clients)
+    public async Task StoreClientsAsync(Dictionary<string, Client> clients, CancellationToken token)
     {
         var codeCount = 1;
         foreach (var item in clients.Values)
@@ -222,14 +286,14 @@ public class ImportEmployeeProfileService
         var models = clients.Values.ToList();
         if (models == null || models.Count == 0) return;
 
-        var Service = new ClientService(_uow);
-        var existing = Service.FindAll()
+        var existing = await _clientService.GetQueryable()
          .GroupBy(x => x.Name)
-         .ToDictionary(x => x.Key.ToLowerInvariant(), x => x.First().Id);
+         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
 
         var newRecords = models
             .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
             .ToList();
+
 
         foreach (var item in models)
         {
@@ -238,12 +302,14 @@ public class ImportEmployeeProfileService
                 item.Id = curId;
             }
         }
+
         if (newRecords.Count > 0)
         {
-            Service.AddRange(newRecords);
+            await _clientService.AddRangeAsync(newRecords, token);
         }
+
     }
-    public void StorePayrollGroups(Dictionary<string, PayrollGroup> pr)
+    public async Task StorePayrollGroupsAsync(Dictionary<string, PayrollGroup> pr, CancellationToken token)
     {
         var codeCount = 1;
         foreach (var item in pr.Values)
@@ -253,13 +319,14 @@ public class ImportEmployeeProfileService
         }
 
         var models = pr.Values.ToList();
-        if (models == null || models.Count == 0) return;
+        if (models == null || models.Count == 0)
+        {
+            throw new Exception("Payroll group is required");
+        }
 
-        var Service = new PayrollGroupService(_uow);
-        var existing = Service.FindAll()
+        var existing = await _payrollGroupService.GetQueryable()
          .GroupBy(x => x.Name)
-         .ToDictionary(x => x.Key.ToLowerInvariant(), x => x.First().Id);
-
+         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
 
         var newRecords = models
             .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
@@ -274,11 +341,11 @@ public class ImportEmployeeProfileService
         }
         if (newRecords.Count > 0)
         {
-            Service.AddRange(newRecords);
+            await _payrollGroupService.Repository.AddRangeAsync(newRecords, token);
         }
 
     }
-    public void StoreDepartments(Dictionary<string, Department> depts)
+    public async Task StoreDepartmentsAsync(Dictionary<string, Department> depts, CancellationToken token)
     {
         var models = depts.Values.ToList();
         if (models == null || models.Count == 0) return;
@@ -289,10 +356,9 @@ public class ImportEmployeeProfileService
             item.Code = codeCount.FormatCode();
             codeCount += 1;
         }
-        var Service = new DepartmentService(_uow);
-        var existing = Service.FindAll()
+        var existing = await _departmentService.GetQueryable()
          .GroupBy(x => x.Name)
-         .ToDictionary(x => x.Key.ToLowerInvariant(), x => x.First().Id);
+         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
 
         var newRecords = models
             .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
@@ -307,7 +373,7 @@ public class ImportEmployeeProfileService
         }
         if (newRecords.Count > 0)
         {
-            Service.AddRange(newRecords);
+            await _departmentService.Repository.AddRangeAsync(newRecords, token);
         }
     }
 
@@ -324,7 +390,7 @@ public class ImportEmployeeProfileService
         return await _branchService.GetByCodes(uniqueIds, token);
     }
 
-    public Dictionary<ShiftKey, CreateTimeShift> ExtractShifts(List<EmployeeImportModel> data)
+    public Dictionary<ShiftKey, TimeShift> ExtractShifts(List<EmployeeImportModel> data)
     {
         return data
             .GroupBy(x => new { x.ShiftName, x.AMIn, x.PMOut, x.NoonBreakOut, x.NoonBreakIn })
@@ -348,7 +414,7 @@ public class ImportEmployeeProfileService
                 return new
                 {
                     Key = new ShiftKey(x.ShiftName, startTime, endTime, lunchOut, lunchIn),
-                    Value = new CreateTimeShift
+                    Value = new TimeShift
                     {
                         ShiftType = string.IsNullOrEmpty(x.ShiftType) ? TimeShiftType.FIXED : shiftType,
                         ShiftName = $"{x.ShiftName}-{x.AMIn}-{x.PMOut}" + (hasBreak ? "-WB" : ""),
@@ -392,19 +458,19 @@ public class ImportEmployeeProfileService
         TimeSpan.TryParse(x.NoonBreakIn, out var lunchOut);
         return lunchOut;
     }
-    public Dictionary<string, CreateClient> ExtractClients(List<EmployeeImportModel> data)
+    public Dictionary<string, Client> ExtractClients(List<EmployeeImportModel> data)
     {
         return data
             .GroupBy(x => x.ClientName)
-            .Select(g => new CreateClient { Name = string.IsNullOrWhiteSpace(g.Key) ? "--" : g.Key })
+            .Select(g => new Client { Name = string.IsNullOrWhiteSpace(g.Key) ? "--" : g.Key })
             .ToDictionary(x => x.Name, x => x);
         ;
     }
-    public Dictionary<string, CreatePayrollGroup> ExtractPayrollGroups(List<EmployeeImportModel> data)
+    public Dictionary<string, PayrollGroup> ExtractPayrollGroups(List<EmployeeImportModel> data)
     {
         return data
             .GroupBy(x => new { x.PayrollGroup, x.CutoffDate1, x.CutoffDate2, x.PayrollFrequency })
-            .Select(g => new CreatePayrollGroup
+            .Select(g => new PayrollGroup
             {
                 PayrollFrequency = ResolveFrequency(g.First()),
                 CutoffDays = ResolveCutoff(g.First()),
@@ -419,20 +485,20 @@ public class ImportEmployeeProfileService
         return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.MONTHLY);
     }
 
-    private List<CutoffModel> ResolveCutoff(EmployeeImportModel item)
+    private List<CutoffDay> ResolveCutoff(EmployeeImportModel item)
     {
         var pg = EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.MONTHLY);
-        if (pg == PayrollFrequency.DAILY) return new List<CutoffModel>();
-        if (pg == PayrollFrequency.WEEKLY) return new List<CutoffModel>() { new CutoffModel() { Day = item.CutoffDate1, IsEndOfMonth = item.IsEndOfMonth1 } };
-        if (pg == PayrollFrequency.MONTHLY) return new List<CutoffModel>() { new CutoffModel() { Day = item.CutoffDate1, IsEndOfMonth = item.IsEndOfMonth1 } };
-        return new List<CutoffModel>()
+        if (pg == PayrollFrequency.DAILY) return new List<CutoffDay>();
+        if (pg == PayrollFrequency.WEEKLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDate1, IsEndOfMonth = item.IsEndOfMonth1 } };
+        if (pg == PayrollFrequency.MONTHLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDate1, IsEndOfMonth = item.IsEndOfMonth1 } };
+        return new List<CutoffDay>()
         {
-            new CutoffModel(){ Day= item.CutoffDate1, IsEndOfMonth= item.IsEndOfMonth1},
-            new CutoffModel(){ Day= item.CutoffDate2, IsEndOfMonth= item.IsEndOfMonth2},
+            new CutoffDay(){ Day= item.CutoffDate1, IsEndOfMonth= item.IsEndOfMonth1},
+            new CutoffDay(){ Day= item.CutoffDate2, IsEndOfMonth= item.IsEndOfMonth2},
         };
     }
 
-    public Dictionary<string, CreateDepartment> ExtractDepartments(
+    public Dictionary<string, Department> ExtractDepartments(
         List<EmployeeImportModel> data,
         List<(Guid Id, string Code)> branches)
     {
@@ -446,7 +512,7 @@ public class ImportEmployeeProfileService
                 Name = string.IsNullOrWhiteSpace(x.DepartmentName) ? "--" : x.DepartmentName.Trim(),
                 BranchId = GetBranch(x, branchLookup)
             })
-            .Select(g => new CreateDepartment
+            .Select(g => new Department
             {
                 Name = g.Key.Name,
                 BranchId = g.Key.BranchId
@@ -502,4 +568,12 @@ public class ImportEmployeeProfileService
         return restDays;
     }
 }
-
+public class BasicEmployeeInfo
+{
+    public Guid Id { get; set; }
+    public int BioId { get; set; }
+    public string FirstName { get; set; }
+    public string MiddleName { get; set; }
+    public string LastName { get; set; }
+    public string Suffix { get; set; }
+}
