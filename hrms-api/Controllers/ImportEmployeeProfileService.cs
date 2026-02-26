@@ -220,10 +220,7 @@ public class ImportEmployeeProfileService
 
         //validate Bio Id existence
         GuardBiodId(allEmployees, employees.Where(x => x.Id == Guid.Empty).ToList());
-        await _employeeService.Context.BulkInsertAsync(employees, new BulkConfig
-        {
-            UnderlyingTransaction = t => _uow.CurrentTransaction.GetDbTransaction()
-        });
+        await _employeeService.BulkInsertAsync(employees );
         await _employeeService.CommitChangesAsync(token);
 
     } 
@@ -589,12 +586,14 @@ public static class ext
     public static async Task BulkInsertAsync<TEntity>(this BaseService<TEntity> service,IList<TEntity> entities, Action<BulkConfig>? bulkConfigAction = null) where TEntity : class, IEntity
     {
         var config = new BulkConfig();
+        // 1. Let the user set their custom settings first (like BatchSize or BulkCopyTimeout)
+        bulkConfigAction?.Invoke(config);
+        // 2. FORCE the transaction to be the one from your UOW
+        // This overwrites anything they might have accidentally set
         if (service.Uow.CurrentTransaction != null)
         {
             config.UnderlyingTransaction = _ => service.Uow.CurrentTransaction.GetDbTransaction();
         }
-
-        bulkConfigAction?.Invoke(config);
         await service.Context.BulkInsertAsync(entities, config);
     }
 }
