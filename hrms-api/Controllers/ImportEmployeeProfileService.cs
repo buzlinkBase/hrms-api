@@ -5,6 +5,9 @@ using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Infrastructure.EntityConfig;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
 
 public class ImportEmployeeProfileService
 {
@@ -217,10 +220,13 @@ public class ImportEmployeeProfileService
 
         //validate Bio Id existence
         GuardBiodId(allEmployees, employees.Where(x => x.Id == Guid.Empty).ToList());
-        _employeeService.Context.BulkInsertOrUpdate(employees);
+        await _employeeService.Context.BulkInsertAsync(employees, new BulkConfig
+        {
+            UnderlyingTransaction = t => _uow.CurrentTransaction.GetDbTransaction()
+        });
         await _employeeService.CommitChangesAsync(token);
 
-    }
+    } 
 
     private void GuardBiodId(List<BasicEmployeeInfo> dbEmployees, List<Employee> newEmployees)
     {
@@ -576,4 +582,19 @@ public class BasicEmployeeInfo
     public string MiddleName { get; set; }
     public string LastName { get; set; }
     public string Suffix { get; set; }
+}
+
+public static class ext
+{
+    public static async Task BulkInsertAsync<TEntity>(this BaseService<TEntity> service,IList<TEntity> entities, Action<BulkConfig>? bulkConfigAction = null) where TEntity : class, IEntity
+    {
+        var config = new BulkConfig();
+        if (service.Uow.CurrentTransaction != null)
+        {
+            config.UnderlyingTransaction = _ => service.Uow.CurrentTransaction.GetDbTransaction();
+        }
+
+        bulkConfigAction?.Invoke(config);
+        await service.Context.BulkInsertAsync(entities, config);
+    }
 }

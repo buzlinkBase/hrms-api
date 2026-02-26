@@ -10,6 +10,7 @@ public abstract class BaseService<T> where T : class, IEntity
     {
         _uow = service;
     }
+    public IUnitOfWorkService Uow => _uow;
     public IRepository Repository => _uow.Repository;
     public HrmsContext Context => _uow.Context;
     protected virtual async Task<EvaluationResult> CreateValidatorAsync(T model, CancellationToken token = default) => EvaluationResult.OK;
