@@ -25,7 +25,7 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
     private async Task<bool> ValidateAsync(OtherIncomeApplication model, CancellationToken token)
     {
         var otherIncome = await _otherIncomeService.FineOneAsync(model.IncomeId, token);
-        Guard.ThrowIfNull<OtherIncome>(otherIncome, "Invalid Income Name");
+        Guard.ThrowIfNull(otherIncome, "Invalid Income Name");
         var employee = await _employeeService.FineOneAsync(model.EmployeeId, token);
         Guard.ThrowIfNull<Employee>(employee, "Invalid employee");
         model.IsTaxable = otherIncome.IsTaxable;

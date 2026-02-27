@@ -16,6 +16,7 @@
 		<PackageReference Include="Grpc.Tools" />
 		<PackageReference Include="Confluent.Kafka" />
 		<PackageReference Include="ExcelToEnumerable" />
+		<PackageReference Include="Polly" />
 
 		<PackageReference Include="MessagePack" />
 		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
@@ -27,8 +28,8 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="Newtonsoft.Json" />
 		<PackageReference Include="AutoMapper" />
-		
-		<PackageReference Include="Serilog.AspNetCore" />
+
+		<PackageReference Include="Serilog.Exceptions" />
 		<PackageReference Include="Serilog.Sinks.Console" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Serilog.Sinks.Seq" />

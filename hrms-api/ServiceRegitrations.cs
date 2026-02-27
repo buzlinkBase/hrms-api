@@ -5,6 +5,7 @@ using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
 using Hrms.Api.Messaging;
 using Hrms.Api.Providers;
+using Hrms.Core.Messaging;
 using Hrms.Infrastructure;
 using Hrms.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,6 +23,8 @@ namespace Hrms.Api.Extensions
         {
             builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
+            builder.Services.AddHostedService<TenantCreatedWorker>();
+
             builder.Services.AddScoped<IDbConnectionProvider, EfConnectionMetadataProvider>();
             builder.Services.AddScoped<IAppConfigurationProvider, WebAppConfigurationProvider>();
             builder.Services.AddScoped<ITenantContextAccessor, WebTenantContextAccessor>();

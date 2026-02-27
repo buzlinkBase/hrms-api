@@ -3,13 +3,7 @@ using System.Text;
 
 namespace DTR.Core;
 
-public static class StringFormatter
-{
-    public static string FormatCode(this int count)
-    {
-        return count.ToString().PadLeft(6,'0');
-    } 
-}
+
 public class EnumExtrator
 {
     public static string[] GetNames<T>() => Enum.GetNames(typeof(T));

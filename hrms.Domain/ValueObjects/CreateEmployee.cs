@@ -131,7 +131,6 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public string? PositionName { get; set; }
     [IgnoreMember] public string? AreaName { get; set; }
 }
-
 public class EmployeeFullModel
 {
     public int BioId { get; set; } = 0;
@@ -251,7 +250,6 @@ public class EmployeeModelPayrollRun
     public string FullName { get; set; }
 
 }
-
 [MessagePackObject]
 public class RestDayModel
 {

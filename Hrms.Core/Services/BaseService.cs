@@ -1,4 +1,5 @@
-﻿using Hrms.Infrastructure.Data;
+﻿using EFCore.BulkExtensions;
+using Hrms.Infrastructure.Data;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
@@ -14,14 +15,23 @@ public abstract class BaseService<T> where T : class, IEntity
     public IRepository Repository => _uow.Repository;
     public HrmsContext Context => _uow.Context;
     protected virtual async Task<EvaluationResult> CreateValidatorAsync(T model, CancellationToken token = default) => EvaluationResult.OK;
-    public async Task<bool> CommitChangesAsync(CancellationToken token = default) => await _uow.CommitChangesAsync("", token); 
-    public int SaveChanges()=> _uow.SaveChanges(); 
-    public Task<int> SaveChangesAsync(CancellationToken token=default)=> _uow.SaveChangesAsync(token); 
-    public bool CommitChanges()=> _uow.CommitChanges(""); 
+    public async Task<bool> CommitChangesAsync(CancellationToken token = default) => await _uow.CommitChangesAsync("", token);
+    public int SaveChanges() => _uow.SaveChanges();
+    public Task<int> SaveChangesAsync(CancellationToken token = default) => _uow.SaveChangesAsync(token);
+    public bool CommitChanges() => _uow.CommitChanges("");
     public IQueryable<T> FindBySpec(Specification<T> specification)
     {
         return Repository.Find(specification);
     }
+    public async Task BulkInsertAsync(List<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
+        await Repository.BulkInsertAsync(models, token, tracked, config);
+    public async Task BulkUpdateAsync(List<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
+      await Repository.BulkUpdateAsync(models, token, tracked, config);
+    public async Task BulkInsertOrUpdateAsync(List<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
+       await Repository.BulkInsertOrUpdateAsync(models, token, tracked, config);
+
+    public async Task BulkInsertAsync(List<T> models, CancellationToken token, Action<BulkConfig>? config = null) =>
+       await Repository.BulkInsertAsync(models, token, true, config);
 
     protected IQueryable<Type> GetQueryable<Type>(Specification<Type> specification, bool noTracking = true) where Type : class, IEntity
     {
@@ -65,7 +75,7 @@ public abstract class BaseService<T> where T : class, IEntity
     {
         if (model is null) return;
         await Guard.ModelGuardAsync<T>(CreateValidatorAsync, model, token);
-        _uow.Repository.AddOrUpdateAsync(model);
+        _uow.Repository.AddOrUpdateAsync(model, token);
     }
     protected async Task RemoveAllAsync()
     {

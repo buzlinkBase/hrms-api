@@ -9,33 +9,38 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
 {
     public void Configure(EntityTypeBuilder<Employee> builder)
     {
+        builder.HasIndex(x => x.BioId).IsUnique();
+        builder.HasIndex(x => x.FirstName);
+        builder.HasIndex(x => x.MiddleName);
+        builder.HasIndex(x => x.LastName);
+        builder.HasIndex(x => x.Suffix);
+
         builder.Property(x => x.SalaryType)
           .HasConversion(
                 v => v.ToString(),
                 v => EnumParserConfig.SafeParseEnum(v, SalaryType.MONTHLY_VARIABLE)
             );
 
-
         builder.Property(x => x.JobLevel)
           .HasConversion(
                 v => v.ToString(),
                 v => (JobLevelOption)Enum.Parse(typeof(JobLevelOption), v)
             );
-        builder.HasData(
-            new Employee
-            {
-                Id = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
-                TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-                FirstName = "john",
-                MiddleName = "",
-                LastName = "cee",
-                DailyRate = 1000,
-                MonthlyRate = 30000,
-                SalaryType = SalaryType.MONTHLY_FIXED,
-                HireDate = DateOnly.FromDateTime(DateTime.Now.AddMonths(-2)),
-                PayrollGroupId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F")
-            }
-        );
+        //builder.HasData(
+        //    new Employee
+        //    {
+        //        Id = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
+        //        TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //        FirstName = "john",
+        //        MiddleName = "",
+        //        LastName = "cee",
+        //        DailyRate = 1000,
+        //        MonthlyRate = 30000,
+        //        SalaryType = SalaryType.MONTHLY_FIXED,
+        //        HireDate = DateOnly.FromDateTime(DateTime.Now.AddMonths(-2)),
+        //        PayrollGroupId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F")
+        //    }
+        //);
     }
 }
 public class SSSRateConfig : IEntityTypeConfiguration<SSSRate>
@@ -69,7 +74,6 @@ public class SSSRateConfig : IEntityTypeConfiguration<SSSRate>
     );
     }
 }
-
 public class PHICRateConfig : IEntityTypeConfiguration<PHICRate>
 {
     public void Configure(EntityTypeBuilder<PHICRate> builder)
@@ -160,7 +164,6 @@ public class TaxRateConfig : IEntityTypeConfiguration<TaxRate>
         .HasForeignKey<TaxRate>(x => x.EmployeeId);
     }
 }
-
 public class EmployeeSettingConfig : IEntityTypeConfiguration<EmployeeSetting>
 {
     public void Configure(EntityTypeBuilder<EmployeeSetting> builder)

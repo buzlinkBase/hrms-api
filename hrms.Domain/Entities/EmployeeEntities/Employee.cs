@@ -1,7 +1,10 @@
-﻿namespace Hrms.Domain.Entities.EmployeeEntities;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Hrms.Domain.Entities.EmployeeEntities;
 
 public class Employee : BaseEntity
 {
+    [Required]
     public int BioId { get; set; } = 0;
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }

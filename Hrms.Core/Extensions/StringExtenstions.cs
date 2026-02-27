@@ -3,6 +3,14 @@ using System.Text;
 
 namespace Hrms.Core.Extensions;
 
+public static class StringFormatter
+{
+    public static string FormatCode(this int count)
+    {
+        return count.ToString().PadLeft(6, '0');
+    }
+}
+
 public static class Extensions
 {
     public static string FullName(this Employee? employee)

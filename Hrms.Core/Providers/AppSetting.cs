@@ -122,40 +122,23 @@ public class AppSettingValueResolver
     }
 
 }
+
 public static class ObjectSerializer
 {
-    private static readonly JsonSerializerOptions _options = new JsonSerializerOptions
+    private static readonly JsonSerializerOptions Options = new()
     {
-        WriteIndented = true, // pretty-print JSON
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        // Good for web APIs or JS compatibility
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    // Serialize object to JSON string
-    public static string Serialize<T>(T obj)
-    {
-        if (obj == null) throw new ArgumentNullException(nameof(obj));
-        return JsonSerializer.Serialize(obj, _options);
-    }
+    // Serialize object to string
+    public static string Serialize(object obj) =>
+        JsonSerializer.Serialize(obj, Options);
 
-    // Deserialize JSON string to object
-    public static T Deserialize<T>(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            throw new ArgumentException("JSON string is null or empty", nameof(json));
-
-        return JsonSerializer.Deserialize<T>(json, _options)!;
-    }
-    // Safe deserialize with default fallback
-    public static T DeserializeSafe<T>(string json, T defaultValue = default!)
-    {
-        try
-        {
-            return Deserialize<T>(json);
-        }
-        catch
-        {
-            return defaultValue;
-        }
-    }
+    // Deserialize string to object with null check
+    public static T? Deserialize<T>(string message) where T : class =>
+        string.IsNullOrWhiteSpace(message)
+            ? null
+            : JsonSerializer.Deserialize<T>(message, Options);
 }
-

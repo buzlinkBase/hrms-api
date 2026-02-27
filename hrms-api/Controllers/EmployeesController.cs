@@ -12,11 +12,15 @@ namespace Hrms.Api.Controllers
     public class EmployeesController : ControllerBase
     {
         private readonly EmployeeService _service;
+        private readonly EmployeeImportService _employeeImportService;
         private readonly IMapper _mapper;
 
-        public EmployeesController(EmployeeService service, IMapper mapper)
+        public EmployeesController(EmployeeService service,
+            EmployeeImportService employeeImportService,
+            IMapper mapper)
         {
             _service = service;
+            _employeeImportService = employeeImportService;
             _mapper = mapper;
         }
 
@@ -54,8 +58,8 @@ namespace Hrms.Api.Controllers
         {
             var employee = _mapper.Map<Employee>(payload);
             await _service.AddAsync(employee, token);
-            var respModel = _mapper.Map<EmployeeModel>(employee);
-            return Ok(respModel);
+            await _service.CommitChangesAsync(token);
+            return Ok(employee);
         }
 
         [HttpPut("{id}")]
@@ -70,7 +74,7 @@ namespace Hrms.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
-            await _service.Delete(id,token);
+            await _service.Delete(id, token);
             return Ok();
         }
 
@@ -80,29 +84,14 @@ namespace Hrms.Api.Controllers
             if (excelFile == null || excelFile.Length == 0)
                 return BadRequest("Please select a file.");
 
-
-            var list = new List<UploadEmployeeDto>();
-            using (var stream = new MemoryStream())
+            // IMPORTANT: Open the stream for the service to read
+            using (var stream = excelFile.OpenReadStream())
             {
-                await excelFile.CopyToAsync(stream, token);
-                using (var workbook = new XLWorkbook(stream))
-                {
-                    var worksheet = workbook.Worksheet(1);
-                    // Project rows to your model, skipping the header (row 1)
-                    list = worksheet.RangeUsed().RowsUsed()
-                        .Skip(1)
-                        .Select(row => new  UploadEmployeeDto 
-                        {
-                            FirstName = row.Cell(1).GetValue<string>(),
-                            Email = row.Cell(2).GetValue<string>()
-                        })
-                        .ToList();
-                }
+                await _employeeImportService.Upload(stream, token);
             }
 
-            return Ok(list);
+            return Ok("success");
         }
     }
 }
-public record struct ShiftKey(string ShiftName, TimeSpan am, TimeSpan pm, TimeSpan? l1, TimeSpan? l2);
 

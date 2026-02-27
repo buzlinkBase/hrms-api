@@ -61,6 +61,7 @@ public class EmployeeService : BaseService<Employee>
         }
         return await base.CreateValidatorAsync(model, token);
     }
+
     public async Task AddAsync(Employee model, CancellationToken token)
     {
         if (model.HireDate == DateOnly.MinValue)
@@ -75,6 +76,7 @@ public class EmployeeService : BaseService<Employee>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
+
 
     public async Task UpdateAsync(Employee model, CancellationToken token)
     {
@@ -91,22 +93,6 @@ public class EmployeeService : BaseService<Employee>
         await CommitChangesAsync(token);
 
     }
-
-    //public async Task AddOrUpdateAsync(Employee model,
-    //    CancellationToken token)
-    //{
-    //    if (model.HireDate == DateOnly.MinValue)
-    //    {
-    //        model.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
-    //    }
-    //    var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
-    //    if (branch != null)
-    //    {
-
-    //        model.BranchId = branch.Id;
-    //    }
-    //    await CreateOrUpdateAsync(model, token);
-    //}
 
     public async Task<List<Employee>> FindByIds(List<Guid> Ids, CancellationToken token)
     {

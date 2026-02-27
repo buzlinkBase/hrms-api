@@ -15,3 +15,4 @@ public record struct EmployeeRequestPayload(
     Guid? PayrollGroupId);
 
 public record DateEmployeeRequestPayload(DateOnly FromDate, DateOnly ToDate, List<Guid> EmployeeIds);
+

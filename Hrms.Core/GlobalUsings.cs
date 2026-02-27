@@ -4,3 +4,4 @@ global using Hrms.Core.Policies;
 global using Hrms.Core.Policies.DTRPolicies;
 global using Hrms.Core.Specs;
 global using Hrms.Core.Validations.Guards;
+global using  Serilog;

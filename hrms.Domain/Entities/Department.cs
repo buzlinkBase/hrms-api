@@ -7,9 +7,6 @@ public class Department : BaseEntity
 
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public Guid? BranchId { get; set; }
-    public virtual Branch Branch { get; set; }
-
     public Guid? HeadId { get; set; }
     public virtual Employee? Head { get; set; }
 
