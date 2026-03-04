@@ -27,13 +27,12 @@ namespace Hrms.Core.Messaging
         {
             // Avoid blocking the startup sequence
             await Task.Yield();
-
             var conf = new ConsumerConfig
             {
                 BootstrapServers = _settings.BootstrapServers,
-                GroupId = "tenant-service.admin.user.confirmed.group",
+                GroupId = "hrms-service.admin.user.confirmed.group",
                 AutoOffsetReset = AutoOffsetReset.Earliest,
-                EnableAutoCommit = false, // We handle commits manually
+                EnableAutoCommit = false,
                 EnablePartitionEof = false
             };
 

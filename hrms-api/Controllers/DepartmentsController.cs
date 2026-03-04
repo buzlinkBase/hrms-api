@@ -41,11 +41,6 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Post([FromBody] CreateDepartment payload, CancellationToken token)
         {
             var data = _mapper.Map<Department>(payload);
-            if (payload.BranchId == null || payload.BranchId == Guid.Empty)
-            {
-                var branch = (await _branchService.FindAllAsync(token)).FirstOrDefault();
-                data.BranchId = branch?.Id ?? null;
-            }
             await _service.AddAsync(data, token);
             var respModel = _mapper.Map<DepartmentModel>(data);
             return Ok(respModel);
@@ -56,11 +51,6 @@ namespace Hrms.Api.Controllers
         {
             var data = _mapper.Map<Department>(payload);
             data.Id = id;
-            if (payload.BranchId == null || payload.BranchId == Guid.Empty)
-            {
-                var branch = (await _branchService.FindAllAsync(token)).FirstOrDefault();
-                data.BranchId = branch?.Id ?? null;
-            }
             await _service.UpdateAsync(data, token);
             return Ok(_mapper.Map<DepartmentModel>(data));
         }

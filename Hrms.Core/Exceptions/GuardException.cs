@@ -68,4 +68,13 @@ public static class Guard
             throw new ValidationException(result.Message);
         }
     }
+
+    public static async Task ModelGuardAsync<T>(Func<T, CancellationToken, Task<EvaluationResult>> validator, List<T> models, CancellationToken token)
+        where T : class, IEntity
+    {
+        foreach (var model in models)
+        {
+            await ModelGuardAsync(validator, model, token);
+        }
+    }
 }

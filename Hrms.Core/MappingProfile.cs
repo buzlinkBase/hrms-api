@@ -10,10 +10,6 @@ public class MappingProfile : Profile
         CreateMap<PayrollSummaryLine, Payroll>().ReverseMap();
         CreateMap<CreateDepartment, Department>().ReverseMap();
         CreateMap<UpdateDepartment, Department>();
-        CreateMap<Department, DepartmentModel>()
-            .ForMember(x => x.BranchName, o => o.MapFrom(x => x.Branch.ShortName ?? x.Branch.Description))
-            .ForMember(x => x.BranchHeadName, o => o.MapFrom(x => x.Head.FullName()))
-            ;
 
         CreateMap<CreateSalaryAdjustment, SalaryAdjustment>();
         CreateMap<UpdateSalaryAdjustment, SalaryAdjustment>();

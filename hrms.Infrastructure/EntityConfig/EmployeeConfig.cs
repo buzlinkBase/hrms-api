@@ -63,15 +63,14 @@ public class SSSRateConfig : IEntityTypeConfiguration<SSSRate>
         .WithOne(x => x.SSSRate)
         .HasForeignKey<SSSRate>(x => x.EmployeeId);
 
-        builder.HasData(
-        new SSSRate
-        {
-            Id = Guid.NewGuid(),
-            TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-            EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
-            ComputationType = ComputationBasis.Table
-        }
-    );
+        //builder.HasData(
+        //new SSSRate
+        //{
+        //    Id = Guid.NewGuid(),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
+        //    ComputationType = ComputationBasis.Table
+        //}
     }
 }
 public class PHICRateConfig : IEntityTypeConfiguration<PHICRate>
@@ -95,15 +94,14 @@ public class PHICRateConfig : IEntityTypeConfiguration<PHICRate>
         .HasForeignKey<PHICRate>(x => x.EmployeeId);
 
 
-        builder.HasData(
-    new PHICRate
-    {
-        Id = Guid.NewGuid(),
-        TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-        EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
-        ComputationType = ComputationBasis.Table
-    }
-);
+        //builder.HasData(
+        //    new PHICRate
+        //    {
+        //        Id = Guid.NewGuid(),
+        //        TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //        EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
+        //        ComputationType = ComputationBasis.Table
+        //    }
 
 
     }
@@ -129,17 +127,14 @@ public class HDMFRateConfig : IEntityTypeConfiguration<HDMFRate>
         .HasForeignKey<HDMFRate>(x => x.EmployeeId);
 
 
-        builder.HasData(
-        new HDMFRate
-        {
-            Id = Guid.NewGuid(),
-            TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-            EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
-            ComputationType = ComputationBasis.Table
-        }
-);
-
-
+        //builder.HasData(
+        //new HDMFRate
+        //{
+        //    Id = Guid.NewGuid(),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
+        //    ComputationType = ComputationBasis.Table
+        //}
     }
 }
 public class TaxRateConfig : IEntityTypeConfiguration<TaxRate>
@@ -172,18 +167,17 @@ public class EmployeeSettingConfig : IEntityTypeConfiguration<EmployeeSetting>
         .WithOne(x => x.Settings)
         .HasForeignKey<EmployeeSetting>(x => x.EmployeeId);
 
-
-        builder.HasData(
-            new EmployeeSetting
-            {
-                Id = Guid.NewGuid(),
-                TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-                EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
-                IsEligibleForOvertime = true,
-                IsEligibleFor13thMonth = true,
-                IsEligibleForHolidayPay = true,
-                IsEligibleForLeaveCredits = true,
-                IsEligibleForNightDifferential = true
-            });
+        //builder.HasData(
+        //    new EmployeeSetting
+        //    {
+        //        Id = Guid.NewGuid(),
+        //        TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //        EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
+        //        IsEligibleForOvertime = true,
+        //        IsEligibleFor13thMonth = true,
+        //        IsEligibleForHolidayPay = true,
+        //        IsEligibleForLeaveCredits = true,
+        //        IsEligibleForNightDifferential = true
+        //    });
     }
 }

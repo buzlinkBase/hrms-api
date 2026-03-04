@@ -1,5 +1,4 @@
-﻿namespace Hrms.Infrastructure.EntityConfig;
-
+﻿namespace Hrms.Domain;
 public class EnumParserConfig
 {
     public static TEnum SafeParseEnum<TEnum>(string value, TEnum defaultValue) where TEnum : struct, Enum

@@ -1,5 +1,4 @@
 ﻿using EFCore.BulkExtensions;
-using Hrms.Infrastructure.Data;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
@@ -55,9 +54,13 @@ public abstract class BaseService<T> where T : class, IEntity
     {
         return await _uow.Repository.FindOneAsync<T>(Id, token);
     }
-    protected async Task CreateRangeAsync(IEnumerable<T> models, CancellationToken token = default)
-    {
+
+    protected async Task CreateRangeAsync(List<T> models, CancellationToken token = default)
+    { 
+        if (!models.Any()) return;
+        await Guard.ModelGuardAsync<T>(CreateValidatorAsync, models, token);
         await _uow.Repository.AddRangeAsync(models, token);
+
     }
     protected async Task CreateAsync(T model, CancellationToken token = default)
     {

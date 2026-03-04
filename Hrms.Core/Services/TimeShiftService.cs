@@ -13,6 +13,13 @@ public class TimeShiftService : BaseService<TimeShift>
     {
         _mapper = mapper;
     }
+
+    protected override async Task<EvaluationResult> CreateValidatorAsync(TimeShift model, CancellationToken token = default)
+    {
+        await base.CreateValidatorAsync(model, token);
+        Guard.ThrowIfEmpty(model.ShiftName, nameof(model.ShiftName));
+        return EvaluationResult.OK;
+    }
     public async Task<TimeShiftModel> AddAsync(CreateTimeShift payload, CancellationToken token)
     {
         var model = _mapper.Map<TimeShift>(payload);
@@ -20,7 +27,11 @@ public class TimeShiftService : BaseService<TimeShift>
         await CommitChangesAsync(token);
         return _mapper.Map<TimeShiftModel>(model);
     }
- 
+
+    public async Task AddRangeAsync(List<TimeShift> models , CancellationToken token)
+    {
+        await CreateRangeAsync(models, token);
+    }
 
     public async Task<TimeShiftModel> UpdateAsync(Guid id, UpdateTimeShift payload,
         CancellationToken token)

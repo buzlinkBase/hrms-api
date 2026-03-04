@@ -21,39 +21,47 @@ public class BranchService : BaseService<Branch>
         }
         return await base.CreateValidatorAsync(model, token);
     }
-
-    public async Task AddAsync(Branch model, CancellationToken token)
+    private void GenerateCode(Branch model)
     {
+        var codeCount = GetQueryable().Count();
+        if (model != null && string.IsNullOrEmpty(model.Code))
+        {
+            model.Code = codeCount.FormatCode();
+        }
+    }
+    public async Task AddAsync(Branch model, CancellationToken token = default)
+    {
+        GenerateCode(model);
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(Branch model, CancellationToken token)
+    public async Task UpdateAsync(Branch model, CancellationToken token = default)
     {
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task AddOrUpdateAsync(Branch model, CancellationToken token)
+    public async Task AddOrUpdateAsync(Branch model, CancellationToken token = default)
     {
         await CreateOrUpdateAsync(model, token);
     }
-    public async Task<List<Branch>> FindAllAsync(CancellationToken token)
+    public async Task<List<Branch>> FindAllAsync(CancellationToken token = default)
     {
         return await GetQueryable().ToListAsync(token);
     }
 
 
-    public async Task<Branch?> FineOneAsync(Guid Id, CancellationToken token)
+    public async Task<Branch?> FineOneAsync(Guid Id, CancellationToken token = default)
     {
         return await GetOneAsync(Id, token);
     }
 
-    public async Task DeleteAsync(Guid Id, CancellationToken token)
+    public async Task DeleteAsync(Guid Id, CancellationToken token = default)
     {
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
     }
 
-    public async Task<List<(Guid Id, string Code)>> GetByCodes(HashSet<string> codes, CancellationToken token)
+    public async Task<List<(Guid Id, string Code)>> GetByCodes(HashSet<string> codes, CancellationToken token = default)
     {
         if (codes == null || !codes.Any())
             return new List<(Guid Id, string Code)>();

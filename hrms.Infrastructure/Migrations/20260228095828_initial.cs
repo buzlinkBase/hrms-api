@@ -1287,7 +1287,6 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     HeadId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     Status = table.Column<string>(type: "longtext", nullable: false)
@@ -1299,11 +1298,6 @@ namespace Hrms.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Departments", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Departments_Branches_BranchId",
-                        column: x => x.BranchId,
-                        principalTable: "Branches",
-                        principalColumn: "Id");
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -1334,13 +1328,13 @@ namespace Hrms.Infrastructure.Migrations
                     DateResigned = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     HiringEntity = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    FirstName = table.Column<string>(type: "longtext", nullable: false)
+                    FirstName = table.Column<string>(type: "varchar(255)", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    LastName = table.Column<string>(type: "longtext", nullable: false)
+                    LastName = table.Column<string>(type: "varchar(255)", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    MiddleName = table.Column<string>(type: "longtext", nullable: false)
+                    MiddleName = table.Column<string>(type: "varchar(255)", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Suffix = table.Column<string>(type: "longtext", nullable: false)
+                    Suffix = table.Column<string>(type: "varchar(255)", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Gender = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -1967,48 +1961,7 @@ namespace Hrms.Infrastructure.Migrations
             migrationBuilder.InsertData(
                 table: "Branches",
                 columns: new[] { "Id", "Address", "Code", "Contact", "CreatedAt", "DeletedAt", "Description", "Email", "ShortName", "Status", "TenantId", "UpdatedAt" },
-                values: new object[] { new Guid("7317af7d-5919-4807-8d20-0888063ab3eb"), "", "0001", "", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Main Branch", "", "MB", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null });
-
-            migrationBuilder.InsertData(
-                table: "Companies",
-                columns: new[] { "Id", "Address", "ApplyStatutoryOnActualMonth", "Code", "Contact", "CreatedAt", "DeletedAt", "Description", "Email", "ShortName", "Status", "TakehomePercentage", "TenantId", "TotalWorkingDays", "UpdatedAt" },
-                values: new object[] { new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "", true, "0001", "", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Test Company", "", "TC", "Active", 0, new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 26, null });
-
-            migrationBuilder.InsertData(
-                table: "GovHDMFs",
-                columns: new[] { "Id", "CreatedAt", "DeletedAt", "EffectiveDate", "EmployeeRate", "EmployeeShare", "EmployerRate", "EmployerShare", "MaxSalaryBase", "MinSalaryBase", "Remarks", "Status", "TenantId", "TotalContribution", "UpdatedAt" },
-                values: new object[,]
-                {
-                    { new Guid("11111111-1111-1111-1111-111111111111"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 0.01m, 15m, 0.02m, 30m, 1500m, 1000m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 45m, null },
-                    { new Guid("22222222-2222-2222-2222-222222222222"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 0.02m, 100m, 0.02m, 100m, 999999999.99m, 1501m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 200m, null }
-                });
-
-            migrationBuilder.InsertData(
-                table: "GovPHICs",
-                columns: new[] { "Id", "CreatedAt", "DeletedAt", "EffectiveDate", "EmployeeShare", "EmployerShare", "MaxSalaryBase", "MinSalaryBase", "PremiumRate", "Remarks", "Status", "TenantId", "TotalContribution", "UpdatedAt" },
-                values: new object[,]
-                {
-                    { new Guid("11111111-1111-1111-1111-111111111111"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 100m, 200m, 2000m, 1500m, 0.10m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 300m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111112"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 150m, 300m, 3000m, 2001m, 0.10m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 450m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111113"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 200m, 400m, 4000m, 3001m, 0.10m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 600m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111114"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 250m, 500m, 5000m, 4001m, 0.10m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 750m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111115"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 250m, 250m, 10000m, 10000m, 0.05m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 500m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111116"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new DateOnly(2025, 1, 1), 2500m, 2500m, 999999999.99m, 100000m, 0.05m, "", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 5000m, null }
-                });
-
-            migrationBuilder.InsertData(
-                table: "GovSSSes",
-                columns: new[] { "Id", "CreatedAt", "DeletedAt", "EC", "EE", "ER", "EffectiveDate", "MSC", "RangeFrom", "RangeTo", "Status", "TenantId", "TotalContibution", "UpdatedAt" },
-                values: new object[,]
-                {
-                    { new Guid("11111111-1111-1111-1111-111111111111"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 10m, 750m, 875m, new DateOnly(2025, 1, 1), 5000m, 0m, 4999m, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 0m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111112"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 10m, 1500m, 1750m, new DateOnly(2025, 1, 1), 10000m, 5000m, 9999m, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 0m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111113"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 10m, 2250m, 2625m, new DateOnly(2025, 1, 1), 15000m, 10000m, 14999m, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 0m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111114"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 10m, 3000m, 3500m, new DateOnly(2025, 1, 1), 20000m, 15000m, 19999m, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 0m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111115"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 10m, 3750m, 4375m, new DateOnly(2025, 1, 1), 25000m, 20000m, 24999m, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 0m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111116"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 10m, 4500m, 5250m, new DateOnly(2025, 1, 1), 30000m, 25000m, 29999m, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 0m, null },
-                    { new Guid("11111111-1111-1111-1111-111111111117"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 10m, 5250m, 6125m, new DateOnly(2025, 1, 1), 35000m, 30000m, 9999999m, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), 0m, null }
-                });
+                values: new object[] { new Guid("82f07756-cde2-43ea-88e5-e4bd93237495"), "", "0001", "", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Main Branch", "", "MB", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null });
 
             migrationBuilder.InsertData(
                 table: "Leaves",
@@ -2030,11 +1983,6 @@ namespace Hrms.Infrastructure.Migrations
                 });
 
             migrationBuilder.InsertData(
-                table: "PayrollGroups",
-                columns: new[] { "Id", "Code", "CreatedAt", "DeletedAt", "Name", "PayrollFrequency", "Status", "TenantId", "UpdatedAt" },
-                values: new object[] { new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), "SM01", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Semi-Monthly", 2, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null });
-
-            migrationBuilder.InsertData(
                 table: "PremiumRates",
                 columns: new[] { "Id", "CreatedAt", "DeletedAt", "Description", "Rate", "Remarks", "ShortDescription", "Status", "TenantId", "Type", "UpdatedAt" },
                 values: new object[,]
@@ -2049,40 +1997,6 @@ namespace Hrms.Infrastructure.Migrations
                     { new Guid("88888888-8888-8888-8888-888888888888"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Special Non-Working Holiday", 1.30m, 0, "SP-NWH", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "SPECIAL_NON_WORKING", null },
                     { new Guid("99999999-9999-9999-9999-999999999999"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Special Rest Day", 1.50m, 0, "RD-SP", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "RESTDAY_SPECIAL", null }
                 });
-
-            migrationBuilder.InsertData(
-                table: "CutoffDay",
-                columns: new[] { "Id", "CreatedAt", "Day", "DeletedAt", "IsEndOfMonth", "Label", "PayrollGroupId", "Status", "TenantId", "UpdatedAt" },
-                values: new object[,]
-                {
-                    { new Guid("11111111-1111-1111-1111-111111111111"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 15, null, false, "First Cutoff", new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("22222222-2222-2222-2222-222222222222"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 31, null, true, "Second Cutoff", new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null }
-                });
-
-            migrationBuilder.InsertData(
-                table: "Employees",
-                columns: new[] { "Id", "Address1", "Address2", "Age", "AreaId", "BankName", "BankNo", "BioId", "BloodType", "BranchId", "CivilStatus", "ClientId", "Cola", "Contact", "ContractEnd", "ContractStart", "CreatedAt", "DOB", "DailyRate", "DateRegistered", "DateResigned", "DeletedAt", "DepartmentId", "EmployeeNo", "EmploymentStatus", "FirstName", "Gender", "HDMFNo", "HireDate", "HiringEntity", "JobLevel", "LastName", "MiddleName", "ModeOfPayment", "MonthlyRate", "PHICNo", "PayrollGroupId", "PositionId", "ProfileImg", "SSSNo", "SalaryType", "SectionId", "Status", "Suffix", "TIN", "TenantId", "TimeShiftId", "UpdatedAt" },
-                values: new object[] { new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), "", "", 0, null, "", "", 0, "", null, "", null, 0m, "", null, null, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 1000m, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, null, null, "", 0, "john", "", "", new DateOnly(2025, 12, 24), "", "Managerial", "cee", "", 1, 30000m, "", new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), null, "", "", "MONTHLY_FIXED", null, "Active", "", "", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null, null });
-
-            migrationBuilder.InsertData(
-                table: "EmployeeSettings",
-                columns: new[] { "Id", "CreatedAt", "DeletedAt", "EmployeeId", "IsEligibleFor13thMonth", "IsEligibleForHolidayPay", "IsEligibleForLeaveCredits", "IsEligibleForNightDifferential", "IsEligibleForOvertime", "IsNoDTRNotRequired", "Status", "TenantId", "UpdatedAt" },
-                values: new object[] { new Guid("1d2ea765-ef66-4b59-8465-f5e21dfc4e06"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), true, true, true, true, true, false, "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null });
-
-            migrationBuilder.InsertData(
-                table: "HDMFRates",
-                columns: new[] { "Id", "AddOns", "ComputationType", "CreatedAt", "DeletedAt", "EE", "ER", "EmployeeId", "Status", "TenantId", "UpdatedAt" },
-                values: new object[] { new Guid("50c4f498-7bf9-4516-98b4-c02c260aa028"), 0m, "Table", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 0m, 0m, new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null });
-
-            migrationBuilder.InsertData(
-                table: "PHICRates",
-                columns: new[] { "Id", "AddOns", "ComputationType", "CreatedAt", "DeletedAt", "EE", "ER", "EmployeeId", "Status", "TenantId", "UpdatedAt" },
-                values: new object[] { new Guid("19e74c46-bd41-4685-b5d5-957ede63317a"), 0m, "Table", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 0m, 0m, new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null });
-
-            migrationBuilder.InsertData(
-                table: "SSSRates",
-                columns: new[] { "Id", "AddOns", "ComputationType", "CreatedAt", "DeletedAt", "EC", "EE", "ER", "EmployeeId", "Status", "TenantId", "UpdatedAt" },
-                values: new object[] { new Guid("c3925e24-46df-48d6-bce7-24853e1ae9d5"), 0m, "Table", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, 0m, 0m, 0m, new Guid("398bbb60-4a8f-4095-a478-59b4f4e6a22f"), "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Allowances_IncomeTypeId",
@@ -2140,11 +2054,6 @@ namespace Hrms.Infrastructure.Migrations
                 column: "CategoryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Departments_BranchId",
-                table: "Departments",
-                column: "BranchId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Departments_HeadId",
                 table: "Departments",
                 column: "HeadId",
@@ -2171,6 +2080,12 @@ namespace Hrms.Infrastructure.Migrations
                 column: "AreaId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Employees_BioId",
+                table: "Employees",
+                column: "BioId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Employees_BranchId",
                 table: "Employees",
                 column: "BranchId");
@@ -2186,6 +2101,21 @@ namespace Hrms.Infrastructure.Migrations
                 column: "DepartmentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Employees_FirstName",
+                table: "Employees",
+                column: "FirstName");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_LastName",
+                table: "Employees",
+                column: "LastName");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_MiddleName",
+                table: "Employees",
+                column: "MiddleName");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Employees_PayrollGroupId",
                 table: "Employees",
                 column: "PayrollGroupId");
@@ -2194,6 +2124,11 @@ namespace Hrms.Infrastructure.Migrations
                 name: "IX_Employees_PositionId",
                 table: "Employees",
                 column: "PositionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_Suffix",
+                table: "Employees",
+                column: "Suffix");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Employees_TimeShiftId",
@@ -2515,6 +2450,9 @@ namespace Hrms.Infrastructure.Migrations
                 name: "Areas");
 
             migrationBuilder.DropTable(
+                name: "Branches");
+
+            migrationBuilder.DropTable(
                 name: "Clients");
 
             migrationBuilder.DropTable(
@@ -2528,9 +2466,6 @@ namespace Hrms.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "TimeShifts");
-
-            migrationBuilder.DropTable(
-                name: "Branches");
         }
     }
 }

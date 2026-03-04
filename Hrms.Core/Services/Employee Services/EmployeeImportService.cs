@@ -1,9 +1,10 @@
 ﻿using AutoMapper;
-using EFCore.BulkExtensions;
+using ClosedXML.Excel;
 using Ganss.Excel;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Infrastructure.EntityConfig;
+using Microsoft.AspNetCore.Hosting;
 
 namespace Hrms.Core.Services;
 
@@ -40,25 +41,14 @@ public class EmployeeImportService
     {
         var mapper = new ExcelMapper(fileStream)
         {
-            HeaderRowNumber = 0,
+            HeaderRowNumber = 2,
             MinRowNumber = 1,
         };
         MapFields(mapper);
         var data = mapper.Fetch<EmployeeImportModel>().ToList();
-        var allEmployees = await _employeeService.GetQueryable()
-           .Select(x => new BasicEmployeeInfo
-           {
-               Id = x.Id,
-               BioId = x.BioId,
-               FirstName = x.FirstName,
-               MiddleName = x.MiddleName,
-               LastName = x.LastName,
-               Suffix = x.Suffix
-           }).ToListAsync(token);
-
-        ValidateImportData(data, allEmployees);
+        var allEmployees = await GetAllEmployees(token);
         SetDefaults(data);
-
+        ValidateImportData(data, allEmployees);
         var branches = await ExtractBranchesAsync(data, token);
         var shifts = ExtractShifts(data);
         var clients = ExtractClients(data);
@@ -172,10 +162,24 @@ public class EmployeeImportService
           .Where(rd => employeeIds.Contains(rd.EmployeeId))
           .ExecuteDeleteAsync(token);
 
-        await _employeeService.Context.BulkInsertAsync(allNewRestDays,null,null,null, token);
+        await _employeeService.Repository.BulkInsertAsync(allNewRestDays, token, false);
         await _employeeService.CommitChangesAsync(token);
+
     }
 
+    private async Task<List<BasicEmployeeInfo>> GetAllEmployees(CancellationToken token)
+    {
+        return await _employeeService.GetQueryable()
+           .Select(x => new BasicEmployeeInfo
+           {
+               Id = x.Id,
+               BioId = x.BioId,
+               FirstName = x.FirstName,
+               MiddleName = x.MiddleName,
+               LastName = x.LastName,
+               Suffix = x.Suffix
+           }).ToListAsync(token);
+    }
     private void SetDefaults(List<EmployeeImportModel> data)
     {
         foreach (var item in data)
@@ -218,34 +222,36 @@ public class EmployeeImportService
     private void MapFields(ExcelMapper mapper)
     {
         mapper.AddMapping<EmployeeImportModel>("BioId", p => p.BioId);
-        mapper.AddMapping<EmployeeImportModel>("BranchCode", p => p.BranchCode);
-        mapper.AddMapping<EmployeeImportModel>("LastName", p => p.LastName);
+        mapper.AddMapping<EmployeeImportModel>("Branch Code", p => p.BranchCode);
         mapper.AddMapping<EmployeeImportModel>("FirstName", p => p.FirstName);
         mapper.AddMapping<EmployeeImportModel>("MiddleName", p => p.MiddleName);
+        mapper.AddMapping<EmployeeImportModel>("LastName", p => p.LastName);
         mapper.AddMapping<EmployeeImportModel>("Suffix", p => p.Suffix);
         mapper.AddMapping<EmployeeImportModel>("Gender", p => p.Gender);
         mapper.AddMapping<EmployeeImportModel>("Rest Day 1", p => p.RestDay1);
         mapper.AddMapping<EmployeeImportModel>("Rest Day 2", p => p.RestDay2);
-        mapper.AddMapping<EmployeeImportModel>("DepartmentName", p => p.DepartmentName);
-        mapper.AddMapping<EmployeeImportModel>("ClientName", p => p.ClientName);
+        mapper.AddMapping<EmployeeImportModel>("Department Name", p => p.DepartmentName);
+        mapper.AddMapping<EmployeeImportModel>("Client Name", p => p.ClientName);
         mapper.AddMapping<EmployeeImportModel>("Payroll Group", p => p.PayrollGroup);
         mapper.AddMapping<EmployeeImportModel>("Shift Name", p => p.ShiftName);
-        mapper.AddMapping<EmployeeImportModel>("Type", p => p.ShiftType);
+        mapper.AddMapping<EmployeeImportModel>("Shift Type", p => p.ShiftType);
         mapper.AddMapping<EmployeeImportModel>("AMIN", p => p.AMIn);
-        mapper.AddMapping<EmployeeImportModel>("Noon BreakOut", p => p.NoonBreakOut);
-        mapper.AddMapping<EmployeeImportModel>("Break-IN", p => p.NoonBreakIn);
+        mapper.AddMapping<EmployeeImportModel>("AM Out", p => p.AmOut);
+        mapper.AddMapping<EmployeeImportModel>("PM In", p => p.PMIn);
         mapper.AddMapping<EmployeeImportModel>("PM OUT", p => p.PMOut);
         mapper.AddMapping<EmployeeImportModel>("Break Duration", p => p.BreakDuration);
         mapper.AddMapping<EmployeeImportModel>("Max Working Minutes", p => p.MaxWorkingMinutes);
         mapper.AddMapping<EmployeeImportModel>("PaidLunchBreak", p => p.PaidLunchBreak);
+        mapper.AddMapping<EmployeeImportModel>("SalaryType", p => p.SalaryType);
         mapper.AddMapping<EmployeeImportModel>("PayrollFrequency", p => p.PayrollFrequency);
-        mapper.AddMapping<EmployeeImportModel>("CutoffDate1", p => p.CutoffDate1);
-        mapper.AddMapping<EmployeeImportModel>("CutoffDate2", p => p.CutoffDate2);
+        mapper.AddMapping<EmployeeImportModel>("CutoffDay1", p => p.CutoffDay1);
+        mapper.AddMapping<EmployeeImportModel>("1stCutoff_IsEndOfMonth", p => p.EOM1);
+        mapper.AddMapping<EmployeeImportModel>("CutoffDay2", p => p.CutoffDay2);
+        mapper.AddMapping<EmployeeImportModel>("2ndCutoff_IsEndOfMonth", p => p.EOM2);
     }
     private void ValidateImportData(List<EmployeeImportModel> data, List<BasicEmployeeInfo> dbEmployees)
     {
         var errors = new List<string>();
-
         var internalDuplicates = data
             .GroupBy(x => x.BioId)
             .Where(g => g.Count() > 1)
@@ -274,31 +280,6 @@ public class EmployeeImportService
             throw new ValidationException($"Import Validation Failed:\n{string.Join("\n", errors)}");
         }
     }
-    //private void GuardBiodId(List<BasicEmployeeInfo> dbEmployees, List<Employee> newEmployees)
-    //{
-    //    var newBioIds = CleanUp(newEmployees)
-    //        .Select(x => x.BioId)
-    //        .ToHashSet();
-
-    //    var duplicateEmployees = dbEmployees
-    //        .Where(x => newBioIds.Contains(x.BioId))
-    //        .ToList();
-
-    //    if (duplicateEmployees.Any())
-    //    {
-    //        var existingIds = string.Join(", ", duplicateEmployees.Select(x => x.BioId));
-    //        throw new Exception($"The following BioIds already exist in the database: {existingIds}");
-    //    }
-    //}
-    //private List<Employee> CleanUp(List<Employee> employees)
-    //{
-    //    if (employees == null) return new List<Employee>();
-    //    return employees
-    //        .GroupBy(x => x.BioId)
-    //        .Select(g => g.First())
-    //        .ToList();
-    //}
-
     private bool NamesMatch(EmployeeImportModel import, BasicEmployeeInfo db)
     {
 
@@ -307,9 +288,6 @@ public class EmployeeImportService
                string.Equals(import.MiddleName?.Trim(), db.MiddleName?.Trim(), StringComparison.OrdinalIgnoreCase) &&
                string.Equals(import.Suffix?.Trim(), db.Suffix?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
-
-
-
     private async Task StoreShiftAsync(Dictionary<ShiftKey, TimeShift> shifts, CancellationToken token)
     {
         if (shifts == null || !shifts.Any()) return;
@@ -328,12 +306,12 @@ public class EmployeeImportService
         {
             if (existing.TryGetValue(item.ShiftName.Trim().ToLowerInvariant(), out Guid curId))
             {
-                item.Id = curId;    //set the ids for tagging at the next process
+                item.Id = curId;
             }
         }
         if (newRecords.Count > 0)
         {
-            await _timeShiftService.Repository.AddRangeAsync(newRecords, token);
+            await _timeShiftService.AddRangeAsync(newRecords, token);
         }
     }
     private async Task StoreClientsAsync(Dictionary<string, Client> clients, CancellationToken token)
@@ -368,7 +346,6 @@ public class EmployeeImportService
         {
             await _clientService.AddRangeAsync(newRecords, token);
         }
-
     }
     private async Task StorePayrollGroupsAsync(Dictionary<string, PayrollGroup> pr, CancellationToken token)
     {
@@ -452,7 +429,7 @@ public class EmployeeImportService
     private Dictionary<ShiftKey, TimeShift> ExtractShifts(List<EmployeeImportModel> data)
     {
         return data
-            .GroupBy(x => new { x.ShiftName, x.AMIn, x.PMOut, x.NoonBreakOut, x.NoonBreakIn })
+            .GroupBy(x => new { x.ShiftName, x.AMIn, x.PMOut, x.AmOut, x.PMIn })
             .Select(group =>
             {
                 var x = group.First();
@@ -507,12 +484,12 @@ public class EmployeeImportService
     //}
     private TimeSpan GetLunchOut(EmployeeImportModel x)
     {
-        TimeSpan.TryParse(x.NoonBreakOut, out var lunchOut);
+        TimeSpan.TryParse(x.AmOut, out var lunchOut);
         return lunchOut;
     }
     private TimeSpan GetLunchIn(EmployeeImportModel x)
     {
-        TimeSpan.TryParse(x.NoonBreakIn, out var lunchOut);
+        TimeSpan.TryParse(x.PMIn, out var lunchOut);
         return lunchOut;
     }
     private Dictionary<string, Client> ExtractClients(List<EmployeeImportModel> data)
@@ -526,7 +503,7 @@ public class EmployeeImportService
     private Dictionary<string, PayrollGroup> ExtractPayrollGroups(List<EmployeeImportModel> data)
     {
         return data
-            .GroupBy(x => new { x.PayrollGroup, x.CutoffDate1, x.CutoffDate2, x.PayrollFrequency })
+            .GroupBy(x => new { x.PayrollGroup, x.CutoffDay1, x.CutoffDay2, x.PayrollFrequency })
             .Select(g => new PayrollGroup
             {
                 PayrollFrequency = ResolveFrequency(g.First()),
@@ -538,18 +515,18 @@ public class EmployeeImportService
     }
     private PayrollFrequency ResolveFrequency(EmployeeImportModel item)
     {
-        return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.MONTHLY);
+        return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.SEMI_MONTHLY);
     }
     private List<CutoffDay> ResolveCutoff(EmployeeImportModel item)
     {
         var pg = EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.MONTHLY);
         if (pg == PayrollFrequency.DAILY) return new List<CutoffDay>();
-        if (pg == PayrollFrequency.WEEKLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDate1, IsEndOfMonth = item.IsEndOfMonth1 } };
-        if (pg == PayrollFrequency.MONTHLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDate1, IsEndOfMonth = item.IsEndOfMonth1 } };
+        if (pg == PayrollFrequency.WEEKLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDay1, IsEndOfMonth = item.EOM1 } };
+        if (pg == PayrollFrequency.MONTHLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDay1, IsEndOfMonth = item.EOM1 } };
         return new List<CutoffDay>()
         {
-            new CutoffDay(){ Day= item.CutoffDate1, IsEndOfMonth= item.IsEndOfMonth1},
-            new CutoffDay(){ Day= item.CutoffDate2, IsEndOfMonth= item.IsEndOfMonth2},
+            new CutoffDay(){ Day= item.CutoffDay1, IsEndOfMonth= item.EOM1},
+            new CutoffDay(){ Day= item.CutoffDay2, IsEndOfMonth= item.EOM2},
         };
     }
     private Dictionary<string, Department> ExtractDepartments(List<EmployeeImportModel> data)
@@ -639,18 +616,105 @@ public class EmployeeImportModel
     //public string CrossDate { get; set; }
     public string AMIn { get; set; }
     public string PMOut { get; set; }
-    public string NoonBreakOut { get; set; }
-    public string NoonBreakIn { get; set; }
+    public string AmOut { get; set; }
+    public string PMIn { get; set; }
     public bool PaidLunchBreak { get; set; }
 
     public double BreakDuration { get; set; }
     public double MaxWorkingMinutes { get; set; }
 
-    //for payrollgroup
+
+    public string SalaryType { get; set; }
     public string PayrollFrequency { get; set; }
-    public int CutoffDate1 { get; set; }
-    public bool IsEndOfMonth1 { get; set; }
-    public int CutoffDate2 { get; set; }
-    public bool IsEndOfMonth2 { get; set; }
+    public int CutoffDay1 { get; set; }
+    public bool EOM1 { get; set; }
+    public int CutoffDay2 { get; set; }
+    public bool EOM2 { get; set; }
+
 }
 public record struct ShiftKey(string ShiftName, TimeSpan am, TimeSpan pm, TimeSpan? l1, TimeSpan? l2);
+
+public class TemplateDownloaderService
+{
+    private readonly IWebHostEnvironment _environment;
+    private readonly BranchService _branchService;
+
+    public TemplateDownloaderService(IWebHostEnvironment environment,
+        BranchService branchService)
+    {
+        _environment = environment;
+        _branchService = branchService;
+    }
+
+    public async Task<MemoryStream> GetEmployeeTemplate(CancellationToken token)
+    {
+
+        string templatePath = Path.Combine(_environment.ContentRootPath, "wwwroot", "Templates", "employee_template.xlsx");
+        var branchList = await _branchService
+            .GetQueryable()
+            .Select(x => x.Code)
+            .ToListAsync(token);
+        ;
+
+        var workbook = new XLWorkbook(templatePath);
+        var worksheet = workbook.Worksheet(1);
+
+        //branches
+        var helperSheet = workbook.Worksheets.Add("Branches");
+        CreateSheet(helperSheet, branchList);
+        var range = helperSheet.Range(1, 1, branchList.Count, 1);
+        worksheet.Cell("B3").CreateDataValidation().List(range);
+        worksheet.Cell("B3").Value = branchList.FirstOrDefault();
+
+        //salary Type
+        var SalaryTypes = new List<string>() { "DAILY", "MONTHLY_VARIABLE", "MONTHLY_FIXED" };
+        helperSheet = workbook.Worksheets.Add("SalaryType");
+        CreateSheet(helperSheet, SalaryTypes);
+        range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);
+        worksheet.Cell("V3").CreateDataValidation().List(range);
+        worksheet.Cell("V3").Value = SalaryTypes.FirstOrDefault();
+
+
+        var shiftTypes = new List<string>() { "Fixed", "Flexi" };
+        helperSheet = workbook.Worksheets.Add("ShiftTypes");
+        CreateSheet(helperSheet, shiftTypes);
+        range = helperSheet.Range(1, 1, shiftTypes.Count, 1);
+        worksheet.Cell("N3").CreateDataValidation().List(range);
+        worksheet.Cell("N3").Value = shiftTypes.FirstOrDefault();
+
+        var yesNo = new List<string>() { "Yes", "No" };
+        helperSheet = workbook.Worksheets.Add("yesNo");
+        CreateSheet(helperSheet, yesNo);
+        range = helperSheet.Range(1, 1, yesNo.Count, 1);
+
+        //paid breaks
+        worksheet.Cell("U3").CreateDataValidation().List(range);
+        worksheet.Cell("U3").Value = yesNo[1];
+        //eom1
+        worksheet.Cell("Y3").CreateDataValidation().List(range);
+        worksheet.Cell("Y3").Value = yesNo[1];
+        //eom2
+        worksheet.Cell("AA3").CreateDataValidation().List(range);
+        worksheet.Cell("AA3").Value = yesNo[1];
+
+
+        //pyFrequency
+        var pyFrequencies = new List<string>() { "Daily", "Weekly" , "Semi Montly", "Monthly" };
+        helperSheet = workbook.Worksheets.Add("PayrollFrequency");
+        CreateSheet(helperSheet, pyFrequencies);
+        range = helperSheet.Range(1, 1, pyFrequencies.Count, 1);
+        var cell = worksheet.Cell("W3");
+        cell.CreateDataValidation().List(range);
+        cell.Value = pyFrequencies[2];
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0; // Crucial: Reset the stream position to the beginning!
+        return stream;
+    }
+    private void CreateSheet<T>(IXLWorksheet helperSheet, List<T> data)
+    {
+        helperSheet.Cell(1, 1).InsertData(data);
+        helperSheet.Hide();
+    }
+}

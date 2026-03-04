@@ -4,7 +4,7 @@ using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-namespace Hrms.Infrastructure.Data;
+namespace Hrms.Infrastructure;
 
 public class HrmsContext : DbContext
 {

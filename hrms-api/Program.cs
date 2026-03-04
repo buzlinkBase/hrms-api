@@ -1,13 +1,14 @@
 ﻿using Asp.Versioning.ApiExplorer;
 using Hrms.Api.Extensions;
+using Hrms.Api.Filters;
 using Hrms.Api.Middlewares;
-using Serilog;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Hrms.Core.Polly;
 using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
-using Hrms.Api.Filters;
+using Serilog;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 internal class Program
 {
@@ -59,6 +60,7 @@ internal class Program
         //});
         //builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
+        builder.Services.AddPollyPolicies();
         builder.RegisterSelfServices();
         builder.Services.RegisterDTRCoreServices();
         builder.Services.RegisterHRCoreServices();

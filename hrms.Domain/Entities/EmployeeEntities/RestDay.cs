@@ -9,8 +9,6 @@ public class RestDay : BaseEntity
     public virtual Employee? Employee { get; set; }
 }
 
-
-[DisableSoftDelete]
 public class RestDayDate : BaseEntity
 {
     public Guid EmployeeId { get; set; }

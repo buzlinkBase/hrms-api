@@ -1,7 +1,7 @@
 ﻿using Asp.Versioning;
 using AutoMapper;
-using ClosedXML.Excel;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -9,18 +9,25 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [Authorize]
     public class EmployeesController : ControllerBase
     {
         private readonly EmployeeService _service;
         private readonly EmployeeImportService _employeeImportService;
+        private readonly TemplateDownloaderService _templateService;
+        private readonly IWebHostEnvironment _hostEnvironment;
         private readonly IMapper _mapper;
 
         public EmployeesController(EmployeeService service,
             EmployeeImportService employeeImportService,
+            TemplateDownloaderService templateService,
+            IWebHostEnvironment hostEnvironment,
             IMapper mapper)
         {
             _service = service;
             _employeeImportService = employeeImportService;
+            _templateService = templateService;
+            _hostEnvironment = hostEnvironment;
             _mapper = mapper;
         }
 
@@ -83,14 +90,22 @@ namespace Hrms.Api.Controllers
         {
             if (excelFile == null || excelFile.Length == 0)
                 return BadRequest("Please select a file.");
-
-            // IMPORTANT: Open the stream for the service to read
             using (var stream = excelFile.OpenReadStream())
             {
                 await _employeeImportService.Upload(stream, token);
             }
-
             return Ok("success");
+        }
+
+        [HttpGet("export-template")]
+        public async Task<IActionResult> DownloadTemplate(CancellationToken token)
+        {
+            var dataStream = await _templateService.GetEmployeeTemplate(token);
+            return File(
+                dataStream,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "employees.xlsx"
+            );
         }
     }
 }

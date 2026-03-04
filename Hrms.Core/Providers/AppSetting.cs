@@ -76,7 +76,7 @@ public class AppSettingValueResolver
         return defaultValue;
     }
 
-    public T ResolveObject<T>(string input, T defaultValue = default!)
+    public T ResolveObject<T>(string input, T defaultValue = default!) where T:class,new()
     {
         if (string.IsNullOrWhiteSpace(input) )
             return defaultValue;

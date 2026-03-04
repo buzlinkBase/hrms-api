@@ -41,4 +41,8 @@
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
         <ProjectReference Include="..\hrms.Infrastructure\hrms.Infrastructure.csproj" />
     </ItemGroup>
+    <ItemGroup>
+      <Folder Include="wwwroot\" />
+      <Folder Include="wwwroot\Templates\" />
+    </ItemGroup>
 </Project>

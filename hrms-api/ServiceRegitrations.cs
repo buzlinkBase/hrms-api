@@ -7,7 +7,6 @@ using Hrms.Api.Messaging;
 using Hrms.Api.Providers;
 using Hrms.Core.Messaging;
 using Hrms.Infrastructure;
-using Hrms.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -24,13 +23,13 @@ namespace Hrms.Api.Extensions
             builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddHostedService<TenantCreatedWorker>();
-
             builder.Services.AddScoped<IDbConnectionProvider, EfConnectionMetadataProvider>();
             builder.Services.AddScoped<IAppConfigurationProvider, WebAppConfigurationProvider>();
             builder.Services.AddScoped<ITenantContextAccessor, WebTenantContextAccessor>();
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
             builder.Services.AddScoped<IHMACService, HMACService>();
             builder.Services.AddScoped<ICacheService, RedisCacheService>();
+            builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("KafkaSettings"));
             builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
             builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
             var elasticSettings = new ElasticSettings();

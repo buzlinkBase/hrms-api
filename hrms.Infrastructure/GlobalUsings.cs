@@ -1,1 +1,1 @@
-﻿global using Hrms.Infrastructure.Data;
+﻿global using Hrms.Infrastructure;
