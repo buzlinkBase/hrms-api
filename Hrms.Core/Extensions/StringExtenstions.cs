@@ -2,7 +2,6 @@
 using System.Text;
 
 namespace Hrms.Core.Extensions;
-
 public static class StringFormatter
 {
     public static string FormatCode(this int count)

@@ -270,7 +270,7 @@ public class PHICPolicyTableTest
 
         context.Payload.Payrolls[new EmployeeKey(context.Employee.Id)] = new List<Payroll>
         {
-            new Hrms.Domain.Entities.HR.Payroll
+            new  Payroll
             {
                 Id = context.Employee.Id,
                 PayrollDate = fromDate.AddDays(15),

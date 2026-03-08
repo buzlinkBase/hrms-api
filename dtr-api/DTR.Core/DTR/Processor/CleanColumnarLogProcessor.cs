@@ -2,18 +2,18 @@
 
 namespace DTR.Core;
 
-public class CleanColumnarLogProcessor  :  IDTRProcessor<ColumnarLogModel>
+public class CleanColumnarLogProcessor : IDTRProcessor<ColumnarLogModel>
 {
     public ColumnarLogModel? Process(DTRProcessorPayload payload)
     {
         var logs = payload.Data.CurrentAttendance;
         if (!logs.Any()) return null;
         var mapper = IncompleteLogMapperFactory.Create(payload);
-        return  mapper.MapData(payload, logs, payload.Data.CurrentDate);
+        return mapper.MapData(payload, logs, payload.Data.CurrentDate);
     }
 }
 
-internal class ExtracLogsToColumns  : IIncompleteLogShiftMapper
+internal class ExtracLogsToColumns : IIncompleteLogShiftMapper
 {
     private readonly DTRProcessorPayload _payload;
 
@@ -36,7 +36,7 @@ internal class ExtracLogsToColumns  : IIncompleteLogShiftMapper
             PayrollGroupId = payload.Data.Employee.PayrollGroupId,
             WorkDate = payrollDate,
             ShiftName = _payload.Data.CurrentShift.ShiftName,
-            Department = _payload.Data.Employee?.DepartmentName  ?? "",
+            Department = _payload.Data.Employee?.DepartmentName ?? "",
             ShiftStart = _payload.Data.CurrentShift.StartTime,
             ShiftEnd = _payload.Data.CurrentShift.EndTime,
             BreakOut = _payload.Data.CurrentShift.LunchStartTime,
@@ -64,4 +64,4 @@ internal class ExtracLogsToColumns  : IIncompleteLogShiftMapper
         };
         return dtr;
     }
-} 
+}

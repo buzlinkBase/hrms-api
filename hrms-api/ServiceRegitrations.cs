@@ -1,18 +1,25 @@
 ﻿
-
 using Asp.Versioning;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
+using Hrms.Api.Controllers.Adms;
+using Hrms.Api.Filters;
 using Hrms.Api.Messaging;
 using Hrms.Api.Providers;
-using Hrms.Core.Messaging;
+using Hrms.Core.Interfaces;
 using Hrms.Infrastructure;
+using MessagePack;
+using MessagePack.AspNetCoreMvcFormatter;
+using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.IdentityModel.Tokens;
+using Refit;
 using StackExchange.Redis;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Hrms.Api.Extensions
 {
@@ -22,27 +29,62 @@ namespace Hrms.Api.Extensions
         {
             builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
-            builder.Services.AddHostedService<TenantCreatedWorker>();
-            builder.Services.AddScoped<IDbConnectionProvider, EfConnectionMetadataProvider>();
-            builder.Services.AddScoped<IAppConfigurationProvider, WebAppConfigurationProvider>();
-            builder.Services.AddScoped<ITenantContextAccessor, WebTenantContextAccessor>();
+            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
+            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("OPERLOG");
+            builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
+            builder.Services.AddScoped<IConnectionStringProvider, ConnectionStringProvider>();
+            builder.Services.AddScoped<ITenantProvider, WebTenantContextAccessor>();
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
             builder.Services.AddScoped<IHMACService, HMACService>();
+            var redisConfiguration = builder.Configuration.GetConnectionString("Redis");
+            builder.Services.AddSingleton<IConnectionMultiplexer>(sp => ConnectionMultiplexer.Connect(redisConfiguration));
             builder.Services.AddScoped<ICacheService, RedisCacheService>();
-            builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("KafkaSettings"));
+            builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
             builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
             builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
             var elasticSettings = new ElasticSettings();
             builder.Configuration.GetSection("ElasticSettings").Bind(elasticSettings);
-            builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+            builder.Services.AddHeaderPropagation(options =>
             {
-                var configuration = builder.Configuration.GetConnectionString("Redis")!;
-                return ConnectionMultiplexer.Connect(configuration);
+                options.Headers.Add("User-Agent");
+                options.Headers.Add("Authorization");
+                options.Headers.Add("X-Tenant-ID");
+                options.Headers.Add("X-Api-Key");
             });
+
+            var mpackOptions = MessagePackSerializerOptions.Standard
+             .WithResolver(CompositeResolver.Create(
+                 // Priority 1: Compiled code (Fastest)
+                 OneMessagePackResolver.Instance,
+                 MessagePack.Resolvers.NativeDateTimeResolver.Instance,
+                 // Priority 2: Handling for dynamic/contractless if you still have old models
+                 MessagePack.Resolvers.ContractlessStandardResolver.Instance
+             ))
+             .WithCompression(MessagePackCompression.Lz4BlockArray);
+            MessagePackSerializer.DefaultOptions = mpackOptions;
+
+            builder.Services.AddControllers(options =>
+            {
+                options.Filters.Add<ResponseWrapperFilter>();
+                var mpackOptions = ContractlessStandardResolver.Options
+                    .WithCompression(MessagePackCompression.Lz4BlockArray);
+                options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
+                options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
+            }).AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            });
+
+            builder.Services.AddRefitClient<IBranchClient>(new RefitSettings
+            {
+                ContentSerializer = new MessagePackContentSerializer(mpackOptions) // Use the options here!
+            })
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]));
 
             if (elasticSettings.Enable)
             {
-                builder.Services.AddSingleton<ElasticsearchClient>(sp =>
+                builder.Services.AddSingleton(sp =>
                 {
                     var url = elasticSettings.Url; // Use https if SSL is enabled
                     var user = elasticSettings.User;
@@ -61,19 +103,10 @@ namespace Hrms.Api.Extensions
 
             builder.Services.AddDbContext<HrmsContext>((provider, options) =>
             {
-                var tenantAccessor = provider.GetRequiredService<ITenantContextAccessor>();
                 var tenantProvider = provider.GetRequiredService<ITenantProvider>();
-                var conProvider = provider.GetRequiredService<IDbConnectionProvider>();
-                var appConfig = provider.GetRequiredService<IAppConfigurationProvider>();
-
-                var tenantId = tenantAccessor.GetTenantId();
-                var defaultConn = appConfig.GetConnectionString("DefaultConnection");
-                var tenantConn = conProvider.GetConnectionString(tenantId);
-                var connectionString = tenantConn ?? defaultConn!;
-
-                if (tenantProvider.TenantId == Guid.Empty)
-                    tenantProvider.SetTenantId(tenantId);
-
+                var tenantId = tenantProvider.TenantId;
+                var conProvider = provider.GetRequiredService<IConnectionStringProvider>();
+                var connectionString = conProvider.GetConnectionString(tenantId);
                 options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
                 options.AddInterceptors(new ApplyTenantInterceptor(tenantProvider));
                 options.AddInterceptors(new SoftDeleteInterceptor());
@@ -105,7 +138,7 @@ namespace Hrms.Api.Extensions
             // Swagger (defer versioned docs to Program.cs)
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
-            builder.Services.AddSwaggerGen(); 
+            builder.Services.AddSwaggerGen();
             var signingKey = builder.Configuration["JwtSettings:SigningKey"];
             if (string.IsNullOrWhiteSpace(signingKey))
             {

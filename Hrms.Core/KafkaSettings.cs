@@ -1,23 +1,12 @@
 ﻿namespace Hrms.Core;
 
-public class KafkaSettings
+public class RabbitMqSettings
 {
-    public const string SectionName = "KafkaSettings";
-    public string BootstrapServers { get; set; } = string.Empty;
-    public KafkaTopics Topics { get; set; } = new();
-}
-
-public class KafkaTopics
-{
-    //public string Employee { get; set; } = string.Empty;
-    //public string ChangeHoliday { get; set; } = string.Empty;
-    //public string TimeShift { get; set; } = string.Empty;
-    //public string WorkRotationPlan { get; set; } = string.Empty;
-    //public string ChangeRestDay { get; set; } = string.Empty;
-    //public string SetRestDayDate { get; set; } = string.Empty;
-    //public string LeaveApplication { get; set; } = string.Empty;
-    public string TenantCreated { get; set; } = string.Empty;
-    public string UserCreated { get; set; } = string.Empty;
-    public string TenantUserConfirmed { get; set; } = string.Empty;
-
+    public string Host { get; set; }
+    public string VirtualHost { get; set; }
+    public string Username { get; set; }
+    public string Password { get; set; } 
+    //public int Port { get; set; }
+    //public string Exchange { get; set; }
+    //public string HrmsQue { get; set; }
 }

@@ -17,10 +17,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DTR.Core", "dtr-api\DTR.Cor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hrms.Common.Lib", "Hrms.Common.Lib\Hrms.Common.Lib.csproj", "{D72ED65F-A1D2-4204-86B6-398AE53CA7A4}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{2696659D-2A55-49C5-85CD-7CEE0F80572C}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common", "Common", "{DBC2F3D9-86B1-4672-9B7D-917F01999502}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

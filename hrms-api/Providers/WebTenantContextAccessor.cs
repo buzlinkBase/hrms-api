@@ -1,38 +1,41 @@
-﻿using Hrms.Infrastructure;
-namespace Hrms.Api.Providers;
+﻿namespace Hrms.Api.Providers;
 
-public class WebTenantContextAccessor : ITenantContextAccessor
+public interface IConnectionStringProvider
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly ITenantProvider _tenantProvider;
-
-    public WebTenantContextAccessor(IHttpContextAccessor httpContextAccessor,
-        ITenantProvider tenantProvider)
-    {
-        _httpContextAccessor = httpContextAccessor;
-        _tenantProvider = tenantProvider;
-    }
-    public Guid GetTenantId()
-    {
-        var header = _httpContextAccessor.HttpContext?.Request?.Headers["X-Tenant-ID"].FirstOrDefault();
-        var tenantId = Guid.TryParse(header, out var id) ? id : Guid.Empty;
-        _tenantProvider.SetTenantId(tenantId);
-        return tenantId;
-    }
+    string? GetConnectionString(Guid tenantId);
 }
 
-public class WebAppConfigurationProvider : IAppConfigurationProvider
+public class WebTenantContextAccessor : ITenantProvider
+{
+    private Guid _tenantId;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    public WebTenantContextAccessor(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+    public Guid TenantId
+    {
+        get
+        {
+            if (_tenantId != Guid.Empty) return _tenantId;
+            var header = _httpContextAccessor.HttpContext?.Request?.Headers["X-Tenant-ID"].FirstOrDefault();
+            return Guid.TryParse(header, out var id) ? id : Guid.Empty;
+        }
+        set => _tenantId = value;
+    }
+    public void SetTenantId(Guid tenantId) => _tenantId = tenantId;
+}
+
+public class ConnectionStringProvider : IConnectionStringProvider
 {
     private readonly IConfiguration _configuration;
-
-    public WebAppConfigurationProvider(IConfiguration configuration)
+    public ConnectionStringProvider(IConfiguration configuration)
     {
         _configuration = configuration;
     }
-    public string? GetConnectionString(string name)
+    public string? GetConnectionString(Guid tenantId)
     {
-        return _configuration.GetConnectionString(name);
+        //we can get from redis or tenant service or local
+        return _configuration.GetConnectionString("DefaultConnection");
     }
 }
-
- 

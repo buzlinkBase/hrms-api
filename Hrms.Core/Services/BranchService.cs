@@ -1,14 +1,18 @@
-﻿using Hrms.Core.Validations;
+﻿using Hrms.Core.Interfaces;
+using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
 
 public class BranchService : BaseService<Branch>
 {
+    private readonly IBranchClient _branchClient;
     private readonly CompanyService _companyService;
-
-    public BranchService(IUnitOfWorkService uow, CompanyService companyService) : base(uow)
+    public BranchService(IUnitOfWorkService uow,
+        IBranchClient branchClient,
+        CompanyService companyService) : base(uow)
     {
+        _branchClient = branchClient;
         _companyService = companyService;
     }
 
@@ -21,6 +25,7 @@ public class BranchService : BaseService<Branch>
         }
         return await base.CreateValidatorAsync(model, token);
     }
+
     private void GenerateCode(Branch model)
     {
         var codeCount = GetQueryable().Count();
@@ -35,22 +40,23 @@ public class BranchService : BaseService<Branch>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
+
     public async Task UpdateAsync(Branch model, CancellationToken token = default)
     {
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
+
     public async Task AddOrUpdateAsync(Branch model, CancellationToken token = default)
     {
         await CreateOrUpdateAsync(model, token);
     }
-    public async Task<List<Branch>> FindAllAsync(CancellationToken token = default)
+    public async Task<List<Branch>> FindAllAsync(Guid tenantId, CancellationToken token = default)
     {
         return await GetQueryable().ToListAsync(token);
     }
 
-
-    public async Task<Branch?> FineOneAsync(Guid Id, CancellationToken token = default)
+    public async Task<Branch?> FindOneAsync(Guid Id, CancellationToken token = default)
     {
         return await GetOneAsync(Id, token);
     }

@@ -44,11 +44,14 @@ public class EmployeeImportService
             HeaderRowNumber = 2,
             MinRowNumber = 1,
         };
+
         MapFields(mapper);
         var data = mapper.Fetch<EmployeeImportModel>().ToList();
         var allEmployees = await GetAllEmployees(token);
         SetDefaults(data);
         ValidateImportData(data, allEmployees);
+
+
         var branches = await ExtractBranchesAsync(data, token);
         var shifts = ExtractShifts(data);
         var clients = ExtractClients(data);
@@ -84,7 +87,7 @@ public class EmployeeImportService
             pyGroups.TryGetValue(item.PayrollGroup, out PayrollGroup? pg);
             departments.TryGetValue(item.DepartmentName, out Department? department);
             var branch = branches.FirstOrDefault(x => x.Code == item.BranchCode);
-            Guid? BranchId = branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
+            Guid? BranchId = !branches.Any() ? null : branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
             if (pg == null) pg = pyGroups.Values.FirstOrDefault();
 
             int bioId = item.BioId;
@@ -699,7 +702,7 @@ public class TemplateDownloaderService
 
 
         //pyFrequency
-        var pyFrequencies = new List<string>() { "Daily", "Weekly" , "Semi Montly", "Monthly" };
+        var pyFrequencies = new List<string>() { "Daily", "Weekly", "Semi Montly", "Monthly" };
         helperSheet = workbook.Worksheets.Add("PayrollFrequency");
         CreateSheet(helperSheet, pyFrequencies);
         range = helperSheet.Range(1, 1, pyFrequencies.Count, 1);

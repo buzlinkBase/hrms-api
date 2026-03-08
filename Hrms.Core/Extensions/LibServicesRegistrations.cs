@@ -1,15 +1,15 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
-namespace Hrms.Core;
+namespace Hrms.Core.Extensions;
 
 public static class LibServicesRegistrations
 {
     public static void RegisterHRCoreServices(this IServiceCollection services)
     {
         AddLibraryAssemblyDependencies(services, "Hrms.Core");
-        services.AddScoped<ApplyTenantInterceptor>();
-        services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
+        AddLibraryAssemblyDependencies(services, "DTR.Core");
+        services.AddScoped<IUnitOfWorkService, UnitOfWorkService>(); 
     }
 
     public static void AddLibraryAssemblyDependencies(IServiceCollection services, string assemblyName)

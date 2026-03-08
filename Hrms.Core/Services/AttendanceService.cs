@@ -1,9 +1,10 @@
 ﻿using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
+
 public class AttendanceService : BaseService<Attendance>
 {
-    public AttendanceService(IUnitOfWorkService uow ) : base(uow)
+    public AttendanceService(IUnitOfWorkService uow) : base(uow)
     {
     }
     public async Task AddOrUpdateAsync(Attendance model, CancellationToken token)
@@ -11,10 +12,9 @@ public class AttendanceService : BaseService<Attendance>
         await CreateAsync(model, token);
     }
 
-    public async Task AddRangeAsync(List<Attendance> attendances, CancellationToken token)
+    public async Task AddRangeAsync(List<Attendance> attendances, CancellationToken token = default)
     {
         if (!attendances.Any()) return;
-
         var recordKeys = attendances
              .Select(x => new { x.BioId, x.WorkDateTime })
              .Distinct()

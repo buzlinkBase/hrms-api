@@ -1,6 +1,7 @@
 ﻿using BuzlinkRepository;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
@@ -21,11 +22,17 @@ public class HrmsContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
+
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
         if (TenantId != null)
         {
             modelBuilder.UseSoftDelete(TenantId.Value);
         }
+
+
     }
     #region "Hrms"
     //public DbSet<AuditEntryEntity> AuditEntries { get; set; }
@@ -94,6 +101,9 @@ public class HrmsContext : DbContext
     public DbSet<ThirteenthMonthLedger> ThirteenthMonthLedgers { get; set; }
     public DbSet<GeneralSetting> GeneralSettings { get; set; } 
     public DbSet<ChangeRestDay>  ChangeRestDays { get; set; } 
+     
+
+
     #endregion
 }
 

@@ -21,7 +21,7 @@ public class BasicPayrollCalculatorTest
         var context = BasicTestHelpers.Create();
         if (hasLeave)
         {
-            context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, DayType.WholeDay, 1000);
+            context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, LeaveDayType.WholeDay, 1000);
         }
         context.WorkType = workType;
         var result = calculator.Calculate(context);
@@ -44,7 +44,7 @@ public class BasicPayrollCalculatorTest
     public void ReturnBasicRate_WhenLeaveFiled()
     {
         var calculator = new BasicPayrollCalculator();
-        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, DayType.WholeDay, 1000);
+        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, LeaveDayType.WholeDay, 1000);
         context.DailyRecord.RegularNetHours = 0;
         context.WorkType = WorkType.PaidLeave;
         context.Employee.Settings.IsEligibleForLeaveCredits = true;
@@ -61,7 +61,7 @@ public class BasicPayrollCalculatorTest
     public void ReturnnoLeave_WhenLegalHoliday()
     {
         var calculator = new BasicPayrollCalculator();
-        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, DayType.WholeDay, 1000);
+        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, LeaveDayType.WholeDay, 1000);
         context.DailyRecord.RegularNetHours = 0;
         context.WorkType = WorkType.RegularHoliday;
         context.Employee.Settings.IsEligibleForHolidayPay = true;
@@ -74,7 +74,7 @@ public class BasicPayrollCalculatorTest
     public void ShouldComputeBasic_WhenRegularWith2HRNightDiff()
     {
         var calculator = new BasicPayrollCalculator();
-        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, DayType.WholeDay, 800);
+        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, LeaveDayType.WholeDay, 800);
         context.DailyRecord = new DailyRecordRunModel
         {
             RegularNetHours = 8,

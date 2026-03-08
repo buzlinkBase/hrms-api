@@ -9,10 +9,10 @@ public class ResponseWrapperFilter : IResultFilter
     {
         var path = context.HttpContext.Request.Path;
 
-        // 1. Skip system/static paths
         if (path.StartsWithSegments("/swagger") ||
             path.StartsWithSegments("/favicon.ico") ||
-            path.StartsWithSegments("/index.html"))
+            path.StartsWithSegments("/index.html") ||
+            path.StartsWithSegments("/iclock"))
         {
             return;
         }
