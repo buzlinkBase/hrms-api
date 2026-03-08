@@ -6,6 +6,7 @@ using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Infrastructure.EntityConfig;
 using Microsoft.AspNetCore.Hosting;
 
+
 namespace Hrms.Core.Services;
 
 public class EmployeeImportService
@@ -41,8 +42,8 @@ public class EmployeeImportService
     {
         var mapper = new ExcelMapper(fileStream)
         {
-            HeaderRowNumber = 2,
-            MinRowNumber = 1,
+            HeaderRowNumber = 1,
+            MinRowNumber = 2,
         };
 
         MapFields(mapper);

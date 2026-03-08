@@ -79,7 +79,10 @@ public class Employee : BaseEntity
     public virtual CostCenters? Area { get; set; }
     public virtual ICollection<RestDay> RestDays { get; set; }
     public virtual TimeShift? TimeShift { get; set; }
-
+    public Employee()
+    {
+        RestDays = new List<RestDay>();
+    }
 }
 public class SSSRate : BaseEntity
 {

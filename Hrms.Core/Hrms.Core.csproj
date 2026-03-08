@@ -39,6 +39,7 @@
 		<PackageReference Include="Serilog.Sinks.Seq" />
 	</ItemGroup>
 	<ItemGroup>
+		<ProjectReference Include="..\..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
 		<ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
 		<ProjectReference Include="..\hrms.Infrastructure\hrms.Infrastructure.csproj" />
 	</ItemGroup>

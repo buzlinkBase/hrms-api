@@ -7,24 +7,27 @@ namespace Hrms.Core.Services;
 public class BranchService : BaseService<Branch>
 {
     private readonly IBranchClient _branchClient;
+    private readonly ITenantProvider _tenantProvider;
     private readonly CompanyService _companyService;
     public BranchService(IUnitOfWorkService uow,
         IBranchClient branchClient,
+        ITenantProvider tenantProvider,
         CompanyService companyService) : base(uow)
     {
         _branchClient = branchClient;
+        _tenantProvider = tenantProvider;
         _companyService = companyService;
     }
 
-    protected override async Task<EvaluationResult> CreateValidatorAsync(Branch model, CancellationToken token)
-    {
-        var result = new BranchValidator(_uow).Validate(model);
-        if (!result.IsValid)
-        {
-            return EvaluationResult.Fail(result.Errors);
-        }
-        return await base.CreateValidatorAsync(model, token);
-    }
+    //protected override async Task<EvaluationResult> CreateValidatorAsync(Branch model, CancellationToken token)
+    //{
+    //    var result = new BranchValidator(_uow, _tenantProvider).Validate(model);
+    //    if (!result.IsValid)
+    //    {
+    //        return EvaluationResult.Fail(result.Errors);
+    //    }
+    //    return await base.CreateValidatorAsync(model, token);
+    //}
 
     private void GenerateCode(Branch model)
     {
@@ -34,6 +37,7 @@ public class BranchService : BaseService<Branch>
             model.Code = codeCount.FormatCode();
         }
     }
+
     public async Task AddAsync(Branch model, CancellationToken token = default)
     {
         GenerateCode(model);

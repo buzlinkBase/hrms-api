@@ -10,4 +10,10 @@
 		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="MessagePack" /> 
 	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Attibutes\" />
+	</ItemGroup>
 </Project>

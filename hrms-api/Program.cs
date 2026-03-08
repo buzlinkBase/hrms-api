@@ -49,6 +49,7 @@ internal class Program
         app.UseSwagger();
         app.UseSwaggerUI(options =>
         {
+            options.EnablePersistAuthorization();
             options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
             foreach (var description in apiVersionProvider.ApiVersionDescriptions)
             {

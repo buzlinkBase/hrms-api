@@ -1,10 +1,5 @@
 ﻿namespace Hrms.Api.Providers;
 
-public interface IConnectionStringProvider
-{
-    string? GetConnectionString(Guid tenantId);
-}
-
 public class WebTenantContextAccessor : ITenantProvider
 {
     private Guid _tenantId;
@@ -26,6 +21,10 @@ public class WebTenantContextAccessor : ITenantProvider
     public void SetTenantId(Guid tenantId) => _tenantId = tenantId;
 }
 
+public interface IConnectionStringProvider
+{
+    string? GetConnectionString(Guid tenantId);
+}
 public class ConnectionStringProvider : IConnectionStringProvider
 {
     private readonly IConfiguration _configuration;

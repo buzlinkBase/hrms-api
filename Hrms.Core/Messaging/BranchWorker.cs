@@ -7,7 +7,7 @@ public class BranchWorker : IConsumer<BranchModel>
     private readonly BranchService _branchService;
     private readonly ITenantProvider _tenantProvider;
 
-    public BranchWorker(BranchService branchService, 
+    public BranchWorker(BranchService branchService,
         ITenantProvider tenantProvider)
     {
         _branchService = branchService;
@@ -15,7 +15,7 @@ public class BranchWorker : IConsumer<BranchModel>
     }
 
     public async Task Consume(ConsumeContext<BranchModel> context)
-    { 
+    {
         var model = context.Message;
         _tenantProvider.SetTenantId(model.TenantId);
         var branch = await _branchService.FindOneAsync(model.Id);
@@ -36,7 +36,7 @@ public class BranchWorker : IConsumer<BranchModel>
         branch.TenantId = model.TenantId;
         branch.Status = model.Status;
         branch.DeletedAt = model.DeletedAt;
-
+        await _branchService.AddOrUpdateAsync(branch);
         await _branchService.CommitChangesAsync(context.CancellationToken);
     }
 }

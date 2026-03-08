@@ -1,4 +1,6 @@
-﻿namespace Hrms.Domain.Entities;
+﻿
+
+namespace Hrms.Domain.Entities;
 
 public class OutboxMessage : BaseEntity
 {

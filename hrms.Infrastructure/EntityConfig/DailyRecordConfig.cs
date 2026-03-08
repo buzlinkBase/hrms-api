@@ -3,6 +3,7 @@ using Hrms.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+
 namespace Hrms.Infrastructure.EntityConfig;
 
 public class DailyRecordConfig : IEntityTypeConfiguration<DailyRecord>
