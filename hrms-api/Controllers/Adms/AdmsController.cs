@@ -1,20 +1,25 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Text;
-using Hrms.Domain.Entities;
 
 namespace Hrms.Api.Controllers.Adms;
 
 [ApiController]
-[Route("iclock")] // Standard route configuration
+[Route("iclock")]
 public class AdmsController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly BiometricDeviceService _biometricDevice;
     private readonly ILogger<AdmsController> _logger;
     public AdmsController(
         IServiceProvider serviceProvider,
+        ITenantProvider tenantProvider,
+        BiometricDeviceService biometricDevice,
         ILogger<AdmsController> logger)
     {
         _serviceProvider = serviceProvider;
+        _tenantProvider = tenantProvider;
+        _biometricDevice = biometricDevice;
         _logger = logger;
     }
 
@@ -40,7 +45,8 @@ public class AdmsController : ControllerBase
     public IActionResult GetRequest([FromQuery] string SN)
     {
         _logger.LogInformation("Heartbeat received from SN: {SN}", SN);
-        return Content("OK", "text/plain");
+        var commandText = "USER DEL PIN=1";
+        return Content(commandText, "text/plain");
     }
 
     // 1. HANDSHAKE (GET)
@@ -48,9 +54,17 @@ public class AdmsController : ControllerBase
     [HttpGet("~/iclock/cdata")]
     public IActionResult HandleCDataGet([FromQuery] string? SN)
     {
-        _logger.LogInformation("CData GET handshake received from SN: {SN}", SN);
+        //_logger.LogInformation("CData GET handshake received from SN: {SN}", SN);
+        //var commands = _commandService.GetPendingCommands(SN);
+        //if (commands.Any())
+        //{
+        //    // Join multiple commands with a newline
+        //    // Example: "DATA UPDATE user Pin=101...\nDATA UPDATE user Pin=102..."
+        //    return Content(string.Join("\n", commands), "text/plain");
+        //}
         // The device expects "OK" to acknowledge it's connected
-        return Content("OK", "text/plain");
+        var commandText = "USER DEL PIN=1";
+        return Content(commandText, "text/plain");
     }
 
     // 2. DATA RECEIVER (POST)
@@ -59,23 +73,23 @@ public class AdmsController : ControllerBase
     public async Task<IActionResult> HandleCDataPost(CancellationToken token)
     {
         var req = Request.Query;
-        // 1. Read the raw body
         var sn = Request.Query["SN"].ToString();
         var table = Request.Query["table"].ToString();
+        var biodevide = await _biometricDevice.FindSnAsync(sn, token);
+        if (biodevide == null) throw new Exception("Not Registered");
+        _tenantProvider.SetTenantId(biodevide.TenantId);
         using var reader = new StreamReader(Request.Body);
         string rawBody = await reader.ReadToEndAsync();
-        _logger.LogInformation("CData POST received. Table: {table}, Raw Body Length: {len}", table, rawBody.Length);
-        // 2. Process using your Factory
-        var processor = _serviceProvider.GetRequiredKeyedService<ICDataProcessor>(table);
+
+        var processor = _serviceProvider.GetKeyedService<ICDataProcessor>(table);
         if (processor == null)
         {
+            _logger.LogInformation($"SN: {sn} bio table not manage table: {table}");
             return Content("Not Manage");
         }
-        await processor.ProcessAsync(sn, rawBody, token);
-        // 3. Return the acknowledgment
-        // Note: If "OKx" is working for your specific model, keep it. 
-        // If you run into infinite loop issues, switch this back to just "OK".
-        return Content("OKx", "text/plain");
+        await processor.ProcessAsync(new BioPayload(sn, rawBody), token);
+        return Content("OK", "text/plain");
+
     }
 
     // 4. COMMAND LOGGING
@@ -96,3 +110,5 @@ public class UserRegistration
     public string Card { get; set; } = string.Empty;
 }
 
+
+public record BioPayload(string SN, string RawData);

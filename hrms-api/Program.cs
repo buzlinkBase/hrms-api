@@ -37,8 +37,6 @@ internal class Program
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
-
-        builder.Services.AddScoped<ITenantProvider, TenantProvider>();
         builder.Services.AddAutoMapper(typeof(MappingProfile));
         builder.Services.AddAutoMapper(typeof(AspAutoMapperProfile));
         //builder.RegisterMessageHandlers();

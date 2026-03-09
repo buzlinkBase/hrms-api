@@ -27,7 +27,6 @@ public class Attendance : BaseEntity, IUserField
 
     [NotMapped]
     public DTRStatus RecordStatus { get; set; } = DTRStatus.OPEN;
-    public override string EntityType { get => this.GetType().Name; set => base.EntityType = value; }
 }
 
 public class UnkownEmpAttendance : BaseEntity
@@ -43,7 +42,6 @@ public class UnkownEmpAttendance : BaseEntity
     public string BatchCode { get; set; } = string.Empty;
     public string EditRemarks { get; set; } = string.Empty;
     public LOGSOURCE LogSource { get; set; }=LOGSOURCE.UPLOADED;
-    public override string EntityType { get => this.GetType().Name; set => base.EntityType = value; }
 }
 
 public class LogLimit :BaseEntity

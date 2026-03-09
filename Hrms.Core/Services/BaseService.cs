@@ -22,14 +22,14 @@ public abstract class BaseService<T> where T : class, IEntity
     {
         return Repository.Find(specification);
     }
-    public async Task BulkInsertAsync(List<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
+    public async Task BulkInsertAsync(IEnumerable<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
         await Repository.BulkInsertAsync(models, token, tracked, config);
-    public async Task BulkUpdateAsync(List<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
+    public async Task BulkUpdateAsync(IEnumerable<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
       await Repository.BulkUpdateAsync(models, token, tracked, config);
-    public async Task BulkInsertOrUpdateAsync(List<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
+    public async Task BulkInsertOrUpdateAsync(IEnumerable<T> models, bool tracked = true, Action<BulkConfig>? config = null, CancellationToken token = default) =>
        await Repository.BulkInsertOrUpdateAsync(models, token, tracked, config);
 
-    public async Task BulkInsertAsync(List<T> models, CancellationToken token, Action<BulkConfig>? config = null) =>
+    public async Task BulkInsertAsync(IEnumerable<T> models, CancellationToken token, Action<BulkConfig>? config = null) =>
        await Repository.BulkInsertAsync(models, token, true, config);
 
     protected IQueryable<Type> GetQueryable<Type>(Specification<Type> specification, bool noTracking = true) where Type : class, IEntity
@@ -46,6 +46,7 @@ public abstract class BaseService<T> where T : class, IEntity
                : _uow.Repository.FindAll<T>()
                ;
     }
+
     public IQueryable<T> GetQueryable(Expression<Func<T, bool>> expression, bool noTracking = true)
     {
         return GetQueryable(noTracking).Where(expression);
@@ -55,12 +56,18 @@ public abstract class BaseService<T> where T : class, IEntity
         return await _uow.Repository.FindOneAsync<T>(Id, token);
     }
 
-    protected async Task CreateRangeAsync(List<T> models, CancellationToken token = default)
-    { 
+    protected async Task CreateRangeAsync(IEnumerable<T> models, CancellationToken token = default)
+    {
         if (!models.Any()) return;
         await Guard.ModelGuardAsync<T>(CreateValidatorAsync, models, token);
         await _uow.Repository.AddRangeAsync(models, token);
+    }
 
+    protected async Task ModifyRangeAsync(IEnumerable<T> models, CancellationToken token = default)
+    {
+        if (!models.Any()) return;
+        await Guard.ModelGuardAsync<T>(CreateValidatorAsync, models, token);
+        _uow.Repository.UpdateRange(models);
     }
     protected async Task CreateAsync(T model, CancellationToken token = default)
     {
@@ -78,7 +85,7 @@ public abstract class BaseService<T> where T : class, IEntity
     {
         if (model is null) return;
         await Guard.ModelGuardAsync<T>(CreateValidatorAsync, model, token);
-        _uow.Repository.AddOrUpdateAsync(model, token);
+        await _uow.Repository.AddOrUpdateAsync(model, token);
     }
     protected async Task RemoveAllAsync()
     {
@@ -100,7 +107,7 @@ public abstract class BaseService<T> where T : class, IEntity
         _uow.Repository.Remove(expression);
         await Task.CompletedTask;
     }
-    protected async Task RemoveRangeAsync(List<T> models, CancellationToken token)
+    protected async Task RemoveRangeAsync(IEnumerable<T> models, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         _uow.Repository.RemoveRange(models);

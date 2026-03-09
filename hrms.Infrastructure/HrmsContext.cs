@@ -3,39 +3,57 @@ using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
 namespace Hrms.Infrastructure;
 
 public class HrmsContext : DbContext
 {
-    public Guid? TenantId { get; private set; }
-    public HrmsContext(DbContextOptions<HrmsContext> options, ITenantProvider provider) : base(options)
+    private readonly ITenantProvider _tenantProvider;
+    private readonly IConnectionStringProvider _conProvider;
+    //public HrmsContext(DbContextOptions<HrmsContext> options) : base(options)
+    //{
+    //}
+    public HrmsContext(
+        DbContextOptions<HrmsContext> options,
+        ITenantProvider tenantProvider,
+        IConnectionStringProvider conProvider) : base(options)
     {
-        TenantId = provider.TenantId;
+        _tenantProvider = tenantProvider;
+        _conProvider = conProvider;
     }
 
-    public HrmsContext(DbContextOptions<HrmsContext> options) : base(options)
-    {
-    }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        if (optionsBuilder.IsConfigured) return;
+
+        if (_conProvider == null || _tenantProvider == null) return;
+        var connectionString = _conProvider.GetConnectionString(_tenantProvider.TenantId);
+        if (!string.IsNullOrEmpty(connectionString))
+        {
+            optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+            optionsBuilder.AddInterceptors(
+                new ApplyTenantInterceptor(_tenantProvider),
+                new SoftDeleteInterceptor()
+            );
+        }
+        base.OnConfiguring(optionsBuilder);
+    }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
-
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
-        if (TenantId != null)
+        if (_tenantProvider != null && _tenantProvider.TenantId != Guid.Empty)
         {
-            modelBuilder.UseSoftDelete(TenantId.Value);
+            modelBuilder.UseSoftDelete(_tenantProvider.TenantId);
         }
-
-
     }
+
     #region "Hrms"
     //public DbSet<AuditEntryEntity> AuditEntries { get; set; }
+    public DbSet<BiometricDevice> BiometricDevices { get; set; }
     public DbSet<Company> Companies { get; set; }
     public DbSet<Branch> Branches { get; set; }
     public DbSet<Client> Clients { get; set; }
@@ -99,27 +117,10 @@ public class HrmsContext : DbContext
     public DbSet<HDMFContribution> HDMFContributions { get; set; }
     public DbSet<WTaxContribution> TaxContributions { get; set; }
     public DbSet<ThirteenthMonthLedger> ThirteenthMonthLedgers { get; set; }
-    public DbSet<GeneralSetting> GeneralSettings { get; set; } 
-    public DbSet<ChangeRestDay>  ChangeRestDays { get; set; } 
-     
+    public DbSet<GeneralSetting> GeneralSettings { get; set; }
+    public DbSet<ChangeRestDay> ChangeRestDays { get; set; }
+
 
 
     #endregion
-}
-
-public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
-{
-    public HrmsContext CreateDbContext(string[] args)
-    {
-        string basePath = Path.Combine(Directory.GetCurrentDirectory(), "..", "hrms-api");
-        IConfigurationRoot configuration = new ConfigurationBuilder()
-            .SetBasePath(basePath)
-            //.AddJsonFile("appsettings.json")
-            .AddJsonFile("appsettings.Development.json")
-            .Build();
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-        var optionsBuilder = new DbContextOptionsBuilder<HrmsContext>();
-        optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
-        return new HrmsContext(optionsBuilder.Options);
-    }
 }

@@ -36,7 +36,7 @@ public class SwaggerHeader : IOperationFilter
             Schema = new OpenApiSchema
             {
                 Type = "string",
-                Default = new OpenApiString("08de7ce2-dc88-478a-8976-c9415e81c475")
+                Default = new OpenApiString("08de7dde-6375-4e2b-898a-a51da793ad2a")
             }
         });
     }

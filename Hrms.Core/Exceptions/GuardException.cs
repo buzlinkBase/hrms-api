@@ -69,7 +69,7 @@ public static class Guard
         }
     }
 
-    public static async Task ModelGuardAsync<T>(Func<T, CancellationToken, Task<EvaluationResult>> validator, List<T> models, CancellationToken token)
+    public static async Task ModelGuardAsync<T>(Func<T, CancellationToken, Task<EvaluationResult>> validator, IEnumerable<T> models, CancellationToken token)
         where T : class, IEntity
     {
         foreach (var model in models)

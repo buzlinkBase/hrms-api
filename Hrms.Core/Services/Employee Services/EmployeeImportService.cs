@@ -91,7 +91,7 @@ public class EmployeeImportService
             Guid? BranchId = !branches.Any() ? null : branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
             if (pg == null) pg = pyGroups.Values.FirstOrDefault();
 
-            int bioId = item.BioId;
+            int bioId = item.BioId; 
             var employee = new Employee()
             {
                 FirstName = item?.FirstName ?? "",
@@ -136,39 +136,40 @@ public class EmployeeImportService
             }
             employees.Add(employee);
         }
+        var empIds= employees.Select(x=>x.Id).ToList();
+        var rds = _employeeService.Context.RestDays
+            .Where(x => empIds.Contains(x.EmployeeId))
+            .ToList();
+        _employeeService.Repository.RemoveRange(rds);
+        await _employeeService.AddOrUpdateRange(employees, token);
 
-        await _employeeService.BulkInsertOrUpdateAsync(employees, true, (x) =>
-                x.UpdateByProperties = new List<string> { nameof(Employee.BioId) }
-            , token);
+        //await _employeeService.BulkInsertOrUpdateAsync(employees, true, (x) =>
+        //        x.UpdateByProperties = new List<string> { nameof(Employee.BioId) }
+        //    , token);
+        //var allBioIds = employees.Select(e => e.BioId).ToList();
+        //var savedEmployees = await _employeeService.GetQueryable()
+        //    .Where(e => allBioIds.Contains(e.BioId))
+        //    .Select(e => new { e.Id, e.BioId })
+        //    .ToListAsync(token);
+        //var bioIdToGuidMap = savedEmployees.ToDictionary(k => k.BioId, v => v.Id);
+        //var allNewRestDays = new List<RestDay>();
+        //foreach (var emp in employees)
+        //{
+        //    if (bioIdToGuidMap.TryGetValue(emp.BioId, out var empGuid))
+        //    {
+        //        foreach (var rd in emp.RestDays)
+        //        {
+        //            rd.EmployeeId = empGuid;
+        //            allNewRestDays.Add(rd);
+        //        }
+        //    }
+        //}
 
-        var allBioIds = employees.Select(e => e.BioId).ToList();
-        var savedEmployees = await _employeeService.GetQueryable()
-            .Where(e => allBioIds.Contains(e.BioId))
-            .Select(e => new { e.Id, e.BioId })
-            .ToListAsync(token);
-        var bioIdToGuidMap = savedEmployees.ToDictionary(k => k.BioId, v => v.Id);
-
-        var allNewRestDays = new List<RestDay>();
-        foreach (var emp in employees)
-        {
-            if (bioIdToGuidMap.TryGetValue(emp.BioId, out var empGuid))
-            {
-                foreach (var rd in emp.RestDays)
-                {
-                    rd.EmployeeId = empGuid;
-                    allNewRestDays.Add(rd);
-                }
-            }
-        }
-
-        var employeeIds = bioIdToGuidMap.Values.ToList();
-        await _employeeService.Context.RestDays
-          .Where(rd => employeeIds.Contains(rd.EmployeeId))
-          .ExecuteDeleteAsync(token);
-
-        await _employeeService.Repository.BulkInsertAsync(allNewRestDays, token, false);
+        //var employeeIds = bioIdToGuidMap.Values.ToList();
+        //await _employeeService.Context.RestDays
+        //  .Where(rd => employeeIds.Contains(rd.EmployeeId))
+        //  .ExecuteDeleteAsync(token);
         await _employeeService.CommitChangesAsync(token);
-
     }
 
     private async Task<List<BasicEmployeeInfo>> GetAllEmployees(CancellationToken token)

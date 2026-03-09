@@ -6,6 +6,7 @@ using Hrms.Api.Controllers.Adms;
 using Hrms.Api.Filters;
 using Hrms.Api.Messaging;
 using Hrms.Api.Providers;
+using Hrms.Core.Extensions;
 using Hrms.Core.Interfaces;
 using Hrms.Infrastructure;
 using MessagePack;
@@ -29,11 +30,8 @@ namespace Hrms.Api.Extensions
         {
             builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
-            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
-            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("OPERLOG");
-            builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
+            builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
             builder.Services.AddScoped<IConnectionStringProvider, ConnectionStringProvider>();
-            builder.Services.AddScoped<ITenantProvider, WebTenantContextAccessor>();
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
             builder.Services.AddScoped<IHMACService, HMACService>();
             var redisConfiguration = builder.Configuration.GetConnectionString("Redis");
@@ -42,6 +40,11 @@ namespace Hrms.Api.Extensions
             builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
             builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
             builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
+            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
+            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("OPERLOG");
+            builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
+            builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
+
             var elasticSettings = new ElasticSettings();
             builder.Configuration.GetSection("ElasticSettings").Bind(elasticSettings);
             builder.Services.AddHeaderPropagation(options =>
@@ -54,10 +57,8 @@ namespace Hrms.Api.Extensions
 
             var mpackOptions = MessagePackSerializerOptions.Standard
              .WithResolver(CompositeResolver.Create(
-                 // Priority 1: Compiled code (Fastest)
                  OneMessagePackResolver.Instance,
                  MessagePack.Resolvers.NativeDateTimeResolver.Instance,
-                 // Priority 2: Handling for dynamic/contractless if you still have old models
                  MessagePack.Resolvers.ContractlessStandardResolver.Instance
              ))
              .WithCompression(MessagePackCompression.Lz4BlockArray);
@@ -101,18 +102,12 @@ namespace Hrms.Api.Extensions
                 builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
             }
 
-            builder.Services.AddDbContext<HrmsContext>((provider, options) =>
+            builder.Services.AddDbContext<HrmsContext>((options) =>
             {
-                var tenantProvider = provider.GetRequiredService<ITenantProvider>();
-                var tenantId = tenantProvider.TenantId;
-                var conProvider = provider.GetRequiredService<IConnectionStringProvider>();
-                var connectionString = conProvider.GetConnectionString(tenantId);
-                options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
-                options.AddInterceptors(new ApplyTenantInterceptor(tenantProvider));
-                options.AddInterceptors(new SoftDeleteInterceptor());
                 options.UseLazyLoadingProxies(true);
                 options.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
             });
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>

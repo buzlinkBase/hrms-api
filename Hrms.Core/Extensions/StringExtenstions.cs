@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Microsoft.Extensions.Configuration;
 using System.Text;
 
 namespace Hrms.Core.Extensions;
@@ -62,4 +63,19 @@ public static class Extensions
         return result.ToString();
     }
 
+}
+
+public class ConnectionStringProvider : IConnectionStringProvider
+{
+    private readonly IConfiguration _configuration;
+    public ConnectionStringProvider(IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
+    public string? GetConnectionString(Guid tenantId)
+    {
+        //we can get from redis or tenant service or local
+        return _configuration.GetConnectionString("DefaultConnection");
+    }
 }

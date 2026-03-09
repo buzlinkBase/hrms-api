@@ -77,6 +77,32 @@ public class EmployeeService : BaseService<Employee>
         await CommitChangesAsync(token);
     }
 
+    public async Task AddOrUpdateRange(List<Employee> models, CancellationToken token = default)
+    {
+        if (models == null || models.Count == 0) return;
+        var newemps = models.Where(x => x.Id == Guid.Empty).ToList();
+        var old = models.Where(x => x.Id != Guid.Empty).ToList();
+        await CreateRangeAsync(newemps, token);
+        await ModifyRangeAsync(old, token);
+
+        //var empBios = GetQueryable().Select(x => x.BioId).ToList();
+        //var existingBioIds = new HashSet<int>(empBios);
+        //var newEmployees = models
+        //    .Where(x => !existingBioIds.Contains(x.BioId))
+        //    .ToList();
+        //foreach (var emp in newEmployees)
+        //{
+        //    if (emp.Id == Guid.Empty)
+        //    {
+        //        emp.DateRegistered = DateTime.Now;
+        //    }
+        //}
+        //if (newEmployees.Count > 0)
+        //{
+        //    await CreateRangeAsync(newEmployees, token);
+        //}
+
+    }
 
     public async Task UpdateAsync(Employee model, CancellationToken token)
     {
@@ -92,6 +118,11 @@ public class EmployeeService : BaseService<Employee>
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
 
+    }
+
+    public Employee? FindBio(int bioId)
+    {
+        return GetQueryable(x => x.BioId == bioId).FirstOrDefault();
     }
 
     public async Task<List<Employee>> FindByIds(List<Guid> Ids, CancellationToken token)
@@ -113,7 +144,7 @@ public class EmployeeService : BaseService<Employee>
         return data;
     }
 
-    public async Task<List<EmployeeModel>> GetAll( CancellationToken token) 
+    public async Task<List<EmployeeModel>> GetAll(CancellationToken token)
     {
         var query = GetQueryable();
         var employees = await query

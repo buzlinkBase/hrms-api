@@ -7,13 +7,15 @@
 		<RootNamespace>Hrms.Domain</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
+	  <Compile Remove="Attibutes\**" />
+	  <EmbeddedResource Remove="Attibutes\**" />
+	  <None Remove="Attibutes\**" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="MessagePack" /> 
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Attibutes\" />
 	</ItemGroup>
 </Project>

@@ -18,7 +18,7 @@ public class Employee : BaseEntity
     public JobLevelOption JobLevel { get; set; }
     public Guid? TimeShiftId { get; set; }
 
-    public DateTime DateRegistered { get; set; }
+    public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
     public DateOnly HireDate { get; set; }
     public DateTime? ContractStart { get; set; }
     public DateTime? ContractEnd { get; set; }

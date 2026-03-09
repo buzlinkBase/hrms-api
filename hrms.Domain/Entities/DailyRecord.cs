@@ -167,7 +167,5 @@ public class DailyRecordPunchCounter : BaseEntity
     public Guid EmployeeId { get; set; }
     public int ManualPunchCount { get; set; }
     public DateTime WorkTime { get; set; }
-    [NotMapped]
-    public override string EntityType { get => this.GetType().Name; set => base.EntityType = value; }
 }
 
