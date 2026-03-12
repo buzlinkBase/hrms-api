@@ -44,9 +44,34 @@ public class AdmsController : ControllerBase
     [HttpGet("getrequest")]
     public IActionResult GetRequest([FromQuery] string SN)
     {
-        _logger.LogInformation("Heartbeat received from SN: {SN}", SN);
-        var commandText = "USER DEL PIN=1";
-        return Content(commandText, "text/plain");
+        // You MUST provide a unique ID (e.g., from your DB). 
+        // If the device has already processed '101', it won't run it again.
+        var commandId = "1";
+        //var commandText = $"C:{commandId}:DATA DELETE USERINFO PIN=2";
+        //string commandText = $"C:{commandId}:DATA UPDATE USERINFO PIN=3\tName=Jordz\tPri=0"; 
+        // Most firmware requires a trailing newline
+
+        var commandText = new StringBuilder();
+        //commandText.Append($"C:{commandId}:DATA UPDATE USERINFO ");
+        //commandText.Append($"PIN=11\t");
+        //commandText.Append($"Name=user11\t");
+        //commandText.Append($"Pri=0\t");
+        ////commandText.Append($"Passwd=1234\t");
+        ////commandText.Append($"Card=4526");
+        var response = commandText.Length > 0 ? commandText : commandText.Append("OK");
+        return Content(response.ToString(), "text/plain");
+    }
+
+    [HttpPost("devicecmd")]
+    public async Task<IActionResult> DeviceCmd([FromQuery] string SN)
+    {
+        using var reader = new StreamReader(Request.Body);
+        string result = await reader.ReadToEndAsync();
+
+        // Result will look like: "ID=101&Return=0" (0 means success)
+        _logger.LogInformation("Device {SN} reported: {result}", SN, result);
+
+        return Content("OK", "text/plain");
     }
 
     // 1. HANDSHAKE (GET)
@@ -54,17 +79,7 @@ public class AdmsController : ControllerBase
     [HttpGet("~/iclock/cdata")]
     public IActionResult HandleCDataGet([FromQuery] string? SN)
     {
-        //_logger.LogInformation("CData GET handshake received from SN: {SN}", SN);
-        //var commands = _commandService.GetPendingCommands(SN);
-        //if (commands.Any())
-        //{
-        //    // Join multiple commands with a newline
-        //    // Example: "DATA UPDATE user Pin=101...\nDATA UPDATE user Pin=102..."
-        //    return Content(string.Join("\n", commands), "text/plain");
-        //}
-        // The device expects "OK" to acknowledge it's connected
-        var commandText = "USER DEL PIN=1";
-        return Content(commandText, "text/plain");
+        return Content("OK", "text/plain");
     }
 
     // 2. DATA RECEIVER (POST)
@@ -76,7 +91,7 @@ public class AdmsController : ControllerBase
         var sn = Request.Query["SN"].ToString();
         var table = Request.Query["table"].ToString();
         var biodevide = await _biometricDevice.FindSnAsync(sn, token);
-        if (biodevide == null) throw new Exception("Not Registered");
+        if (biodevide == null) return Ok();
         _tenantProvider.SetTenantId(biodevide.TenantId);
         using var reader = new StreamReader(Request.Body);
         string rawBody = await reader.ReadToEndAsync();
@@ -92,23 +107,6 @@ public class AdmsController : ControllerBase
 
     }
 
-    // 4. COMMAND LOGGING
-    [HttpPost("devicecmd")]
-    public IActionResult DeviceCmd([FromQuery] string SN)
-    {
-        _logger.LogInformation("Device SN: {SN} confirmed command execution.", SN);
-        return Content("OK", "text/plain");
-    }
+
 }
 
-public class UserRegistration
-{
-    public string UserPin { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public int Priority { get; set; }
-    public string Password { get; set; } = string.Empty;
-    public string Card { get; set; } = string.Empty;
-}
-
-
-public record BioPayload(string SN, string RawData);

@@ -67,29 +67,42 @@ public class AttendanceService : BaseService<Attendance>
         );
 
         var spec = new UserHasViewSpec<Attendance>(canProcess);
+        // 1. Move Date conversion to DateTime to help EF translation
+        DateTime fromDate = @from.ToDateTime(TimeOnly.MinValue);
+        DateTime toDate = to.ToDateTime(TimeOnly.MaxValue);
+
         var data = await _uow.Repository
             .Find(spec)
             .AsNoTracking()
-            .AsSingleQuery()
-            .Where(x =>
-                DateOnly.FromDateTime(x.WorkDateTime) >= from &&
-                DateOnly.FromDateTime(x.WorkDateTime) <= to &&
-                (EmployeeId == null || EmployeeId == Guid.Empty || x.EmployeeId == EmployeeId) &&
-                (payrollGroupId == null || payrollGroupId == Guid.Empty || x.Employee.PayrollGroupId == payrollGroupId) &&
-                (clientId == null || clientId == Guid.Empty || x.ClientId == clientId) &&
-                (departmentId == null || departmentId == Guid.Empty || x.Employee.DepartmentId == departmentId))
+            // Changed to AsSplitQuery() to fix the "Multiple Collection" warning you saw
+            .AsSplitQuery()
             .Include(x => x.Employee)
+            .Where(x =>
+                x.WorkDateTime >= fromDate &&
+                x.WorkDateTime <= toDate &&
+                x.EmployeeId.HasValue &&
+                // Ensure x.Employee is not null before checking Payroll/Department
+                (EmployeeId == null || EmployeeId == Guid.Empty || x.EmployeeId == EmployeeId) &&
+                (payrollGroupId == null || payrollGroupId == Guid.Empty || (x.Employee != null && x.Employee.PayrollGroupId == payrollGroupId)) &&
+                (clientId == null || clientId == Guid.Empty || x.ClientId == clientId) &&
+                (departmentId == null || departmentId == Guid.Empty || (x.Employee != null && x.Employee.DepartmentId == departmentId)))
             .ToListAsync(token);
 
         foreach (var attendance in data)
         {
-            var key = (attendance.EmployeeId, DateOnly.FromDateTime(attendance.WorkDateTime));
-            if (dtrSet.Contains(key))
-                attendance.RecordStatus = DTRStatus.LOCKED;
+            // Safe check even though we filtered for HasValue
+            if (attendance.EmployeeId.HasValue)
+            {
+                var key = (attendance.EmployeeId.Value, DateOnly.FromDateTime(attendance.WorkDateTime));
+                if (dtrSet.Contains(key))
+                {
+                    attendance.RecordStatus = DTRStatus.LOCKED;
+                }
+            }
         }
 
         var result = data
-            .GroupBy(a => new AttendanceEmpId(a.EmployeeId))
+            .GroupBy(a => new AttendanceEmpId(a.EmployeeId!.Value))
             .ToDictionary(
                 g => g.Key,
                 g => g.OrderBy(x => x.WorkDateTime).ToList()

@@ -355,3 +355,10 @@ public enum OutBoxState
     CANCELLED,    // Explicitly cancelled/rolled back,
     INVALID//UNKNOWN STATUS
 }
+
+public enum BiometricType
+{
+    Fingerprint = 1,
+    Face = 2,
+    Palm = 3
+}

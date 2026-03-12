@@ -5,12 +5,11 @@ namespace Hrms.Domain.Entities;
 public class Attendance : BaseEntity, IUserField
 {
     public int BioId { get; set; }
-    //public DateOnly WorkDate { get; set; }
     public DateTime WorkDateTime { get; set; }
     public string IP { get; set; } = string.Empty;
     public string DeviceName { get; set; } = string.Empty;
-    public Guid EmployeeId { get; set; }
-    public virtual Employee Employee { get; set; }
+    public Guid? EmployeeId { get; set; }
+    public virtual Employee? Employee { get; set; }
     public Guid? DepartmentId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? BranchId { get; set; }
@@ -24,7 +23,6 @@ public class Attendance : BaseEntity, IUserField
     public LOGSOURCE LogSource { get; set; } = LOGSOURCE.UPLOADED;
     [NotMapped]
     public string PunchType { get; set; } = string.Empty;
-
     [NotMapped]
     public DTRStatus RecordStatus { get; set; } = DTRStatus.OPEN;
 }

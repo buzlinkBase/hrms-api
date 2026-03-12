@@ -41,7 +41,7 @@ namespace Hrms.Api.Extensions
             builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
             builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
             builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
-            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("OPERLOG");
+            builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
             builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
             builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
 
