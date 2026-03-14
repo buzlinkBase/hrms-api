@@ -20,7 +20,6 @@ public class AttendanceController : ControllerBase
         _service = service;
     }
 
-
     [HttpPost("upload-att-log")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> Upload(IFormFile file, [FromForm] int branchId,

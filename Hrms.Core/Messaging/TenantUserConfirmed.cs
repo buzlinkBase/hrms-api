@@ -5,10 +5,11 @@ public class TenantUserConfirmed : IConsumer<TenantCreatedPayload>
 {
     public TenantUserConfirmed()
     {
-    }
+    } 
 
     public async Task Consume(ConsumeContext<TenantCreatedPayload> context)
-    { 
+    {
+        var message = context.Message;
         //init configs
         //rules/policies
         //default setups
@@ -24,7 +25,6 @@ public class TenantDeletedWorker : IConsumer<TenantDeletedPayload>
     public TenantDeletedWorker()
     {
     }
-
     public async Task Consume(ConsumeContext<TenantDeletedPayload> context)
     {
         //delete data

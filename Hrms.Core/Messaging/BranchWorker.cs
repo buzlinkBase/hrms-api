@@ -2,6 +2,10 @@
 using MassTransit;
 namespace OnePunch.Auth.Core.Messaging;
 
+public class TenantInfo
+{
+    public Guid Id { get; set; }
+}
 public class BranchWorker : IConsumer<BranchModel>
 {
     private readonly BranchService _branchService;
@@ -17,6 +21,7 @@ public class BranchWorker : IConsumer<BranchModel>
     public async Task Consume(ConsumeContext<BranchModel> context)
     {
         var model = context.Message;
+        var tenantId = context.Headers.Get<TenantInfo>("X-Tenant-ID");
         _tenantProvider.SetTenantId(model.TenantId);
         var branch = await _branchService.FindOneAsync(model.Id);
         if (branch == null)
@@ -38,5 +43,6 @@ public class BranchWorker : IConsumer<BranchModel>
         branch.DeletedAt = model.DeletedAt;
         await _branchService.AddOrUpdateAsync(branch);
         await _branchService.CommitChangesAsync(context.CancellationToken);
+
     }
 }

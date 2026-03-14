@@ -33,13 +33,17 @@ namespace Hrms.Api.Extensions
             builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
             builder.Services.AddScoped<IConnectionStringProvider, ConnectionStringProvider>();
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
+
             builder.Services.AddScoped<IHMACService, HMACService>();
-            var redisConfiguration = builder.Configuration.GetConnectionString("Redis");
-            builder.Services.AddSingleton<IConnectionMultiplexer>(sp => ConnectionMultiplexer.Connect(redisConfiguration));
+            builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+            ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
             builder.Services.AddScoped<ICacheService, RedisCacheService>();
+
             builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
             builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
             builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
+
+            //zkteco
             builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
             builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
             builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
@@ -47,6 +51,7 @@ namespace Hrms.Api.Extensions
 
             var elasticSettings = new ElasticSettings();
             builder.Configuration.GetSection("ElasticSettings").Bind(elasticSettings);
+
             builder.Services.AddHeaderPropagation(options =>
             {
                 options.Headers.Add("User-Agent");
@@ -81,7 +86,7 @@ namespace Hrms.Api.Extensions
             {
                 ContentSerializer = new MessagePackContentSerializer(mpackOptions) // Use the options here!
             })
-            .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]));
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!));
 
             if (elasticSettings.Enable)
             {
