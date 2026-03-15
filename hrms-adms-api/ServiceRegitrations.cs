@@ -1,0 +1,169 @@
+﻿
+using Asp.Versioning;
+using MessagePack;
+using MessagePack.AspNetCoreMvcFormatter;
+using MessagePack.Resolvers;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.IdentityModel.Tokens;
+using Refit;
+using StackExchange.Redis;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Hrms.adms;
+
+public static class ServiceRegistrations
+{
+    public static void RegisterSelfServices(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddLogging();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
+        builder.Services.AddScoped<IConnectionStringProvider, ConnectionStringProvider>();
+        builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
+
+        builder.Services.AddScoped<IHMACService, HMACService>();
+        builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+        ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+        builder.Services.AddScoped<ICacheService, RedisCacheService>();
+
+        builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
+        builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
+        builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
+
+        //zkteco
+        builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
+        builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
+        builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
+        builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
+
+        var elasticSettings = new ElasticSettings();
+        builder.Configuration.GetSection("ElasticSettings").Bind(elasticSettings);
+
+        builder.Services.AddHeaderPropagation(options =>
+        {
+            options.Headers.Add("User-Agent");
+            options.Headers.Add("Authorization");
+            options.Headers.Add("X-Tenant-ID");
+            options.Headers.Add("X-Api-Key");
+        });
+
+        var mpackOptions = MessagePackSerializerOptions.Standard
+         .WithResolver(CompositeResolver.Create(
+             OneMessagePackResolver.Instance,
+             MessagePack.Resolvers.NativeDateTimeResolver.Instance,
+             MessagePack.Resolvers.ContractlessStandardResolver.Instance
+         ))
+         .WithCompression(MessagePackCompression.Lz4BlockArray);
+        MessagePackSerializer.DefaultOptions = mpackOptions;
+
+        builder.Services.AddControllers(options =>
+        {
+            options.Filters.Add<ResponseWrapperFilter>();
+            var mpackOptions = ContractlessStandardResolver.Options
+                .WithCompression(MessagePackCompression.Lz4BlockArray);
+            options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
+            options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
+        }).AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        });
+
+        builder.Services.AddRefitClient<IBranchClient>(new RefitSettings
+        {
+            ContentSerializer = new MessagePackContentSerializer(mpackOptions) // Use the options here!
+        })
+        .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!));
+
+        if (elasticSettings.Enable)
+        {
+            builder.Services.AddSingleton(sp =>
+            {
+                var url = elasticSettings.Url; // Use https if SSL is enabled
+                var user = elasticSettings.User;
+                var pass = elasticSettings.Password;
+                var settings = new ElasticsearchClientSettings(new Uri(url))
+               .Authentication(new BasicAuthentication(user, pass))
+               .ServerCertificateValidationCallback((sender, cert, chain, errors) => true);
+                return new ElasticsearchClient(settings);
+            });
+            builder.Services.AddSingleton<ISearchEngineService, ElasticSearchService>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
+        }
+
+        builder.Services.AddDbContext<HrmsContext>((options) =>
+        {
+            options.UseLazyLoadingProxies(true);
+            options.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
+        });
+
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowAll", policy =>
+            {
+                policy.AllowAnyOrigin()
+                      .AllowAnyMethod()
+                      .AllowAnyHeader();
+            });
+        });
+        builder.Services
+            .AddApiVersioning(options =>
+            {
+                options.ReportApiVersions = true;
+                options.AssumeDefaultVersionWhenUnspecified = true;
+                options.DefaultApiVersion = new ApiVersion(1, 0);
+            })
+            .AddApiExplorer(options =>
+            {
+                options.GroupNameFormat = "'v'VVV";
+                options.SubstituteApiVersionInUrl = true;
+            });
+
+        // Swagger (defer versioned docs to Program.cs)
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
+        builder.Services.AddSwaggerGen();
+        var signingKey = builder.Configuration["JwtSettings:SigningKey"];
+        if (string.IsNullOrWhiteSpace(signingKey))
+        {
+            throw new InvalidOperationException(
+                "JWT SigningKey is not configured. Please set 'JwtSettings:SigningKey' in appsettings.json or environment variables."
+            );
+        }
+
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+         .AddJwtBearer(options =>
+         {
+             options.Events = new JwtBearerEvents
+             {
+                 OnAuthenticationFailed = context =>
+                 {
+                     // This will print the EXACT reason for the 401 in your console
+                     Console.WriteLine("Auth failed: " + context.Exception.Message);
+                     return Task.CompletedTask;
+                 }
+             };
+             options.TokenValidationParameters = new TokenValidationParameters
+             {
+                 ValidateIssuer = true,
+                 ValidIssuer = "Onepunch",
+                 ValidateAudience = true,
+                 ValidAudience = "Onepunch.AuthService",
+                 ValidateLifetime = true,
+                 ValidateIssuerSigningKey = true,
+                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey))
+             };
+         });
+    }
+}

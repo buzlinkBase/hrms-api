@@ -1,7 +1,7 @@
 ﻿using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Hrms.Api.Controllers.Adms
+namespace Hrms.adms.api.Controllers.Processors
 {
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]

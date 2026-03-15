@@ -1,9 +1,5 @@
-﻿using Asp.Versioning.ApiExplorer;
-using Hrms.Api.Extensions;
-using Hrms.Api.Middlewares;
-using Hrms.Core.Extensions;
-using Hrms.Core.Polly;
-using MassTransit;
+using Asp.Versioning.ApiExplorer;
+using Hrms.adms;
 using Serilog;
 
 internal class Program
@@ -16,20 +12,7 @@ internal class Program
         Log.Logger = new LoggerConfiguration()
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
-        builder.Host.UseSerilog(); 
-
-        //builder.Services.Configure<ApiBehaviorOptions>(options =>
-        //{
-        //    // Stops the default framework behavior of returning a 400 immediately
-        //    options.SuppressModelStateInvalidFilter = true;
-        //});
-        //builder.Services.AddProblemDetails(c =>
-        //{
-        //    //c.CustomizeProblemDetails = context =>
-        //    //{
-        //    //    context.ProblemDetails.Extensions.TryAdd("requestId", context.HttpContext.TraceIdentifier);
-        //    //};
-        //});
+        builder.Host.UseSerilog();
         //builder.Services.AddExceptionHandler<GlobalExceptionHandler>();  
         builder.Services.AddPollyPolicies();
         builder.HrmsConfigRabbitMq();

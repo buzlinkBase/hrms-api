@@ -1,4 +1,4 @@
-﻿namespace Hrms.Api.Controllers.Adms;
+﻿namespace Hrms.adms.Controllers;
 
 public class UserRegistration
 {

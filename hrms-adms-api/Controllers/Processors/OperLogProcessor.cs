@@ -1,6 +1,7 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.adms.api.Controllers;
+using Hrms.Domain.Entities;
 
-namespace Hrms.Api.Controllers.Adms;
+namespace Hrms.adms.api.Controllers.Processors;
 
 public class OperLogProcessor : ICDataProcessor
 {

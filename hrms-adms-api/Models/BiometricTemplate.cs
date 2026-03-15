@@ -1,14 +1,11 @@
-﻿using Hrms.Domain.Entities;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Hrms.Domain.ValueObjects;
+namespace Hrms.adms.Models;
 
 public class BiometricTemplate : BaseEntity
 {
     public int BioId { get; set; }
     public BiometricType BioType { get; set; }
-
     /// <summary>
     /// For Finger: 0-9 (Finger Index). For Face: usually 0.
     /// </summary>
@@ -19,7 +16,6 @@ public class BiometricTemplate : BaseEntity
     /// Required for successful transfer.
     /// </summary>
     public int TemplateSize { get; set; }
-
     /// <summary>
     /// The Base64 template string. 
     /// ColumnType "nvarchar(max)" or "longtext" is used for large payloads.

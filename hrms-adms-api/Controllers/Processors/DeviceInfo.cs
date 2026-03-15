@@ -1,4 +1,4 @@
-﻿namespace Hrms.Api.Controllers.Adms;
+﻿namespace Hrms.adms.api.Controllers.Processors;
 
 public class DeviceInfo
 {

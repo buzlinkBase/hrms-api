@@ -1,7 +1,8 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.adms.api.Controllers;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.EntityFrameworkCore;
-namespace Hrms.Api.Controllers.Adms;
+namespace Hrms.adms.api.Controllers.Processors;
 
 public interface ICDataProcessor
 {

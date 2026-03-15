@@ -52,10 +52,7 @@ public class HrmsContext : DbContext
         }
     }
 
-    #region "Hrms"
-    //public DbSet<AuditEntryEntity> AuditEntries { get; set; }
-    public DbSet<BiometricDevice> BiometricDevices { get; set; }
-    public DbSet<BiometricTemplate>  BiometricTemplates { get; set; }
+    #region "Hrms" 
     public DbSet<Company> Companies { get; set; }
     public DbSet<Branch> Branches { get; set; }
     public DbSet<Client> Clients { get; set; }

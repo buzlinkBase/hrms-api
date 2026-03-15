@@ -1,4 +1,6 @@
-﻿namespace Hrms.Api.Controllers.Adms;
+﻿using Hrms.adms.api.Controllers;
+
+namespace Hrms.adms.api.Controllers.Processors;
 
 public class OptionsProcessor : ICDataProcessor
 {

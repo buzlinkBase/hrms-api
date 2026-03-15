@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Hrms.adms.api.Controllers.Processors;
+using Microsoft.AspNetCore.Mvc;
 using System.Text;
 
-namespace Hrms.Api.Controllers.Adms;
+namespace Hrms.adms.Controllers;
 
 [ApiController]
 [Route("iclock")]

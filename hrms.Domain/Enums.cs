@@ -356,9 +356,3 @@ public enum OutBoxState
     INVALID//UNKNOWN STATUS
 }
 
-public enum BiometricType
-{
-    Fingerprint = 1,
-    Face = 2,
-    Palm = 3
-}

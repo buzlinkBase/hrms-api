@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RootNamespace>Hrms.adms</RootNamespace>
+		<UserSecretsId>86b0bb2c-6312-466e-9a1f-b89ccbb70ac6</UserSecretsId>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="ClosedXML" />
+		<PackageReference Include="ExcelToEnumerable" />
+		<PackageReference Include="MessagePack" />
+		<PackageReference Include="MassTransit.RabbitMQ" />
+		<PackageReference Include="MassTransit.EntityFrameworkCore" />
+		<PackageReference Include="RabbitMQ.Client" />
+		<PackageReference Include="MessagePackAnalyzer">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Refit.HttpClientFactory" />
+		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
+		<PackageReference Include="Microsoft.AspNetCore.HeaderPropagation" />
+		<PackageReference Include="BuzlinkRepository" />
+		<PackageReference Include="FluentValidation" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
+		<PackageReference Include="Newtonsoft.Json" />
+		<PackageReference Include="Serilog.AspNetCore" />
+		<PackageReference Include="Serilog.Exceptions" />
+		<PackageReference Include="Serilog.Sinks.Console" />
+		<PackageReference Include="Serilog.Sinks.File" />
+		<PackageReference Include="Serilog.Sinks.Seq" />
+		<PackageReference Include="StackExchange.Redis" />
+		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
+		<PackageReference Include="Swashbuckle.AspNetCore" />
+		<PackageReference Include="Asp.Versioning.Http" />
+		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
+	</ItemGroup>
+</Project>

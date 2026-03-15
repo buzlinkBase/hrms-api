@@ -1,9 +1,4 @@
-﻿using MassTransit;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
-using OnePunch.Auth.Core.Messaging;
-
-namespace Hrms.Core.Extensions;
+﻿namespace Hrms.adms;
 
 public static class RabbitMqConfiguration
 {
@@ -11,11 +6,9 @@ public static class RabbitMqConfiguration
     {
         var settings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>();
         if (settings == null) return;
-
         builder.Services.AddMassTransit(x =>
         {
-            x.AddConsumer<BranchWorker, BranchCreatedConsumerDefinition>();
-            x.AddEntityFrameworkOutbox<HrmsContext>(o =>
+            x.AddEntityFrameworkOutbox<AdmsContext>(o =>
             {
                 o.UseMySql();
                 o.UseBusOutbox();
@@ -33,11 +26,9 @@ public static class RabbitMqConfiguration
                 cfg.UseCircuitBreaker(cb =>
                 {
                     cb.TrackingPeriod = TimeSpan.FromMinutes(1);
-                    cb.TripThreshold = 15; // Trip after 15 failures
-                    cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
+                    cb.TripThreshold = 15; 
+                    cb.ResetInterval = TimeSpan.FromMinutes(5); 
                 });
-                //cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
-                //cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                 cfg.Host(settings.Host, settings.VirtualHost, h =>
                 {
                     h.Username(settings.Username);
@@ -47,13 +38,5 @@ public static class RabbitMqConfiguration
                 cfg.ConfigureEndpoints(context);
             });
         });
-    }
-}
-
-public class BranchCreatedConsumerDefinition : ConsumerDefinition<BranchWorker>
-{
-    public BranchCreatedConsumerDefinition()
-    {
-        EndpointName = "hrms-branch-created-que";
     }
 }
