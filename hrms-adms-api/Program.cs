@@ -1,5 +1,7 @@
 using Asp.Versioning.ApiExplorer;
 using Hrms.adms;
+using Hrms.adms.Middlewares;
+using Hrms.Core.Extensions;
 using Serilog;
 
 internal class Program
@@ -13,17 +15,11 @@ internal class Program
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
         builder.Host.UseSerilog();
-        //builder.Services.AddExceptionHandler<GlobalExceptionHandler>();  
         builder.Services.AddPollyPolicies();
-        builder.HrmsConfigRabbitMq();
+        builder.RmqConfig();
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
-        builder.Services.RegisterDTRCoreServices();
-        builder.Services.AddAutoMapper(typeof(MappingProfile));
-        builder.Services.AddAutoMapper(typeof(AspAutoMapperProfile));
-        //builder.RegisterMessageHandlers();
-        builder.WebHost.UseUrls("http://0.0.0.0:7237");
-
+        builder.WebHost.UseUrls("http://0.0.0.0:7052");
         var app = builder.Build();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
         app.UseSwagger();
@@ -38,13 +34,11 @@ internal class Program
             }
         });
 
-        //app.UseExceptionHandler();
         app.UseRouting();
         app.UseCors("AllowAll");
-        //app.UseMiddleware<ApiKeyMiddleware>();
-        app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();
         //app.Use(async (context, next) =>
         //{

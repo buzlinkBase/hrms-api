@@ -1,4 +1,4 @@
-﻿using Hrms.adms.api.Controllers.Processors;
+﻿using Hrms.adms.Controllers.Processors;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
 
@@ -51,7 +51,6 @@ public class AdmsController : ControllerBase
         //var commandText = $"C:{commandId}:DATA DELETE USERINFO PIN=2";
         //string commandText = $"C:{commandId}:DATA UPDATE USERINFO PIN=3\tName=Jordz\tPri=0"; 
         // Most firmware requires a trailing newline
-
         var commandText = new StringBuilder();
         //commandText.Append($"C:{commandId}:DATA UPDATE USERINFO ");
         //commandText.Append($"PIN=11\t");
@@ -91,9 +90,11 @@ public class AdmsController : ControllerBase
         var req = Request.Query;
         var sn = Request.Query["SN"].ToString();
         var table = Request.Query["table"].ToString();
-        var biodevide = await _biometricDevice.FindSnAsync(sn, token);
-        if (biodevide == null) return Ok();
-        _tenantProvider.SetTenantId(biodevide.TenantId);
+
+        var deviceInfo = await _biometricDevice.FindSnAsync(sn, token);
+        if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty) return Ok();
+        _tenantProvider.SetTenantId(deviceInfo.TenantId);
+
         using var reader = new StreamReader(Request.Body);
         string rawBody = await reader.ReadToEndAsync();
 
@@ -103,11 +104,8 @@ public class AdmsController : ControllerBase
             _logger.LogInformation($"SN: {sn} bio table not manage table: {table}");
             return Content("Not Manage");
         }
-        await processor.ProcessAsync(new BioPayload(sn, rawBody), token);
+        await processor.ProcessAsync(new BioPayload(sn, rawBody, deviceInfo), token);
         return Content("OK", "text/plain");
-
     }
-
-
 }
 

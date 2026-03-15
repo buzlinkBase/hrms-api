@@ -12,6 +12,7 @@ public class BranchWorker : IConsumer<BranchModel>
     private readonly ITenantProvider _tenantProvider;
 
     public BranchWorker(BranchService branchService,
+        TenantConnectionInfo connectionInfo,
         ITenantProvider tenantProvider)
     {
         _branchService = branchService;
@@ -21,8 +22,7 @@ public class BranchWorker : IConsumer<BranchModel>
     public async Task Consume(ConsumeContext<BranchModel> context)
     {
         var model = context.Message;
-        var tenantId = context.Headers.Get<TenantInfo>("X-Tenant-ID");
-        _tenantProvider.SetTenantId(model.TenantId);
+        var t = _tenantProvider;
         var branch = await _branchService.FindOneAsync(model.Id);
         if (branch == null)
         {

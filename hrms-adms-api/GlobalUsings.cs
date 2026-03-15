@@ -1,5 +1,9 @@
 ﻿global using BuzlinkRepository;
 global using Hrms.adms.Insfrastructure;
+global using Hrms.adms.Core;
 global using Hrms.adms.Models;
 global using Onepunch.Common.Lib;
 global using MassTransit;
+global using Hrms.adms.Models.Entities;
+global using Microsoft.EntityFrameworkCore;
+global using Onepunch.Common.Lib.DTO;

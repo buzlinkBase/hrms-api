@@ -2,7 +2,6 @@
 using Asp.Versioning;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
-using Hrms.Api.Controllers.Adms;
 using Hrms.Api.Filters;
 using Hrms.Api.Messaging;
 using Hrms.Api.Providers;
@@ -16,6 +15,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.IdentityModel.Tokens;
+using Onepunch.Common.Lib;
+using Onepunch.Common.Lib.Interfaces;
 using Refit;
 using StackExchange.Redis;
 using System.Text;
@@ -24,14 +25,13 @@ using System.Text.Json.Serialization;
 
 namespace Hrms.Api.Extensions
 {
-    public static class ServiceRegistrations
+    public static class ServiceRegistrationsExt
     {
         public static void RegisterSelfServices(this WebApplicationBuilder builder)
         {
             builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
-            builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
-            builder.Services.AddScoped<IConnectionStringProvider, ConnectionStringProvider>();
+            builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>();  
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
 
             builder.Services.AddScoped<IHMACService, HMACService>();
@@ -42,12 +42,6 @@ namespace Hrms.Api.Extensions
             builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
             builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
             builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
-
-            //zkteco
-            builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
-            builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
-            builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
-            builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
 
             var elasticSettings = new ElasticSettings();
             builder.Configuration.GetSection("ElasticSettings").Bind(elasticSettings);
@@ -84,9 +78,17 @@ namespace Hrms.Api.Extensions
 
             builder.Services.AddRefitClient<IBranchClient>(new RefitSettings
             {
-                ContentSerializer = new MessagePackContentSerializer(mpackOptions) // Use the options here!
+                ContentSerializer = new MessagePackContentSerializer(mpackOptions) 
             })
-            .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!));
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
+            .AddHeaderPropagation();
+
+            builder.Services.AddRefitClient<IConnectionClient>(new RefitSettings
+            {
+                ContentSerializer = new MessagePackContentSerializer(mpackOptions)
+            }) 
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
+            .AddHeaderPropagation();
 
             if (elasticSettings.Enable)
             {

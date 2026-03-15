@@ -1,4 +1,5 @@
-﻿using MassTransit;
+﻿using Hrms.Core.Messaging;
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using OnePunch.Auth.Core.Messaging;
@@ -15,6 +16,7 @@ public static class RabbitMqConfiguration
         builder.Services.AddMassTransit(x =>
         {
             x.AddConsumer<BranchWorker, BranchCreatedConsumerDefinition>();
+            x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -36,13 +38,12 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15; // Trip after 15 failures
                     cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
                 });
-                //cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
-                //cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
+                cfg.UsePublishFilter(typeof(TenantConsumeFilter<>), context);
+                cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
                 cfg.Host(settings.Host, settings.VirtualHost, h =>
                 {
                     h.Username(settings.Username);
                     h.Password(settings.Password);
-                    //h.UseCluster(c => { /* If you have multiple RabbitMQ nodes */ });
                 });
                 cfg.ConfigureEndpoints(context);
             });
@@ -55,5 +56,12 @@ public class BranchCreatedConsumerDefinition : ConsumerDefinition<BranchWorker>
     public BranchCreatedConsumerDefinition()
     {
         EndpointName = "hrms-branch-created-que";
+    }
+}
+public class  AttendanceConsumerDefinition : ConsumerDefinition<CreateAttendanceWorker>
+{
+    public AttendanceConsumerDefinition()
+    {
+        EndpointName = "hrms-attendance-created-que";
     }
 }

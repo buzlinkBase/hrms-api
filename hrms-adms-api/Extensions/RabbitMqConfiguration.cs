@@ -1,8 +1,7 @@
-﻿namespace Hrms.adms;
-
+﻿namespace Hrms.Core.Extensions;
 public static class RabbitMqConfiguration
 {
-    public static void HrmsConfigRabbitMq(this WebApplicationBuilder builder)
+    public static void RmqConfig(this WebApplicationBuilder builder)
     {
         var settings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>();
         if (settings == null) return;
@@ -26,9 +25,11 @@ public static class RabbitMqConfiguration
                 cfg.UseCircuitBreaker(cb =>
                 {
                     cb.TrackingPeriod = TimeSpan.FromMinutes(1);
-                    cb.TripThreshold = 15; 
-                    cb.ResetInterval = TimeSpan.FromMinutes(5); 
+                    cb.TripThreshold = 15;
+                    cb.ResetInterval = TimeSpan.FromMinutes(5);
                 });
+                cfg.UsePublishFilter(typeof(TenantConsumeFilter<>), context);
+                cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
                 cfg.Host(settings.Host, settings.VirtualHost, h =>
                 {
                     h.Username(settings.Username);

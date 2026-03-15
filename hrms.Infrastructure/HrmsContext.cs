@@ -4,22 +4,22 @@ using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Domain.ValueObjects;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Onepunch.Common.Lib.DTO;
+using Onepunch.Common.Lib.Interfaces;
 namespace Hrms.Infrastructure;
 
 public class HrmsContext : DbContext
 {
     private readonly ITenantProvider _tenantProvider;
-    private readonly IConnectionStringProvider _conProvider;
-    //public HrmsContext(DbContextOptions<HrmsContext> options) : base(options)
-    //{
-    //}
+    private readonly TenantConnectionInfo _tenantConnectionInfo;
+
     public HrmsContext(
         DbContextOptions<HrmsContext> options,
         ITenantProvider tenantProvider,
-        IConnectionStringProvider conProvider) : base(options)
+        TenantConnectionInfo tenantConnectionInfo ) : base(options)
     {
         _tenantProvider = tenantProvider;
-        _conProvider = conProvider;
+        _tenantConnectionInfo = tenantConnectionInfo;
     }
 
 
@@ -27,8 +27,8 @@ public class HrmsContext : DbContext
     {
         if (optionsBuilder.IsConfigured) return;
 
-        if (_conProvider == null || _tenantProvider == null) return;
-        var connectionString = _conProvider.GetConnectionString(_tenantProvider.TenantId);
+        if (_tenantConnectionInfo == null || _tenantProvider == null) return;
+        var connectionString = _tenantConnectionInfo.ConnectionString;
         if (!string.IsNullOrEmpty(connectionString))
         {
             optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));

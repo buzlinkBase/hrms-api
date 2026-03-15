@@ -1,24 +1,24 @@
-﻿using Microsoft.EntityFrameworkCore; 
-namespace Hrms.adms.Insfrastructure;
-public class AdmsContext  : DbContext
+﻿namespace Hrms.adms.Insfrastructure;
+
+public class AdmsContext : DbContext
 {
     private readonly ITenantProvider _tenantProvider;
-    private readonly IConnectionStringProvider _conProvider;
+    private readonly TenantConnectionInfo _tenantConnectionInfo;
     public AdmsContext(
         DbContextOptions<AdmsContext> options,
         ITenantProvider tenantProvider,
-        IConnectionStringProvider conProvider) : base(options)
+        TenantConnectionInfo  tenantConnectionInfo) : base(options)
     {
         _tenantProvider = tenantProvider;
-        _conProvider = conProvider;
+        _tenantConnectionInfo = tenantConnectionInfo;
     }
-
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
+        base.OnConfiguring(optionsBuilder);
         if (optionsBuilder.IsConfigured) return;
-        if (_conProvider == null || _tenantProvider == null) return;
-        var connectionString = _conProvider.GetConnectionString(_tenantProvider.TenantId);
+        if (_tenantConnectionInfo == null || _tenantProvider == null) return;
+        var connectionString = _tenantConnectionInfo.ConnectionString;
         if (!string.IsNullOrEmpty(connectionString))
         {
             optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
@@ -27,7 +27,6 @@ public class AdmsContext  : DbContext
                 new SoftDeleteInterceptor()
             );
         }
-        base.OnConfiguring(optionsBuilder);
     }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,7 +40,7 @@ public class AdmsContext  : DbContext
             modelBuilder.UseSoftDelete(_tenantProvider.TenantId);
         }
     }
- 
+
     public DbSet<BiometricDevice> BiometricDevices { get; set; }
     public DbSet<BiometricTemplate> BiometricTemplates { get; set; }
 }

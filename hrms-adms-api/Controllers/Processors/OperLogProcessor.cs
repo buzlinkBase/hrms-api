@@ -1,8 +1,4 @@
-﻿using Hrms.adms.api.Controllers;
-using Hrms.Domain.Entities;
-
-namespace Hrms.adms.api.Controllers.Processors;
-
+﻿namespace Hrms.adms.Controllers.Processors;
 public class OperLogProcessor : ICDataProcessor
 {
     private readonly BioTemplateService _bioTemplateService;

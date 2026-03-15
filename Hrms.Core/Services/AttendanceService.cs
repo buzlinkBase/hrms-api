@@ -50,8 +50,6 @@ public class AttendanceService : BaseService<Attendance>
         Guid? payrollGroupId,
         CancellationToken token)
     {
-        // Build DTR lookup based on EmployeeId and Date
-
         var dtrLookup = await _uow.Context.DailyTimeRecords
             .Where(dtr => dtr.WorkDate >= from &&
                           dtr.WorkDate <= to)
@@ -74,14 +72,12 @@ public class AttendanceService : BaseService<Attendance>
         var data = await _uow.Repository
             .Find(spec)
             .AsNoTracking()
-            // Changed to AsSplitQuery() to fix the "Multiple Collection" warning you saw
             .AsSplitQuery()
             .Include(x => x.Employee)
             .Where(x =>
                 x.WorkDateTime >= fromDate &&
                 x.WorkDateTime <= toDate &&
                 x.EmployeeId.HasValue &&
-                // Ensure x.Employee is not null before checking Payroll/Department
                 (EmployeeId == null || EmployeeId == Guid.Empty || x.EmployeeId == EmployeeId) &&
                 (payrollGroupId == null || payrollGroupId == Guid.Empty || (x.Employee != null && x.Employee.PayrollGroupId == payrollGroupId)) &&
                 (clientId == null || clientId == Guid.Empty || x.ClientId == clientId) &&

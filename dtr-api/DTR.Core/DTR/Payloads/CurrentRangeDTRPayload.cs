@@ -86,7 +86,6 @@ public class CurrentRangeDTRPayloadService
     {
 
         var (fromDate, toDate) = GetDateRange(payload);
-
         var rawLogs = await _attendanceService.LoadAttForDTRProcess(fromDate, toDate,
                     canProcess,
                     payload.EmployeeId, payload.DepartmentId,

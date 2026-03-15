@@ -1,6 +1,4 @@
-﻿using Hrms.adms.api.Controllers;
-
-namespace Hrms.adms.api.Controllers.Processors;
+﻿namespace Hrms.adms.Controllers.Processors;
 
 public class UserInforTableProcessor : ICDataProcessor
 {

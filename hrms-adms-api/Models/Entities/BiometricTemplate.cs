@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Hrms.adms.Models;
+namespace Hrms.adms.Models.Entities;
 
 public class BiometricTemplate : BaseEntity
 {

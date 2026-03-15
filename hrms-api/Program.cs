@@ -2,8 +2,6 @@
 using Hrms.Api.Extensions;
 using Hrms.Api.Middlewares;
 using Hrms.Core.Extensions;
-using Hrms.Core.Polly;
-using MassTransit;
 using Serilog;
 
 internal class Program
@@ -17,7 +15,6 @@ internal class Program
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
         builder.Host.UseSerilog(); 
-
         //builder.Services.Configure<ApiBehaviorOptions>(options =>
         //{
         //    // Stops the default framework behavior of returning a 400 immediately
@@ -38,8 +35,7 @@ internal class Program
         builder.Services.RegisterDTRCoreServices();
         builder.Services.AddAutoMapper(typeof(MappingProfile));
         builder.Services.AddAutoMapper(typeof(AspAutoMapperProfile));
-        //builder.RegisterMessageHandlers();
-        builder.WebHost.UseUrls("http://0.0.0.0:7237");
+        //builder.WebHost.UseUrls("http://0.0.0.0:7237");
 
         var app = builder.Build();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();

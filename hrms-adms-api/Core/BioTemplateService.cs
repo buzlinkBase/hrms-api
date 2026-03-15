@@ -1,18 +1,9 @@
-﻿using AutoMapper;
-using Hrms.Domain.Entities;
-
-namespace Hrms.Core.Services;
-
+﻿namespace Hrms.adms.Core;
 public class BioTemplateService : BaseService<BiometricTemplate>
 {
-    private readonly IMapper _mapper;
-
-    public BioTemplateService(IUnitOfWorkService uow,
-        IMapper mapper) : base(uow)
+    public BioTemplateService(IUnitOfWorkService uow ) : base(uow)
     {
-        _mapper = mapper;
     }
-
     public async Task AddRangeTemplate(List<CreateBiometricTemplate> models, CancellationToken token)
     {
         foreach (var model in models)

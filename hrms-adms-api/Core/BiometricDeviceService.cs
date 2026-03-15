@@ -1,16 +1,12 @@
-﻿using AutoMapper;
-using Hrms.Domain.Entities;
+﻿using Hrms.adms.Models.DTO;
+using Hrms.adms.Models.Entities;
 
-namespace Hrms.Core.Services;
+namespace Hrms.adms.Core;
 
 public class BiometricDeviceService : BaseService<BiometricDevice>
 {
-    private readonly IMapper _mapper;
-
-    public BiometricDeviceService(IUnitOfWorkService uow,
-        IMapper mapper) : base(uow)
+    public BiometricDeviceService(IUnitOfWorkService uow) : base(uow)
     {
-        _mapper = mapper;
     }
 
     public async Task<UpdateBiometricDevice> AddAsync(CreateBiometricDevice payload, CancellationToken token)

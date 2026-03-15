@@ -1,5 +1,4 @@
-﻿namespace Hrms.Api.Providers;
-
+﻿namespace Hrms.adms;
 public class TenantProviderAccessor : ITenantProvider
 {
     private Guid _tenantId;
@@ -7,7 +6,7 @@ public class TenantProviderAccessor : ITenantProvider
     public TenantProviderAccessor(IHttpContextAccessor httpContextAccessor)
     {
         _httpContextAccessor = httpContextAccessor;
-    } 
+    }
 
     public Guid TenantId
     {

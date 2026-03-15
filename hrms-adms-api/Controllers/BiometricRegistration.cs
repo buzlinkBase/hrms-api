@@ -1,15 +1,16 @@
 ﻿using Asp.Versioning;
+using Hrms.adms.Models.DTO;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Hrms.adms.api.Controllers.Processors
+namespace Hrms.adms.Controllers
 {
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
-    public class BiometricRegistrations : ControllerBase
+    public class DeviceRegistrationsController : ControllerBase
     {
         private readonly BiometricDeviceService _service;
-        public BiometricRegistrations(BiometricDeviceService service)
+        public DeviceRegistrationsController(BiometricDeviceService service)
         {
             _service = service;
         }

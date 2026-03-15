@@ -1,14 +1,13 @@
 ﻿
 using Asp.Versioning;
+using Hrms.adms.Controllers.Processors;
+using Hrms.adms.Filters;
 using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.IdentityModel.Tokens;
-using Refit;
-using StackExchange.Redis;
+using Onepunch.Common.Lib.Interfaces;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -21,28 +20,19 @@ public static class ServiceRegistrations
     {
         builder.Services.AddLogging();
         builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<TenantConnectionInfo>();
         builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
-        builder.Services.AddScoped<IConnectionStringProvider, ConnectionStringProvider>();
         builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
 
         builder.Services.AddScoped<IHMACService, HMACService>();
-        builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-        ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
-        builder.Services.AddScoped<ICacheService, RedisCacheService>();
-
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
         builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
-        builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
-
+        builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings")); 
         //zkteco
         builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
         builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
-
-        var elasticSettings = new ElasticSettings();
-        builder.Configuration.GetSection("ElasticSettings").Bind(elasticSettings);
-
         builder.Services.AddHeaderPropagation(options =>
         {
             options.Headers.Add("User-Agent");
@@ -59,7 +49,6 @@ public static class ServiceRegistrations
          ))
          .WithCompression(MessagePackCompression.Lz4BlockArray);
         MessagePackSerializer.DefaultOptions = mpackOptions;
-
         builder.Services.AddControllers(options =>
         {
             options.Filters.Add<ResponseWrapperFilter>();
@@ -72,36 +61,9 @@ public static class ServiceRegistrations
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         });
-
-        builder.Services.AddRefitClient<IBranchClient>(new RefitSettings
-        {
-            ContentSerializer = new MessagePackContentSerializer(mpackOptions) // Use the options here!
-        })
-        .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!));
-
-        if (elasticSettings.Enable)
-        {
-            builder.Services.AddSingleton(sp =>
-            {
-                var url = elasticSettings.Url; // Use https if SSL is enabled
-                var user = elasticSettings.User;
-                var pass = elasticSettings.Password;
-                var settings = new ElasticsearchClientSettings(new Uri(url))
-               .Authentication(new BasicAuthentication(user, pass))
-               .ServerCertificateValidationCallback((sender, cert, chain, errors) => true);
-                return new ElasticsearchClient(settings);
-            });
-            builder.Services.AddSingleton<ISearchEngineService, ElasticSearchService>();
-        }
-        else
-        {
-            builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
-        }
-
-        builder.Services.AddDbContext<HrmsContext>((options) =>
+        builder.Services.AddDbContext<AdmsContext>((options) =>
         {
             options.UseLazyLoadingProxies(true);
-            options.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
         });
 
         builder.Services.AddCors(options =>
@@ -149,7 +111,6 @@ public static class ServiceRegistrations
              {
                  OnAuthenticationFailed = context =>
                  {
-                     // This will print the EXACT reason for the 401 in your console
                      Console.WriteLine("Auth failed: " + context.Exception.Message);
                      return Task.CompletedTask;
                  }
