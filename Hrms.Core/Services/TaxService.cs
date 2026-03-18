@@ -1,16 +1,19 @@
 ﻿
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class TaxService : BaseService<TaxTable>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
-    public TaxService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public TaxService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
     public async Task AddAsync(TaxTable model, CancellationToken token)
@@ -50,7 +53,7 @@ public class TaxService : BaseService<TaxTable>
 
         return await GetQueryable()
             .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
-            .ProjectTo<WTaxModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<WTaxModel>(_config)
             .ToListAsync(token);
     }
 

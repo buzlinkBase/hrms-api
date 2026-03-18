@@ -1,15 +1,19 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
+﻿
 using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class SSSService : BaseService<SSSTable>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
-    public SSSService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public SSSService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
     public async Task AddAsync(SSSTable model, CancellationToken token)
@@ -24,7 +28,7 @@ public class SSSService : BaseService<SSSTable>
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
-  
+
 
     public async Task<List<DateOnly>> VersionsAsync(DateOnly effectivity)
     {
@@ -53,7 +57,7 @@ public class SSSService : BaseService<SSSTable>
 
         return await GetQueryable()
             .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
-            .ProjectTo<SSSModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<SSSModel>(_config)
             .ToListAsync(token);
     }
 
@@ -65,7 +69,7 @@ public class SSSService : BaseService<SSSTable>
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
-        await CommitChangesAsync(token); 
+        await CommitChangesAsync(token);
     }
 }
 

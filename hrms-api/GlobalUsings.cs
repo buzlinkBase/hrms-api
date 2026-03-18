@@ -7,3 +7,4 @@ global using Hrms.Core.Validations.Guards;
 global using Hrms.Domain;
 global using Hrms.Domain.ValueObjects;
 global using Onepunch.Common.Lib;
+global using MapsterMapper;

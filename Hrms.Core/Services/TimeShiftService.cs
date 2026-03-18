@@ -1,16 +1,18 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class TimeShiftService : BaseService<TimeShift>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
     public TimeShiftService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
         IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
 
@@ -46,7 +48,7 @@ public class TimeShiftService : BaseService<TimeShift>
     public async Task<List<TimeShiftModel>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable()
-            .ProjectTo<TimeShiftModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<TimeShiftModel>(_config)
             .ToListAsync(token);
     }
     public async Task<TimeShift?> FineOneAsync(Guid Id, CancellationToken token)

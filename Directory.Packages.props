@@ -7,10 +7,14 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="Mapster" Version="7.4.0" />
+    <PackageVersion Include="Mapster.DependencyInjection" Version="1.0.1" />
     <PackageVersion Include="MassTransit" Version="8.2.5" />
     <PackageVersion Include="MassTransit.EntityFrameworkCore" Version="8.2.5" />
     <PackageVersion Include="MassTransit.Kafka" Version="8.3.0" />
     <PackageVersion Include="MassTransit.RabbitMQ" Version="8.2.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
     <PackageVersion Include="RabbitMQ.Client" Version="6.8.1" />
     <PackageVersion Include="MessagePack" Version="3.1.4" />
     <PackageVersion Include="MessagePack.AspNetCoreMvcFormatter" Version="3.1.4" />
@@ -68,7 +72,7 @@
     <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     <PackageVersion Include="Refit.HttpClientFactory" Version="8.0.0" />
-    <PackageVersion Include="BuzlinkRepository" Version="1.2.8" />
+    <PackageVersion Include="BuzlinkRepository" Version="1.2.9" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.abstractions" Version="2.0.3" />
     <PackageVersion Include="xunit.analyzers" Version="1.25.0" />

@@ -1,15 +1,18 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class PHICContributionService : BaseService<PHICContribution>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
-    public PHICContributionService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public PHICContributionService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
     public async Task AddAsync(PHICContribution model,CancellationToken token)
@@ -31,7 +34,7 @@ public class PHICContributionService : BaseService<PHICContribution>
         return await GetQueryable()
             .Where(x => (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year) ||
                 (x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year))
-            .ProjectTo<PHICContributionModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<PHICContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
             ;

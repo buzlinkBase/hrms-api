@@ -1,16 +1,20 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Mapster;
+
 
 namespace Hrms.Core.Services;
 
 public class HDMFContributionService : BaseService<HDMFContribution>
 {
     private readonly IMapper _mapper;
+    private readonly TypeAdapterConfig _config;
 
-    public HDMFContributionService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public HDMFContributionService(IUnitOfWorkService uow, 
+        IMapper mapper,
+        TypeAdapterConfig config) : base(uow)
     {
         _mapper = mapper;
+        _config = config;
     }
     public async Task AddAsync(HDMFContribution model, CancellationToken token)
     {
@@ -32,19 +36,10 @@ public class HDMFContributionService : BaseService<HDMFContribution>
         return await GetQueryable()
             .Where(x => (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year) ||
                 (x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year))
-            .ProjectTo<HDMFContributionModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<HDMFContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(),token)
             ;
     }
-
-    //public async Task<HDMFContribution?> FineOneAsync(Guid Id)
-    //{
-    //    return await GetOneAsync(Id);
-    //}
-    //public async Task Delete(Guid Id)
-    //{
-    //    await RemoveAsync(Id);
-    //}
 }
 

@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 namespace Hrms.Core.Services;
 
 public class PayrollService : BaseService<Payroll>

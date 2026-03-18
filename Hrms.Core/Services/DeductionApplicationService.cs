@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Elastic.Clients.Elasticsearch.Core.TermVectors;
+﻿using Elastic.Clients.Elasticsearch.Core.TermVectors;
 using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
 using System.Linq.Expressions;

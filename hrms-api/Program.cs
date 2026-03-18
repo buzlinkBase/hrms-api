@@ -2,6 +2,7 @@
 using Hrms.Api.Extensions;
 using Hrms.Api.Middlewares;
 using Hrms.Core.Extensions;
+using Mapster;
 using Serilog;
 
 internal class Program
@@ -29,14 +30,11 @@ internal class Program
         //});
         //builder.Services.AddExceptionHandler<GlobalExceptionHandler>();  
         builder.Services.AddPollyPolicies();
+        builder.Services.AddMapster(typeof(MappingProfile).Assembly);
         builder.HrmsConfigRabbitMq();
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
-        builder.Services.AddAutoMapper(typeof(MappingProfile));
-        builder.Services.AddAutoMapper(typeof(AspAutoMapperProfile));
-        //builder.WebHost.UseUrls("http://0.0.0.0:7237");
-
         var app = builder.Build();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
         app.UseSwagger();

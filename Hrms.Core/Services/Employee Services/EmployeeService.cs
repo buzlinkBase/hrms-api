@@ -1,7 +1,6 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Mapster;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
@@ -9,6 +8,7 @@ namespace Hrms.Core.Services;
 public class EmployeeService : BaseService<Employee>
 {
     private readonly IMapper _mapper;
+    private readonly TypeAdapterConfig _config;
     private readonly DepartmentService _departmentService;
     private readonly PayrollGroupService _payrollGroupService;
     private readonly BranchService _branchService;
@@ -16,6 +16,7 @@ public class EmployeeService : BaseService<Employee>
 
     public EmployeeService(IUnitOfWorkService uow,
         IMapper mapper,
+        TypeAdapterConfig config,
         DepartmentService departmentService,
         PayrollGroupService payrollGroupService,
         BranchService branchService,
@@ -26,6 +27,7 @@ public class EmployeeService : BaseService<Employee>
         ) : base(uow)
     {
         _mapper = mapper;
+        _config = config;
         _departmentService = departmentService;
         _payrollGroupService = payrollGroupService;
         _branchService = branchService;
@@ -148,7 +150,7 @@ public class EmployeeService : BaseService<Employee>
     {
         var query = GetQueryable();
         var employees = await query
-            .ProjectTo<EmployeeModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<EmployeeModel>(_config)
             .ToListAsync(token);
         return employees;
     }
@@ -164,7 +166,7 @@ public class EmployeeService : BaseService<Employee>
         var query = GetQueryable(exp);
         var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit);
         var employees = await dataQuery
-            .ProjectTo<EmployeeModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<EmployeeModel>(_config)
             .ToListAsync();
         return new PaginatedResult<List<EmployeeModel>>()
         {
@@ -190,7 +192,7 @@ public class EmployeeService : BaseService<Employee>
             .Include(x => x.Assets)
             .Include(x => x.EmployeeRecords)
             .Include(x => x.Employments)
-            .ProjectTo<EmployeeFullModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<EmployeeFullModel>(_config)
             .ToListAsync(token);
 
         return new PaginatedResult<List<EmployeeFullModel>>()

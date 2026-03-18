@@ -1,15 +1,18 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class SSSContributionService : BaseService<SSSContribution>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
-    public SSSContributionService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public SSSContributionService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
     public async Task AddAsync(SSSContribution model, CancellationToken token)
@@ -33,7 +36,7 @@ public class SSSContributionService : BaseService<SSSContribution>
                     (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year) ||
                     (x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year))
                 .Where(x => !(x.PayrollDate >= fromDate && x.PayrollDate <= toDate))
-            .ProjectTo<SSSContributionModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<SSSContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
             ;

@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using System.Linq.Expressions;
 

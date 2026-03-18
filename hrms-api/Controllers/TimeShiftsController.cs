@@ -1,5 +1,4 @@
 ﻿using Asp.Versioning;
-using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers

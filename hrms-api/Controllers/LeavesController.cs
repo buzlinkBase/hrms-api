@@ -1,6 +1,4 @@
 ﻿using Asp.Versioning;
-using AutoMapper;
-using Elastic.Clients.Elasticsearch.Core.TermVectors;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;

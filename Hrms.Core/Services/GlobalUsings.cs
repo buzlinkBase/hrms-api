@@ -6,3 +6,4 @@ global using Hrms.Domain;
 global using Hrms.Domain.ValueObjects;
 global using Hrms.Infrastructure;
 global using Microsoft.EntityFrameworkCore;
+global using MapsterMapper;

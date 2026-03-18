@@ -1,17 +1,20 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Mapster;
 using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
 public class DailyRecordService : BaseService<DailyRecord>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
     private readonly ILogger<DailyRecordService> _logger;
-    public DailyRecordService(IUnitOfWorkService uow, IMapper mapper,
+    public DailyRecordService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper,
         ILogger<DailyRecordService> logger) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
         _logger = logger;
     }
@@ -48,11 +51,11 @@ public class DailyRecordService : BaseService<DailyRecord>
             .Include(x => x.Employee)
             ;
         var data = query
-            .ProjectTo<DailyRecordRunModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<DailyRecordRunModel>(_config)
             .ToList();
 
         return await query
-            .ProjectTo<DailyRecordRunModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<DailyRecordRunModel>(_config)
              .Where(x => x.EmployeeId != null) // filter out nulls
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);

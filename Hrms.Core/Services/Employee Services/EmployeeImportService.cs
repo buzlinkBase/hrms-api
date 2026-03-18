@@ -1,9 +1,7 @@
-﻿using AutoMapper;
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using Ganss.Excel;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
-using Hrms.Infrastructure.EntityConfig;
 using Microsoft.AspNetCore.Hosting;
 
 

@@ -1,17 +1,18 @@
 ﻿
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using Hrms.Domain.Entities;
-using MessagePack;
-
+using Mapster;
 namespace Hrms.Core.Services;
 
 public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
-    public WorkSchedulePlanService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public WorkSchedulePlanService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
 
@@ -50,7 +51,7 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
     public async Task<List<WorkSchedulePlanModel>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable()
-            .ProjectTo<WorkSchedulePlanModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<WorkSchedulePlanModel>(_config)
             .ToListAsync(token);
     }
 
@@ -61,7 +62,7 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
               .FindAll<WorkSchedulePlan>()
               .AsNoTracking()
               .Where(x => x.PayrollDate >= payload.FromDate && x.PayrollDate <= payload.ToDate)
-              .ProjectTo<WorkSchedulePlanModel>(_mapper.ConfigurationProvider)
+              .ProjectToType<WorkSchedulePlanModel>(_config)
               .ToListAsync(token)
               ;
     }

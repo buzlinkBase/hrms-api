@@ -1,14 +1,17 @@
-﻿using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class LeaveApplicationService : BaseService<LeaveApplication>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
-    public LeaveApplicationService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public LeaveApplicationService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
 
@@ -59,7 +62,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                 x.LeaveDate >= fromDate &&
                 x.LeaveDate <= toDate &&
                 x.Application.ApprovalStatus == ApprovalStatus.Approved)
-            .ProjectTo<LeaveApplicationPyRun>(_mapper.ConfigurationProvider)
+            .ProjectToType<LeaveApplicationPyRun>(_config)
             .GroupBy(x => new EmployeePayDateKey(x.EmployeeId, x.LeaveDate))
             .ToDictionaryAsync(g => g.Key, g => g.ToList(), token);
     }
@@ -70,14 +73,14 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             .Where(x => x.LeaveDateFrom >= payload.FromDate
                     && x.LeaveDateTo <= payload.ToDate
                     && payload.EmployeeIds.Contains(x.EmployeeId))
-            .ProjectTo<LeaveApplicationModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<LeaveApplicationModel>(_config)
             .ToListAsync(token);
     }
 
     public Task<List<LeaveApplicationModel>> FindAllAsync(CancellationToken token)
     {
         return GetQueryable()
-           .ProjectTo<LeaveApplicationModel>(_mapper.ConfigurationProvider)
+           .ProjectToType<LeaveApplicationModel>(_config)
            .ToListAsync(token);
     }
     public async Task<LeaveApplicationModel?> FineOneAsync(Guid Id, CancellationToken token)

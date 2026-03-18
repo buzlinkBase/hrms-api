@@ -17,6 +17,7 @@ public static class RabbitMqConfiguration
         {
             x.AddConsumer<BranchWorker, BranchCreatedConsumerDefinition>();
             x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
+            x.AddConsumer<TenantCreatedWorker, TenantCreatedDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -45,6 +46,7 @@ public static class RabbitMqConfiguration
                     h.Username(settings.Username);
                     h.Password(settings.Password);
                 });
+
                 cfg.ConfigureEndpoints(context);
             });
         });
@@ -58,10 +60,17 @@ public class BranchCreatedConsumerDefinition : ConsumerDefinition<BranchWorker>
         EndpointName = "hrms-branch-created-que";
     }
 }
-public class  AttendanceConsumerDefinition : ConsumerDefinition<CreateAttendanceWorker>
+public class AttendanceConsumerDefinition : ConsumerDefinition<CreateAttendanceWorker>
 {
     public AttendanceConsumerDefinition()
     {
         EndpointName = "hrms-attendance-created-que";
+    }
+}
+public class TenantCreatedDefinition : ConsumerDefinition<TenantCreatedWorker>
+{
+    public TenantCreatedDefinition()
+    {
+        EndpointName = "hrms-tenant-created-que";
     }
 }

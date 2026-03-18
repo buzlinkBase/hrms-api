@@ -17,7 +17,6 @@
 		<PackageReference Include="Polly" />
 		<PackageReference Include="MessagePack" />
 		<PackageReference Include="Refit.HttpClientFactory" />
-		<PackageReference Include="AutoMapper" />
 		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="ExcelMapper" />
 		<PackageReference Include="Google.Protobuf" />

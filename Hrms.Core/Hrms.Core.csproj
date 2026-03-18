@@ -31,7 +31,6 @@
 		<PackageReference Include="FluentValidation" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="Newtonsoft.Json" />
-		<PackageReference Include="AutoMapper" />
 
 		<PackageReference Include="Serilog.Exceptions" />
 		<PackageReference Include="Serilog.Sinks.Console" />

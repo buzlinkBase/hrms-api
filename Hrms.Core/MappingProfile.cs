@@ -1,241 +1,231 @@
-﻿using AutoMapper;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Mapster;
+
 namespace Hrms.Core;
 
-public class MappingProfile : Profile
+public class MappingProfile : IRegister
 {
-    public MappingProfile()
+    public void Register(TypeAdapterConfig config)
     {
-        CreateMap<PayrollSummaryLine, Payroll>().ReverseMap();
-        CreateMap<CreateDepartment, Department>().ReverseMap();
-        CreateMap<UpdateDepartment, Department>();
+        // General Simple Mappings
+        config.NewConfig<PayrollSummaryLine, Payroll>().TwoWays();
+        config.NewConfig<CreateDepartment, Department>().TwoWays();
+        config.NewConfig<UpdateDepartment, Department>();
 
-        CreateMap<CreateSalaryAdjustment, SalaryAdjustment>();
-        CreateMap<UpdateSalaryAdjustment, SalaryAdjustment>();
-        CreateMap<SalaryAdjustment, SalaryAdjustmentModel>();
+        config.NewConfig<CreateSalaryAdjustment, SalaryAdjustment>();
+        config.NewConfig<UpdateSalaryAdjustment, SalaryAdjustment>();
+        config.NewConfig<SalaryAdjustment, SalaryAdjustmentModel>();
 
-        CreateMap<CreateDailyRecord, DailyRecord>();
-        CreateMap<UpdateDailyRecord, DailyRecord>();
-        CreateMap<DailyRecord, DailyRecordModel>();//response for api
-        CreateMap<DailyRecord, DailyRecordRunModel>();
+        config.NewConfig<CreateDailyRecord, DailyRecord>();
+        config.NewConfig<UpdateDailyRecord, DailyRecord>();
+        config.NewConfig<DailyRecord, DailyRecordModel>();
+        config.NewConfig<DailyRecord, DailyRecordRunModel>();
 
-        CreateMap<CreateEmployeeSetting, EmployeeSetting>();
-        CreateMap<UpdateEmployeeSetting, EmployeeSetting>();
-        CreateMap<EmployeeSetting, EmployeeSettingModel>();
+        config.NewConfig<CreateEmployeeSetting, EmployeeSetting>();
+        config.NewConfig<UpdateEmployeeSetting, EmployeeSetting>();
+        config.NewConfig<EmployeeSetting, EmployeeSettingModel>();
 
+        // Employee Mappings with Custom Logic
+        config.NewConfig<Employee, EmployeeModelPayrollRun>()
+            .Map(dest => dest.FullName, src => src.FullName())
+            .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup.PayrollFrequency);
 
-        CreateMap<Employee, EmployeeModelPayrollRun>()
-              .ForMember(x => x.FullName, o => o.MapFrom(x => x.FullName()))
-              .ForMember(x => x.PayrollFrequency, o => o.MapFrom(x => x.PayrollGroup.PayrollFrequency))
-              ;
+        // Handling AfterMapping for Create/Update Employee
+        config.NewConfig<CreateEmployee, Employee>()
+            .AfterMapping((src, dest) => ApplyEmployeeReferenceFixes(dest));
 
-        CreateMap<CreateEmployee, Employee>()
-        .AfterMap((src, dest) =>
-        {
-            if (dest.SSSRate != null) dest.SSSRate.Employee = dest;
-            if (dest.PHICRate != null) dest.PHICRate.Employee = dest;
-            if (dest.HDMFRate != null) dest.HDMFRate.Employee = dest;
-            if (dest.TaxRate != null) dest.TaxRate.Employee = dest;
-            if (dest.Settings != null) dest.Settings.Employee = dest;
-            if (dest.RestDays != null) dest.RestDays = dest.RestDays;
-        });
-        CreateMap<UpdateEmployee, Employee>().AfterMap((src, dest) =>
-        {
-            if (dest.SSSRate != null) dest.SSSRate.Employee = dest;
-            if (dest.PHICRate != null) dest.PHICRate.Employee = dest;
-            if (dest.HDMFRate != null) dest.HDMFRate.Employee = dest;
-            if (dest.TaxRate != null) dest.TaxRate.Employee = dest;
-            if (dest.Settings != null) dest.Settings.Employee = dest;
-            if (dest.RestDays != null) dest.RestDays = dest.RestDays;
-        });
+        config.NewConfig<UpdateEmployee, Employee>()
+            .AfterMapping((src, dest) => ApplyEmployeeReferenceFixes(dest));
 
-        CreateMap<Employee, EmployeeModel>()
-            .ForMember(x => x.FullName, o => o.MapFrom(x => x.FullName()))
-            .ForMember(x => x.PayrollGroupName, o => o.MapFrom(x => x.PayrollGroup.Name))
-            .ForMember(x => x.ClientName, o => o.MapFrom(x => x.Client.Name))
-            .ForMember(x => x.PositionName, o => o.MapFrom(x => x.Position.Name))
-            .ForMember(x => x.BranchName, o => o.MapFrom(x => x.Branch.Name))
-            .ForMember(x => x.DepartmentName, o => o.MapFrom(x => x.Department.Name))
-            .ForMember(x => x.TimeShiftName, o => o.MapFrom(x => x.TimeShift.ShiftName))
-            .ForMember(x => x.AreaName, o => o.MapFrom(x => x.Area.Name))
-            .ForMember(x => x.PayrollFrequency, o => o.MapFrom(x => x.PayrollGroup.PayrollFrequency))
-            //.ForMember(x => x.Client, o => o.MapFrom(x => x.Client))
-            //.ForMember(x => x.Department, o => o.MapFrom(x => x.Client))
-            //.ForMember(x => x.Settings, o => o.MapFrom(x => x.Setting))
-            ;
+        // Complex Employee to Model Mappings
+        config.NewConfig<Employee, EmployeeModel>()
+            .Map(dest => dest.FullName, src => src.FullName())
+            .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup.Name)
+            .Map(dest => dest.ClientName, src => src.Client.Name)
+            .Map(dest => dest.PositionName, src => src.Position.Name)
+            .Map(dest => dest.BranchName, src => src.Branch.Name)
+            .Map(dest => dest.DepartmentName, src => src.Department.Name)
+            .Map(dest => dest.TimeShiftName, src => src.TimeShift.ShiftName)
+            .Map(dest => dest.AreaName, src => src.Area.Name)
+            .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup.PayrollFrequency);
 
-        CreateMap<RestDayModel, RestDay>().ReverseMap();
+        config.NewConfig<Employee, EmployeeFullModel>()
+            .Map(dest => dest.FullName, src => src.FullName())
+            .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup.Name)
+            .Map(dest => dest.ClientName, src => src.Client.Name)
+            .Map(dest => dest.PositionName, src => src.Position.Name)
+            .Map(dest => dest.BranchName, src => src.Branch.Name)
+            .Map(dest => dest.DepartmentName, src => src.Department.Name)
+            .Map(dest => dest.TimeShiftName, src => src.TimeShift.ShiftName)
+            .Map(dest => dest.AreaName, src => src.Area.Name)
+            .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup.PayrollFrequency);
 
-        CreateMap<Employee, EmployeeFullModel>()
-            .ForMember(x => x.FullName, o => o.MapFrom(x => x.FullName()))
-            .ForMember(x => x.PayrollGroupName, o => o.MapFrom(x => x.PayrollGroup.Name))
-            .ForMember(x => x.ClientName, o => o.MapFrom(x => x.Client.Name))
-            .ForMember(x => x.PositionName, o => o.MapFrom(x => x.Position.Name))
-            .ForMember(x => x.BranchName, o => o.MapFrom(x => x.Branch.Name))
-            .ForMember(x => x.DepartmentName, o => o.MapFrom(x => x.Department.Name))
-            .ForMember(x => x.TimeShiftName, o => o.MapFrom(x => x.TimeShift.ShiftName))
-            .ForMember(x => x.AreaName, o => o.MapFrom(x => x.Area.Name))
-            .ForMember(x => x.PayrollFrequency, o => o.MapFrom(x => x.PayrollGroup.PayrollFrequency))
-            //.ForMember(x => x.Assets, o => o.MapFrom(x => x.Assets))
-            //.ForMember(x => x.Dependents, o => o.MapFrom(x => x.Dependents))
-            //.ForMember(x => x.Educations, o => o.MapFrom(x => x.Educations))
-            //.ForMember(x => x.Skills, o => o.MapFrom(x => x.Skills))
-            //.ForMember(x => x.EmployeeRecords, o => o.MapFrom(x => x.EmployeeRecords))
-            //.ForMember(x => x.Employments, o => o.MapFrom(x => x.Employments))
-            //.ForMember(x => x.Settings, o => o.MapFrom(x => x.Setting))
-            ;
+        config.NewConfig<RestDayModel, RestDay>().TwoWays();
 
+        // Skill, Education, Records
+        config.NewConfig<CreateSkill, Skill>();
+        config.NewConfig<UpdateSkill, Skill>();
+        config.NewConfig<Skill, SkillModel>();
 
-        CreateMap<CreateSkill, Skill>();
-        CreateMap<UpdateSkill, Skill>();
-        CreateMap<Skill, SkillModel>();
+        config.NewConfig<CreateEducation, Education>();
+        config.NewConfig<UpdateEducation, Education>();
+        config.NewConfig<Education, EducationModel>();
 
-        CreateMap<CreateEducation, Education>();
-        CreateMap<UpdateEducation, Education>();
-        CreateMap<Education, EducationModel>();
+        config.NewConfig<CreateEmployeeRecord, EmployeeRecord>();
+        config.NewConfig<UpdateEmployeeRecord, EmployeeRecord>();
+        config.NewConfig<EmployeeRecord, EmployeeRecordModel>();
 
-        CreateMap<CreateEmployeeRecord, EmployeeRecord>();
-        CreateMap<UpdateEmployeeRecord, EmployeeRecord>();
-        CreateMap<EmployeeRecord, EmployeeRecordModel>();
+        config.NewConfig<CreateDependent, Dependent>();
+        config.NewConfig<UpdateDependent, Dependent>();
+        config.NewConfig<Dependent, DependentModel>();
 
-        CreateMap<CreateDependent, Dependent>();
-        CreateMap<UpdateDependent, Dependent>();
-        CreateMap<Dependent, DependentModel>();
+        config.NewConfig<CreateAssignAsset, AssignAsset>();
+        config.NewConfig<UpdateAssignAsset, AssignAsset>();
+        config.NewConfig<AssignAsset, AssignAssetModel>().TwoWays();
 
-        CreateMap<CreateAssignAsset, AssignAsset>();
-        CreateMap<UpdateAssignAsset, AssignAsset>();
-        CreateMap<AssignAsset, AssignAssetModel>().ReverseMap();
+        config.NewConfig<CreateEmploymentHistory, EmploymentHistory>();
+        config.NewConfig<UpdateEmploymentHistory, EmploymentHistory>();
+        config.NewConfig<EmploymentHistory, EmploymentHistoryModel>();
 
-        CreateMap<CreateEmploymentHistory, EmploymentHistory>();
-        CreateMap<UpdateEmploymentHistory, EmploymentHistory>();
-        CreateMap<EmploymentHistory, EmploymentHistoryModel>();
+        // Payroll & Leave
+        config.NewConfig<CreatePayrollGroup, PayrollGroup>();
+        config.NewConfig<UpdatePayrollGroup, PayrollGroup>();
+        config.NewConfig<PayrollGroup, PayrollGroupModel>();
+        config.NewConfig<CutoffModel, CutoffDay>().TwoWays();
 
-        CreateMap<CreatePayrollGroup, PayrollGroup>();
-        CreateMap<UpdatePayrollGroup, PayrollGroup>();
-        CreateMap<PayrollGroup, PayrollGroupModel>();
-        CreateMap<CutoffModel, CutoffDay>().ReverseMap();
+        config.NewConfig<CreateArea, CostCenters>();
+        config.NewConfig<UpdateArea, CostCenters>();
+        config.NewConfig<CostCenters, AreaModel>();
 
-        CreateMap<CreateArea, CostCenters>();
-        CreateMap<UpdateArea, CostCenters>();
-        CreateMap<CostCenters, AreaModel>();
+        config.NewConfig<CreateLeave, Leave>();
+        config.NewConfig<UpdateLeave, Leave>();
+        config.NewConfig<Leave, LeaveModel>();
 
-        CreateMap<CreateLeave, Leave>();
-        CreateMap<UpdateLeave, Leave>();
-        CreateMap<Leave, LeaveModel>();
+        config.NewConfig<CreateLeaveApplication, LeaveApplication>();
+        config.NewConfig<UpdateLeaveApplication, LeaveApplication>();
+        config.NewConfig<LeaveApplication, LeaveApplicationModel>();
 
-        CreateMap<CreateLeaveApplication, LeaveApplication>();
-        CreateMap<UpdateLeaveApplication, LeaveApplication>();
-        CreateMap<LeaveApplication, LeaveApplicationModel>();
-        CreateMap<LeaveApplicationDetail, LeaveApplicationPyRun>()
-            .ForMember(x => x.LeaveId, o => o.MapFrom(x => x.Application.LeaveId))
-            .ForMember(x => x.EmployeeId, o => o.MapFrom(x => x.Application.EmployeeId))
-            .ForMember(x => x.DayType, o => o.MapFrom(x => x.Application.DayType))
-            .ForMember(x => x.PayType, o => o.MapFrom(x => x.Application.PayType))
-            ;
+        config.NewConfig<LeaveApplicationDetail, LeaveApplicationPyRun>()
+            .Map(dest => dest.LeaveId, src => src.Application.LeaveId)
+            .Map(dest => dest.EmployeeId, src => src.Application.EmployeeId)
+            .Map(dest => dest.DayType, src => src.Application.DayType)
+            .Map(dest => dest.PayType, src => src.Application.PayType);
 
-        CreateMap<CreateWorkRotationPlan, WorkSchedulePlan>();
-        CreateMap<UpdateWorkSchedulePlan, WorkSchedulePlan>();
-        CreateMap<WorkSchedulePlan, WorkSchedulePlanModel>();
+        // Schedules, Holidays, OT
+        config.NewConfig<CreateWorkRotationPlan, WorkSchedulePlan>();
+        config.NewConfig<UpdateWorkSchedulePlan, WorkSchedulePlan>();
+        config.NewConfig<WorkSchedulePlan, WorkSchedulePlanModel>();
 
-        CreateMap<CreateChangeHoliday, ChangeHoliday>();
-        //CreateMap<ChangeHoliday, ChangeHolidayModel>();
+        config.NewConfig<CreateChangeHoliday, ChangeHoliday>();
+        config.NewConfig<CreateHoliday, Holiday>();
+        config.NewConfig<UpdateHoliday, Holiday>();
+        config.NewConfig<Holiday, HolidayModel>();
 
-        CreateMap<CreateHoliday, Holiday>();
-        CreateMap<UpdateHoliday, Holiday>();
-        CreateMap<Holiday, HolidayModel>();
+        config.NewConfig<CreateOverTimeApplication, OverTimeApplication>();
+        config.NewConfig<UpdateOvertimeApplication, OverTimeApplication>();
+        config.NewConfig<OverTimeApplication, OvertimeApplicationModel>();
 
-        CreateMap<CreateOverTimeApplication, OverTimeApplication>();
-        CreateMap<UpdateOvertimeApplication, OverTimeApplication>();
-        CreateMap<OverTimeApplication, OvertimeApplicationModel>();
+        config.NewConfig<CreateUnderTimeApplication, OverTimeApplication>();
+        config.NewConfig<UpdateUnderTimeApplication, OverTimeApplication>();
 
-        CreateMap<CreateUnderTimeApplication, OverTimeApplication>();
-        CreateMap<UpdateUnderTimeApplication, OverTimeApplication>();
-        CreateMap<OverTimeApplication, OvertimeApplicationModel>();
+        // Income & Deductions
+        config.NewConfig<CreateOtherIncome, OtherIncome>();
+        config.NewConfig<UpdateOtherIncome, OtherIncome>();
+        config.NewConfig<OtherIncome, OtherIncomeModel>();
 
-        CreateMap<CreateOtherIncome, OtherIncome>();
-        CreateMap<UpdateOtherIncome, OtherIncome>();
-        CreateMap<OtherIncome, OtherIncomeModel>();
+        config.NewConfig<CreateDeduction, Deduction>();
+        config.NewConfig<UpdateDeduction, Deduction>();
+        config.NewConfig<Deduction, DeductionModel>();
 
-        CreateMap<CreateDeduction, Deduction>();
-        CreateMap<UpdateDeduction, Deduction>();
-        CreateMap<Deduction, DeductionModel>();
+        config.NewConfig<DeductionType, CreateDeduction>();
+        config.NewConfig<UpdateDeduction, CreateDeduction>();
+        config.NewConfig<CreateDeduction, DeductionTypeModel>();
 
-        CreateMap<DeductionType, CreateDeduction>();
-        CreateMap<UpdateDeduction, CreateDeduction>();
-        CreateMap<CreateDeduction, DeductionTypeModel>();
+        // Org Structure
+        config.NewConfig<CreateBranch, Branch>();
+        config.NewConfig<UpdateBranch, Branch>();
+        config.NewConfig<Branch, BranchModel>();
 
-        CreateMap<CreateBranch, Branch>();
-        CreateMap<UpdateBranch, Branch>();
-        CreateMap<Branch, BranchModel>();
+        config.NewConfig<CreatePosition, Position>();
+        config.NewConfig<UpdateBranch, Position>();
+        config.NewConfig<Position, PositionModel>();
 
-        CreateMap<CreatePosition, Position>();
-        CreateMap<UpdateBranch, Position>();
-        CreateMap<Position, PositionModel>();
+        config.NewConfig<CreateTimeShift, TimeShift>();
+        config.NewConfig<UpdateTimeShift, TimeShift>();
+        config.NewConfig<TimeShift, TimeShiftModel>();
 
-        CreateMap<CreateTimeShift, TimeShift>();
-        CreateMap<UpdateTimeShift, TimeShift>();
-        CreateMap<TimeShift, TimeShiftModel>();
+        config.NewConfig<CreateClient, Client>().TwoWays();
+        config.NewConfig<UpdateClient, Client>();
+        config.NewConfig<Client, ClientModel>();
 
-        CreateMap<CreateClient, Client>().ReverseMap();
-        CreateMap<UpdateClient, Client>();
-        CreateMap<Client, ClientModel>();
+        config.NewConfig<CreateSection, Section>();
+        config.NewConfig<UpdateSection, Section>();
+        config.NewConfig<Section, SectionModel>()
+            .Map(dest => dest.DepartmentName, src => src.Department.Name);
 
-        CreateMap<CreateSection, Section>();
-        CreateMap<UpdateSection, Section>();
-        CreateMap<Section, SectionModel>()
-            .ForMember(x => x.DepartmentName, o => o.MapFrom(x => x.Department.Name));
+        config.NewConfig<CreateCompany, Company>();
+        config.NewConfig<UpdateCompany, Company>();
+        config.NewConfig<Company, CompanyModel>();
 
-        CreateMap<CreateCompany, Company>();
-        CreateMap<UpdateCompany, Company>();
-        CreateMap<Company, CompanyModel>();
+        config.NewConfig<CreateOtherIncomeType, OtherIncomeType>();
+        config.NewConfig<UpdateOtherIncome, OtherIncomeType>();
+        config.NewConfig<OtherIncomeType, OtherIncomeTypeModel>();
 
-        CreateMap<CreateOtherIncomeType, OtherIncomeType>();
-        CreateMap<UpdateOtherIncome, OtherIncomeType>();
-        CreateMap<OtherIncomeType, OtherIncomeTypeModel>();
+        config.NewConfig<CreateOtherIncomeApplication, OtherIncomeApplication>();
+        config.NewConfig<UpdateOtherIncomeApplication, OtherIncomeApplication>();
+        config.NewConfig<OtherIncomeApplication, OtherIncomeApplicationModel>();
 
-        CreateMap<CreateOtherIncomeApplication, OtherIncomeApplication>();
-        CreateMap<UpdateOtherIncomeApplication, OtherIncomeApplication>();
-        CreateMap<OtherIncomeApplication, OtherIncomeApplicationModel>();
+        config.NewConfig<CreateOtherIncomeSchedule, OtherIncomeSchedules>();
+        config.NewConfig<UpdateOtherIncomeSchedule, OtherIncomeSchedules>();
 
-        CreateMap<CreateOtherIncomeSchedule, OtherIncomeSchedules>();
-        CreateMap<UpdateOtherIncomeSchedule, OtherIncomeSchedules>();
+        config.NewConfig<CreateDeductionApplication, DeductionApplication>();
+        config.NewConfig<UpdateDeductionApplication, DeductionApplication>();
+        config.NewConfig<DeductionApplication, DeductionApplicationModel>();
 
-        CreateMap<CreateDeductionApplication, DeductionApplication>();
-        CreateMap<UpdateDeductionApplication, DeductionApplication>();
-        CreateMap<DeductionApplication, DeductionApplicationModel>();
+        // Tables & Rates
+        config.NewConfig<CreatePHIC, PHICTable>();
+        config.NewConfig<UpdatePHIC, PHICTable>();
+        config.NewConfig<PHICTable, PHICModel>();
 
-        CreateMap<CreatePHIC, PHICTable>();
-        CreateMap<UpdatePHIC, PHICTable>();
-        CreateMap<PHICTable, PHICModel>();
+        config.NewConfig<CreateHDMF, HDMFTable>();
+        config.NewConfig<UpdateHDMF, HDMFTable>();
+        config.NewConfig<HDMFTable, HDMFModel>();
 
-        CreateMap<CreateHDMF, HDMFTable>();
-        CreateMap<UpdateHDMF, HDMFTable>();
-        CreateMap<HDMFTable, HDMFModel>();
+        config.NewConfig<CreateWTax, TaxTable>();
+        config.NewConfig<UpdateWax, TaxTable>();
+        config.NewConfig<TaxTable, WTaxModel>();
 
-        CreateMap<CreateWTax, TaxTable>();
-        CreateMap<UpdateWax, TaxTable>();
-        CreateMap<TaxTable, WTaxModel>();
+        config.NewConfig<CreateSSS, SSSTable>();
+        config.NewConfig<UpdateSSS, SSSTable>();
+        config.NewConfig<SSSTable, SSSModel>();
 
-        CreateMap<CreateSSS, SSSTable>();
-        CreateMap<UpdateSSS, SSSTable>();
-        CreateMap<SSSTable, SSSModel>();
+        config.NewConfig<CreateRateTable, RateTable>();
+        config.NewConfig<UpdateRateTable, RateTable>();
+        config.NewConfig<RateTable, RateTableModel>();
 
-        CreateMap<CreateRateTable, RateTable>();
-        CreateMap<UpdateRateTable, RateTable>();
-        CreateMap<RateTable, RateTableModel>();
+        config.NewConfig<CreateSSSRate, SSSRate>().TwoWays();
+        config.NewConfig<CreatePHICRate, PHICRate>().TwoWays();
+        config.NewConfig<CreateHDMFRate, HDMFRate>().TwoWays();
+        config.NewConfig<CreateTaxRate, TaxRate>().TwoWays();
 
-        CreateMap<CreateSSSRate, SSSRate>().ReverseMap();
-        CreateMap<CreatePHICRate, PHICRate>().ReverseMap();
-        CreateMap<CreateHDMFRate, HDMFRate>().ReverseMap();
-        CreateMap<CreateTaxRate, TaxRate>().ReverseMap();
+        config.NewConfig<SSSContributionModel, SSSContribution>().TwoWays();
+        config.NewConfig<PHICContributionModel, PHICContribution>().TwoWays();
+        config.NewConfig<HDMFContributionModel, HDMFContribution>().TwoWays();
 
-        CreateMap<SSSContributionModel, SSSContribution>().ReverseMap();
-        CreateMap<PHICContributionModel, PHICContribution>().ReverseMap();
-        CreateMap<HDMFContributionModel, HDMFContribution>().ReverseMap();
+        config.NewConfig<CreateRestDayDate, RestDayDate>();
+        config.NewConfig<RestDayDate, RestDayDateModel>();
+    }
 
-        CreateMap<CreateRestDayDate, RestDayDate>();
-        CreateMap< RestDayDate, RestDayDateModel>();
-
+    /// <summary>
+    /// Helper to handle the circular references and back-pointers originally in AfterMap
+    /// </summary>
+    private void ApplyEmployeeReferenceFixes(Employee dest)
+    {
+        if (dest.SSSRate != null) dest.SSSRate.Employee = dest;
+        if (dest.PHICRate != null) dest.PHICRate.Employee = dest;
+        if (dest.HDMFRate != null) dest.HDMFRate.Employee = dest;
+        if (dest.TaxRate != null) dest.TaxRate.Employee = dest;
+        if (dest.Settings != null) dest.Settings.Employee = dest;
     }
 }

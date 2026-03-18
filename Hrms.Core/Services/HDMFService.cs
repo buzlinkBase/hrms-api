@@ -1,16 +1,18 @@
-﻿
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class HDMFService : BaseService<HDMFTable>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
-    public HDMFService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public HDMFService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
     public async Task AddAsync(HDMFTable model, CancellationToken token)
@@ -65,7 +67,7 @@ public class HDMFService : BaseService<HDMFTable>
 
         return await GetQueryable()
             .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
-            .ProjectTo<HDMFModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<HDMFModel>(_config)
             .ToListAsync(token);
 
     } 

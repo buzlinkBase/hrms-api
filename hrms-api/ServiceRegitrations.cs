@@ -19,6 +19,7 @@ using Onepunch.Common.Lib;
 using Onepunch.Common.Lib.Interfaces;
 using Refit;
 using StackExchange.Redis;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -31,6 +32,16 @@ namespace Hrms.Api.Extensions
         {
             builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
+            var doToken = builder.Configuration["DigitalOcean:ApiToken"];
+            builder.Services.AddHttpClient<IDigitalOceanDbService, DigitalOceanDbService>(client =>
+            {
+                // Root address
+                client.BaseAddress = new Uri("https://api.digitalocean.com/");
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", doToken);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            }).AddStandardResilienceHandler();
+
+            builder.Services.AddScoped<TenantConnectionInfo>();
             builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>();  
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
 

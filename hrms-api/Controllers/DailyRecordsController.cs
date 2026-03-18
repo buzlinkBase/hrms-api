@@ -1,5 +1,4 @@
 ﻿using Asp.Versioning;
-using AutoMapper;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

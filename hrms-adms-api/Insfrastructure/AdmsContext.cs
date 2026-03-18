@@ -1,24 +1,23 @@
 ﻿namespace Hrms.adms.Insfrastructure;
-
 public class AdmsContext : DbContext
 {
     private readonly ITenantProvider _tenantProvider;
-    private readonly TenantConnectionInfo _tenantConnectionInfo;
+    private readonly TenantConnectionInfo _tci;
     public AdmsContext(
         DbContextOptions<AdmsContext> options,
         ITenantProvider tenantProvider,
-        TenantConnectionInfo  tenantConnectionInfo) : base(options)
+        TenantConnectionInfo  tci) : base(options)
     {
         _tenantProvider = tenantProvider;
-        _tenantConnectionInfo = tenantConnectionInfo;
+        _tci = tci;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);
         if (optionsBuilder.IsConfigured) return;
-        if (_tenantConnectionInfo == null || _tenantProvider == null) return;
-        var connectionString = _tenantConnectionInfo.ConnectionString;
+        if (_tci == null || _tenantProvider == null) return;
+        var connectionString = _tci.ConnectionString;
         if (!string.IsNullOrEmpty(connectionString))
         {
             optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
@@ -37,7 +36,7 @@ public class AdmsContext : DbContext
         modelBuilder.AddOutboxStateEntity();
         if (_tenantProvider != null && _tenantProvider.TenantId != Guid.Empty)
         {
-            modelBuilder.UseSoftDelete(_tenantProvider.TenantId);
+            modelBuilder.UseDateFilter();
         }
     }
 

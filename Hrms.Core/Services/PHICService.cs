@@ -1,16 +1,20 @@
 ﻿
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using Hrms.Domain.Entities;
+using Mapster;
+using static Org.BouncyCastle.Math.EC.ECCurve;
 
 namespace Hrms.Core.Services;
 
 public class PHICService : BaseService<PHICTable>
 {
+    private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
 
-    public PHICService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    public PHICService(IUnitOfWorkService uow,
+        TypeAdapterConfig config,
+        IMapper mapper) : base(uow)
     {
+        _config = config;
         _mapper = mapper;
     }
     public async Task AddAsync(PHICTable model, CancellationToken token)
@@ -51,7 +55,7 @@ public class PHICService : BaseService<PHICTable>
 
         return await GetQueryable()
             .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
-            .ProjectTo<PHICModel>(_mapper.ConfigurationProvider)
+            .ProjectToType<PHICModel>(_config)
             .ToListAsync(token);
 
     }

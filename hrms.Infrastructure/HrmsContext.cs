@@ -1,23 +1,24 @@
 ﻿using BuzlinkRepository;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
-using Hrms.Domain.ValueObjects;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using Onepunch.Common.Lib.DTO;
-using Onepunch.Common.Lib.Interfaces;
+using Microsoft.Extensions.Configuration;
 namespace Hrms.Infrastructure;
 
 public class HrmsContext : DbContext
 {
+    private readonly IConfiguration _configuration;
     private readonly ITenantProvider _tenantProvider;
     private readonly TenantConnectionInfo _tenantConnectionInfo;
 
     public HrmsContext(
-        DbContextOptions<HrmsContext> options,
+        DbContextOptions<HrmsContext> options, 
         ITenantProvider tenantProvider,
-        TenantConnectionInfo tenantConnectionInfo ) : base(options)
+        TenantConnectionInfo tenantConnectionInfo,
+        IConfiguration configuration) : base(options)
     {
+        _configuration = configuration;
         _tenantProvider = tenantProvider;
         _tenantConnectionInfo = tenantConnectionInfo;
     }
@@ -29,6 +30,7 @@ public class HrmsContext : DbContext
 
         if (_tenantConnectionInfo == null || _tenantProvider == null) return;
         var connectionString = _tenantConnectionInfo.ConnectionString;
+        connectionString = connectionString ?? _configuration.GetConnectionString("DefaultConnection");
         if (!string.IsNullOrEmpty(connectionString))
         {
             optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
@@ -48,7 +50,7 @@ public class HrmsContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
         if (_tenantProvider != null && _tenantProvider.TenantId != Guid.Empty)
         {
-            modelBuilder.UseSoftDelete(_tenantProvider.TenantId);
+            modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
         }
     }
 

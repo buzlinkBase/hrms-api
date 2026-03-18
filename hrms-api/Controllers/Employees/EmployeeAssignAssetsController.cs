@@ -1,5 +1,4 @@
 ﻿using Asp.Versioning;
-using AutoMapper;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
 

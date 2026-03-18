@@ -1,6 +1,4 @@
 ﻿
-using AutoMapper;
-using Elastic.Clients.Elasticsearch.Core.TermVectors;
 using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services;
