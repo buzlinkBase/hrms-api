@@ -6,7 +6,13 @@
         <RootNamespace>Hrms.Infrastructure</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
+      <Content Include="db\migrations\**\*.sql">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="BuzlinkRepository" />
+        <PackageReference Include="Evolve" />
 		<PackageReference Include="MassTransit.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" />
@@ -31,5 +37,8 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+      <Folder Include="db\migrations\" />
     </ItemGroup>
 </Project>

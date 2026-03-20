@@ -145,7 +145,7 @@ public class MappingProfile : IRegister
         // Org Structure
         config.NewConfig<CreateBranch, Branch>();
         config.NewConfig<UpdateBranch, Branch>();
-        config.NewConfig<Branch, BranchModel>();
+        config.NewConfig<Branch, BranchModel>().TwoWays();
 
         config.NewConfig<CreatePosition, Position>();
         config.NewConfig<UpdateBranch, Position>();

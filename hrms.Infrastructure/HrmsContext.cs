@@ -8,17 +8,15 @@ namespace Hrms.Infrastructure;
 
 public class HrmsContext : DbContext
 {
-    private readonly IConfiguration _configuration;
     private readonly ITenantProvider _tenantProvider;
     private readonly TenantConnectionInfo _tenantConnectionInfo;
 
     public HrmsContext(
-        DbContextOptions<HrmsContext> options, 
+        DbContextOptions<HrmsContext> options,
         ITenantProvider tenantProvider,
         TenantConnectionInfo tenantConnectionInfo,
         IConfiguration configuration) : base(options)
     {
-        _configuration = configuration;
         _tenantProvider = tenantProvider;
         _tenantConnectionInfo = tenantConnectionInfo;
     }
@@ -26,14 +24,14 @@ public class HrmsContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        if (optionsBuilder.IsConfigured) return;
-
-        if (_tenantConnectionInfo == null || _tenantProvider == null) return;
-        var connectionString = _tenantConnectionInfo.ConnectionString;
-        connectionString = connectionString ?? _configuration.GetConnectionString("DefaultConnection");
+        //if (optionsBuilder.IsConfigured) return;
+        //if (_tenantConnectionInfo == null || _tenantProvider == null) return;
+        if (_tenantConnectionInfo == null) return;
+        var connectionString = _tenantConnectionInfo.ConnectionString ?? "";
         if (!string.IsNullOrEmpty(connectionString))
         {
-            optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+            var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
+            optionsBuilder.UseMySql(connectionString, serverVersion);
             optionsBuilder.AddInterceptors(
                 new ApplyTenantInterceptor(_tenantProvider),
                 new SoftDeleteInterceptor()
@@ -41,6 +39,7 @@ public class HrmsContext : DbContext
         }
         base.OnConfiguring(optionsBuilder);
     }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -48,10 +47,7 @@ public class HrmsContext : DbContext
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
-        if (_tenantProvider != null && _tenantProvider.TenantId != Guid.Empty)
-        {
-            modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
-        }
+        modelBuilder.UseDateFilter();
     }
 
     #region "Hrms" 

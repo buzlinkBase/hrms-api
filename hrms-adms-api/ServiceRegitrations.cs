@@ -21,6 +21,7 @@ public static class ServiceRegistrations
     {
         builder.Services.AddLogging();
         builder.Services.AddHttpContextAccessor();
+
         var doToken = builder.Configuration["DigitalOcean:ApiToken"];
         builder.Services.AddHttpClient<IDigitalOceanDbService, DigitalOceanDbService>(client =>
         {
@@ -29,6 +30,7 @@ public static class ServiceRegistrations
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", doToken);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }).AddStandardResilienceHandler();
+
         builder.Services.AddScoped<TenantConnectionInfo>();
         builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
         builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });

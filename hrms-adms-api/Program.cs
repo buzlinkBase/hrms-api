@@ -1,7 +1,7 @@
 using Asp.Versioning.ApiExplorer;
 using Hrms.adms;
-using Hrms.adms.Middlewares;
-using Hrms.Core.Extensions;
+using Hrms.adms.Extensions;
+using Hrms.adms.Middleware;
 using Serilog;
 
 internal class Program
@@ -19,7 +19,7 @@ internal class Program
         builder.RmqConfig();
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
-        builder.WebHost.UseUrls("http://0.0.0.0:7052");
+        builder.WebHost.UseUrls("https://0.0.0.0:7052");
         var app = builder.Build();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
         app.UseSwagger();

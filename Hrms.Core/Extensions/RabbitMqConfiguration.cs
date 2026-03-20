@@ -15,15 +15,15 @@ public static class RabbitMqConfiguration
 
         builder.Services.AddMassTransit(x =>
         {
-            x.AddConsumer<BranchWorker, BranchCreatedConsumerDefinition>();
+            //x.AddConsumer<BranchWorker, BranchCreatedConsumerDefinition>();
             x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
             x.AddConsumer<TenantCreatedWorker, TenantCreatedDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
                 o.UseBusOutbox();
-                o.QueryDelay = TimeSpan.FromSeconds(5);
-                o.DisableInboxCleanupService();
+                //o.QueryDelay = TimeSpan.FromSeconds(5);
+                //o.DisableInboxCleanupService();
                 //o.EnableInboxCleanupService();
             });
             x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
@@ -39,27 +39,27 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15; // Trip after 15 failures
                     cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
                 });
-                cfg.UsePublishFilter(typeof(TenantConsumeFilter<>), context);
+                cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                 cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
                 cfg.Host(settings.Host, settings.VirtualHost, h =>
                 {
                     h.Username(settings.Username);
                     h.Password(settings.Password);
                 });
-
+                cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });
         });
     }
 }
 
-public class BranchCreatedConsumerDefinition : ConsumerDefinition<BranchWorker>
-{
-    public BranchCreatedConsumerDefinition()
-    {
-        EndpointName = "hrms-branch-created-que";
-    }
-}
+//public class BranchCreatedConsumerDefinition : ConsumerDefinition<BranchWorker>
+//{
+//    public BranchCreatedConsumerDefinition()
+//    {
+//        EndpointName = "hrms-branch-created-que";
+//    }
+//}
 public class AttendanceConsumerDefinition : ConsumerDefinition<CreateAttendanceWorker>
 {
     public AttendanceConsumerDefinition()

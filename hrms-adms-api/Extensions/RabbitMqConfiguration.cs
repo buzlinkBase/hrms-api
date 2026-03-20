@@ -1,4 +1,5 @@
-﻿namespace Hrms.Core.Extensions;
+﻿namespace Hrms.adms.Extensions;
+
 public static class RabbitMqConfiguration
 {
     public static void RmqConfig(this WebApplicationBuilder builder)
@@ -11,8 +12,8 @@ public static class RabbitMqConfiguration
             {
                 o.UseMySql();
                 o.UseBusOutbox();
-                o.QueryDelay = TimeSpan.FromSeconds(5);
-                o.DisableInboxCleanupService();
+                //o.QueryDelay = TimeSpan.FromSeconds(5);
+                //o.DisableInboxCleanupService();
                 //o.EnableInboxCleanupService();
             });
             x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
@@ -28,7 +29,7 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15;
                     cb.ResetInterval = TimeSpan.FromMinutes(5);
                 });
-                cfg.UsePublishFilter(typeof(TenantConsumeFilter<>), context);
+                cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                 cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
                 cfg.Host(settings.Host, settings.VirtualHost, h =>
                 {

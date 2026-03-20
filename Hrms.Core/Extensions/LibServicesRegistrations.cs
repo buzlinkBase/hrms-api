@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Hrms.Infrastructure.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
 namespace Hrms.Core.Extensions;
@@ -9,7 +10,8 @@ public static class LibServicesRegistrations
     {
         AddLibraryAssemblyDependencies(services, "Hrms.Core");
         AddLibraryAssemblyDependencies(services, "DTR.Core");
-        services.AddScoped<IUnitOfWorkService, UnitOfWorkService>(); 
+        services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
+        services.AddScoped<IMigrationService, EvolveMigrationService>();
     }
 
     public static void AddLibraryAssemblyDependencies(IServiceCollection services, string assemblyName)

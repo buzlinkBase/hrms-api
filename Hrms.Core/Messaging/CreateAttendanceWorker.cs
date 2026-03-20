@@ -40,12 +40,15 @@ public class CreateAttendanceWorker : IConsumer<List<CreateAttendancePayload>>
             var attendance = new Attendance()
             {
                 BatchCode = batch,
+                BioId = att.BioId,
+                WorkDateTime = att.WorkDateTime,
                 EmployeeId = employeeId,
                 BranchId = att.BranchId,
                 DepartmentId = att.DepartmentId,
                 ClientId = att.ClientId,
                 DeviceName = att.DeviceName,
                 LogSource = LOGSOURCE.ADMS,
+                RecordStatus=DTRStatus.OPEN,
             };
             atts.Add(attendance);
         }

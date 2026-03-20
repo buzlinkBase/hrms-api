@@ -1,11 +1,10 @@
 ﻿
 using Asp.Versioning;
+using Castle.Components.DictionaryAdapter.Xml;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
 using Hrms.Api.Filters;
-using Hrms.Api.Messaging;
 using Hrms.Api.Providers;
-using Hrms.Core.Extensions;
 using Hrms.Core.Interfaces;
 using Hrms.Infrastructure;
 using MessagePack;
@@ -15,8 +14,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.IdentityModel.Tokens;
-using Onepunch.Common.Lib;
 using Onepunch.Common.Lib.Interfaces;
+using Polly;
 using Refit;
 using StackExchange.Redis;
 using System.Net.Http.Headers;
@@ -39,10 +38,30 @@ namespace Hrms.Api.Extensions
                 client.BaseAddress = new Uri("https://api.digitalocean.com/");
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", doToken);
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            }).AddStandardResilienceHandler();
+            }).AddResilienceHandler("do-heavy-ops", pipeline =>
+            {
+                // 1. Give the overall operation 2 minutes
+                pipeline.AddTimeout(TimeSpan.FromMinutes(2));
+                //// 2. Add a Retry strategy for transient network blips
+                pipeline.AddRetry(new Polly.Retry.RetryStrategyOptions<HttpResponseMessage>
+                {
+                    MaxRetryAttempts = 3,
+                    UseJitter = true,
+                    BackoffType = Polly.DelayBackoffType.Exponential,
+                    Delay = TimeSpan.FromSeconds(2)
+                });
+                //// 3. Keep a Circuit Breaker, but make it less sensitive
+                pipeline.AddCircuitBreaker(new Polly.CircuitBreaker.CircuitBreakerStrategyOptions<HttpResponseMessage>
+                {
+                    FailureRatio = 0.5,
+                    SamplingDuration = TimeSpan.FromMinutes(5),
+                    MinimumThroughput = 5,
+                    BreakDuration = TimeSpan.FromSeconds(30)
+                });
+            });
 
             builder.Services.AddScoped<TenantConnectionInfo>();
-            builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>();  
+            builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>();
             builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
 
             builder.Services.AddScoped<IHMACService, HMACService>();
@@ -71,8 +90,10 @@ namespace Hrms.Api.Extensions
                  MessagePack.Resolvers.NativeDateTimeResolver.Instance,
                  MessagePack.Resolvers.ContractlessStandardResolver.Instance
              ))
-             .WithCompression(MessagePackCompression.Lz4BlockArray);
-            MessagePackSerializer.DefaultOptions = mpackOptions;
+             .WithCompression(MessagePackCompression.Lz4BlockArray)
+             ;
+
+             MessagePackSerializer.DefaultOptions = mpackOptions;
 
             builder.Services.AddControllers(options =>
             {
@@ -89,7 +110,7 @@ namespace Hrms.Api.Extensions
 
             builder.Services.AddRefitClient<IBranchClient>(new RefitSettings
             {
-                ContentSerializer = new MessagePackContentSerializer(mpackOptions) 
+                ContentSerializer = new MessagePackContentSerializer(mpackOptions)
             })
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
             .AddHeaderPropagation();
@@ -97,7 +118,7 @@ namespace Hrms.Api.Extensions
             builder.Services.AddRefitClient<IConnectionClient>(new RefitSettings
             {
                 ContentSerializer = new MessagePackContentSerializer(mpackOptions)
-            }) 
+            })
             .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
             .AddHeaderPropagation();
 
@@ -124,6 +145,8 @@ namespace Hrms.Api.Extensions
             {
                 options.UseLazyLoadingProxies(true);
                 options.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
+                var constr = builder.Configuration.GetConnectionString("DefaultConnection");
+            options.UseMySql(constr, ServerVersion.AutoDetect(constr));
             });
 
             builder.Services.AddCors(options =>

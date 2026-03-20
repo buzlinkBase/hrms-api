@@ -2,22 +2,24 @@
 public class AdmsContext : DbContext
 {
     private readonly ITenantProvider _tenantProvider;
+    private readonly IConfiguration _configuration;
     private readonly TenantConnectionInfo _tci;
     public AdmsContext(
         DbContextOptions<AdmsContext> options,
         ITenantProvider tenantProvider,
+        IConfiguration configuration,
         TenantConnectionInfo  tci) : base(options)
     {
         _tenantProvider = tenantProvider;
+        _configuration = configuration;
         _tci = tci;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        base.OnConfiguring(optionsBuilder);
         if (optionsBuilder.IsConfigured) return;
         if (_tci == null || _tenantProvider == null) return;
-        var connectionString = _tci.ConnectionString;
+        var connectionString = _tci.ConnectionString ?? _configuration.GetConnectionString("DefaultConnection");
         if (!string.IsNullOrEmpty(connectionString))
         {
             optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
@@ -26,6 +28,7 @@ public class AdmsContext : DbContext
                 new SoftDeleteInterceptor()
             );
         }
+        base.OnConfiguring(optionsBuilder);
     }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

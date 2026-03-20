@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
 
-namespace Hrms.Core.Extensions;
+
+namespace Hrms.adms.Extensions;
+
 
 public static class LibServicesRegistrations
 {

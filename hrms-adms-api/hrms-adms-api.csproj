@@ -18,7 +18,7 @@
 		<PackageReference Include="MessagePackAnalyzer">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
+		</PackageReference> 
 		<PackageReference Include="Refit.HttpClientFactory" />
 		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
 		<PackageReference Include="Microsoft.AspNetCore.HeaderPropagation" />

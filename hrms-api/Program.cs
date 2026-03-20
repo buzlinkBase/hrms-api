@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning.ApiExplorer;
+using Hrms.adms.Middlewares;
 using Hrms.Api.Extensions;
 using Hrms.Api.Middlewares;
 using Hrms.Core.Extensions;
@@ -15,7 +16,7 @@ internal class Program
         Log.Logger = new LoggerConfiguration()
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
-        builder.Host.UseSerilog(); 
+        builder.Host.UseSerilog();
         //builder.Services.Configure<ApiBehaviorOptions>(options =>
         //{
         //    // Stops the default framework behavior of returning a 400 immediately
@@ -56,6 +57,8 @@ internal class Program
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseHeaderPropagation();
+        app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();
         //app.Use(async (context, next) =>
         //{

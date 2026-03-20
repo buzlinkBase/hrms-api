@@ -6,17 +6,13 @@ namespace Hrms.Core.Services;
 
 public class BranchService : BaseService<Branch>
 {
-    private readonly IBranchClient _branchClient;
     private readonly ITenantProvider _tenantProvider;
-    private readonly CompanyService _companyService;
+    private readonly IMapper _mapper;
+
     public BranchService(IUnitOfWorkService uow,
-        IBranchClient branchClient,
-        ITenantProvider tenantProvider,
-        CompanyService companyService) : base(uow)
+        IMapper mapper) : base(uow)
     {
-        _branchClient = branchClient;
-        _tenantProvider = tenantProvider;
-        _companyService = companyService;
+        _mapper = mapper;
     }
 
     //protected override async Task<EvaluationResult> CreateValidatorAsync(Branch model, CancellationToken token)
@@ -38,23 +34,20 @@ public class BranchService : BaseService<Branch>
         }
     }
 
-    public async Task AddAsync(Branch model, CancellationToken token = default)
+    public async Task AddAsync(CreateBranch model, CancellationToken token = default)
     {
-        GenerateCode(model);
-        await CreateAsync(model, token);
-        await CommitChangesAsync(token);
+        var branch = _mapper.Map<Branch>(model);
+        GenerateCode(branch);
+        await CreateAsync(branch, token);
     }
 
-    public async Task UpdateAsync(Branch model, CancellationToken token = default)
+ 
+    public async Task AddOrUpdateAsync(UpdateBranch model, CancellationToken token = default)
     {
-        await ModifyAsync(model, token);
-        await CommitChangesAsync(token);
+        var branch = _mapper.Map<Branch>(model);
+        await CreateOrUpdateAsync(branch, token);
     }
 
-    public async Task AddOrUpdateAsync(Branch model, CancellationToken token = default)
-    {
-        await CreateOrUpdateAsync(model, token);
-    }
     public async Task<List<Branch>> FindAllAsync(Guid tenantId, CancellationToken token = default)
     {
         return await GetQueryable().ToListAsync(token);
@@ -80,6 +73,5 @@ public class BranchService : BaseService<Branch>
             .ToListAsync(token);
         return data.Select(x => (x.Id, x.Code)).ToList();
     }
-
 }
 

@@ -1,4 +1,5 @@
-﻿namespace Hrms.Core.Extensions;
+﻿namespace Hrms.adms.Extensions;
+
 public class TenantPublishFilter<T> : IFilter<PublishContext<T>> where T : class
 {
     private readonly ITenantProvider _tenantProvider;
