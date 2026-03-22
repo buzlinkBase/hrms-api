@@ -12,6 +12,16 @@ public class TenantDatabaseMiddleware
         IConnectionClient connectionClient,
         TenantConnectionInfo connectionInfo)
     {
+
+        var path = context.Request.Path;
+        if (path.StartsWithSegments("/swagger") ||
+            path.StartsWithSegments("/adms") ||
+            path.StartsWithSegments("/favicon.ico") ||
+            path.StartsWithSegments("/index.html") ||
+            path.StartsWithSegments("/iclock"))
+        {
+            return;
+        }
         var tid = tenantProvider.TenantId;
         connectionInfo.TenantId = tid;
         if (tid != Guid.Empty)

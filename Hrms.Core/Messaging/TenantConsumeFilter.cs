@@ -1,6 +1,5 @@
 ﻿using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
-using Onepunch.Common.Lib.Interfaces;
 
 namespace Hrms.Core.Messaging;
 

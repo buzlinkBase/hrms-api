@@ -7,3 +7,5 @@ global using MassTransit;
 global using Hrms.adms.Models.Entities;
 global using Microsoft.EntityFrameworkCore;
 global using Onepunch.Common.Lib.DTO;
+global using Onepunch.Common.Lib.Interfaces;
+global using Serilog;

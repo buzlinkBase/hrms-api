@@ -12,7 +12,7 @@ public class TenantDatabaseMiddleware
         ITenantProvider tenantProvider,
         IConnectionClient connectionClient,
         TenantConnectionInfo connectionInfo)
-    {
+    { 
         var tid = tenantProvider.TenantId;
         connectionInfo.TenantId = tid;
         if (tid != Guid.Empty)

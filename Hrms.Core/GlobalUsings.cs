@@ -6,3 +6,4 @@ global using Hrms.Core.Specs;
 global using Serilog;
 global using Onepunch.Common.Lib;
 global using Onepunch.Common.Lib.DTO;
+global using Onepunch.Common.Lib.Interfaces;

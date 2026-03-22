@@ -1,9 +1,9 @@
-﻿using EvolveDb;
+﻿
+using EvolveDb;
 using MySqlConnector;
-using Onepunch.Common.Lib.Interfaces;
 using Serilog;
 
-namespace Hrms.Infrastructure.Services;
+namespace Hrms.adms.Core.Services;
 
 public class EvolveMigrationService : IMigrationService
 {
@@ -11,7 +11,7 @@ public class EvolveMigrationService : IMigrationService
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(connectionString)) return; 
+            if (string.IsNullOrWhiteSpace(connectionString)) return;
             using var connection = new MySqlConnection(connectionString);
             string migrationLocation = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "db", "migrations");
             var evolve = new Evolve(connection, msg => Log.Information(msg))

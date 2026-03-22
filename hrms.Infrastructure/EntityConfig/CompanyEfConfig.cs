@@ -18,8 +18,30 @@ internal class BranchEfConfig : IEntityTypeConfiguration<Branch>
 {
     public void Configure(EntityTypeBuilder<Branch> builder)
     {
-        //builder.HasData(
-        //    new Branch() { Id = Guid.NewGuid(), TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"), Code = "0001", ShortName = "MB", Name = "Main Branch" }
-        //    );
+        builder.Property(e => e.Coordinates)
+       .HasColumnType("POINT")
+       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
+
+    }
+}
+
+internal class AreaConfig : IEntityTypeConfiguration<CostCenters>
+{
+    public void Configure(EntityTypeBuilder<CostCenters> builder)
+    {
+        builder.Property(e => e.Coordinates)
+       .HasColumnType("POINT")
+       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
+
+    }
+}
+
+internal class AttendanceConfig : IEntityTypeConfiguration<Attendance>
+{
+    public void Configure(EntityTypeBuilder<Attendance> builder)
+    {
+        builder.Property(e => e.Coordinates)
+       .HasColumnType("POINT")
+       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
     }
 }

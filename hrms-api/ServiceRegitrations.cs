@@ -32,7 +32,7 @@ namespace Hrms.Api.Extensions
             builder.Services.AddLogging();
             builder.Services.AddHttpContextAccessor();
             var doToken = builder.Configuration["DigitalOcean:ApiToken"];
-            builder.Services.AddHttpClient<IDigitalOceanDbService, DigitalOceanDbService>(client =>
+            builder.Services.AddHttpClient<IDbService, DigitalOceanDbService>(client =>
             {
                 // Root address
                 client.BaseAddress = new Uri("https://api.digitalocean.com/");
@@ -141,14 +141,7 @@ namespace Hrms.Api.Extensions
                 builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
             }
 
-            builder.Services.AddDbContext<HrmsContext>((options) =>
-            {
-                options.UseLazyLoadingProxies(true);
-                options.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
-                var constr = builder.Configuration.GetConnectionString("DefaultConnection");
-            options.UseMySql(constr, ServerVersion.AutoDetect(constr));
-            });
-
+            builder.Services.AddDbContext<IDbContext, HrmsContext>();
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>

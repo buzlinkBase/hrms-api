@@ -2,7 +2,6 @@ using Asp.Versioning.ApiExplorer;
 using Hrms.adms;
 using Hrms.adms.Extensions;
 using Hrms.adms.Middleware;
-using Serilog;
 
 internal class Program
 {
@@ -16,10 +15,10 @@ internal class Program
        .CreateLogger();
         builder.Host.UseSerilog();
         builder.Services.AddPollyPolicies();
-        builder.RmqConfig();
+        builder.AdmsConfigRabbitMq();
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
-        builder.WebHost.UseUrls("https://0.0.0.0:7052");
+        //builder.WebHost.UseUrls("https://0.0.0.0:7052");
         var app = builder.Build();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
         app.UseSwagger();
@@ -38,6 +37,7 @@ internal class Program
         app.UseCors("AllowAll");
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();
         //app.Use(async (context, next) =>

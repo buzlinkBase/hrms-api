@@ -18,13 +18,14 @@ public static class RabbitMqConfiguration
             //x.AddConsumer<BranchWorker, BranchCreatedConsumerDefinition>();
             x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
             x.AddConsumer<TenantCreatedWorker, TenantCreatedDefinition>();
+            x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
                 o.UseBusOutbox();
                 //o.QueryDelay = TimeSpan.FromSeconds(5);
                 //o.DisableInboxCleanupService();
-                //o.EnableInboxCleanupService();
+                //o.EnableInboxCleanupService(); 
             });
             x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
             x.UsingRabbitMq((context, cfg) =>
@@ -72,5 +73,12 @@ public class TenantCreatedDefinition : ConsumerDefinition<TenantCreatedWorker>
     public TenantCreatedDefinition()
     {
         EndpointName = "hrms-tenant-created-que";
+    }
+}
+public class DbMigrationActionWorkerDefinition : ConsumerDefinition<DbMigrationActionWorker>
+{
+    public DbMigrationActionWorkerDefinition()
+    {
+        EndpointName = "hrms-migration-runner-que";
     }
 }

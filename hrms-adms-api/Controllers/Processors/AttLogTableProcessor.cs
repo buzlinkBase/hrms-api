@@ -34,6 +34,8 @@ public class AttLogTableProcessor : ICDataProcessor
                     DeviceName = payload.SN,
                 };
                 atts.Add(attendance);
+
+
             }
         }
         if (!atts.Any()) return;

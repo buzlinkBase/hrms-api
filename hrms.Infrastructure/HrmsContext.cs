@@ -3,10 +3,11 @@ using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 namespace Hrms.Infrastructure;
 
-public class HrmsContext : DbContext
+public class HrmsContext : DbContext, IDbContext
 {
     private readonly ITenantProvider _tenantProvider;
     private readonly TenantConnectionInfo _tenantConnectionInfo;
@@ -21,21 +22,21 @@ public class HrmsContext : DbContext
         _tenantConnectionInfo = tenantConnectionInfo;
     }
 
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        //if (optionsBuilder.IsConfigured) return;
-        //if (_tenantConnectionInfo == null || _tenantProvider == null) return;
-        if (_tenantConnectionInfo == null) return;
+        if (optionsBuilder.IsConfigured ||
+            _tenantConnectionInfo == null ||
+            _tenantProvider == null
+            ) return;
+
         var connectionString = _tenantConnectionInfo.ConnectionString ?? "";
         if (!string.IsNullOrEmpty(connectionString))
         {
             var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
-            optionsBuilder.UseMySql(connectionString, serverVersion);
-            optionsBuilder.AddInterceptors(
-                new ApplyTenantInterceptor(_tenantProvider),
-                new SoftDeleteInterceptor()
-            );
+            optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
+            optionsBuilder.AddInterceptors(new SoftDeleteInterceptor());
+            optionsBuilder.UseLazyLoadingProxies(true);
+            optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
         }
         base.OnConfiguring(optionsBuilder);
     }
@@ -43,11 +44,11 @@ public class HrmsContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.UseDateFilter();
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
-        modelBuilder.UseDateFilter();
     }
 
     #region "Hrms" 

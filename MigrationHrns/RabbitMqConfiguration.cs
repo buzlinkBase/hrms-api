@@ -1,0 +1,41 @@
+﻿
+using MassTransit;
+using Microsoft.Extensions.Hosting;
+
+namespace MigrationHrns;
+
+public static class RabbitMqConfiguration
+{
+    public static void rmqConfig(this HostApplicationBuilder builder)
+    {
+        var username = builder.Configuration["RabbitMqSettings:Username"];
+        var password = builder.Configuration["RabbitMqSettings:Password"];
+        var host = builder.Configuration["RabbitMqSettings:Host"];
+        var virtualHost = builder.Configuration["RabbitMqSettings:VirtualHost"] ?? "/";
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)) return;
+        builder.Services.AddMassTransit(x =>
+        {
+            x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.UseMessageRetry(r =>
+                {
+                    r.Exponential(5, TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(10));
+                });
+                cfg.UseCircuitBreaker(cb =>
+                {
+                    cb.TrackingPeriod = TimeSpan.FromMinutes(1);
+                    cb.TripThreshold = 15; // Trip after 15 failures
+                    cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
+                });
+                cfg.Host(host, virtualHost, h =>
+                {
+                    h.Username(username);
+                    h.Password(password);
+                });
+                cfg.SetQuorumQueue();
+                cfg.ConfigureEndpoints(context);
+            });
+        });
+    }
+}

@@ -26,7 +26,7 @@ public class TenantProviderAccessor : ITenantProvider
 
             // 2. Fallback: Try to get from JWT Claims
             // Look for a claim named "tenant-id" (or whatever your claim name is)
-            var claim = context.User?.FindFirst("TenantId")?.Value;
+            var claim = context.User?.FindFirst("defaultTenantId")?.Value;
             if (Guid.TryParse(claim, out var claimId))
             {
                 _tenantId = claimId;

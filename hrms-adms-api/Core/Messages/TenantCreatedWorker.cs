@@ -1,9 +1,6 @@
-﻿using MassTransit;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Onepunch.Common.Lib.Exceptions; 
+﻿using Onepunch.Common.Lib.Exceptions;
 
-namespace Hrms.Core.Messaging;
+namespace Hrms.adms.Core;
 
 public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
 {
@@ -29,13 +26,13 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
     public async Task Consume(ConsumeContext<TenantCreatedPayload> context)
     {
         var message = context.Message;
-        string dbName = $"hrms_{message.TenantId:N}";
+        string dbName = $"adms_{message.TenantId:N}";
         var clusterId = _configuration["DigitalOcean:ClusterId"]
              ?? throw new ArgumentNullException("DigitalOcean:ClusterId config is missing");
         try
         {
             // 1. Get the physical infrastructure ready first
-      
+
             var connectionModel = await _oceanDbService.CreateTenantDatabaseAsync(clusterId, dbName);
             if (connectionModel == null) throw new Exception("DigitalOcean failed to return connection.");
             // 2. Now create the scope to perform application-level work
@@ -47,16 +44,16 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             tenantInfo.TenantId = message.TenantId;
             tenantInfo.ConnectionString = connectionModel.ConnectionString;
             tenantProvider.SetTenantId(message.TenantId);
-            var payload = CreatePayload(connectionModel,clusterId,dbName, message.TenantId); 
+            var payload = CreatePayload(connectionModel, clusterId, dbName, message.TenantId);
             //initial migration
             _migrationService.Migrate(payload.ConnectionString);
             await _publisher.Publish(payload);
             await _publisher.Publish(new SchemaVersionUpdatePayload
             {
-                CurrentVersion="1.0.0",
-                Status="Active",
-                System="HRIS",
-                TenantId=message.TenantId,
+                CurrentVersion = "1.0.0",
+                Status = "Active",
+                System = "ADMS",
+                TenantId = message.TenantId,
             });
             await uow.CommitChangesAsync("", context.CancellationToken);
         }
@@ -74,7 +71,7 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
     }
     private ConnectionStringPayload CreatePayload(ConnectionModel model,
         string clusterId,
-        string dbName,  
+        string dbName,
         Guid TenantId)
     {
         return new ConnectionStringPayload
@@ -83,12 +80,12 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             RawConnection = model.RawConnectionString,
             Environment = "Production",
             IsActive = true,
-            Module = "hrms",
-            ServiceOwner = "hrms",
+            Module = "adms",
+            ServiceOwner = "adms",
             SchemaVersion = "1",
             TenantId = TenantId,
             ClusterId = clusterId,
-            DatabaseName= dbName,
+            DatabaseName = dbName,
         };
     }
 }

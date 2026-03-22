@@ -11,6 +11,9 @@
       </Content>
     </ItemGroup>
     <ItemGroup>
+      <None Remove="db\migrations\**\*.sql" />
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="BuzlinkRepository" />
         <PackageReference Include="Evolve" />
 		<PackageReference Include="MassTransit.EntityFrameworkCore" />
@@ -39,6 +42,8 @@
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
     </ItemGroup>
     <ItemGroup>
-      <Folder Include="db\migrations\" />
+      <Content Update="db\migrations\V1_0_0__initial_create.sql">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
     </ItemGroup>
 </Project>

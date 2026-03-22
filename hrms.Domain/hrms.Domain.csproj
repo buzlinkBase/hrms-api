@@ -13,7 +13,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="BuzlinkRepository" />
-		<PackageReference Include="MessagePack" /> 
+		<PackageReference Include="MessagePack" />
+		<PackageReference Include="Pomelo.EntityFrameworkCore.MySql.NetTopologySuite" /> 
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />

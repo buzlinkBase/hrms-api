@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using Hrms.adms.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.adms.Controllers
@@ -7,6 +8,7 @@ namespace Hrms.adms.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [Authorize]
     public class DeviceRegistrationsController : ControllerBase
     {
         private readonly BiometricDeviceService _service;

@@ -1,13 +1,16 @@
 ﻿
 using Asp.Versioning;
 using Hrms.adms.Controllers.Processors;
+using Hrms.adms.Core.Services;
 using Hrms.adms.Filters;
+using Hrms.Core.Messaging;
 using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Onepunch.Common.Lib.Interfaces;
+using Polly;
+using Refit;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -21,24 +24,72 @@ public static class ServiceRegistrations
     {
         builder.Services.AddLogging();
         builder.Services.AddHttpContextAccessor();
-
         var doToken = builder.Configuration["DigitalOcean:ApiToken"];
-        builder.Services.AddHttpClient<IDigitalOceanDbService, DigitalOceanDbService>(client =>
+        builder.Services.AddHttpClient<IDbService, DigitalOceanDbService>(client =>
         {
             // Root address
             client.BaseAddress = new Uri("https://api.digitalocean.com/");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", doToken);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        }).AddStandardResilienceHandler();
+        }).AddResilienceHandler("do-heavy-ops", pipeline =>
+        {
+            // 1. Give the overall operation 2 minutes
+            pipeline.AddTimeout(TimeSpan.FromMinutes(2));
+            //// 2. Add a Retry strategy for transient network blips
+            pipeline.AddRetry(new Polly.Retry.RetryStrategyOptions<HttpResponseMessage>
+            {
+                MaxRetryAttempts = 3,
+                UseJitter = true,
+                BackoffType = Polly.DelayBackoffType.Exponential,
+                Delay = TimeSpan.FromSeconds(2)
+            });
+            //// 3. Keep a Circuit Breaker, but make it less sensitive
+            pipeline.AddCircuitBreaker(new Polly.CircuitBreaker.CircuitBreakerStrategyOptions<HttpResponseMessage>
+            {
+                FailureRatio = 0.5,
+                SamplingDuration = TimeSpan.FromMinutes(5),
+                MinimumThroughput = 5,
+                BreakDuration = TimeSpan.FromSeconds(30)
+            });
+        }); 
+
+        var mpackOptions = MessagePackSerializerOptions.Standard
+           .WithResolver(CompositeResolver.Create(
+               OneMessagePackResolver.Instance,
+               MessagePack.Resolvers.NativeDateTimeResolver.Instance,
+               MessagePack.Resolvers.ContractlessStandardResolver.Instance
+           ))
+           .WithCompression(MessagePackCompression.Lz4BlockArray);
+        MessagePackSerializer.DefaultOptions = mpackOptions;
+
+        builder.Services.AddControllers(options =>
+        {
+            options.Filters.Add<ResponseWrapperFilter>();
+            var mpackOptions = ContractlessStandardResolver.Options
+                .WithCompression(MessagePackCompression.Lz4BlockArray);
+            options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
+            options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
+        }).AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        });
+        MessagePackSerializer.DefaultOptions = mpackOptions;
+        builder.Services.AddRefitClient<IConnectionClient>(new RefitSettings
+        {
+            ContentSerializer = new MessagePackContentSerializer(mpackOptions)
+        })
+        .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
+        .AddHeaderPropagation();
+
 
         builder.Services.AddScoped<TenantConnectionInfo>();
         builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
+        builder.Services.AddScoped<IMigrationService, EvolveMigrationService>(); 
         builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
 
         builder.Services.AddScoped<IHMACService, HMACService>();
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
-        builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
-        builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings")); 
         //zkteco
         builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
@@ -52,31 +103,7 @@ public static class ServiceRegistrations
             options.Headers.Add("X-Api-Key");
         });
 
-        var mpackOptions = MessagePackSerializerOptions.Standard
-         .WithResolver(CompositeResolver.Create(
-             OneMessagePackResolver.Instance,
-             MessagePack.Resolvers.NativeDateTimeResolver.Instance,
-             MessagePack.Resolvers.ContractlessStandardResolver.Instance
-         ))
-         .WithCompression(MessagePackCompression.Lz4BlockArray);
-        MessagePackSerializer.DefaultOptions = mpackOptions;
-        builder.Services.AddControllers(options =>
-        {
-            options.Filters.Add<ResponseWrapperFilter>();
-            var mpackOptions = ContractlessStandardResolver.Options
-                .WithCompression(MessagePackCompression.Lz4BlockArray);
-            options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
-            options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
-        }).AddJsonOptions(options =>
-        {
-            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        });
-        builder.Services.AddDbContext<AdmsContext>((options) =>
-        {
-            options.UseLazyLoadingProxies(true);
-        });
-
+        builder.Services.AddDbContext<AdmsContext>(); 
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>

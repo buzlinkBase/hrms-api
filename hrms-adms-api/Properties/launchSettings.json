@@ -13,9 +13,9 @@
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true, 
+      "launchBrowser": true,
       "launchUrl": "swagger",
-      "applicationUrl": "https://localhost:7052;http://localhost:5150",
+      "applicationUrl": "https://*:7052;http://*:5150", // Use * to mean 'All IPv4 and IPv6'
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

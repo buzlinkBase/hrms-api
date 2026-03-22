@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
+using NetTopologySuite.Geometries;
 using System.ComponentModel.DataAnnotations.Schema;
 namespace Hrms.Domain.Entities;
 
@@ -25,6 +26,7 @@ public class Attendance : BaseEntity, IUserField
     public string PunchType { get; set; } = string.Empty;
     [NotMapped]
     public DTRStatus RecordStatus { get; set; } = DTRStatus.OPEN;
+    public Point Coordinates { get; set; }
 }
 
 public class UnkownEmpAttendance : BaseEntity
