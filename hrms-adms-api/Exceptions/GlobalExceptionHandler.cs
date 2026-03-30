@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Onepunch.Common.Lib.Exceptions;
 
-namespace Hrms.Api.Exceptions;
+namespace Hrms.adms.Exceptions; 
 
 public sealed class GlobalExceptionHandler(
     IProblemDetailsService problemDetailsService,

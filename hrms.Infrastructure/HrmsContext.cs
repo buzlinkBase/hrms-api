@@ -33,7 +33,8 @@ public class HrmsContext : DbContext, IDbContext
         if (!string.IsNullOrEmpty(connectionString))
         {
             var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
-            optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
+            optionsBuilder.UseMySql(connectionString, serverVersion, 
+                x => x.UseNetTopologySuite());
             optionsBuilder.AddInterceptors(new SoftDeleteInterceptor());
             optionsBuilder.UseLazyLoadingProxies(true);
             optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();

@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning.ApiExplorer;
 using Hrms.adms.Middlewares;
+using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
 using Hrms.Api.Middlewares;
 using Hrms.Core.Extensions;
@@ -22,14 +23,16 @@ internal class Program
         //    // Stops the default framework behavior of returning a 400 immediately
         //    options.SuppressModelStateInvalidFilter = true;
         //});
-        //builder.Services.AddProblemDetails(c =>
-        //{
-        //    //c.CustomizeProblemDetails = context =>
-        //    //{
-        //    //    context.ProblemDetails.Extensions.TryAdd("requestId", context.HttpContext.TraceIdentifier);
-        //    //};
-        //});
-        //builder.Services.AddExceptionHandler<GlobalExceptionHandler>();  
+        builder.Services.AddProblemDetails(c =>
+        {
+            //c.CustomizeProblemDetails = context =>
+            //{
+            //    context.ProblemDetails.Extensions.TryAdd("requestId", context.HttpContext.TraceIdentifier);
+            //};
+        });
+        var config = new TypeAdapterConfig();
+        config.Default.NameMatchingStrategy(NameMatchingStrategy.Flexible);
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();  
         builder.Services.AddPollyPolicies();
         builder.Services.AddMapster(typeof(MappingProfile).Assembly);
         builder.HrmsConfigRabbitMq();
@@ -50,13 +53,15 @@ internal class Program
             }
         });
 
-        //app.UseExceptionHandler();
+        app.UseStatusCodePages();
+        app.UseExceptionHandler();
         app.UseRouting();
         app.UseCors("AllowAll");
         //app.UseMiddleware<ApiKeyMiddleware>();
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseSerilogRequestLogging();
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();

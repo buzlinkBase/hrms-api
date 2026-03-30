@@ -47,8 +47,9 @@ public class CreateAttendanceWorker : IConsumer<List<CreateAttendancePayload>>
                 DepartmentId = att.DepartmentId,
                 ClientId = att.ClientId,
                 DeviceName = att.DeviceName,
+                Coordinates = att.Coordinates,
                 LogSource = LOGSOURCE.ADMS,
-                RecordStatus=DTRStatus.OPEN,
+                RecordStatus = DTRStatus.OPEN,
             };
             atts.Add(attendance);
         }

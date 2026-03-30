@@ -26,7 +26,7 @@ public class Attendance : BaseEntity, IUserField
     public string PunchType { get; set; } = string.Empty;
     [NotMapped]
     public DTRStatus RecordStatus { get; set; } = DTRStatus.OPEN;
-    public Point Coordinates { get; set; }
+    public Point? Coordinates { get; set; }
 }
 
 public class UnkownEmpAttendance : BaseEntity

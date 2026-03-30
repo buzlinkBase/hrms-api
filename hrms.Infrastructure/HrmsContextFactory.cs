@@ -32,7 +32,7 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
         var optionsBuilder = new DbContextOptionsBuilder<HrmsContext>();
         var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
         var connectionString = "server=127.0.0.1;port=3316;database=hrms;user=oneuser;pwd=Pokemon67584321";
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        optionsBuilder.UseMySql(connectionString, serverVersion,x=>x.UseNetTopologySuite());
         return new HrmsContext(optionsBuilder.Options,null,null,null);
     }
 }

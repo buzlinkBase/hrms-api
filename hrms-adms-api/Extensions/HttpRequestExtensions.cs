@@ -1,6 +1,7 @@
-﻿using System.Security.Claims;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
-namespace Hrms.Api.Extensions;
+namespace Hrms.adms.Extensions;
 
 public static class HttpRequestExtensions
 {
