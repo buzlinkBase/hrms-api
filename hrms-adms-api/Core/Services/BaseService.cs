@@ -1,9 +1,8 @@
 ﻿using EFCore.BulkExtensions;
-using Microsoft.EntityFrameworkCore;
 using Onepunch.Common.Lib.Exceptions;
 using System.Linq.Expressions;
 
-namespace Hrms.adms.Core;
+namespace Hrms.adms.Core.Services;
 
 public abstract class BaseService<T> where T : class, IEntity
 {

@@ -3,12 +3,12 @@ using Asp.Versioning;
 using Hrms.adms.Controllers.Processors;
 using Hrms.adms.Core.Services;
 using Hrms.adms.Filters;
-using Hrms.Core.Messaging;
 using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Onepunch.Common.Lib.DbServices;
 using Polly;
 using Refit;
 using System.Net.Http.Headers;
@@ -24,6 +24,7 @@ public static class ServiceRegistrations
     {
         builder.Services.AddLogging();
         builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<IUnitOfWorkService,UnitOfWorkService>();
         var doToken = builder.Configuration["DigitalOcean:ApiToken"];
         builder.Services.AddHttpClient<IDbService, DigitalOceanDbService>(client =>
         {
@@ -51,7 +52,7 @@ public static class ServiceRegistrations
                 MinimumThroughput = 5,
                 BreakDuration = TimeSpan.FromSeconds(30)
             });
-        }); 
+        });
 
         var mpackOptions = MessagePackSerializerOptions.Standard
            .WithResolver(CompositeResolver.Create(
@@ -83,9 +84,8 @@ public static class ServiceRegistrations
         .AddHeaderPropagation();
 
 
-        builder.Services.AddScoped<TenantConnectionInfo>();
-        builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>(); 
-        builder.Services.AddScoped<IMigrationService, EvolveMigrationService>(); 
+        builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>();
+        builder.Services.AddScoped<IMigrationService, EvolveMigrationService>();
         builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
 
         builder.Services.AddScoped<IHMACService, HMACService>();
@@ -103,16 +103,24 @@ public static class ServiceRegistrations
             options.Headers.Add("X-Api-Key");
         });
 
-        builder.Services.AddDbContext<AdmsContext>(); 
-        builder.Services.AddCors(options =>
+        builder.Services.AddDbContext<AdmsContext>(options =>
         {
-            options.AddPolicy("AllowAll", policy =>
-            {
-                policy.AllowAnyOrigin()
-                      .AllowAnyMethod()
-                      .AllowAnyHeader();
-            });
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            options.UseLazyLoadingProxies(true);
+            var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
+            options.UseMySql(connectionString, serverVersion);
+            options.AddInterceptors(new SoftDeleteInterceptor());
         });
+
+        builder.Services.AddCors(options =>
+       {
+           options.AddPolicy("AllowAll", policy =>
+           {
+               policy.AllowAnyOrigin()
+                     .AllowAnyMethod()
+                     .AllowAnyHeader();
+           });
+       });
         builder.Services
             .AddApiVersioning(options =>
             {

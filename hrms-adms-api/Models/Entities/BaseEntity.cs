@@ -1,5 +1,6 @@
 ﻿namespace Hrms.adms.Models.Entities;
-public class BaseEntity : EntityBase
+
+public class BaseEntity : EntityBase, IEntityTenant
 {
-    public string Status { get; set; } = "Active";
+    public Guid TenantId { get; set; }
 }

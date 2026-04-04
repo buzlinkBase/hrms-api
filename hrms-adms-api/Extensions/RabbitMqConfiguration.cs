@@ -1,7 +1,5 @@
 ﻿using Hrms.Core.Messaging;
-
 namespace Hrms.adms.Extensions;
-
 public static class RabbitMqConfiguration
 {
     public static void AdmsConfigRabbitMq(this WebApplicationBuilder builder)
@@ -13,6 +11,7 @@ public static class RabbitMqConfiguration
         {
             x.AddConsumer<TenantCreatedWorker, TenantCreatedDefinition>();
             x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
+            x.AddConsumer<AttSyncResponseWorker, AttSyncWorkerDefinition>();
             x.AddEntityFrameworkOutbox<AdmsContext>(o =>
             {
                 o.UseMySql();
@@ -57,5 +56,13 @@ public class DbMigrationActionWorkerDefinition : ConsumerDefinition<DbMigrationA
     public DbMigrationActionWorkerDefinition()
     {
         EndpointName = "adms-migration-runner-que";
+    }
+}
+
+public class AttSyncWorkerDefinition : ConsumerDefinition<AttSyncResponseWorker>
+{
+    public AttSyncWorkerDefinition()
+    {
+        EndpointName = "adms-attendance-sync-response-que";
     }
 }

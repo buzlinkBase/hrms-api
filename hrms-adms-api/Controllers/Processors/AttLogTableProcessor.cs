@@ -1,4 +1,7 @@
-﻿namespace Hrms.adms.Controllers.Processors;
+﻿using Hrms.adms.Core.Services;
+
+namespace Hrms.adms.Controllers.Processors;
+
 public interface ICDataProcessor
 {
     Task ProcessAsync(BioPayload payload, CancellationToken token = default);
@@ -7,25 +10,29 @@ public interface ICDataProcessor
 public class AttLogTableProcessor : ICDataProcessor
 {
     private readonly IPublishEndpoint _publisher;
-    public AttLogTableProcessor(IPublishEndpoint publisher)
+    private readonly AttendanceService _service;
+
+    public AttLogTableProcessor(IPublishEndpoint publisher,
+        AttendanceService service)
     {
         _publisher = publisher;
+        _service = service;
     }
-
     public async Task ProcessAsync(BioPayload payload, CancellationToken token = default)
     {
         var atts = new List<CreateAttendancePayload>();
         var lines = payload.RawData.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-
+        var batch=Guid.NewGuid();
         foreach (var line in lines)
         {
             var fields = line.Split('\t');
             if (fields.Length >= 2)
             {
                 var bioId = int.TryParse(fields[0], out int id) ? id : 0;
-                var attendance = new CreateAttendancePayload()
+                var attendance = new CreateAttendancePayload
                 {
                     BioId = bioId,
+                    BatchId = batch,
                     WorkDateTime = DateTime.TryParse(fields[1], out DateTime dt) ? dt : DateTime.Now,
                     TenantId = payload.DeviceInfo.TenantId,
                     BranchId = payload.DeviceInfo.BranchId,
@@ -34,11 +41,31 @@ public class AttLogTableProcessor : ICDataProcessor
                     DeviceName = payload.SN,
                 };
                 atts.Add(attendance);
-
-
             }
         }
+
         if (!atts.Any()) return;
         await _publisher.Publish(atts);
+
+        //store syncing record
+        //this batch can be resend if something went DLQ arrise
+        var attentties = new List<Attendance>();
+        foreach (var attendance in atts)
+        {
+            var att = new Attendance
+            {
+                BatchId = batch,
+                BranchId = attendance.BranchId,
+                BioId = attendance.BioId,
+                ClientId = attendance.ClientId,
+                DepartmentId = attendance.DepartmentId,
+                DeviceName = payload.SN,
+                TenantId = attendance.TenantId,
+                WorkDateTime = attendance.WorkDateTime,
+            };
+            attentties.Add(att);
+        }
+        await _service.AddRangeAsync(attentties);
+        await _service.CommitChangesAsync(token);
     }
 }

@@ -1,5 +1,5 @@
-﻿using Hrms.adms.Models.DTO;
-using Hrms.adms.Models.Entities;
+﻿using Hrms.adms.Core.Services;
+using Hrms.adms.Models.DTO;
 
 namespace Hrms.adms.Core;
 
@@ -14,7 +14,6 @@ public class BiometricDeviceService : BaseService<BiometricDevice>
         var model = new BiometricDevice
         {
             SN = payload.SN,
-            Status = "Active"
         };
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -36,12 +35,7 @@ public class BiometricDeviceService : BaseService<BiometricDevice>
         };
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
-        return new UpdateBiometricDevice
-        {
-            Id = model.Id,
-            SN = payload.SN,
-            Status = model.Status,
-        };
+        return payload;
     }
     public async Task<List<BiometricDevice>> FindAllAsync(CancellationToken token)
     {
@@ -54,7 +48,7 @@ public class BiometricDeviceService : BaseService<BiometricDevice>
     }
     public async Task<BiometricDevice?> FindSnAsync(string SN, CancellationToken token)
     {
-        return await GetQueryable(x => x.SN == SN).FirstOrDefaultAsync(token);
+        return await GetQueryable(x => x.SN == SN && x.Status == "Active").FirstOrDefaultAsync(token);
     }
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {

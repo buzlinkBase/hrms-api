@@ -9,34 +9,31 @@ namespace Hrms.Infrastructure;
 
 public class HrmsContext : DbContext, IDbContext
 {
-    private readonly ITenantProvider _tenantProvider;
     private readonly TenantConnectionInfo _tenantConnectionInfo;
+    private readonly IConfiguration _configuration;
 
     public HrmsContext(
-        DbContextOptions<HrmsContext> options,
-        ITenantProvider tenantProvider,
-        TenantConnectionInfo tenantConnectionInfo,
-        IConfiguration configuration) : base(options)
+         DbContextOptions<HrmsContext> options,
+         TenantConnectionInfo tenantConnectionInfo,
+         IConfiguration configuration) : base(options)
     {
-        _tenantProvider = tenantProvider;
         _tenantConnectionInfo = tenantConnectionInfo;
+        _configuration = configuration;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        if (optionsBuilder.IsConfigured ||
-            _tenantConnectionInfo == null ||
-            _tenantProvider == null
-            ) return;
+        if (optionsBuilder.IsConfigured ||  _tenantConnectionInfo == null) return;
 
-        var connectionString = _tenantConnectionInfo.ConnectionString ?? "";
+        var connectionString = _tenantConnectionInfo.ConnectionString
+            ?? _configuration.GetConnectionString("DefaultConnection")
+            ?? "";
         if (!string.IsNullOrEmpty(connectionString))
         {
-            var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
-            optionsBuilder.UseMySql(connectionString, serverVersion, 
-                x => x.UseNetTopologySuite());
-            optionsBuilder.AddInterceptors(new SoftDeleteInterceptor());
+            //var serverVersion = new MySqlServerVersion(new Version(11, 8, 5));
+            optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString), x => x.UseNetTopologySuite());
             optionsBuilder.UseLazyLoadingProxies(true);
+            optionsBuilder.AddInterceptors(new SoftDeleteInterceptor());
             optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
         }
         base.OnConfiguring(optionsBuilder);

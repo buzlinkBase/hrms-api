@@ -69,4 +69,7 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Middlewares\" />
+	</ItemGroup>
 </Project>

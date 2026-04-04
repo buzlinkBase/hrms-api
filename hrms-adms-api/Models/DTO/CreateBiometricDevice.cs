@@ -5,8 +5,10 @@ public class CreateBiometricDevice
     public Guid? BranchId { get; set; }
     public Guid? ClientId  { get; set; }
 }
-public class UpdateBiometricDevice: CreateBiometricDevice
+public class UpdateBiometricDevice 
 {
     public Guid Id { get; set; }
-    public string Status  { get; set; }
+    public string SN { get; set; } = string.Empty;
+    public string Status { get; set; } = "Active";
+
 }

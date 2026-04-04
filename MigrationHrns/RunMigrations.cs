@@ -14,9 +14,8 @@ public class MigrationRunner
         using var scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TenantContext>();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
-        // Get these from GitHub Environment Variables
-        var systemName = Environment.GetEnvironmentVariable("SYSTEM_NAME") ?? "HRIS"; // e.g., "HRIS"
-        var newVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? "1.0.0";  // e.g., "1.0.6"
+        var systemName = Environment.GetEnvironmentVariable("SYSTEM_NAME") ?? "HRIS";
+        var newVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? "1.0.0";
 
         if (string.IsNullOrEmpty(systemName))
         {

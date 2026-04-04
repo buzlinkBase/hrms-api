@@ -1,7 +1,6 @@
 using Asp.Versioning.ApiExplorer;
 using Hrms.adms;
 using Hrms.adms.Extensions;
-using Hrms.adms.Middleware;
 
 internal class Program
 {
@@ -38,7 +37,6 @@ internal class Program
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseHeaderPropagation();
-        app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();
         //app.Use(async (context, next) =>
         //{

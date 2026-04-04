@@ -24,14 +24,22 @@ public static class HttpRequestExtensions
     }
     public static Guid? GetUserId(this ClaimsPrincipal user)
     {
+        if (user == null) throw new ArgumentNullException(nameof(user));
         var value = user.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(value, out Guid guid) ? guid : null;
     }
-
-    // The "Strict" version (throws an exception if not found)
     public static Guid GetRequiredUserId(this ClaimsPrincipal user)
     {
+        if (user == null) throw new ArgumentNullException(nameof(user));
         return user.GetUserId()
                ?? throw new UnauthorizedAccessException("User ID claim is missing or invalid.");
     }
+    public static string? GetUserClaim(this ClaimsPrincipal user, string claim)
+    {
+        if (user == null) throw new ArgumentNullException(nameof(user));
+        if (string.IsNullOrWhiteSpace(claim)) throw new ArgumentException("Claim type must be provided.", nameof(claim));
+
+        return user.FindFirstValue(claim);
+    }
+
 }

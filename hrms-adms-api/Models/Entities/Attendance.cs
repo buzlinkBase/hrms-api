@@ -3,10 +3,11 @@
 public class Attendance : BaseEntity
 {
     public int BioId { get; set; }
+    public Guid BatchId  { get; set; }
     public DateTime WorkDateTime { get; set; }
-    public Guid TenantId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? DepartmentId { get; set; }
-    public string DeviceName { get; set; }
+    public string DeviceName { get; set; }=string.Empty;
+    public bool Synced  { get; set; }
 }

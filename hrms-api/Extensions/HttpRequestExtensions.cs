@@ -11,7 +11,6 @@ public static class HttpRequestExtensions
             : null;
     }
 
-    // Specific helper for Bearer Tokens
     public static string? GetAuthorizationToken(this HttpRequest request)
     {
         var authHeader = request.GetHeader("Authorization");

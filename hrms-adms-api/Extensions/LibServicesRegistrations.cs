@@ -9,7 +9,6 @@ public static class LibServicesRegistrations
     public static void RegisterHRCoreServices(this IServiceCollection services)
     {
         AddLibraryAssemblyDependencies(services, "hrms-adms-api");
-        services.AddScoped<IUnitOfWorkService, UnitOfWorkService>(); 
     }
 
     public static void AddLibraryAssemblyDependencies(IServiceCollection services, string assemblyName)

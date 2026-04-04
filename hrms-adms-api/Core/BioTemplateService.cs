@@ -1,7 +1,10 @@
-﻿namespace Hrms.adms.Core;
+﻿using Hrms.adms.Core.Services;
+
+namespace Hrms.adms.Core;
+
 public class BioTemplateService : BaseService<BiometricTemplate>
 {
-    public BioTemplateService(IUnitOfWorkService uow ) : base(uow)
+    public BioTemplateService(IUnitOfWorkService uow) : base(uow)
     {
     }
     public async Task AddRangeTemplate(List<CreateBiometricTemplate> models, CancellationToken token)
@@ -10,7 +13,8 @@ public class BioTemplateService : BaseService<BiometricTemplate>
         {
             // Look for existing record to update instead of duplicate insert
             var existing = await Context.BiometricTemplates
-                .FirstOrDefaultAsync(x => x.BioId == model.BioId &&
+                .FirstOrDefaultAsync(x => x.TenantId == model.TenantId &&
+                                         x.BioId == model.BioId &&
                                          x.BioType == model.BioType &&
                                          x.BioIndex == model.BioIndex, token);
 
@@ -23,6 +27,7 @@ public class BioTemplateService : BaseService<BiometricTemplate>
             {
                 Context.BiometricTemplates.Add(new BiometricTemplate
                 {
+                    TenantId = model.TenantId,
                     BioId = model.BioId,
                     BioType = model.BioType,
                     BioIndex = model.BioIndex,

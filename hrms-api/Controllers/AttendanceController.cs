@@ -1,6 +1,6 @@
 ﻿using Asp.Versioning;
-using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+using OnePunch.Auth.Core.Messaging;
 
 namespace Hrms.Api.Controllers;
 
@@ -10,95 +10,42 @@ namespace Hrms.Api.Controllers;
 public class AttendanceController : ControllerBase
 {
     private readonly AttendanceService _attendanceService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly DailyRecordService _service;
-
     public AttendanceController(
         AttendanceService attendanceService,
+         IServiceProvider serviceProvider,
         DailyRecordService service)
     {
         _attendanceService = attendanceService;
+        _serviceProvider = serviceProvider;
         _service = service;
     }
 
+
     [HttpPost("upload-att-log")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> Upload(IFormFile file, [FromForm] int branchId,
-        CancellationToken ct)
+    public async Task<IActionResult> Upload(IFormFile file, [FromForm] int branchId, CancellationToken ct)
     {
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
-
-        if (Request.Headers.ContainsKey("Authorization"))
-        {
-            // 2. Get the header value
-            var authorizationHeader = Request.Headers["Authorization"].FirstOrDefault();
-            // 3. Ensure it starts with "Bearer " and extract the token part
-            if (authorizationHeader != null && authorizationHeader.StartsWith("Bearer "))
-            {
-                // The token starts after the "Bearer " prefix (7 characters long)
-                string token = authorizationHeader.Substring("Bearer ".Length).Trim();
-                return Ok(new { Token = token, Message = "Token retrieved successfully." });
-            }
-        }
 
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
         memoryStream.Seek(0, SeekOrigin.Begin);
         var extension = Path.GetExtension(file.FileName).ToLower();
-        var parser = ParserFactory.Create(extension);
-        var parsedData = await parser.Parse(memoryStream);
-
-        //TODO separate unregistered and registered att here
-        var atts = parsedData.Select(x => new Attendance
+        var parser = _serviceProvider.GetKeyedService<IFileParser>(extension);
+        if (parser == null)
         {
-            BioId = x.Id,
-        }).ToList();
-        await _attendanceService.AddRange(atts, ct);
-        _attendanceService.CommitChanges();
-        return Ok("Success");
-    }
-}
-
-public static class ParserFactory
-{
-    public static IFileParser Create(string extension)
-    {
-        return extension switch
-        {
-            ".dat" => new DatParser(),
-            //".csv" => new CsvParser(),
-            //".txt" => new TxtParser(),
-            //".xls" or ".xlsx" => new ExcelParser(),
-            _ => throw new NotSupportedException($"File type {extension} not supported")
-        };
-    }
-}
-public interface IFileParser
-{
-    Task<List<CreateAttLog>> Parse(Stream stream);
-}
-public class DatParser : IFileParser
-{
-    public async Task<List<CreateAttLog>> Parse(Stream stream)
-    {
-        using var reader = new StreamReader(stream);
-        var content = await reader.ReadToEndAsync();
-
-        // Split into lines
-        var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-        var parsedLogs = new List<CreateAttLog>();
-        foreach (var line in lines)
-        {
-            var parts = line.Split('\t');
-            if (parts.Length >= 2 && int.TryParse(parts[0], out var id) && DateTime.TryParse(parts[1], out var timestamp))
-            {
-                parsedLogs.Add(new CreateAttLog
-                {
-                    Id = id,
-                    Timestamp = timestamp
-                });
-            }
+            return BadRequest($"File type {extension} not supported");
         }
-        return parsedLogs;
+
+        var parsedData = await parser.Parse(memoryStream);
+        var atts = await new AttEmployeeSetter(_attendanceService.Uow)
+           .SetAttendace(parsedData, LOGSOURCE.UPLOADED);
+        await _attendanceService.AddRangeAsync(atts, ct);
+        await _attendanceService.CommitChangesAsync(ct);
+
+        return Ok("Success");
     }
 }

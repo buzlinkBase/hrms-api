@@ -1,5 +1,5 @@
-﻿using Hrms.Infrastructure.Services;
-using MassTransit;
+﻿using MassTransit;
+using Onepunch.Common.Lib.DbServices;
 
 namespace Hrms.Core.Messaging;
 

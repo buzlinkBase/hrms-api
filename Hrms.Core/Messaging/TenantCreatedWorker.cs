@@ -1,6 +1,7 @@
 ﻿using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Onepunch.Common.Lib.DbServices;
 using Onepunch.Common.Lib.Exceptions; 
 
 namespace Hrms.Core.Messaging;
@@ -30,16 +31,15 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
     {
         var message = context.Message;
         string dbName = $"hrms_{message.TenantId:N}";
-        var clusterId = _configuration["DigitalOcean:ClusterId"]
-             ?? throw new ArgumentNullException("DigitalOcean:ClusterId config is missing");
+        var clusterId = _configuration["DigitalOcean:ClusterId"] ?? "";
         try
         {
             // 1. Get the physical infrastructure ready first
-      
             var connectionModel = await _oceanDbService.CreateTenantDatabaseAsync(clusterId, dbName);
-            if (connectionModel == null) throw new Exception("DigitalOcean failed to return connection.");
+            if (connectionModel == null) throw new Exception("Db Service failed to return connection.");
             // 2. Now create the scope to perform application-level work
             using var scope = _factory.CreateScope();
+
             // 3. Hydrate the scoped state BEFORE resolving the DB Context
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWorkService>();
             var tenantInfo = scope.ServiceProvider.GetRequiredService<TenantConnectionInfo>();
@@ -80,7 +80,6 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
         return new ConnectionStringPayload
         {
             ConnectionString = model.ConnectionString,
-            RawConnection = model.RawConnectionString,
             Environment = "Production",
             IsActive = true,
             Module = "hrms",
