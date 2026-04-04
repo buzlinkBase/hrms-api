@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    [Migration("20260324015939_coords")]
-    partial class coords
+    [Migration("20260404091352_initial_create")]
+    partial class initial_create
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,9 +32,8 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("BatchCode")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                    b.Property<Guid>("BatchCode")
+                        .HasColumnType("char(36)");
 
                     b.Property<int>("BioId")
                         .HasColumnType("int");
@@ -2142,164 +2141,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Leaves");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            Code = "SIL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 5.0,
-                            Description = "Service Incentive Leave",
-                            LeaveReset = 1,
-                            PaySource = "Company",
-                            Remarks = "Labor Code mandated",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            Code = "ML",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 105.0,
-                            Description = "Maternity Leave",
-                            LeaveReset = 0,
-                            PaySource = "Government",
-                            Remarks = "RA 11210 Expanded Maternity Leave Law",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            Code = "PL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 7.0,
-                            Description = "Paternity Leave",
-                            LeaveReset = 0,
-                            PaySource = "Company",
-                            Remarks = "RA 8187",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
-                            Code = "SPL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 7.0,
-                            Description = "Parental Leave for Solo Parents",
-                            LeaveReset = 1,
-                            PaySource = "Company",
-                            Remarks = "RA 8972 Solo Parents’ Welfare Act",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
-                            Code = "SLW",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 60.0,
-                            Description = "Special Leave for Women (Gynecological Disorders)",
-                            LeaveReset = 0,
-                            PaySource = "Company",
-                            Remarks = "RA 9710 Magna Carta of Women",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
-                            Code = "VAWC",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 10.0,
-                            Description = "Leave for Victims of Violence Against Women and Children",
-                            LeaveReset = 0,
-                            PaySource = "Company",
-                            Remarks = "RA 9262",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("77777777-7777-7777-7777-777777777777"),
-                            Code = "MC",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 5.0,
-                            Description = "Magna Carta Leave (Gov’t Employees)",
-                            LeaveReset = 1,
-                            PaySource = "Company",
-                            Remarks = "RA 7305 for Public Health Workers",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("88888888-8888-8888-8888-888888888888"),
-                            Code = "RL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 120.0,
-                            Description = "Rehabilitation Leave (Occupational Injuries)",
-                            LeaveReset = 0,
-                            PaySource = "Company",
-                            Remarks = "Occupational safety provisions",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("99999999-9999-9999-9999-999999999999"),
-                            Code = "EL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 10.0,
-                            Description = "Educational Leave (Gov’t Employees)",
-                            LeaveReset = 1,
-                            PaySource = "Company",
-                            Remarks = "Civil Service rules",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                            Code = "SEL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 5.0,
-                            Description = "Special Emergency Leave (Calamities)",
-                            LeaveReset = 0,
-                            PaySource = "Company",
-                            Remarks = "Company policy / calamity provisions",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                            Code = "VL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 10.0,
-                            Description = "Vacation Leave",
-                            LeaveReset = 1,
-                            PaySource = "Company",
-                            Remarks = "Company policy benefit",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        },
-                        new
-                        {
-                            Id = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-                            Code = "SL",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Credits = 10.0,
-                            Description = "Sick Leave",
-                            LeaveReset = 1,
-                            PaySource = "Company",
-                            Remarks = "Company policy benefit",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197")
-                        });
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplication", b =>
@@ -3190,116 +3031,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PremiumRates");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Regular Day",
-                            Rate = 1.00m,
-                            Remarks = 0,
-                            ShortDescription = "REG",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "REGULAR"
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Night Differential",
-                            Rate = 1.10m,
-                            Remarks = 0,
-                            ShortDescription = "ND",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "NIGHTDIFF"
-                        },
-                        new
-                        {
-                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Overtime",
-                            Rate = 1.25m,
-                            Remarks = 0,
-                            ShortDescription = "OT",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "OVERTIME"
-                        },
-                        new
-                        {
-                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Rest Day Duty",
-                            Rate = 1.30m,
-                            Remarks = 0,
-                            ShortDescription = "RD",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "RESTDAY_DUTY"
-                        },
-                        new
-                        {
-                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Legal Holiday (No Work)",
-                            Rate = 1.00m,
-                            Remarks = 0,
-                            ShortDescription = "LH",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "LEGAL_HOLIDAY"
-                        },
-                        new
-                        {
-                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Legal Holiday Duty",
-                            Rate = 2.00m,
-                            Remarks = 0,
-                            ShortDescription = "LH-DUTY",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "LEGAL_HOLIDAY_DUTY"
-                        },
-                        new
-                        {
-                            Id = new Guid("77777777-7777-7777-7777-777777777777"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Special Working Holiday",
-                            Rate = 1.00m,
-                            Remarks = 0,
-                            ShortDescription = "SP-WH",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "SPECIAL_WORKING"
-                        },
-                        new
-                        {
-                            Id = new Guid("88888888-8888-8888-8888-888888888888"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Special Non-Working Holiday",
-                            Rate = 1.30m,
-                            Remarks = 0,
-                            ShortDescription = "SP-NWH",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "SPECIAL_NON_WORKING"
-                        },
-                        new
-                        {
-                            Id = new Guid("99999999-9999-9999-9999-999999999999"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Special Rest Day",
-                            Rate = 1.50m,
-                            Remarks = 0,
-                            ShortDescription = "RD-SP",
-                            Status = "Active",
-                            TenantId = new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"),
-                            Type = "RESTDAY_SPECIAL"
-                        });
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.SSSContribution", b =>

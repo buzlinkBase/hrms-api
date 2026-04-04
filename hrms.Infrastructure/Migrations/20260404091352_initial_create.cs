@@ -1,15 +1,14 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
+using NetTopologySuite.Geometries;
 
 #nullable disable
-
-#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
 namespace Hrms.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class initialcreate : Migration
+    public partial class initial_create : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -48,6 +47,8 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Address = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Coordinates = table.Column<Point>(type: "point", nullable: true)
+                        .Annotation("MySql:SpatialReferenceSystemId", 4326),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -58,50 +59,6 @@ namespace Hrms.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Areas", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "BiometricDevices",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    SN = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_BiometricDevices", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "BiometricTemplates",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    BioId = table.Column<int>(type: "int", nullable: false),
-                    BioType = table.Column<int>(type: "int", nullable: false),
-                    BioIndex = table.Column<int>(type: "int", nullable: false),
-                    TemplateSize = table.Column<int>(type: "int", nullable: false),
-                    TemplateData = table.Column<string>(type: "text", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_BiometricTemplates", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -124,6 +81,8 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Email = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Coordinates = table.Column<Point>(type: "point", nullable: true)
+                        .Annotation("MySql:SpatialReferenceSystemId", 4326),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -1230,11 +1189,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     LogRemarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    BatchCode = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    BatchCode = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     EditRemarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     LogSource = table.Column<int>(type: "int", nullable: false),
+                    Coordinates = table.Column<Point>(type: "point", nullable: true)
+                        .Annotation("MySql:SpatialReferenceSystemId", 4326),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -2087,41 +2047,6 @@ namespace Hrms.Infrastructure.Migrations
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
-            migrationBuilder.InsertData(
-                table: "Leaves",
-                columns: new[] { "Id", "Category", "Code", "CreatedAt", "Credits", "DeletedAt", "Description", "LeaveReset", "PaySource", "Remarks", "Status", "TenantId", "UpdatedAt" },
-                values: new object[,]
-                {
-                    { new Guid("11111111-1111-1111-1111-111111111111"), null, "SIL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 5.0, null, "Service Incentive Leave", 1, "Company", "Labor Code mandated", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("22222222-2222-2222-2222-222222222222"), null, "ML", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 105.0, null, "Maternity Leave", 0, "Government", "RA 11210 Expanded Maternity Leave Law", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("33333333-3333-3333-3333-333333333333"), null, "PL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 7.0, null, "Paternity Leave", 0, "Company", "RA 8187", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("44444444-4444-4444-4444-444444444444"), null, "SPL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 7.0, null, "Parental Leave for Solo Parents", 1, "Company", "RA 8972 Solo Parents’ Welfare Act", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("55555555-5555-5555-5555-555555555555"), null, "SLW", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 60.0, null, "Special Leave for Women (Gynecological Disorders)", 0, "Company", "RA 9710 Magna Carta of Women", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("66666666-6666-6666-6666-666666666666"), null, "VAWC", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 10.0, null, "Leave for Victims of Violence Against Women and Children", 0, "Company", "RA 9262", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("77777777-7777-7777-7777-777777777777"), null, "MC", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 5.0, null, "Magna Carta Leave (Gov’t Employees)", 1, "Company", "RA 7305 for Public Health Workers", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("88888888-8888-8888-8888-888888888888"), null, "RL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 120.0, null, "Rehabilitation Leave (Occupational Injuries)", 0, "Company", "Occupational safety provisions", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("99999999-9999-9999-9999-999999999999"), null, "EL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 10.0, null, "Educational Leave (Gov’t Employees)", 1, "Company", "Civil Service rules", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), null, "SEL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 5.0, null, "Special Emergency Leave (Calamities)", 0, "Company", "Company policy / calamity provisions", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), null, "VL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 10.0, null, "Vacation Leave", 1, "Company", "Company policy benefit", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null },
-                    { new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"), null, "SL", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), 10.0, null, "Sick Leave", 1, "Company", "Company policy benefit", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), null }
-                });
-
-            migrationBuilder.InsertData(
-                table: "PremiumRates",
-                columns: new[] { "Id", "CreatedAt", "DeletedAt", "Description", "Rate", "Remarks", "ShortDescription", "Status", "TenantId", "Type", "UpdatedAt" },
-                values: new object[,]
-                {
-                    { new Guid("11111111-1111-1111-1111-111111111111"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Regular Day", 1.00m, 0, "REG", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "REGULAR", null },
-                    { new Guid("22222222-2222-2222-2222-222222222222"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Night Differential", 1.10m, 0, "ND", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "NIGHTDIFF", null },
-                    { new Guid("33333333-3333-3333-3333-333333333333"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Overtime", 1.25m, 0, "OT", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "OVERTIME", null },
-                    { new Guid("44444444-4444-4444-4444-444444444444"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Rest Day Duty", 1.30m, 0, "RD", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "RESTDAY_DUTY", null },
-                    { new Guid("55555555-5555-5555-5555-555555555555"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Legal Holiday (No Work)", 1.00m, 0, "LH", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "LEGAL_HOLIDAY", null },
-                    { new Guid("66666666-6666-6666-6666-666666666666"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Legal Holiday Duty", 2.00m, 0, "LH-DUTY", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "LEGAL_HOLIDAY_DUTY", null },
-                    { new Guid("77777777-7777-7777-7777-777777777777"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Special Working Holiday", 1.00m, 0, "SP-WH", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "SPECIAL_WORKING", null },
-                    { new Guid("88888888-8888-8888-8888-888888888888"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Special Non-Working Holiday", 1.30m, 0, "SP-NWH", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "SPECIAL_NON_WORKING", null },
-                    { new Guid("99999999-9999-9999-9999-999999999999"), new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Special Rest Day", 1.50m, 0, "RD-SP", "Active", new Guid("c1b8aaaf-6bff-4f68-97c7-626f16ea9197"), "RESTDAY_SPECIAL", null }
-                });
-
             migrationBuilder.CreateIndex(
                 name: "IX_Allowances_IncomeTypeId",
                 table: "Allowances",
@@ -2447,12 +2372,6 @@ namespace Hrms.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Attendances");
-
-            migrationBuilder.DropTable(
-                name: "BiometricDevices");
-
-            migrationBuilder.DropTable(
-                name: "BiometricTemplates");
 
             migrationBuilder.DropTable(
                 name: "ChangeHolidays");

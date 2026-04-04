@@ -47,9 +47,9 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             tenantInfo.TenantId = message.TenantId;
             tenantInfo.ConnectionString = connectionModel.ConnectionString;
             tenantProvider.SetTenantId(message.TenantId);
-            var payload = CreatePayload(connectionModel,clusterId,dbName, message.TenantId); 
             //initial migration
-            _migrationService.Migrate(payload.ConnectionString);
+            _migrationService.Migrate(tenantInfo.ConnectionString);
+            var payload = CreatePayload(connectionModel, clusterId, dbName, message.TenantId);
             await _publisher.Publish(payload);
             await _publisher.Publish(new SchemaVersionUpdatePayload
             {
