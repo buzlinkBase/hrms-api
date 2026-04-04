@@ -1,5 +1,4 @@
-﻿using MassTransit;
-
+﻿
 namespace Hrms.Core.Messaging;
 
 public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>

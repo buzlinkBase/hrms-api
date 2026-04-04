@@ -3,7 +3,6 @@ public interface ICDataProcessor
 {
     Task ProcessAsync(BioPayload payload, CancellationToken token = default);
 }
-
 public class AttLogTableProcessor : ICDataProcessor
 {
     private readonly IPublishEndpoint _publisher;

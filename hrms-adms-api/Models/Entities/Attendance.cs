@@ -9,4 +9,6 @@ public class Attendance : BaseEntity
     public Guid? ClientId { get; set; }
     public Guid? DepartmentId { get; set; }
     public string DeviceName { get; set; }
+
+    public bool Sync  { get; set; }
 }

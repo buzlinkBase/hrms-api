@@ -5,7 +5,11 @@ namespace Hrms.Core.Messaging;
 
 public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>> where T : class
 {
-
+    private readonly ICacheService _cacheService;
+    public TenantConsumeFilter(ICacheService cacheService)
+    {
+        _cacheService = cacheService;
+    }
     public async Task Send(ConsumeContext<T> context, IPipe<ConsumeContext<T>> next)
     {
         var scope = context.GetPayload<IServiceProvider>();
@@ -25,15 +29,25 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>> where T : class
                 await next.Send(context);
                 return;
             }
-
-            var response = await _connectionClient.FindConnectionAsync(tid, "hrms");
-            if (response != null && response.Data != null && !response.Data.Success)
+            var key = $"connection:{tid}"; // Use colon for better Redis grouping
+            var cache = await _cacheService.GetAsync<string>(key);
+            if (!string.IsNullOrWhiteSpace(cache))
             {
-                _connectionInfo.ConnectionString = response.Data.ConnectionString;
+                _connectionInfo.ConnectionString = cache;
             }
             else
             {
-                throw new Exception($"Operational DB for Tenant {tid} not found.");
+                var response = await _connectionClient.FindConnectionAsync(tid, "hrms");
+                if (response != null && response.Data != null && !response.Data.Success)
+                {
+                    _connectionInfo.ConnectionString = response.Data.ConnectionString;
+                    //TODO cache connection string in Redis with an appropriate expiration time
+                    await _cacheService.SetAsync(key, _connectionInfo.ConnectionString, TimeSpan.FromHours(1));
+                }
+                else
+                {
+                    throw new Exception($"Operational DB for Tenant {tid} not found.");
+                }
             }
         }
         else

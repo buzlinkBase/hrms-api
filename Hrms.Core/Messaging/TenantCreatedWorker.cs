@@ -1,7 +1,8 @@
 ﻿using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Onepunch.Common.Lib.Exceptions; 
+using Microsoft.Extensions.Hosting;
+using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.Core.Messaging;
 
@@ -11,18 +12,21 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
     private readonly IDbService _oceanDbService;
     private readonly IMigrationService _migrationService;
     private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _environment;
     private readonly IServiceScopeFactory _factory;
     public TenantCreatedWorker(
         IPublishEndpoint publisher,
         IDbService digitalOceanDbService,
         IMigrationService migrationService,
         IConfiguration configuration,
+        IHostEnvironment environment,
         IServiceScopeFactory factory)
     {
         _publisher = publisher;
         _oceanDbService = digitalOceanDbService;
         _migrationService = migrationService;
         _configuration = configuration;
+        _environment = environment;
         _factory = factory;
     }
 
@@ -35,7 +39,6 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
         try
         {
             // 1. Get the physical infrastructure ready first
-      
             var connectionModel = await _oceanDbService.CreateTenantDatabaseAsync(clusterId, dbName);
             if (connectionModel == null) throw new Exception("DigitalOcean failed to return connection.");
             // 2. Now create the scope to perform application-level work
@@ -47,16 +50,17 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             tenantInfo.TenantId = message.TenantId;
             tenantInfo.ConnectionString = connectionModel.ConnectionString;
             tenantProvider.SetTenantId(message.TenantId);
-            var payload = CreatePayload(connectionModel,clusterId,dbName, message.TenantId); 
+            var payload = CreatePayload(connectionModel, clusterId, dbName, message.TenantId);
             //initial migration
             _migrationService.Migrate(payload.ConnectionString);
             await _publisher.Publish(payload);
+            await _publisher.Publish(new TenantSetInitData { ConnectionString = connectionModel.ConnectionString, TenantId = message.TenantId, });
             await _publisher.Publish(new SchemaVersionUpdatePayload
             {
-                CurrentVersion="1.0.0",
-                Status="Active",
-                System="HRIS",
-                TenantId=message.TenantId,
+                CurrentVersion = "1.0.0",
+                Status = "Active",
+                System = "HRIS",
+                TenantId = message.TenantId,
             });
             await uow.CommitChangesAsync("", context.CancellationToken);
         }
@@ -66,7 +70,6 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             var deleted = await _oceanDbService.DeleteTenantDatabaseAsync(clusterId, dbName);
             if (!deleted)
             {
-                // This is a big deal - DB exists but couldn't be deleted
                 Log.Logger.Fatal("CRITICAL: Rollback failed! Manual cleanup required for DB: {DbName}", dbName);
             }
             throw;
@@ -74,13 +77,12 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
     }
     private ConnectionStringPayload CreatePayload(ConnectionModel model,
         string clusterId,
-        string dbName,  
+        string dbName,
         Guid TenantId)
     {
         return new ConnectionStringPayload
         {
             ConnectionString = model.ConnectionString,
-            RawConnection = model.RawConnectionString,
             Environment = "Production",
             IsActive = true,
             Module = "hrms",
@@ -88,7 +90,7 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             SchemaVersion = "1",
             TenantId = TenantId,
             ClusterId = clusterId,
-            DatabaseName= dbName,
+            DatabaseName = dbName,
         };
     }
 }

@@ -1,7 +1,6 @@
 ﻿using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.adms.Core;
-
 public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
 {
     private readonly IPublishEndpoint _publisher;
@@ -77,7 +76,6 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
         return new ConnectionStringPayload
         {
             ConnectionString = model.ConnectionString,
-            RawConnection = model.RawConnectionString,
             Environment = "Production",
             IsActive = true,
             Module = "adms",

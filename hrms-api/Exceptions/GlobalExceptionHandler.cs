@@ -1,12 +1,11 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Onepunch.Common.Lib.Exceptions;
+using MessagePack;
 
 namespace Hrms.Api.Exceptions;
 
-public sealed class GlobalExceptionHandler(
-    IProblemDetailsService problemDetailsService,
-    IHostEnvironment env) // Use Primary Constructor for brevity
-    : IExceptionHandler
+public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
@@ -23,7 +22,8 @@ public sealed class GlobalExceptionHandler(
 
         httpContext.Response.StatusCode = statusCode;
 
-        var problemDetails = new ProblemDetails
+        // 1. Create the detailed error object (ProblemDetails)
+        var errorDetail = new ProblemDetails
         {
             Type = $"https://httpstatuses.com/{statusCode}",
             Title = GetTitleForStatus(statusCode),
@@ -32,22 +32,39 @@ public sealed class GlobalExceptionHandler(
             Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}"
         };
 
-        // ONLY show sensitive details if we are debugging
         if (env.IsDevelopment())
         {
-            problemDetails.Extensions.Add("stackTrace", exception.StackTrace);
+            errorDetail.Extensions.Add("stackTrace", exception.StackTrace);
             if (exception.InnerException != null)
             {
-                problemDetails.Extensions.Add("innerException", exception.InnerException.Message);
+                errorDetail.Extensions.Add("innerException", exception.InnerException.Message);
             }
         }
 
-        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        // 2. Wrap it in your standard ResponseModel
+        var response = new ResponseModel<ProblemDetails>
         {
-            HttpContext = httpContext,
-            Exception = exception,
-            ProblemDetails = problemDetails
-        });
+            Status = statusCode,
+            Message = "Error",
+            Data = errorDetail
+        };
+
+        // 3. Determine Content-Type (Negotiate between MsgPack and JSON)
+        var acceptHeader = httpContext.Request.Headers.Accept.ToString();
+
+        if (acceptHeader.Contains("application/x-msgpack"))
+        {
+            httpContext.Response.ContentType = "application/x-msgpack";
+            // Use the DefaultOptions you defined in Program.cs (which includes LZ4)
+            await MessagePackSerializer.SerializeAsync(httpContext.Response.Body, response, MessagePackSerializer.DefaultOptions, cancellationToken);
+        }
+        else
+        {
+            httpContext.Response.ContentType = "application/json";
+            await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
+        }
+
+        return true; // Mark as handled
     }
 
     private static string GetTitleForStatus(int statusCode) => statusCode switch

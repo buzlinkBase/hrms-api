@@ -85,27 +85,23 @@ namespace Hrms.Api.Extensions
             });
 
             var mpackOptions = MessagePackSerializerOptions.Standard
-             .WithResolver(CompositeResolver.Create(
-                 OneMessagePackResolver.Instance,
-                 MessagePack.Resolvers.NativeDateTimeResolver.Instance,
-                 MessagePack.Resolvers.ContractlessStandardResolver.Instance
-             ))
-             .WithCompression(MessagePackCompression.Lz4BlockArray)
-             ;
-
-             MessagePackSerializer.DefaultOptions = mpackOptions;
-
+                .WithResolver(CompositeResolver.Create(
+                    OneMessagePackResolver.Instance, // Your generated resolver
+                    MessagePack.Resolvers.NativeDateTimeResolver.Instance,
+                    MessagePack.Resolvers.ContractlessStandardResolver.Instance
+                ))
+                .WithCompression(MessagePackCompression.Lz4BlockArray);
+            MessagePackSerializer.DefaultOptions = mpackOptions;
             builder.Services.AddControllers(options =>
             {
-                options.Filters.Add<ResponseWrapperFilter>();
-                var mpackOptions = ContractlessStandardResolver.Options
-                    .WithCompression(MessagePackCompression.Lz4BlockArray);
                 options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
                 options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
-            }).AddJsonOptions(options =>
+                options.Filters.Add<ResponseWrapperFilter>();
+            })
+            .AddJsonOptions(options =>
             {
-                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+                options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+                options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
             });
 
             builder.Services.AddRefitClient<IBranchClient>(new RefitSettings

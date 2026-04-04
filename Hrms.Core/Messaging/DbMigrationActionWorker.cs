@@ -1,5 +1,4 @@
-﻿using Hrms.Infrastructure.Services;
-using MassTransit;
+﻿using MassTransit;
 
 namespace Hrms.Core.Messaging;
 
@@ -7,16 +6,19 @@ public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>
 {
     private readonly TenantConnectionInfo _connectionInfo;
     private readonly IPublishEndpoint _publisher;
+    private readonly IUnitOfWorkService _unitOfWorkService;
     private readonly IMigrationService _migrationService;
 
     public DbMigrationActionWorker(
         TenantConnectionInfo connectionInfo,
         IPublishEndpoint publisher,
         IDbService digitalOceanDbService,
+        IUnitOfWorkService unitOfWorkService,
         IMigrationService migrationService)
     {
         _connectionInfo = connectionInfo;
         _publisher = publisher;
+        _unitOfWorkService = unitOfWorkService;
         _migrationService = migrationService;
     }
 
@@ -26,6 +28,7 @@ public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>
         if (message.System != "HRIS") return;
         var connectionString = _connectionInfo.ConnectionString;
         _migrationService.Migrate(connectionString);
+
         var payload = new SchemaVersionUpdatePayload
         {
             CurrentVersion = message.TargetVersion,
@@ -33,5 +36,7 @@ public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>
             TenantId = message.TenantId,
         };
         await _publisher.Publish(payload);
+        await _unitOfWorkService.CommitChangesAsync("", context.CancellationToken);
+    
     }
 } 

@@ -11,15 +11,17 @@ public class HrmsContext : DbContext, IDbContext
 {
     private readonly ITenantProvider _tenantProvider;
     private readonly TenantConnectionInfo _tenantConnectionInfo;
-
+    private readonly IConfiguration _configuration;
     public HrmsContext(
         DbContextOptions<HrmsContext> options,
         ITenantProvider tenantProvider,
         TenantConnectionInfo tenantConnectionInfo,
-        IConfiguration configuration) : base(options)
+        IConfiguration configuration
+        ) : base(options)
     {
         _tenantProvider = tenantProvider;
         _tenantConnectionInfo = tenantConnectionInfo;
+        _configuration = configuration;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -29,11 +31,15 @@ public class HrmsContext : DbContext, IDbContext
             _tenantProvider == null
             ) return;
 
-        var connectionString = _tenantConnectionInfo.ConnectionString ?? "";
+        var connectionString = _tenantConnectionInfo.ConnectionString
+            ?? _configuration.GetConnectionString("DefaultConnection")!
+            ?? "";
+
         if (!string.IsNullOrEmpty(connectionString))
         {
-            var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
-            optionsBuilder.UseMySql(connectionString, serverVersion, 
+            //new Version(8, 0, 45)
+            var serverVersion = new MySqlServerVersion(ServerVersion.AutoDetect(connectionString));
+            optionsBuilder.UseMySql(connectionString, serverVersion,
                 x => x.UseNetTopologySuite());
             optionsBuilder.AddInterceptors(new SoftDeleteInterceptor());
             optionsBuilder.UseLazyLoadingProxies(true);
