@@ -2,15 +2,6 @@
 
 namespace Hrms.Core.Validations.Guards;
 
-public class GuardException : Exception
-{
-    public GuardException(string message) : base(message)
-    {
-    }
-    public GuardException(string message, Exception exception) : base(message, exception)
-    {
-    }
-}
 public record EvaluationResult(string Message = "", bool Success = false)
 {
     public static EvaluationResult OK => new EvaluationResult("", true);

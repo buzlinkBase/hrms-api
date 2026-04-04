@@ -38,6 +38,7 @@
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
         <PackageReference Include="System.Management" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />

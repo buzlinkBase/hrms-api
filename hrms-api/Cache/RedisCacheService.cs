@@ -2,13 +2,6 @@
 using System.Text.Json;
 namespace Hrms.Api;
 
-public interface ICacheService
-{
-    Task<T?> GetAsync<T>(string key);
-    Task RemoveAsync(string key);
-    Task SetAsync<T>(string key, T value, TimeSpan expiry);
-}
-
 public class RedisCacheService : ICacheService
 {
     private readonly IDatabase _db;

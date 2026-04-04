@@ -19,6 +19,7 @@ public static class RabbitMqConfiguration
             x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
             x.AddConsumer<TenantCreatedWorker, TenantCreatedDefinition>();
             x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
+            x.AddConsumer<TenantInitConfigWorker, TenantInitDataWorkerDefination>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -80,5 +81,13 @@ public class DbMigrationActionWorkerDefinition : ConsumerDefinition<DbMigrationA
     public DbMigrationActionWorkerDefinition()
     {
         EndpointName = "hrms-migration-runner-que";
+    }
+}
+
+public class TenantInitDataWorkerDefination : ConsumerDefinition<TenantInitConfigWorker>
+{
+    public TenantInitDataWorkerDefination()
+    {
+        EndpointName = "hrms-tenant-default-config-que";
     }
 }

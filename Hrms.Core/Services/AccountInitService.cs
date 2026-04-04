@@ -1,20 +1,24 @@
 ﻿
 using Hrms.Domain.Entities;
-
 namespace Hrms.Core.Services;
 
 public class AccountInitService : BaseService<Company>
 {
-    public AccountInitService(IUnitOfWorkService uow) : base(uow)
+    private readonly ITenantProvider _tenantProvider;
+
+    public AccountInitService(IUnitOfWorkService uow,
+        ITenantProvider tenantProvider) : base(uow)
     {
+        _tenantProvider = tenantProvider;
     }
-    public async Task Create(Company company)
+    public async Task Create(CancellationToken token)
     {
         //await CreateOrUpdateAsync(company); 
         SetDefaultLeaves();
         SetDefaultRates();
         //set default branch
         //set default department
+        await CommitChangesAsync(token);
     }
 
     private void SetDefaultLeaves()

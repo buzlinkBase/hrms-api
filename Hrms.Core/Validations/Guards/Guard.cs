@@ -1,5 +1,7 @@
 ﻿
 
+using Onepunch.Common.Lib.Exceptions;
+
 namespace Hrms.Core.Validations.Guards;
 
 

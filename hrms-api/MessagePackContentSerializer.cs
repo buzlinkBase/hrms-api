@@ -9,38 +9,52 @@ public class MessagePackContentSerializer : IHttpContentSerializer
 {
     private readonly MessagePackSerializerOptions _options;
 
-    public MessagePackContentSerializer(MessagePackSerializerOptions options = null)
+    public MessagePackContentSerializer(MessagePackSerializerOptions? options = null)
     {
-        _options = options ?? MessagePackSerializerOptions.Standard;
+        // Fallback to DefaultOptions which should be set in Program.cs
+        _options = options ?? MessagePackSerializer.DefaultOptions;
     }
 
-    // This is used for creating the request body (Client -> Server)
+    /// <summary>
+    /// Serializes the request body (Client -> Server)
+    /// </summary>
     public HttpContent ToHttpContent<T>(T item)
     {
+        // MessagePack v3 returns ReadOnlyMemory<byte>
         var bytes = MessagePackSerializer.Serialize(item, _options);
-        var content = new ByteArrayContent(bytes);
+        var content = new ByteArrayContent(bytes.ToArray());
         content.Headers.ContentType = new MediaTypeHeaderValue("application/x-msgpack");
         return content;
     }
 
-    // This is used for reading the response body (Server -> Client)
-    public async Task<T?> DeserializeAsync<T>(HttpContent content, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Deserializes the response body (Server -> Client)
+    /// </summary>
+    public async Task<T?> FromHttpContentAsync<T>(HttpContent content, CancellationToken cancellationToken = default)
     {
-        var stream = await content.ReadAsStreamAsync(cancellationToken);
+        var mediaType = content.Headers.ContentType?.MediaType;
+        if (mediaType != "application/x-msgpack")
+        {
+            // If we got JSON back, read it as a string so we can see the error
+            var jsonError = await content.ReadAsStringAsync();
+            throw new Exception($"Expected MsgPack but got {mediaType}. Data: {jsonError}");
+        }
+        // GUARD: If the server returns 500/404, it often sends "application/json" or "text/plain"
+        // Attempting to parse JSON as MessagePack causes the 'Unexpected code 123' error.
+        if (mediaType != "application/x-msgpack")
+        {
+            var rawContent = await content.ReadAsStringAsync(cancellationToken);
+            throw new Exception($"Expected MessagePack (application/x-msgpack) but received {mediaType}. Raw Content: {rawContent}");
+        }
+        // v3.x efficient stream reading
+        using var stream = await content.ReadAsStreamAsync(cancellationToken);
+
+        // Use the Async variant for better performance in .NET 9
         return await MessagePackSerializer.DeserializeAsync<T>(stream, _options, cancellationToken);
     }
 
-    // This is an older/alternative signature for deserialization used by some Refit versions
-    // We can simply bridge it to our DeserializeAsync method
-    public Task<T?> FromHttpContentAsync<T>(HttpContent content, CancellationToken cancellationToken = default)
-    {
-        return DeserializeAsync<T>(content, cancellationToken);
-    }
-    // This is used by Refit to determine the property name for form data/multipart
-    // MessagePack is usually binary-only, so returning null or the standard name is fine
     public string? GetFieldNameForProperty(PropertyInfo propertyInfo)
     {
-        // By default, just return the property name
         return propertyInfo.Name;
     }
 }
