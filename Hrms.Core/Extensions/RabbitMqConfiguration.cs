@@ -43,11 +43,12 @@ public static class RabbitMqConfiguration
                 });
                 cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                 cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
-                cfg.Host(settings.Host, settings.VirtualHost, h =>
-                {
-                    h.Username(settings.Username);
-                    h.Password(settings.Password);
-                });
+                //cfg.Host(settings.Host, settings.VirtualHost, h =>
+                //{
+                //    h.Username(settings.Username);
+                //    h.Password(settings.Password);
+                //});
+                cfg.Host("amqps://lriumdis:PNHXZ9uy2nWDyLQC4yJQEtN5H8zMRUSm@armadillo.rmq.cloudamqp.com/lriumdis");
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });

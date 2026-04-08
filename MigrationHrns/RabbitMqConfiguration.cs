@@ -28,11 +28,12 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15; // Trip after 15 failures
                     cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
                 });
-                cfg.Host(host, virtualHost, h =>
-                {
-                    h.Username(username);
-                    h.Password(password);
-                });
+                //cfg.Host(host, virtualHost, h =>
+                //{
+                //    h.Username(username);
+                //    h.Password(password);
+                //});
+                cfg.Host("amqps://lriumdis:PNHXZ9uy2nWDyLQC4yJQEtN5H8zMRUSm@armadillo.rmq.cloudamqp.com/lriumdis");
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });
