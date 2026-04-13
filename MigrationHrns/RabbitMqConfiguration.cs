@@ -8,8 +8,8 @@ public static class RabbitMqConfiguration
 {
     public static void rmqConfig(this HostApplicationBuilder builder)
     {
-        var Uri = builder.Configuration["RabbitMqSettings:Uri"];
-        if (string.IsNullOrWhiteSpace(Uri)) return;
+        var rmqUri = builder.Configuration["RabbitMqSettings:Username"];
+        if (string.IsNullOrWhiteSpace(rmqUri)) return;
         builder.Services.AddMassTransit(x =>
         {
             x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
@@ -30,7 +30,7 @@ public static class RabbitMqConfiguration
                 //    h.Username(username);
                 //    h.Password(password);
                 //});
-                cfg.Host(Uri);
+                cfg.Host(rmqUri);
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });
