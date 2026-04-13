@@ -1,5 +1,6 @@
 ﻿using Hrms.Core.Messaging;
 namespace Hrms.adms.Extensions;
+
 public static class RabbitMqConfiguration
 {
     public static void AdmsConfigRabbitMq(this WebApplicationBuilder builder)
@@ -32,11 +33,7 @@ public static class RabbitMqConfiguration
                 });
                 cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                 cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
-                cfg.Host(settings.Host, settings.VirtualHost, h =>
-                {
-                    h.Username(settings.Username);
-                    h.Password(settings.Password);
-                });
+                cfg.Host(settings.Uri);
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });

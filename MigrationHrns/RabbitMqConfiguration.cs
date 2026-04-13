@@ -8,11 +8,8 @@ public static class RabbitMqConfiguration
 {
     public static void rmqConfig(this HostApplicationBuilder builder)
     {
-        var username = builder.Configuration["RabbitMqSettings:Username"];
-        var password = builder.Configuration["RabbitMqSettings:Password"];
-        var host = builder.Configuration["RabbitMqSettings:Host"];
-        var virtualHost = builder.Configuration["RabbitMqSettings:VirtualHost"] ?? "/";
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)) return;
+        var Uri = builder.Configuration["RabbitMqSettings:Uri"];
+        if (string.IsNullOrWhiteSpace(Uri)) return;
         builder.Services.AddMassTransit(x =>
         {
             x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
@@ -33,7 +30,7 @@ public static class RabbitMqConfiguration
                 //    h.Username(username);
                 //    h.Password(password);
                 //});
-                cfg.Host("amqps://lriumdis:PNHXZ9uy2nWDyLQC4yJQEtN5H8zMRUSm@armadillo.rmq.cloudamqp.com/lriumdis");
+                cfg.Host(Uri);
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });
