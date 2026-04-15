@@ -8,7 +8,7 @@ public static class RabbitMqConfiguration
 {
     public static void rmqConfig(this HostApplicationBuilder builder)
     {
-        var rmqUri = builder.Configuration["RabbitMqSettings:Username"];
+        var rmqUri = builder.Configuration["RabbitMqSettings:Uri"];
         if (string.IsNullOrWhiteSpace(rmqUri)) return;
         builder.Services.AddMassTransit(x =>
         {
@@ -30,7 +30,14 @@ public static class RabbitMqConfiguration
                 //    h.Username(username);
                 //    h.Password(password);
                 //});
-                cfg.Host(rmqUri);
+                var rabbitUri = new Uri(rmqUri);
+                cfg.Host(rabbitUri, h =>
+                {
+                    h.ConfigureOptions(options =>
+                    {
+                        options.AddressFamily = System.Net.Sockets.AddressFamily.InterNetwork;
+                    });
+                });
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });
