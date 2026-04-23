@@ -57,9 +57,7 @@ public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
         var minWorkingMinutes = payload.Data.CurrentShift.MinimumWorkingMinutes;
 
         // Look back prior days until we find a valid eligibility day
-        for (DateOnly curDate = payload.Data.CurrentDate.AddDays(-1);
-             curDate >= payload.Data.PayrollStartDate.AddDays(TimeAllowance.AttLookbackDays);
-             curDate = curDate.AddDays(-1))
+        for (DateOnly curDate = payload.Data.CurrentDate.AddDays(-1); curDate >= payload.Data.PayrollStartDate.AddDays(TimeAllowance.AttLookbackDays); curDate = curDate.AddDays(-1))
         {
             var result = ProcessLineAsync(curDate, context).GetAwaiter().GetResult();
             if (result == null)
@@ -76,7 +74,6 @@ public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
                 // Eligible if prior day is holiday or paid leave
                 isEligible =
                     result.HolCount > 0 ||
-                    result.WorkTypeEnum == WorkType.SpecialNonWorking ||
                     result.WorkTypeEnum == WorkType.PaidLeaveOnLegalHoliday ||
                     result.WorkTypeEnum == WorkType.PaidLeave;
                 break;
@@ -89,10 +86,10 @@ public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
                 + result.SpecialHolHours
                 + result.LegalHolHours;
 
-            if (result.WorkTypeEnum == WorkType.RestDayDuty && minWorkingMinutes.ToHour() > workhours)
-                continue; // not enough hours, check earlier
+            if (result.WorkTypeEnum == WorkType.RestDayDuty && minWorkingMinutes.ToHour() > workhours) continue; // not enough hours, check earlier, since this is still a rest day
+            if (workhours == 0 && result.WorkTypeEnum == WorkType.SpecialNonWorking) continue;
 
-            isEligible = workhours >= minWorkingMinutes.ToHour();
+            isEligible = workhours > 0 && workhours >= minWorkingMinutes.ToHour();
             break;
         }
 
