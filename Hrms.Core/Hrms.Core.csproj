@@ -10,6 +10,7 @@
 	  <None Remove="Utilities\**" />
 	</ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="ClosedXML" />
 		<PackageReference Include="Refit.HttpClientFactory" />
 		<PackageReference Include="Elastic.Clients.Elasticsearch" />
@@ -26,7 +27,7 @@
 		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
 		<PackageReference Include="MessagePackAnalyzer" />
 
-		<PackageReference Include="BuzlinkRepository" />
+		
 		<PackageReference Include="ExcelMapper" />
 		<PackageReference Include="FluentValidation" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

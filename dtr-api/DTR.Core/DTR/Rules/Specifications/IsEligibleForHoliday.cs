@@ -1,6 +1,4 @@
-﻿using Hrms.Domain.Entities;
-
-namespace DTR.Core;
+﻿namespace DTR.Infrastructure.Business.DTR.Rules.Specifications;
 
 public class IsEligibleForHoliday : IRuleSpecification
 {
@@ -41,10 +39,6 @@ public class HolidayEligibiltyEvaluatorFactory
 
 public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
 {
-    public LegalHolidayEligibiltyEvaluator()
-    {
-
-    }
     public bool Evaluate(TimeRange input, TimeContext context)
     {
         var payload = context.Payload;
@@ -83,16 +77,23 @@ public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
             }
 
             // If there was work, check hours
-            var workhours =
-                  result.RegularNetHours
-                + result.RestDayHours
-                + result.SpecialHolHours
-                + result.LegalHolHours;
+            var workhours = result.TotalHours;
+            //  result.RegularNetHours
+            //+ result.RestDayHours
+            //+ result.SpecialHolHours
+            //+ result.LegalHolHours;
 
             if (result.WorkTypeEnum == WorkType.RestDayDuty && minWorkingMinutes.ToHour() > workhours)
                 continue; // not enough hours, check earlier
 
-            isEligible = workhours >= minWorkingMinutes.ToHour();
+            if (result.WorkTypeEnum == WorkType.SpecialNonWorking && workhours == 0)
+                continue;//search prior day, since this day is special non working but there was no work done
+
+
+            isEligible = (workhours > 0 && workhours >= minWorkingMinutes.ToHour())
+                 || result.WorkTypeEnum == WorkType.PaidLeave
+                 || result.WorkTypeEnum == WorkType.PaidLeaveOnLegalHoliday
+            ;
             break;
         }
 
@@ -100,6 +101,7 @@ public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
         return isEligible;
 
     }
+
 
     private async Task<DailyRecord?> ProcessLineAsync(DateOnly curDate, TimeContext context)
     {
@@ -111,12 +113,12 @@ public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
         var dtrService = payload.Provider.DtrContextModel.DtrService;
         if (dtrService != null)
         {
-            var prioDtr = await dtrService.GetDTRInfoAsync<DailyRecord>(new DTRRequestPayload(curDate, curDate,
-                     employee.DepartmentId, employee.Id, employee.ClientId, employee.PayrollGroupId), ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
-
-            return prioDtr.FirstOrDefault();
+            await dtrService.DtrLineInternal<DailyRecord>(new Payloads.DTRRequestPayload(curDate, curDate,
+                   employee.DepartmentId, employee.Id, employee.ClientId, employee.PayrollGroupId), (model) => { result = model; }, () => { }, ProcessorType.DTRDetail, IncludeNullResponse.Include, true);
         }
+
         return result;
+
     }
 }
 public class SpecialHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
