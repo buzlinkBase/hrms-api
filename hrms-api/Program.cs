@@ -58,7 +58,7 @@ internal class Program
         app.UseRouting();
         app.UseCors("AllowAll");
         //app.UseMiddleware<ApiKeyMiddleware>();
-        app.UseMiddleware<CorrelationIdMiddleware>();
+        //app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseSerilogRequestLogging();

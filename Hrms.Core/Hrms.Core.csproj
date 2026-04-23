@@ -5,11 +5,6 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 	<ItemGroup>
-	  <Compile Remove="Utilities\**" />
-	  <EmbeddedResource Remove="Utilities\**" />
-	  <None Remove="Utilities\**" />
-	</ItemGroup>
-	<ItemGroup>
 		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="ClosedXML" />
 		<PackageReference Include="Refit.HttpClientFactory" />
@@ -26,8 +21,6 @@
 		<PackageReference Include="MessagePack" />
 		<PackageReference Include="MessagePack.AspNetCoreMvcFormatter" />
 		<PackageReference Include="MessagePackAnalyzer" />
-
-		
 		<PackageReference Include="ExcelMapper" />
 		<PackageReference Include="FluentValidation" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

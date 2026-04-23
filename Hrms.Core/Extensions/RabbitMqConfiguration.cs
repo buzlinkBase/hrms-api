@@ -41,14 +41,15 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15; // Trip after 15 failures
                     cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
                 });
-                cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
-                cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
                 //cfg.Host(settings.Host, settings.VirtualHost, h =>
                 //{
                 //    h.Username(settings.Username);
                 //    h.Password(settings.Password);
                 //});
-                cfg.Host(settings.Uri);
+                var uri = new Uri(settings.Uri.Trim());
+                cfg.Host(uri);
+                cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
+                cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context); 
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });

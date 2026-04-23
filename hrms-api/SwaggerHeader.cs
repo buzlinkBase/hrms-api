@@ -28,16 +28,16 @@ public class SwaggerHeader : IOperationFilter
 
         operation.Parameters ??= new List<OpenApiParameter>();
 
-        operation.Parameters.Add(new OpenApiParameter
-        {
-            Name = "X-Tenant-ID",
-            In = ParameterLocation.Header,
-            Required = true,
-            Schema = new OpenApiSchema
-            {
-                Type = "string",
-                Default = new OpenApiString("08de7dde-6375-4e2b-898a-a51da793ad2a")
-            }
-        });
+        //operation.Parameters.Add(new OpenApiParameter
+        //{
+        //    Name = "X-Tenant-ID",
+        //    In = ParameterLocation.Header,
+        //    Required = true,
+        //    Schema = new OpenApiSchema
+        //    {
+        //        Type = "string",
+        //        Default = new OpenApiString("08de7dde-6375-4e2b-898a-a51da793ad2a")
+        //    }
+        //});
     }
 }

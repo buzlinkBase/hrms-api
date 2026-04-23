@@ -1,5 +1,6 @@
 ﻿using Hrms.Core.Messaging;
 namespace Hrms.adms.Extensions;
+
 public static class RabbitMqConfiguration
 {
     public static void AdmsConfigRabbitMq(this WebApplicationBuilder builder)
@@ -30,9 +31,10 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15; // Trip after 15 failures
                     cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
                 });
+                var rabbitUri = new Uri(settings.Uri.Trim());
+                cfg.Host(rabbitUri);
                 cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                 cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
-                cfg.Host(settings.Uri);
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
             });
