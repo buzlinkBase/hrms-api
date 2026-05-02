@@ -1,24 +1,24 @@
-# Runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 8080
-
-# Build image
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Copy everything from the root of your solution
+# Note the 'hrms-api/' prefix because we are building from the VsCode folder
+COPY ["hrms-api/hrms-api/hrms-api.csproj", "hrms-api/hrms-api/"]
+COPY ["hrms-api/Hrms.Core/Hrms.Core.csproj", "hrms-api/Hrms.Core/"]
+COPY ["hrms-api/hrms.Domain/hrms.Domain.csproj", "hrms-api/hrms.Domain/"]
+COPY ["hrms-api/hrms.Infrastructure/hrms.Infrastructure.csproj", "hrms-api/hrms.Infrastructure/"]
+COPY ["hrms-api/dtr-api/DTR.Core/DTR.Core.csproj", "hrms-api/dtr-api/DTR.Core/"]
+
+# Copy the common library from the sibling folder
+COPY ["tenantstore/TenantStore/Onepunch.Common.Lib/Onepunch.Common.Lib.csproj", "tenantstore/TenantStore/Onepunch.Common.Lib/"]
+
+RUN dotnet restore "hrms-api/hrms-api/hrms-api.csproj"
+
 COPY . .
-
-# Set working directory to the API project folder
-WORKDIR /src/hrms-api
-
-# Restore and publish
-RUN dotnet restore "hrms-api.csproj"
+WORKDIR "/src/hrms-api/hrms-api"
 RUN dotnet publish "hrms-api.csproj" -c Release -o /app/publish
 
-# Final image
-FROM base AS final
+# Final Stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "hrms-api.dll"]
+ENTRYPOINT ["dotnet", "Hrms.Api.dll"]

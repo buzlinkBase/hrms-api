@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:${MYSQL_VERSION}
+    image: mysql:${MYSQL_VERSION:-8.0}
     container_name: mysql
     restart: always
     environment:
@@ -13,46 +13,75 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p${MYSQL_ROOT_PASSWORD} --silent"]
-      interval: 15s
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 60s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - hrmsnet
+    volumes:
+      - redis_data:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - hrmsnet
+    depends_on:
+      - redis
 
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     restart: always
     ports:
-      - "5672:5672"   
-      - "15672:15672"  
+      - "5672:5672"
+      - "15672:15672"
     networks:
       - hrmsnet
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 15s
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 5
 
   api:
+    build:
+      context: ..
+      dockerfile: hrms-api/Dockerfile
     image: jhoncee2018/hrms-api:latest
     container_name: hrms-api
     restart: always
     ports:
-      - "8081:8080"
+      - "8082:8080"
     networks:
       - hrmsnet
     env_file:
-      - .env 
+      - .env
     depends_on:
       mysql:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_started
 
 networks:
   hrmsnet:
@@ -60,3 +89,5 @@ networks:
 
 volumes:
   mysql_data:
+  redis_data:
+  rabbitmq_data:

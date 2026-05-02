@@ -49,7 +49,7 @@ public class HrmsContext : DbContext, IDbContext
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
     }
 
-    #region "Hrms" 
+    #region "dbsets" 
     public DbSet<Company> Companies { get; set; }
     public DbSet<Branch> Branches { get; set; }
     public DbSet<Client> Clients { get; set; }

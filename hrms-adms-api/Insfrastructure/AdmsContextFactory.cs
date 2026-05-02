@@ -6,11 +6,29 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
 {
     public AdmsContext CreateDbContext(string[] args)
     {
+        //// 1. Get the path to Hrms.Api properly
+        string currentDirectory = Directory.GetCurrentDirectory();
+        string basePath = Path.GetFullPath(Path.Combine(currentDirectory, "..", "hrms-adms-api"));
+        if (!Directory.Exists(basePath))
+        {
+            basePath = Path.GetFullPath(Path.Combine(currentDirectory), "hrms-adms-api");
+        }
+
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(basePath)
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.Development.json", optional: true)
+            .Build();
+
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            throw new InvalidOperationException("Could not find 'DefaultConnection'. Check your appsettings.json path.");
+        }
+
         var optionsBuilder = new DbContextOptionsBuilder<AdmsContext>();
-        var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
-        var connectionString = "server=127.0.0.1;port=3316;database=adms;user=oneuser;pwd=Pokemon67584321";
-        optionsBuilder.UseMySql(connectionString, serverVersion);
-        //return new AdmsContext(optionsBuilder.Options, null, null, null);
+        //var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
+        optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
         return new AdmsContext(optionsBuilder.Options);
     }
 }
