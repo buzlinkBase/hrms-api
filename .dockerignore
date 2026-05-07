@@ -1,0 +1,25 @@
+# 1. Ignore the massive UI/Frontend folders
+**/node_modules/
+Buzlink.HR.UI/
+hrms-ui/
+
+# 2. Ignore .NET artifacts (essential for speed)
+**/bin/
+**/obj/
+
+# 3. Ignore IDE and Git metadata
+.git/
+.github/
+.vs/
+.vscode/
+
+# 4. Ignore other projects in the parent folder not needed for this build
+dtr-api/
+hrms-adms-api/
+MigrationHrns/
+hrms.test/
+
+# 5. Local settings
+*.user
+.env
+appsettings.Development.json

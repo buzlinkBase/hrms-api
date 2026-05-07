@@ -91,7 +91,7 @@ public class AdmsController : ControllerBase
         var sn = Request.Query["SN"].ToString();
         var table = Request.Query["table"].ToString();
         var deviceInfo = await _biometricDevice.FindSnAsync(sn, token);
-        if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty) return Ok();
+        if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty) return NotFound();
         _tenantProvider.SetTenantId(deviceInfo.TenantId);
 
         using var reader = new StreamReader(Request.Body);

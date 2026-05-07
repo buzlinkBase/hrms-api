@@ -1,5 +1,4 @@
-﻿using Hrms.adms.Models.Entities;
-
+﻿ 
 namespace Hrms.adms;
 
 public class UserRegistration

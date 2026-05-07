@@ -9,11 +9,14 @@ public class BiometricDeviceService : BaseService<BiometricDevice>
     {
     }
 
-    public async Task<UpdateBiometricDevice> AddAsync(CreateBiometricDevice payload, CancellationToken token)
+    public async Task<UpdateBiometricDevice> AddAsync(CreateBiometricDevice payload,
+        Guid TenantId,
+        CancellationToken token)
     {
         var model = new BiometricDevice
         {
             SN = payload.SN,
+            TenantId=TenantId,
         };
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
