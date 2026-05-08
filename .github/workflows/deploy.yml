@@ -34,7 +34,7 @@ jobs:
         # Keep context at root so Docker can see the tenantstore/ folder
         context: .
         # Point to the Dockerfile inside your subfolder
-        file: ./hrms-api/Dockerfile
+        file: Dockerfile
         push: true
         tags: jhoncee2018/hrms-api:latest
         # This helps with build speed on subsequent runs
