@@ -13,6 +13,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
+        token: ${{ secrets.GH_PAT }}
         # CRITICAL: This pulls the content of your tenantstore submodule
         submodules: recursive
         # If tenantstore is a private repo, you may need a PAT:
