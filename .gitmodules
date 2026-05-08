@@ -1,0 +1,4 @@
+[submodule "tenantstore"]
+	path = tenantstore
+	url = https://github.com/buzlinkBase/TenantStore.git
+	branch = main

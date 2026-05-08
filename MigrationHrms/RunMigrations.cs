@@ -19,7 +19,7 @@ public class MigrationRunner
 
         if (string.IsNullOrEmpty(systemName))
         {
-            Console.WriteLine("⚠️ SYSTEM_NAME env var not found. Skipping migration trigger.");
+            Console.WriteLine("SYSTEM_NAME env var not found. Skipping migration trigger.");
             return;
         }
 

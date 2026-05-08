@@ -16,7 +16,6 @@
 		<PackageReference Include="Serilog.Sinks.Console" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Serilog.Sinks.Seq" />
-		<PackageReference Include="xunit" />
 		<PackageReference Include="xunit.abstractions" />
 		<PackageReference Include="xunit.analyzers">
 			<PrivateAssets>all</PrivateAssets>
@@ -26,6 +25,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="xunit.v3" />
 	</ItemGroup>
 
 	<ItemGroup>

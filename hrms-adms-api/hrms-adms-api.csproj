@@ -67,9 +67,9 @@
 		<PackageReference Include="System.Management" />
 	</ItemGroup>
 	<ItemGroup>
-	  <ProjectReference Include="..\..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
+	  <Folder Include="Middlewares\" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Folder Include="Middlewares\" />
+	  <ProjectReference Include="..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
 	</ItemGroup>
 </Project>

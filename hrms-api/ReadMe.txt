@@ -5,7 +5,7 @@ git submodule add <repository-url> <path/to/folder>
 
 Example based on your project:
 If you wanted to add the tenantstore library as a submodule:
-git submodule add [https://github.com/user/tenantstore.git](https://github.com/user/tenantstore.git) tenantstore
+git submodule add https://github.com/buzlinkBase/TenantStore.git tenantstore
 
 2. After adding it
 When you add a submodule, Git creates a .gitmodules file. You must commit this file and the new folder to your main repo:
