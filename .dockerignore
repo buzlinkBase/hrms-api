@@ -1,25 +1,33 @@
-# 1. Ignore the massive UI/Frontend folders
-**/node_modules/
-Buzlink.HR.UI/
-hrms-ui/
-
-# 2. Ignore .NET artifacts (essential for speed)
-**/bin/
-**/obj/
-
-# 3. Ignore IDE and Git metadata
-.git/
-.github/
-.vs/
-.vscode/
-
-# 4. Ignore other projects in the parent folder not needed for this build
-dtr-api/
-hrms-adms-api/
-MigrationHrns/
-hrms.test/
-
-# 5. Local settings
+# 1. Git and IDE Metadata (The source of your 1.4GB bloat)
+.git
+.github
+.vs
+.vscode
+*.swp
 *.user
+*.suo
+
+# 2. .NET Build Artifacts
+**/bin
+**/obj
+
+# 3. UI/Frontend (If not needed for this API build)
+**/node_modules
+Buzlink.HR.UI
+hrms-ui
+
+# 4. Local Settings
 .env
+.env.*
 appsettings.Development.json
+appsettings.Local.json
+
+# 5. Sibling Projects NOT in Dockerfile
+# (Keep dtr-api, tenantstore, and MigrationHrns)
+hrms.test
+hrms-adms-api
+
+# 6. Docker itself
+.dockerignore
+Dockerfile
+docker-compose*

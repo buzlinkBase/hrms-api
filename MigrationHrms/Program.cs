@@ -12,9 +12,10 @@ builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables(); // GitHub Secrets override appsettings
 builder.rmqConfig();
+
 builder.Services.AddDbContext<TenantContext>(options =>
 {
-    var conn = builder.Configuration.GetConnectionString("CatalogDb");
+    var conn = builder.Configuration.GetConnectionString("TenantStoreConnection");
     options.UseMySql(conn, ServerVersion.AutoDetect(conn));
 });
 IHost host = builder.Build();
