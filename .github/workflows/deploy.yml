@@ -12,6 +12,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        # CRITICAL: This pulls the content of your tenantstore submodule
+        submodules: recursive
+        # If tenantstore is a private repo, you may need a PAT:
+        # token: ${{ secrets.GH_PAT }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -25,9 +30,15 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
+        # Keep context at root so Docker can see the tenantstore/ folder
         context: .
+        # Point to the Dockerfile inside your subfolder
+        file: ./hrms-api/Dockerfile
         push: true
         tags: jhoncee2018/hrms-api:latest
+        # This helps with build speed on subsequent runs
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     - name: SSH into Droplet and deploy
       uses: appleboy/ssh-action@v1.0.0
@@ -36,8 +47,15 @@ jobs:
         username: ${{ secrets.DIGITALOCEAN_DROPLET_USERNAME }}
         key: ${{ secrets.DIGITALOCEAN_SSH_PRIVATE_KEY }}
         script: |
-          cd  hrms-api/
-          echo "Pulling latest image for API..."
-          docker compose down 
-          docker compose pull && docker compose up -d
-         
+          # Navigate to your deployment folder
+          cd hrms-api/
+          
+          echo "Updating images..."
+          docker compose pull
+          
+          echo "Restarting services..."
+          # --force-recreate ensures it uses the newly pulled image
+          docker compose up -d --force-recreate
+          
+          echo "Cleaning up old images..."
+          docker image prune -f
