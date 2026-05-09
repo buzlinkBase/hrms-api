@@ -1,5 +1,5 @@
 services: 
-  api:
+  hrms-api:
     build:
       context: .
       dockerfile: Dockerfile
@@ -8,6 +8,19 @@ services:
     restart: always
     ports:
       - "8082:8080"
+    networks:
+      - hrmsnet
+    env_file:
+      - .env
+  adms-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jhoncee2018/hrms-adms-api:latest
+    container_name: adms-api
+    restart: always
+    ports:
+      - "8086:8080"
     networks:
       - hrmsnet
     env_file:

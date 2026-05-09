@@ -25,7 +25,6 @@ appsettings.Local.json
 # 5. Sibling Projects NOT in Dockerfile
 # (Keep dtr-api, tenantstore, and MigrationHrns)
 hrms.test
-hrms-adms-api
 
 # 6. Docker itself
 .dockerignore
