@@ -26,7 +26,7 @@ public class HrmsContext : DbContext, IDbContext
         if (optionsBuilder.IsConfigured ||  _tenantConnectionInfo == null) return;
 
         var connectionString = _tenantConnectionInfo.ConnectionString
-            ?? _configuration.GetConnectionString("DefaultConnection")
+            ?? _configuration.GetConnectionString("HrmsConnection")
             ?? "";
         if (!string.IsNullOrEmpty(connectionString))
         {

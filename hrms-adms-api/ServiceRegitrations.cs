@@ -105,7 +105,7 @@ public static class ServiceRegistrations
 
         builder.Services.AddDbContext<AdmsContext>(options =>
         {
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            var connectionString = builder.Configuration.GetConnectionString("AdmsConnection");
             options.UseLazyLoadingProxies(true);
             var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
             options.UseMySql(connectionString, serverVersion);

@@ -20,7 +20,7 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
             .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString = configuration.GetConnectionString("AdmsConnection");
         if (string.IsNullOrEmpty(connectionString))
         {
             throw new InvalidOperationException("Could not find 'DefaultConnection'. Check your appsettings.json path.");
