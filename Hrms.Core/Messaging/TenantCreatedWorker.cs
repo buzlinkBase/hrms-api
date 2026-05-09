@@ -2,32 +2,33 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Onepunch.Common.Lib.DbServices;
-using Onepunch.Common.Lib.Exceptions; 
+using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.Core.Messaging;
 
-public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
+//TenantCreatedPayload
+public class TenantCreatedWorker : IConsumer<TenantCreationRequest>
 {
     private readonly IPublishEndpoint _publisher;
-    private readonly IDbService _oceanDbService;
+    private readonly IDbService _dbService;
     private readonly IMigrationService _migrationService;
     private readonly IConfiguration _configuration;
     private readonly IServiceScopeFactory _factory;
     public TenantCreatedWorker(
         IPublishEndpoint publisher,
-        IDbService digitalOceanDbService,
+        IDbService dbService,
         IMigrationService migrationService,
         IConfiguration configuration,
         IServiceScopeFactory factory)
     {
         _publisher = publisher;
-        _oceanDbService = digitalOceanDbService;
+        _dbService = dbService;
         _migrationService = migrationService;
         _configuration = configuration;
         _factory = factory;
     }
 
-    public async Task Consume(ConsumeContext<TenantCreatedPayload> context)
+    public async Task Consume(ConsumeContext<TenantCreationRequest> context)
     {
         var message = context.Message;
         string dbName = $"hrms_{message.TenantId:N}";
@@ -35,7 +36,7 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
         try
         {
             // 1. Get the physical infrastructure ready first
-            var connectionModel = await _oceanDbService.CreateTenantDatabaseAsync(clusterId, dbName);
+            var connectionModel = await _dbService.CreateTenantDatabaseAsync(clusterId, dbName);
             if (connectionModel == null) throw new Exception("Db Service failed to return connection.");
             // 2. Now create the scope to perform application-level work
             using var scope = _factory.CreateScope();
@@ -53,17 +54,17 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             await _publisher.Publish(payload);
             await _publisher.Publish(new SchemaVersionUpdatePayload
             {
-                CurrentVersion="1.0.0",
-                Status="Active",
-                System="HRIS",
-                TenantId=message.TenantId,
+                CurrentVersion = "1.0.0",
+                Status = "Active",
+                System = "HRIS",
+                TenantId = message.TenantId,
             });
             await uow.CommitChangesAsync("", context.CancellationToken);
         }
         catch (DOException ex)
         {
             Log.Logger.Error(ex, "Consumer failed. Starting rollback for Tenant {TenantId}", context.Message.TenantId);
-            var deleted = await _oceanDbService.DeleteTenantDatabaseAsync(clusterId, dbName);
+            var deleted = await _dbService.DeleteTenantDatabaseAsync(clusterId, dbName);
             if (!deleted)
             {
                 // This is a big deal - DB exists but couldn't be deleted
@@ -74,7 +75,7 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
     }
     private ConnectionStringPayload CreatePayload(ConnectionModel model,
         string clusterId,
-        string dbName,  
+        string dbName,
         Guid TenantId)
     {
         return new ConnectionStringPayload
@@ -87,7 +88,7 @@ public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
             SchemaVersion = "1",
             TenantId = TenantId,
             ClusterId = clusterId,
-            DatabaseName= dbName,
+            DatabaseName = dbName,
         };
     }
 }
