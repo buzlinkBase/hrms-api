@@ -53,5 +53,11 @@ namespace Hrms.Api.Controllers
             await _service.DeleteAsync(id, token);
             return Ok();
         }
+
+        [HttpGet("test")]
+        public async Task<IActionResult> Test(Guid id, CancellationToken token)
+        {
+            return Ok("test");
+        }
     }
 }
