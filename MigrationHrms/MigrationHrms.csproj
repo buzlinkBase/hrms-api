@@ -17,21 +17,21 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.Hosting"  />
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
-		<PackageReference Include="MassTransit.RabbitMQ"  />
-		<PackageReference Include="Pomelo.EntityFrameworkCore.MySql"  />
-		<PackageReference Include="Microsoft.EntityFrameworkCore"  />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions"  />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Analyzers"  />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design"  />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Proxies"  />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational"   />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools"  />
+		<PackageReference Include="MassTransit.RabbitMQ" />
+		<PackageReference Include="Pomelo.EntityFrameworkCore.MySql" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Analyzers" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\tenantstore\TenantStore\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
-		<ProjectReference Include="..\tenantstore\TenantStore\TenantStoreApi.Infrastructure\TenantStoreApi.Infrastructure.csproj" />
+	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
+	  <ProjectReference Include="..\tenantstore\Services\TenantApi\TenantStoreApi.Infrastructure\TenantStoreApi.Infrastructure.csproj" />
 	</ItemGroup>
 </Project>

@@ -13,9 +13,9 @@ COPY ["dtr-api/DTR.Core/DTR.Core.csproj", "dtr-api/DTR.Core/"]
 COPY ["MigrationHrms/MigrationHrms.csproj", "MigrationHrms/"]
 
 # 3. Copy submodule .csproj files
-COPY ["tenantstore/TenantStore/Onepunch.Common.Lib/Onepunch.Common.Lib.csproj", "tenantstore/TenantStore/Onepunch.Common.Lib/"]
-COPY ["tenantstore/TenantStore/TenantStoreApi.Infrastructure/TenantStoreApi.Infrastructure.csproj", "tenantstore/TenantStore/TenantStoreApi.Infrastructure/"]
-COPY ["tenantstore/TenantStore/TenantStoreApi.Domain/TenantStoreApi.Domain.csproj", "tenantstore/TenantStore/TenantStoreApi.Domain/"]
+COPY ["tenantstore/Services/Shared/Onepunch.Common.Lib/Onepunch.Common.Lib.csproj", "tenantstore/TenantStore/Onepunch.Common.Lib/"]
+COPY ["tenantstore/Services/TenantApi/TenantStoreApi.Infrastructure/TenantStoreApi.Infrastructure.csproj", "tenantstore/TenantStore/TenantStoreApi.Infrastructure/"]
+COPY ["tenantstore/Services/TenantApi/TenantStoreApi.Domain/TenantStoreApi.Domain.csproj", "tenantstore/TenantStore/TenantStoreApi.Domain/"]
 
 # 4. Restore dependencies
 RUN dotnet restore "hrms-api/hrms-api.csproj"

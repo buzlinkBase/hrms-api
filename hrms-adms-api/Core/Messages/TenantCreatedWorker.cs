@@ -1,7 +1,7 @@
 ﻿namespace Hrms.adms.Core;
-public class TenantCreatedWorker : IConsumer<TenantCreatedPayload>
+public class TenantCreatedWorker : IConsumer<TenantCreationRequest>
 {
-    public async Task Consume(ConsumeContext<TenantCreatedPayload> context)
+    public async Task Consume(ConsumeContext<TenantCreationRequest> context)
     {
     }
 }
