@@ -1,4 +1,6 @@
-﻿namespace Hrms.Api.Providers;
+﻿using Hrms.Api.Extensions;
+
+namespace Hrms.Api.Providers;
 
 public class TenantProviderAccessor : ITenantProvider
 {
@@ -7,7 +9,7 @@ public class TenantProviderAccessor : ITenantProvider
     public TenantProviderAccessor(IHttpContextAccessor httpContextAccessor)
     {
         _httpContextAccessor = httpContextAccessor;
-    } 
+    }
 
     public Guid TenantId
     {
@@ -24,16 +26,11 @@ public class TenantProviderAccessor : ITenantProvider
                 _tenantId = headerId;
                 return _tenantId;
             }
-
             // 2. Fallback: Try to get from JWT Claims
-            // Look for a claim named "tenant-id" (or whatever your claim name is)
-            var claim = context.User?.FindFirst("TenantId")?.Value;
-            if (Guid.TryParse(claim, out var claimId))
-            {
-                _tenantId = claimId;
-                return _tenantId;
-            }
-            return Guid.Empty;
+            var claim = context.User.GetUserId();
+            if (claim == null) return Guid.Empty;
+            _tenantId = claim.Value;
+            return _tenantId;
         }
     }
     public void SetTenantId(Guid tenantId) => _tenantId = tenantId;
