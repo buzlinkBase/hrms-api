@@ -35,7 +35,7 @@ jobs:
         context: .
         # Point to the Dockerfile inside your subfolder
         file: Dockerfile
-        target: hrms-api  
+        target: hrms-service  
         push: true
         tags: jhoncee2018/hrms-api:latest
         # This helps with build speed on subsequent runs
@@ -47,7 +47,7 @@ jobs:
       with:
         context: .
         file: Dockerfile
-        target: adms-api
+        target: adms-service
         push: true
         tags: jhoncee2018/hrms-adms-api:latest
         cache-from: type=gha
