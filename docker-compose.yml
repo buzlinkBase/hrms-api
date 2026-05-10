@@ -13,6 +13,11 @@ services:
       - hrmsnet
     env_file:
       - .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started          
   adms-api:
     build:
       context: .
@@ -26,8 +31,7 @@ services:
     networks:
       - hrmsnet
     env_file:
-      - .env
- 
-networks:
-  hrmsnet:
-    driver: bridge
+      - .env 
+    depends_on:
+      mysql:
+        condition: service_healthy
