@@ -28,18 +28,31 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push Docker image
+    - name: Build and push hrms-api
       uses: docker/build-push-action@v4
       with:
         # Keep context at root so Docker can see the tenantstore/ folder
         context: .
         # Point to the Dockerfile inside your subfolder
         file: Dockerfile
+        target: hrms-api  
         push: true
         tags: jhoncee2018/hrms-api:latest
         # This helps with build speed on subsequent runs
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: Build and push adms-api
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: Dockerfile
+        target: adms-api
+        push: true
+        tags: jhoncee2018/hrms-adms-api:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
 
     - name: SSH into Droplet and deploy
       uses: appleboy/ssh-action@v1.0.0

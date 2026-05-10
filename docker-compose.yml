@@ -2,6 +2,7 @@ services:
   hrms-api:
     build:
       context: .
+      target: hrms-api
       dockerfile: Dockerfile
     image: jhoncee2018/hrms-api:latest
     container_name: hrms-api
@@ -15,6 +16,7 @@ services:
   adms-api:
     build:
       context: .
+      target: adms-api  
       dockerfile: Dockerfile
     image: jhoncee2018/hrms-adms-api:latest
     container_name: adms-api
