@@ -21,6 +21,7 @@ public class DeductionTypeService : BaseService<DeductionType>
     public async Task AddOrUpdateAsync(DeductionType model, CancellationToken token)
     {
         await CreateOrUpdateAsync(model, token);
+        await CommitChangesAsync(token);
     }
     public async Task<List<DeductionType>> FindAllAsync(CancellationToken token)
     {

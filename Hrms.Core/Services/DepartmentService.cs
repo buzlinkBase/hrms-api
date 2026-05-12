@@ -5,7 +5,7 @@ namespace Hrms.Core.Services;
 
 public class DepartmentService : BaseService<Department>
 {
-    public DepartmentService(IUnitOfWorkService service) : base(service)
+    public DepartmentService(IUnitOfWorkService service ) : base(service)
     {
     }
 
@@ -32,6 +32,7 @@ public class DepartmentService : BaseService<Department>
     public async Task AddAsync(Department model, CancellationToken token)
     {
         await CreateAsync(model, token);
+        await CommitChangesAsync();
     }
     public async Task UpdateAsync(Department model, CancellationToken token)
     {
@@ -41,6 +42,7 @@ public class DepartmentService : BaseService<Department>
     public async Task AddOrUpdateAsync(Department model, CancellationToken token)
     {
         await CreateOrUpdateAsync(model, token);
+        await CommitChangesAsync();
     }
     public async Task<List<Department>> FindAllAsync(CancellationToken token)
     {
@@ -53,7 +55,7 @@ public class DepartmentService : BaseService<Department>
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
-        await CommitChangesAsync(token); 
+        await CommitChangesAsync(token);
     }
 }
 

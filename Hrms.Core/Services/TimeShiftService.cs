@@ -33,6 +33,7 @@ public class TimeShiftService : BaseService<TimeShift>
     public async Task AddRangeAsync(List<TimeShift> models , CancellationToken token)
     {
         await CreateRangeAsync(models, token);
+
     }
 
     public async Task<TimeShiftModel> UpdateAsync(Guid id, UpdateTimeShift payload,

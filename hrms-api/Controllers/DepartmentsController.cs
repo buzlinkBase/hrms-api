@@ -10,7 +10,6 @@ namespace Hrms.Api.Controllers
     public class DepartmentsController : ControllerBase
     {
         private readonly DepartmentService _service;
-        private readonly BranchService _branchService;
         private readonly IMapper _mapper;
 
         public DepartmentsController(DepartmentService service,
@@ -18,8 +17,16 @@ namespace Hrms.Api.Controllers
             IMapper mapper)
         {
             _service = service;
-            _branchService = branchService;
             _mapper = mapper;
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Post([FromBody] CreateDepartment payload, CancellationToken token)
+        {
+            var data = _mapper.Map<Department>(payload);
+            await _service.AddAsync(data, token);
+            var respModel = _mapper.Map<DepartmentModel>(data);
+            return Ok(respModel);
         }
 
         [HttpGet]
@@ -35,15 +42,7 @@ namespace Hrms.Api.Controllers
             var data = await _service.FineOneAsync(id, token);
             return Ok(_mapper.Map<DepartmentModel>(data));
         }
-
-        [HttpPost]
-        public async Task<IActionResult> Post([FromBody] CreateDepartment payload, CancellationToken token)
-        {
-            var data = _mapper.Map<Department>(payload);
-            await _service.AddAsync(data, token);
-            var respModel = _mapper.Map<DepartmentModel>(data);
-            return Ok(respModel);
-        }
+     
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateDepartment payload, CancellationToken token)

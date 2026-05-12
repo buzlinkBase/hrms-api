@@ -10,10 +10,12 @@ public class UnderTimeApplicationService : BaseService<UnderTimeApplication>
     public async Task AddAsync(UnderTimeApplication model, CancellationToken token)
     {
         await CreateAsync(model, token);
+        await CommitChangesAsync(token);
     }
     public async Task UpdateAsync(UnderTimeApplication model, CancellationToken token)
     {
         await ModifyAsync(model, token);
+        await CommitChangesAsync(token);
     }
     public async Task<List<UnderTimeApplication>> FindAllAsync(CancellationToken token)
     {
@@ -26,6 +28,7 @@ public class UnderTimeApplicationService : BaseService<UnderTimeApplication>
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
+        await CommitChangesAsync(token);
     }
 
     public async Task<Dictionary<UTKey, UnderTimeApplication?>> FindByDateRangeAsync(DateOnly from, DateOnly to,

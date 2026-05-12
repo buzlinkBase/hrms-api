@@ -18,14 +18,17 @@ public class SSSContributionService : BaseService<SSSContribution>
     public async Task AddAsync(SSSContribution model, CancellationToken token)
     {
         await CreateAsync(model, token);
+        await CommitChangesAsync(token);
     }
     public async Task UpdateAsync(SSSContribution model, CancellationToken token)
     {
         await ModifyAsync(model, token);
+        await CommitChangesAsync(token);
     }
     public async Task AddOrUpdateAsync(SSSContribution model, CancellationToken token)
     {
         await CreateOrUpdateAsync(model, token);
+        await CommitChangesAsync(token);
     }
 
     public async Task<Dictionary<EmployeeKey, List<SSSContributionModel>>> LoadContributionsAsync(DateOnly fromDate, DateOnly toDate,

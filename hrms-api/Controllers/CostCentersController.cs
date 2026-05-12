@@ -19,6 +19,16 @@ namespace Hrms.Api.Controllers
             _mapper = mapper;
         }
 
+
+        [HttpPost]
+        public async Task<IActionResult> Post([FromBody] CreateArea payload, CancellationToken token)
+        {
+            var data = _mapper.Map<CostCenters>(payload);
+            await _service.AddAsync(data, token);
+            var respModel = _mapper.Map<AreaModel>(data);
+            return Ok(respModel);
+        }
+
         [HttpGet]
         public async Task<IActionResult> Get()
         {
@@ -33,14 +43,6 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<AreaModel>(data));
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Post([FromBody] CreateArea payload, CancellationToken token)
-        {
-            var data = _mapper.Map<CostCenters>(payload);
-            await _service.AddAsync(data, token);
-            var respModel = _mapper.Map<AreaModel>(data);
-            return Ok(respModel);
-        }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateArea payload, CancellationToken token)

@@ -18,15 +18,14 @@ public class PHICContributionService : BaseService<PHICContribution>
     public async Task AddAsync(PHICContribution model,CancellationToken token)
     {
         await CreateAsync(model,token);
+        await CommitChangesAsync(token);
     }
     public async Task UpdateAsync(PHICContribution model, CancellationToken token)
     {
         await ModifyAsync(model, token);
+        await CommitChangesAsync(token);
     }
-    public async Task AddOrUpdateAsync(PHICContribution model, CancellationToken token)
-    {
-        await CreateOrUpdateAsync(model, token);
-    }
+    
 
     public async Task<Dictionary<EmployeeKey, List<PHICContributionModel>>> LoadContributionsAsync(DateOnly fromDate, DateOnly toDate,
         CancellationToken token)

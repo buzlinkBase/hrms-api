@@ -28,6 +28,7 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
         await RemoveRangeAsync(existing, token);
         await SaveChangesAsync(token);
         await AddNewDayOffAsync(changeOffs, token);
+        await CommitChangesAsync(token);
     }
     private async Task AddNewDayOffAsync(ChangeOffModel changeOff, CancellationToken token)
     {
@@ -54,8 +55,6 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
             await _uow.Repository.AddAsync(entity2, token);
         }
     }
-     
-
     public async  Task<Dictionary<ResDaykey, List<ChangeRestDay>>> GetChangeRestDays(DateOnly fromDate,
         DateOnly toDate,
         HashSet<Guid> empIds, 

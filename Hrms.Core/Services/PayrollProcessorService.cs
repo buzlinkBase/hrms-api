@@ -1,4 +1,7 @@
-﻿namespace Hrms.Core.Services;
+﻿using Hrms.Core.Calculators;
+using Hrms.Core.Calculators.Payloads;
+
+namespace Hrms.Core.Services;
 
 public class PayrollProcessorService
 {

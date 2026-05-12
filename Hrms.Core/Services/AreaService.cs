@@ -18,10 +18,7 @@ public class AreaService : BaseService<CostCenters>
         await CommitChangesAsync(token);
 
     }
-    public async Task AddOrUpdateAsync(CostCenters model, CancellationToken token)
-    {
-        await CreateOrUpdateAsync(model, token);
-    }
+
     public async Task<List<CostCenters>> FindAllAsync()
     {
         return await GetQueryable().ToListAsync();

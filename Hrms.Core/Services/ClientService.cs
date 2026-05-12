@@ -37,6 +37,7 @@ public class ClientService : BaseService<Client>
     public async Task AddOrUpdateAsync(Client model, CancellationToken token)
     {
         await CreateOrUpdateAsync(model, token);
+        await CommitChangesAsync(token);
     }
     public async Task<List<Client>> FindAllAsync(CancellationToken token)
     {

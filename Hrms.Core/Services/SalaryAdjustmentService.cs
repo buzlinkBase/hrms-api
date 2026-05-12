@@ -18,10 +18,7 @@ public class SalaryAdjustmentService : BaseService<SalaryAdjustment>
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task AddOrUpdateAsync(SalaryAdjustment model, CancellationToken token)
-    {
-        await CreateOrUpdateAsync(model, token);
-    }
+  
     public async Task<List<SalaryAdjustment>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable().ToListAsync(token);

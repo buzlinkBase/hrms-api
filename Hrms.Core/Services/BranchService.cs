@@ -6,11 +6,8 @@ namespace Hrms.Core.Services;
 
 public class BranchService : BaseService<Branch>
 {
-    private readonly ITenantProvider _tenantProvider;
     private readonly IMapper _mapper;
-
-    public BranchService(IUnitOfWorkService uow,
-        IMapper mapper) : base(uow)
+    public BranchService(IUnitOfWorkService uow,IMapper mapper ) : base(uow)
     {
         _mapper = mapper;
     }
@@ -39,13 +36,22 @@ public class BranchService : BaseService<Branch>
         var branch = _mapper.Map<Branch>(model);
         GenerateCode(branch);
         await CreateAsync(branch, token);
+        await CommitChangesAsync(token); 
     }
 
- 
+    public async Task UpdateAsync(UpdateBranch model, CancellationToken token = default) 
+    {
+        var branch = _mapper.Map<Branch>(model);
+        GenerateCode(branch);
+        await ModifyAsync(branch, token);
+        await CommitChangesAsync(token);
+    }
+
     public async Task AddOrUpdateAsync(UpdateBranch model, CancellationToken token = default)
     {
         var branch = _mapper.Map<Branch>(model);
         await CreateOrUpdateAsync(branch, token);
+        await CommitChangesAsync(token);
     }
 
     public async Task<List<Branch>> FindAllAsync(Guid tenantId, CancellationToken token = default)

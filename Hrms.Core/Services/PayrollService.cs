@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Core.Specs;
+using Hrms.Domain.Entities;
 namespace Hrms.Core.Services;
 
 public class PayrollService : BaseService<Payroll>
