@@ -32,13 +32,19 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}"
         };
 
-        if (env.IsDevelopment())
-        {
+        //if (env.IsDevelopment())
+        //{
             errorDetail.Extensions.Add("stackTrace", exception.StackTrace);
             if (exception.InnerException != null)
             {
                 errorDetail.Extensions.Add("innerException", exception.InnerException.Message);
             }
+        //}
+
+        errorDetail.Extensions.Add("stackTrace", exception.StackTrace);
+        if (exception.InnerException != null)
+        {
+            errorDetail.Extensions.Add("innerException", exception.InnerException.Message);
         }
 
         // 2. Wrap it in your standard ResponseModel
