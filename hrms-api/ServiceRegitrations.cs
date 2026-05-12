@@ -221,7 +221,7 @@ public static class SkyDbServiceRegistrationExtensions
 {
     public static void RegisterSky(this WebApplicationBuilder builder) 
     {
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+        var connectionString = builder.Configuration.GetConnectionString("HrmsConnection")!;
         builder.Services.AddScoped<IDbService >(sp=>new SkySqlDbService(connectionString));
     }
 }
