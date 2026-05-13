@@ -13,6 +13,10 @@ internal class Program
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
         builder.Host.UseSerilog();
+
+        Log.Information("adms api log");
+        Serilog.Debugging.SelfLog.Enable(Console.Error);
+
         builder.Services.AddPollyPolicies();
         builder.AdmsConfigRabbitMq();
         builder.RegisterSelfServices();
@@ -36,6 +40,7 @@ internal class Program
         app.UseCors("AllowAll");
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseSerilogRequestLogging();
         app.UseHeaderPropagation();
         app.MapControllers();
         //app.Use(async (context, next) =>

@@ -32,7 +32,7 @@ public class DepartmentService : BaseService<Department>
     public async Task AddAsync(Department model, CancellationToken token)
     {
         await CreateAsync(model, token);
-        await CommitChangesAsync();
+        await CommitChangesAsync(token);
     }
     public async Task UpdateAsync(Department model, CancellationToken token)
     {

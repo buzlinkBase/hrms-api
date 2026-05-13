@@ -18,6 +18,9 @@ internal class Program
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
         builder.Host.UseSerilog();
+
+        Log.Information("hrms api");
+        Serilog.Debugging.SelfLog.Enable(Console.Error);
         //builder.Services.Configure<ApiBehaviorOptions>(options =>
         //{
         //    // Stops the default framework behavior of returning a 400 immediately
@@ -55,13 +58,13 @@ internal class Program
 
         app.UseStatusCodePages();
         app.UseExceptionHandler();
+        app.UseSerilogRequestLogging();
         app.UseRouting();
         app.UseCors("AllowAll");
         //app.UseMiddleware<ApiKeyMiddleware>();
         //app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseSerilogRequestLogging();
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();

@@ -12,7 +12,7 @@ public class AdmsContext : DbContext
     }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
+        //modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
         modelBuilder.UseDateFilter();
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
