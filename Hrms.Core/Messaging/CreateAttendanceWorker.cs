@@ -66,7 +66,7 @@ public class AttEmployeeSetter
                 DepartmentId = att.DepartmentId ?? employee?.DepartmentId,
                 ClientId = att.ClientId ?? employee?.ClientId,
                 DeviceName = att.DeviceName,
-                Coordinates = att.Coordinates,
+                Boundary = att.Coordinates,
                 LogSource = logSource,
             };
             atts.Add(attendance);

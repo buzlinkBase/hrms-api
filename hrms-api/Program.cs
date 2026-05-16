@@ -2,7 +2,6 @@
 using Hrms.adms.Middlewares;
 using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
-using Hrms.Api.Middlewares;
 using Hrms.Core.Extensions;
 using Mapster;
 using Serilog;

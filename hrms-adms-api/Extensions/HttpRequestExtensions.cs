@@ -22,24 +22,35 @@ public static class HttpRequestExtensions
         }
         return null;
     }
+
     public static Guid? GetUserId(this ClaimsPrincipal user)
     {
         if (user == null) throw new ArgumentNullException(nameof(user));
         var value = user.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(value, out Guid guid) ? guid : null;
     }
+
     public static Guid GetRequiredUserId(this ClaimsPrincipal user)
     {
         if (user == null) throw new ArgumentNullException(nameof(user));
         return user.GetUserId()
                ?? throw new UnauthorizedAccessException("User ID claim is missing or invalid.");
     }
+
     public static string? GetUserClaim(this ClaimsPrincipal user, string claim)
     {
         if (user == null) throw new ArgumentNullException(nameof(user));
-        if (string.IsNullOrWhiteSpace(claim)) throw new ArgumentException("Claim type must be provided.", nameof(claim));
-
+        if (string.IsNullOrWhiteSpace(claim))
+        {
+            Log.Logger.Error("TenantId is not found in the token user:{0} claim:{1}", user, claim);
+            throw new ArgumentException("Claim type must be provided.", nameof(claim));
+        }
         return user.FindFirstValue(claim);
     }
 
+    public static string? GetUserClaim(this HttpContext context, string claim) 
+    {
+        var user = context.User;
+        return GetUserClaim(user, claim);
+    }
 }

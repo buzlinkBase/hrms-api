@@ -43,7 +43,7 @@ public class TenantCreatedWorker : IConsumer<TenantCreationRequest>
 
             // 3. Hydrate the scoped state BEFORE resolving the DB Context
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWorkService>();
-            var tenantInfo = scope.ServiceProvider.GetRequiredService<TenantConnectionInfo>();
+            var tenantInfo = scope.ServiceProvider.GetRequiredService<TenantConnectionStringInfo>();
             var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
             tenantInfo.TenantId = message.TenantId;
             tenantInfo.ConnectionString = connectionModel.ConnectionString;

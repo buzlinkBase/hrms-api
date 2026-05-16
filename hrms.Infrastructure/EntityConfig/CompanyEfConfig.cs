@@ -18,9 +18,9 @@ internal class BranchEfConfig : IEntityTypeConfiguration<Branch>
 {
     public void Configure(EntityTypeBuilder<Branch> builder)
     {
-        builder.Property(e => e.Coordinates)
-       .HasColumnType("POINT")
-       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
+        builder.Property(e => e.Boundary)
+       .HasColumnType("geometry")
+       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326); 
 
     }
 }
@@ -29,9 +29,9 @@ internal class AreaConfig : IEntityTypeConfiguration<CostCenters>
 {
     public void Configure(EntityTypeBuilder<CostCenters> builder)
     {
-        builder.Property(e => e.Coordinates)
-       .HasColumnType("POINT")
-       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
+        builder.Property(e => e.Boundary)
+      .HasColumnType("geometry")
+      .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
 
     }
 }
@@ -40,8 +40,8 @@ internal class AttendanceConfig : IEntityTypeConfiguration<Attendance>
 {
     public void Configure(EntityTypeBuilder<Attendance> builder)
     {
-        builder.Property(e => e.Coordinates)
-       .HasColumnType("POINT")
-       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
+        builder.Property(e => e.Boundary)
+      .HasColumnType("geometry")
+      .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
     }
 }

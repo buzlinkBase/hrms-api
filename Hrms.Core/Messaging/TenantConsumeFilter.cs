@@ -1,5 +1,5 @@
 ﻿using MassTransit;
-using Microsoft.Extensions.DependencyInjection;
+using Onepunch.Common.Lib.Cache;
 
 namespace Hrms.Core.Messaging;
 
@@ -8,14 +8,12 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
 {
     private readonly ICacheService _cacheService;
     private readonly ITenantProvider _tenantProvider;
-    private readonly TenantConnectionInfo _connectionInfo;
+    private readonly TenantConnectionStringInfo _connectionInfo;
     private readonly IConnectionClient _connectionClient;
-
-    // MassTransit filters registered in the DI container resolve dependencies automatically
     public TenantConsumeFilter(
         ICacheService cacheService,
         ITenantProvider tenantProvider,
-        TenantConnectionInfo connectionInfo,
+        TenantConnectionStringInfo connectionInfo,
         IConnectionClient connectionClient)
     {
         _cacheService = cacheService;
@@ -45,7 +43,6 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
         // 3. Resolve Connection String
         var key = $"connection:{tid}";
         var cachedConnectionString = await _cacheService.GetAsync<string>(key);
-
         if (!string.IsNullOrWhiteSpace(cachedConnectionString))
         {
             _connectionInfo.ConnectionString = cachedConnectionString;
@@ -53,19 +50,16 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
         else
         {
             var response = await _connectionClient.FindConnectionAsync(tid, "hrms");
-
-            // Check for success based on your logic (adjusting to common Data-Success patterns)
             if (response?.Data != null && response.Data.Success)
             {
                 _connectionInfo.ConnectionString = response.Data.ConnectionString;
-                await _cacheService.SetAsync(key, _connectionInfo.ConnectionString, TimeSpan.FromHours(1));
+                await _cacheService.SetAsync(key, _connectionInfo.ConnectionString, TimeSpan.FromDays(7));
             }
             else
             {
                 throw new Exception($"Operational DB for Tenant {tid} not found.");
             }
         }
-
         await next.Send(context);
     }
 

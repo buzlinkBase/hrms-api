@@ -16,7 +16,7 @@ public class BiometricDeviceService : BaseService<BiometricDevice>
         var model = new BiometricDevice
         {
             SN = payload.SN,
-            TenantId=TenantId,
+            TenantId = TenantId,
         };
         await CreateAsync(model, token);
         await CommitChangesAsync(token);

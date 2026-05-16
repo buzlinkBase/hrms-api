@@ -9,12 +9,12 @@ namespace Hrms.Infrastructure;
 
 public class HrmsContext : DbContext, IDbContext
 {
-    private readonly TenantConnectionInfo _tenantConnectionInfo;
+    private readonly TenantConnectionStringInfo _tenantConnectionInfo;
     private readonly IConfiguration _configuration;
 
     public HrmsContext(
          DbContextOptions<HrmsContext> options,
-         TenantConnectionInfo tenantConnectionInfo,
+         TenantConnectionStringInfo tenantConnectionInfo,
          IConfiguration configuration) : base(options)
     {
         _tenantConnectionInfo = tenantConnectionInfo;
@@ -23,20 +23,19 @@ public class HrmsContext : DbContext, IDbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        if (optionsBuilder.IsConfigured ||  _tenantConnectionInfo == null) return;
-
-        var connectionString = _tenantConnectionInfo.ConnectionString
-            ?? _configuration.GetConnectionString("HrmsConnection")
-            ?? "";
+        var connectionString = _configuration.GetConnectionString("HrmsConnection");
+        if (_tenantConnectionInfo.ConnectionString != null)
+        {
+            connectionString = _tenantConnectionInfo.ConnectionString;
+        }
         if (!string.IsNullOrEmpty(connectionString))
         {
-            //var serverVersion = new MySqlServerVersion(new Version(11, 8, 5));
-            optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString), x => x.UseNetTopologySuite());
+            var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
+            optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
             optionsBuilder.UseLazyLoadingProxies(true);
             optionsBuilder.AddInterceptors(new SoftDeleteInterceptor());
             optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
         }
-        base.OnConfiguring(optionsBuilder);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

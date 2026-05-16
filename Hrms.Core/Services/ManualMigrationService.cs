@@ -1,19 +1,19 @@
-﻿using MassTransit;
+﻿using Hrms.Domain.Entities;
+using MassTransit;
 namespace Hrms.Core.Services;
-public class ManualMigrationService  
+
+public class ManualMigrationService : BaseService<Attendance>
 {
-    private readonly IUnitOfWorkService _uow;
-    private readonly IPublishEndpoint _publisher; 
+    private readonly IPublishEndpoint _publisher;
     public ManualMigrationService(
         IUnitOfWorkService uow,
-        IPublishEndpoint publisher )
+        IPublishEndpoint publisher) : base(uow)
     {
-        _uow = uow;
         _publisher = publisher;
     }
     public async Task Migrate(MigrateTenantDb migrate)
     {
         await _publisher.Publish(migrate);
-        _uow.CommitChanges("");
+        await CommitChangesAsync();
     }
 }

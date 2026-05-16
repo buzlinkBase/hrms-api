@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
+using Onepunch.Common.Lib.Cache;
 
 namespace Hrms.Api.Controllers
 {

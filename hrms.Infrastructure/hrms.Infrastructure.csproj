@@ -14,6 +14,9 @@
       <None Remove="db\migrations\**\*.sql" />
     </ItemGroup>
     <ItemGroup>
+      <None Include="db\migrations\V2_0_0__changetopolygon.sql" />
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="BuzlinkRepository" />
         <PackageReference Include="Evolve" />
 		<PackageReference Include="MassTransit.EntityFrameworkCore" />

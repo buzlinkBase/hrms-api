@@ -12,7 +12,7 @@ public class BranchValidator : AbstractValidator<Branch>
         RuleFor(x => x.Name).NotEmpty().WithMessage("Branch name is required.");
 
         RuleFor(x => x.Code)
-            .Must(x => uow.Repository.Find<Branch>(xx => xx.Code == x && tenantProvider.TenantId == xx.TenantId).Any())
+            .Must(x => uow.Repository.Find<Branch>(xx => xx.Code == x).Any())
             .WithMessage("Code is already exists");
 
     }

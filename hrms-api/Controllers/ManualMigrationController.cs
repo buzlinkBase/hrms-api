@@ -20,15 +20,20 @@ namespace Hrms.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Get([FromBody] MigrationPayload payload, CancellationToken token)
         {
-            var tenantId = User.GetRequiredUserId();
-            await _service.Migrate(new MigrateTenantDb
+            Guid.TryParse(User.GetUserClaim("TenantId"), out Guid tenantId);
+            if (tenantId == Guid.Empty)
             {
-                CurrentVersion = "",
-                TargetVersion = "",
+                return Unauthorized("Invalid token");
+            }
+            var migrationPayload = new MigrateTenantDb
+            {
+                CurrentVersion = payload.CurrentVersion,
+                TargetVersion = payload.TargetVersion,
                 System = "HRIS",
                 TenantId = tenantId
-            });
-            return Ok();
+            };
+            await _service.Migrate(migrationPayload);
+            return NoContent();
         }
     }
 }

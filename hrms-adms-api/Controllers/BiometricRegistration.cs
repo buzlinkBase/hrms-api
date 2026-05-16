@@ -21,10 +21,9 @@ namespace Hrms.adms.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] CreateBiometricDevice payload, CancellationToken token)
         {
-            var tokenx = HttpContext.Request.GetAuthorizationToken();
-            var user = HttpContext.User.GetRequiredUserId();
-            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString() ?? Guid.Empty.ToString(); 
-            var data = await _service.AddAsync(payload,Guid.Parse(tenantId), token);
+            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString() 
+                ?? Guid.Empty.ToString();
+            var data = await _service.AddAsync(payload, Guid.Parse(tenantId), token);
             return Ok(data);
         }
 

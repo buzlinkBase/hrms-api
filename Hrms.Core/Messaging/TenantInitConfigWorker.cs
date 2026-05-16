@@ -5,12 +5,12 @@ namespace Hrms.Core.Messaging;
 
 public class TenantInitConfigWorker : IConsumer<TenantSetInitData>
 {
-    private readonly TenantConnectionInfo _tenantConnectionInfo;
+    private readonly TenantConnectionStringInfo _tenantConnectionInfo;
     private readonly ITenantProvider _tenantProvider;
     private readonly AccountInitService _accountInitService;
     private readonly IServiceScopeFactory _factory;
     public TenantInitConfigWorker(
-        TenantConnectionInfo tenantConnectionInfo,
+        TenantConnectionStringInfo tenantConnectionInfo,
         ITenantProvider tenantProvider,
         AccountInitService accountInitService,
         IServiceScopeFactory factory)

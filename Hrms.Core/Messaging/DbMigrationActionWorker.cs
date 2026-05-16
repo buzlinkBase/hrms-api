@@ -1,18 +1,16 @@
 ﻿using MassTransit;
-using Onepunch.Common.Lib.DbServices;
 
 namespace Hrms.Core.Messaging;
 
 public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>
 {
-    private readonly TenantConnectionInfo _connectionInfo;
+    private readonly TenantConnectionStringInfo _connectionInfo;
     private readonly IPublishEndpoint _publisher;
     private readonly IMigrationService _migrationService;
 
     public DbMigrationActionWorker(
-        TenantConnectionInfo connectionInfo,
+        TenantConnectionStringInfo connectionInfo,
         IPublishEndpoint publisher,
-        IDbService digitalOceanDbService,
         IMigrationService migrationService)
     {
         _connectionInfo = connectionInfo;

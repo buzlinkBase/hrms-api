@@ -15,18 +15,14 @@ public static class RabbitMqConfiguration
 
         builder.Services.AddMassTransit(x =>
         {
-            //x.AddConsumer<BranchWorker, BranchCreatedConsumerDefinition>();
             x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
             x.AddConsumer<TenantCreatedWorker, TenantCreatedDefinition>();
-            x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
             x.AddConsumer<TenantInitConfigWorker, TenantInitDataWorkerDefination>();
+            x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
-                o.UseBusOutbox();
-                //o.QueryDelay = TimeSpan.FromSeconds(5);
-                //o.DisableInboxCleanupService();
-                //o.EnableInboxCleanupService(); 
+                //o.UseBusOutbox();
             });
             x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
             x.UsingRabbitMq((context, cfg) =>
@@ -41,29 +37,16 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15; // Trip after 15 failures
                     cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
                 });
-                //cfg.Host(settings.Host, settings.VirtualHost, h =>
-                //{
-                //    h.Username(settings.Username);
-                //    h.Password(settings.Password);
-                //});
-                var uri = new Uri(settings.Uri.Trim());
-                cfg.Host(uri);
                 cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
-                cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context); 
+                cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
+                cfg.Host(settings.Uri);
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
+
             });
         });
     }
 }
-
-//public class BranchCreatedConsumerDefinition : ConsumerDefinition<BranchWorker>
-//{
-//    public BranchCreatedConsumerDefinition()
-//    {
-//        EndpointName = "hrms-branch-created-que";
-//    }
-//}
 public class AttendanceConsumerDefinition : ConsumerDefinition<CreateAttendanceWorker>
 {
     public AttendanceConsumerDefinition()

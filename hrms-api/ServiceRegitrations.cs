@@ -11,7 +11,10 @@ using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.DbServices;
 using Onepunch.Common.Lib.Interfaces;
 using Polly;
@@ -31,7 +34,7 @@ public static class ServiceRegistrationsExt
         builder.Services.AddLogging();
         builder.Services.AddHttpContextAccessor();
         builder.RegisterSky();//db services
-        builder.Services.AddScoped<TenantConnectionInfo>();
+        builder.Services.AddScoped<TenantConnectionStringInfo>();
         builder.Services.AddScoped<ITenantProvider, TenantProviderAccessor>();
         builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
         builder.Services.AddScoped<IHMACService, HMACService>();
@@ -60,21 +63,18 @@ public static class ServiceRegistrationsExt
         });
 
         var mpackOptions = MessagePackSerializerOptions.Standard
-         .WithResolver(CompositeResolver.Create(
-             OneMessagePackResolver.Instance,
-             MessagePack.Resolvers.NativeDateTimeResolver.Instance,
-             MessagePack.Resolvers.ContractlessStandardResolver.Instance
-         ))
-         .WithCompression(MessagePackCompression.Lz4BlockArray)
-         ;
+                .WithResolver(CompositeResolver.Create(
+                    OneMessagePackResolver.Instance, // Your generated resolver
+                    MessagePack.Resolvers.NativeDateTimeResolver.Instance,
+                    MessagePack.Resolvers.ContractlessStandardResolver.Instance
+                ))
+                .WithCompression(MessagePackCompression.Lz4BlockArray);
 
-         MessagePackSerializer.DefaultOptions = mpackOptions;
+        MessagePackSerializer.DefaultOptions = mpackOptions;
 
         builder.Services.AddControllers(options =>
         {
             options.Filters.Add<ResponseWrapperFilter>();
-            var mpackOptions = ContractlessStandardResolver.Options
-                .WithCompression(MessagePackCompression.Lz4BlockArray);
             options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
             options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
         }).AddJsonOptions(options =>
