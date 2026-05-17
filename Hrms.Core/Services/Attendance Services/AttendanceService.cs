@@ -11,31 +11,34 @@ public class AttendanceService : BaseService<Attendance>
     {
         await CreateAsync(model, token);
     }
-
     public async Task AddRangeAsync(List<Attendance> attendances, CancellationToken token = default)
     {
-        if (!attendances.Any()) return;
-        var recordKeys = attendances
-             .Select(x => new { x.BioId, x.WorkDateTime })
-             .Distinct()
+        if (attendances == null || !attendances.Any())
+        {
+            return;
+        }
+
+        var uniqueRecordKeys = attendances
+             .GroupBy(x => new { x.BioId, x.WorkDateTime })
+             .Select(group => group.Key)
              .ToList();
+        foreach (var key in uniqueRecordKeys)
+        {
+            await  GetQueryable()
+                .Where(x => x.BioId == key.BioId && x.WorkDateTime == key.WorkDateTime)
+                .ExecuteDeleteAsync(token);
+        }
 
-        var bioIds = recordKeys.Select(k => k.BioId).Distinct().ToList();
-        var workDates = recordKeys.Select(k => k.WorkDateTime).Distinct().ToList();
-
-        var allExisting = _uow.Repository
-            .Find<Attendance>(x =>
-                bioIds.Contains(x.BioId) &&
-                workDates.Contains(x.WorkDateTime));
-
-        await allExisting.ExecuteDeleteAsync();
+        // 4. Prepare the incoming records for clean insertions
         foreach (var attendance in attendances)
         {
+            // Resetting the ID allows the database to generate a fresh, non-conflicting primary key
             attendance.Id = Guid.Empty;
-            //attendance.UserId =   _currentUser.Id;
-            attendance.UserName = "";
+            attendance.UserName = string.Empty;
+            //attendance.UserId = _currentUser.Id;
         }
-        await base.CreateRangeAsync(attendances, token);
+        await CreateRangeAsync(attendances, token);
+
     }
     public async Task AddRange(List<Attendance> models, CancellationToken token)
     {

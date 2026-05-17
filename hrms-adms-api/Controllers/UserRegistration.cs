@@ -1,4 +1,6 @@
-﻿ 
+﻿
+using Hrms.adms.Models.DTO;
+
 namespace Hrms.adms;
 
 public class UserRegistration
@@ -10,4 +12,4 @@ public class UserRegistration
     public string Card { get; set; } = string.Empty;
 }
 
-public record BioPayload(string SN, string RawData, BiometricDevice DeviceInfo);
+public record BioPayload(string SN, string RawData, ZkDeviceModel Info);

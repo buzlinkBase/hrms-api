@@ -1,4 +1,7 @@
-﻿namespace Hrms.adms.Controllers.Processors;
+﻿using Hrms.adms.Core.Services;
+using Hrms.adms.Models.DTO;
+
+namespace Hrms.adms.Controllers.Processors;
 
 public class OperLogProcessor : ICDataProcessor
 {
@@ -18,7 +21,7 @@ public class OperLogProcessor : ICDataProcessor
         {
             if (line.Contains("FP PIN"))
             {
-                var fp = ParseTemplate(line, "FP PIN", BiometricType.Fingerprint, payload.DeviceInfo.TenantId);
+                var fp = ParseTemplate(line, "FP PIN", BiometricType.Fingerprint, payload.Info.DeviceInfo.TenantId);
                 if (fp != null)
                 {
                     templatesToRegister.Add(fp);
@@ -26,7 +29,7 @@ public class OperLogProcessor : ICDataProcessor
             }
             else if (line.Contains("FACE PIN"))
             {
-                var face = ParseTemplate(line, "FACE PIN", BiometricType.Face, payload.DeviceInfo.TenantId);
+                var face = ParseTemplate(line, "FACE PIN", BiometricType.Face, payload.Info.DeviceInfo.TenantId);
                 if (face != null)
                 {
                     templatesToRegister.Add(face);

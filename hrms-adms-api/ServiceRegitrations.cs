@@ -24,7 +24,7 @@ public static class ServiceRegistrations
     {
         builder.Services.AddLogging();
         builder.Services.AddHttpContextAccessor();
-        builder.Services.AddScoped<IUnitOfWorkService,UnitOfWorkService>();
+        builder.Services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
         var doToken = builder.Configuration["DigitalOcean:ApiToken"];
         builder.Services.AddHttpClient<IDbService, DigitalOceanDbService>(client =>
         {
@@ -103,11 +103,11 @@ public static class ServiceRegistrations
             options.Headers.Add("X-Api-Key");
         });
 
-        builder.Services.AddDbContext<AdmsContext>(options =>
+        builder.Services.AddDbContext<AdmsContext>((sp, options) =>
         {
             var connectionString = builder.Configuration.GetConnectionString("AdmsConnection");
             options.UseLazyLoadingProxies(true);
-            var serverVersion = new MySqlServerVersion(new Version(8, 0, 45));
+            var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
             options.UseMySql(connectionString, serverVersion);
             options.AddInterceptors(new SoftDeleteInterceptor());
         });

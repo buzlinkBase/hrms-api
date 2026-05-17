@@ -42,7 +42,8 @@ public class AttendanceController : ControllerBase
 
         var parsedData = await parser.Parse(memoryStream);
         var atts = await new AttEmployeeSetter(_attendanceService.Uow)
-           .SetAttendace(parsedData, LOGSOURCE.UPLOADED);
+           .ParseAttLogs(parsedData, LOGSOURCE.UPLOADED);
+
         await _attendanceService.AddRangeAsync(atts, ct);
         await _attendanceService.CommitChangesAsync(ct);
 

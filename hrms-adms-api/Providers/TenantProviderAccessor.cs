@@ -25,7 +25,6 @@ public class TenantProviderAccessor : ITenantProvider
                 _tenantId = headerId;
                 return _tenantId;
             }
-            // 2. Fallback: Try to get from JWT Claims
             var ClaimTenantId = context.User.GetUserClaim("TenantId");
             return Guid.TryParse(ClaimTenantId, out var tenantId) && tenantId != Guid.Empty
                 ? tenantId

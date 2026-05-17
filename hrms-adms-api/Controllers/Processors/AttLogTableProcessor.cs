@@ -11,8 +11,7 @@ public class AttLogTableProcessor : ICDataProcessor
     private readonly IPublishEndpoint _publisher;
     private readonly AttendanceService _service;
 
-    public AttLogTableProcessor(IPublishEndpoint publisher,
-        AttendanceService service)
+    public AttLogTableProcessor(IPublishEndpoint publisher, AttendanceService service)
     {
         _publisher = publisher;
         _service = service;
@@ -21,7 +20,7 @@ public class AttLogTableProcessor : ICDataProcessor
     {
         var atts = new List<CreateAttendancePayload>();
         var lines = payload.RawData.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-        var batch=Guid.NewGuid();
+        var batch = Guid.NewGuid();
         foreach (var line in lines)
         {
             var fields = line.Split('\t');
@@ -33,18 +32,19 @@ public class AttLogTableProcessor : ICDataProcessor
                     BioId = bioId,
                     BatchId = batch,
                     WorkDateTime = DateTime.TryParse(fields[1], out DateTime dt) ? dt : DateTime.Now,
-                    TenantId = payload.DeviceInfo.TenantId,
-                    BranchId = payload.DeviceInfo.BranchId,
-                    ClientId = payload.DeviceInfo.ClientId,
-                    DepartmentId = payload.DeviceInfo.DepartmentId,
+                    TenantId = payload.Info.DeviceInfo.TenantId,
+                    BranchId = payload.Info.DeviceInfo.BranchId,
+                    ClientId = payload.Info.DeviceInfo.ClientId,
+                    DepartmentId = payload.Info.DeviceInfo.DepartmentId,
                     DeviceName = payload.SN,
+                    IPAddress=payload.Info.DeviceInfo.IpAddress,
                 };
                 atts.Add(attendance);
             }
         }
 
         if (!atts.Any()) return;
-        await _publisher.Publish(atts);
+        await _publisher.Publish(new AttendancePayloadWrapper { AttLogs = atts });
 
         //store syncing record
         //this batch can be resend if something went DLQ arrise

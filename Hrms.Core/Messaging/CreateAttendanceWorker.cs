@@ -1,41 +1,39 @@
 ﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
-using static MassTransit.Monitoring.Performance.BuiltInCounters;
 namespace OnePunch.Auth.Core.Messaging;
 
-public class CreateAttendanceWorker : IConsumer<List<CreateAttendancePayload>>
+public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
 {
 
     private readonly AttendanceService _attService;
-    private readonly IUnitOfWorkService _unitOfWorkService;
+    private readonly IUnitOfWorkService _uow;
     private readonly IPublishEndpoint _publish;
-
     public CreateAttendanceWorker(
         AttendanceService attService,
-        IUnitOfWorkService unitOfWorkService,
+        IUnitOfWorkService uow,
         IPublishEndpoint publish,
         EmployeeService employeeService)
     {
         _attService = attService;
-        _unitOfWorkService = unitOfWorkService;
+        _uow = uow;
         _publish = publish;
     }
 
-    public async Task Consume(ConsumeContext<List<CreateAttendancePayload>> context)
+    public async Task Consume(ConsumeContext<AttendancePayloadWrapper> context)
     {
-        var messages = context.Message;
-        var atts = await new AttEmployeeSetter(_unitOfWorkService)
-            .SetAttendace(messages,LOGSOURCE.ADMS);
+        var messages = context.Message.AttLogs;
+        var atts = await new AttEmployeeSetter(_uow).ParseAttLogs(messages, LOGSOURCE.ADMS);
         await _attService.AddRangeAsync(atts);
-        await _publish.Publish(new BatchAttConfirmation
+        if (await _attService.CommitChangesAsync(context.CancellationToken))
         {
-            BatchId = messages[0].BatchId,
-        });
-        await _attService.CommitChangesAsync(context.CancellationToken);
+            await _publish.Publish(new BatchAttConfirmation
+            {
+                BatchId = messages[0].BatchId,
+            });
+        }
     }
 }
-
 
 public class AttEmployeeSetter
 {
@@ -45,14 +43,13 @@ public class AttEmployeeSetter
         _service = service;
     }
 
-    public async Task<List<Attendance>> SetAttendace(List<CreateAttendancePayload> messages, LOGSOURCE logSource)
+    public async Task<List<Attendance>> ParseAttLogs(List<CreateAttendancePayload> messages, LOGSOURCE logSource)
     {
-        //TODO separate unregistered here
-        var atts = new List<Attendance>();
         var employees = await _service.Context.Employees
              .Where(x => x.BioId != 0)
              .ToDictionaryAsync(x => x.BioId, x => x);
 
+        var atts = new List<Attendance>();
         foreach (var att in messages)
         {
             employees.TryGetValue(att.BioId, out Employee? employee);
@@ -66,8 +63,10 @@ public class AttEmployeeSetter
                 DepartmentId = att.DepartmentId ?? employee?.DepartmentId,
                 ClientId = att.ClientId ?? employee?.ClientId,
                 DeviceName = att.DeviceName,
+                IP = att.IPAddress,
                 Boundary = att.Coordinates,
                 LogSource = logSource,
+                EditRemarks= employee==null ? "Unregistered Employee" : ""
             };
             atts.Add(attendance);
         }

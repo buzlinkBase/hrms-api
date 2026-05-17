@@ -1,6 +1,4 @@
-﻿using Hrms.adms.Core.Services;
-
-namespace Hrms.adms.Core;
+﻿namespace Hrms.adms.Core.Services;
 
 public class BioTemplateService : BaseService<BiometricTemplate>
 {

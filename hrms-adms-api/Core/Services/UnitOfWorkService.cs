@@ -1,4 +1,4 @@
-﻿namespace Hrms.adms.Core;
+﻿namespace Hrms.adms.Core.Services;
 public interface IUnitOfWorkService : IUnitOfWork<AdmsContext> { }
 public class UnitOfWorkService : UnitOfWork<AdmsContext>, IUnitOfWorkService
 {

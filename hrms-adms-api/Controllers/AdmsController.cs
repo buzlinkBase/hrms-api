@@ -1,4 +1,5 @@
 ﻿using Hrms.adms.Controllers.Processors;
+using Hrms.adms.Core.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
 
@@ -10,12 +11,12 @@ public class AdmsController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ITenantProvider _tenantProvider;
-    private readonly BiometricDeviceService _biometricDevice;
+    private readonly DeviceService _biometricDevice;
     private readonly ILogger<AdmsController> _logger;
     public AdmsController(
         IServiceProvider serviceProvider,
         ITenantProvider tenantProvider,
-        BiometricDeviceService biometricDevice,
+        DeviceService biometricDevice,
         ILogger<AdmsController> logger)
     {
         _serviceProvider = serviceProvider;
@@ -102,7 +103,7 @@ public class AdmsController : ControllerBase
             _logger.LogInformation($"SN: {sn} bio table not manage table: {table}");
             return Content("Not Manage");
         }
-        await processor.ProcessAsync(new BioPayload(sn, rawBody, deviceInfo), token);
+        await processor.ProcessAsync(new BioPayload(sn, rawBody, new Models.DTO.ZkDeviceModel { DeviceInfo = deviceInfo }), token);
         return Content("OK", "text/plain");
     }
 }

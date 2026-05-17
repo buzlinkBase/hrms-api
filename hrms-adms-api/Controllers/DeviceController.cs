@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning;
+using Hrms.adms.Core.Services;
 using Hrms.adms.Extensions;
 using Hrms.adms.Models.DTO;
 using Microsoft.AspNetCore.Authorization;
@@ -10,10 +11,10 @@ namespace Hrms.adms.Controllers
     [ApiVersion("1.0")]
     [ApiController]
     [Authorize]
-    public class DeviceRegistrationsController : ControllerBase
+    public class DeviceController : ControllerBase
     {
-        private readonly BiometricDeviceService _service;
-        public DeviceRegistrationsController(BiometricDeviceService service)
+        private readonly DeviceService _service;
+        public DeviceController(DeviceService service)
         {
             _service = service;
         }
@@ -30,7 +31,7 @@ namespace Hrms.adms.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBiometricDevice payload, CancellationToken token)
         {
-            var data = await _service.UpdateAsync(payload, token);
+            var data = await _service.UpdateStatusAsync(payload, token);
             return Ok(data);
         }
 
@@ -48,11 +49,19 @@ namespace Hrms.adms.Controllers
             return Ok(data);
         }
 
+        [HttpGet("serial/{sn}")]
+        public async Task<IActionResult> GetBySerial(string sn, CancellationToken token)
+        {
+            var data = await _service.GetBySerial(sn, token);
+            return Ok(data);
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.DeleteAsync(id, token);
             return Ok();
         }
+
     }
 }
