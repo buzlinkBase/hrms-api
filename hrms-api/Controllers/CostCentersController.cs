@@ -10,10 +10,10 @@ namespace Hrms.Api.Controllers
     [ApiController]
     public class CostCentersController : ControllerBase
     {
-        private readonly AreaService _service;
+        private readonly CostCenterService _service;
         private readonly IMapper _mapper;
 
-        public CostCentersController(AreaService service, IMapper mapper)
+        public CostCentersController(CostCenterService service, IMapper mapper)
         {
             _service = service;
             _mapper = mapper;
@@ -21,43 +21,49 @@ namespace Hrms.Api.Controllers
 
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody] CreateArea payload, CancellationToken token)
+        public async Task<IActionResult> Post([FromBody] CreateCostCenter payload, CancellationToken token)
         {
             var data = _mapper.Map<CostCenters>(payload);
             await _service.AddAsync(data, token);
-            var respModel = _mapper.Map<AreaModel>(data);
+            var respModel = _mapper.Map<CostCenterModel>(data);
             return Ok(respModel);
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(CostCenterModel), 200)]
+        [ProducesResponseType(typeof(CostCenterModel), 200)]
         public async Task<IActionResult> Get()
         {
             var data = await _service.FindAllAsync();
-            return Ok(_mapper.Map<List<AreaModel>>(data));
+            return Ok(_mapper.Map<List<CostCenterModel>>(data));
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(CostCenterModel), 200)]
+        [ProducesResponseType(typeof(ResponseModel<ProblemDetails>),  401)]
+        [ProducesResponseType(typeof(ResponseModel<ProblemDetails>),  500)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
-            return Ok(_mapper.Map<AreaModel>(data));
+            return Ok(_mapper.Map<CostCenterModel>(data));
         }
 
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Put(Guid id, [FromBody] UpdateArea payload, CancellationToken token)
+        public async Task<IActionResult> Put(Guid id, [FromBody] UpdateCostCenter payload, CancellationToken token)
         {
             var data = _mapper.Map<CostCenters>(payload);
             data.Id = id;
             await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<AreaModel>(data));
+            return Ok(_mapper.Map<CostCenterModel>(data));
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(204)]
         public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken token)
         {
             await _service.DeleteAsync(id, token);
-            return Ok("deleted");
+            return NoContent();
         }
     }
 }

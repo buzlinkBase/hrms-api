@@ -2,9 +2,9 @@
 
 namespace Hrms.Core.Services;
 
-public class AreaService : BaseService<CostCenters>
+public class CostCenterService : BaseService<CostCenters>
 {
-    public AreaService(IUnitOfWorkService uow) : base(uow)
+    public CostCenterService(IUnitOfWorkService uow) : base(uow)
     {
     }
     public async Task AddAsync(CostCenters model, CancellationToken token)

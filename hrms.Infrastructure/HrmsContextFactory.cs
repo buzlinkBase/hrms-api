@@ -30,9 +30,7 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
 
         var optionsBuilder = new DbContextOptionsBuilder<HrmsContext>();
         var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
-        //var localConnection = "server=127.0.0.1;port=3316;database=hrms;user=oneuser;pwd=Pokemon67584321";
-        //var connectionString = "server=serverless-europe-west9.sysp0000.db2.skysql.com;port=4088;database=hrms;user=dbpgf27650414;pwd=Lm1t7,AvRD3D?kVls3iiG";
-        optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),x=>x.UseNetTopologySuite());
-        return new HrmsContext(optionsBuilder.Options,null,null);
+        optionsBuilder.UseMySql(connectionString, serverVersion, x=>x.UseNetTopologySuite());
+        return new HrmsContext(optionsBuilder.Options,null,null,null);
     }
 }

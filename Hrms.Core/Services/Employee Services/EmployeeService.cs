@@ -20,7 +20,7 @@ public class EmployeeService : BaseService<Employee>
         DepartmentService departmentService,
         PayrollGroupService payrollGroupService,
         BranchService branchService,
-        AreaService areaService,
+        CostCenterService areaService,
         PositionService positionService,
         SectionService sectionService
 

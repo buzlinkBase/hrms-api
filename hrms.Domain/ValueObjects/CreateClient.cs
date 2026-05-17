@@ -13,6 +13,6 @@ public class UpdateClient : CreateClient
     public Guid Id { get; set; }
 }
 
-public class ClientModel : UpdateArea
+public class ClientModel : UpdateCostCenter
 {
 }

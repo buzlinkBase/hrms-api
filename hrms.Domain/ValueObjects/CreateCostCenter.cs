@@ -1,19 +1,18 @@
 ﻿namespace Hrms.Domain.ValueObjects;
 
-public class CreateArea
+public class CreateCostCenter
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
-    public string Status { get; set; }
-
 }
 
-public class UpdateArea : CreateArea
+public class UpdateCostCenter : CreateCostCenter
 {
     public Guid Id { get; set; }
+    public string Status { get; set; }
 }
 
-public class AreaModel : UpdateArea
+public class CostCenterModel : UpdateCostCenter
 {
 }

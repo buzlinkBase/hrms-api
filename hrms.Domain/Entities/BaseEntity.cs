@@ -3,10 +3,9 @@ using BuzlinkRepository;
 
 namespace Hrms.Domain.Entities;
 
-public abstract class BaseEntity : EntityBase
-    //, IEntityTenant
+public abstract class BaseEntity : EntityBase, IEntityTenant
 {
-    //public Guid TenantId { get; set; }
+    public Guid TenantId { get; set; }
     public string Status { get; set; } = "Active";
 }
 

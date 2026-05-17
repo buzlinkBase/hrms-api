@@ -94,9 +94,9 @@ public class MappingProfile : IRegister
         config.NewConfig<PayrollGroup, PayrollGroupModel>();
         config.NewConfig<CutoffModel, CutoffDay>().TwoWays();
 
-        config.NewConfig<CreateArea, CostCenters>();
-        config.NewConfig<UpdateArea, CostCenters>();
-        config.NewConfig<CostCenters, AreaModel>();
+        config.NewConfig<CreateCostCenter, CostCenters>();
+        config.NewConfig<UpdateCostCenter, CostCenters>();
+        config.NewConfig<CostCenters, CostCenterModel>();
 
         config.NewConfig<CreateLeave, Leave>();
         config.NewConfig<UpdateLeave, Leave>();

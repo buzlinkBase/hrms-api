@@ -28,7 +28,7 @@ public class DailyRecordsController : ControllerBase
     {
         var models = _mapper.Map<List<DailyRecord>>(model);
         await _service.AddRangeAsync(models, token);
-        var respModel = _mapper.Map<AreaModel>(models);
+        var respModel = _mapper.Map<CostCenterModel>(models);
         return Ok(respModel);
     }
 
