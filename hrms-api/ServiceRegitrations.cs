@@ -116,7 +116,8 @@ public static class ServiceRegistrationsExt
             builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
         }
 
-        builder.Services.AddDbContext<HrmsContext>();
+        builder.Services.AddDbContextFactory<HrmsContext>(); 
+        //builder.Services.AddDbContext<HrmsContext>();
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>
@@ -184,7 +185,7 @@ public static class ServiceRegistrationsExt
 
 public static class DODbServiceRegistrationExtensions
 {
-    public static void RegisterDO( this WebApplicationBuilder builder) 
+    public static void RegisterDO(this WebApplicationBuilder builder)
     {
         var doToken = builder.Configuration["DigitalOcean:ApiToken"];
         builder.Services.AddHttpClient<IDbService, DigitalOceanDbService>(client =>
@@ -219,9 +220,9 @@ public static class DODbServiceRegistrationExtensions
 
 public static class SkyDbServiceRegistrationExtensions
 {
-    public static void RegisterSky(this WebApplicationBuilder builder) 
+    public static void RegisterSky(this WebApplicationBuilder builder)
     {
         var connectionString = builder.Configuration.GetConnectionString("HrmsConnection")!;
-        builder.Services.AddScoped<IDbService >(sp=>new SkySqlDbService(connectionString));
+        builder.Services.AddScoped<IDbService>(sp => new SkySqlDbService(connectionString));
     }
 }

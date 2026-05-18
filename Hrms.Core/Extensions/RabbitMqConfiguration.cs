@@ -22,7 +22,7 @@ public static class RabbitMqConfiguration
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
-                //o.UseBusOutbox();
+                o.UseBusOutbox();
             });
             x.SetEndpointNameFormatter(KebabCaseEndpointNameFormatter.Instance);
             x.UsingRabbitMq((context, cfg) =>
@@ -42,7 +42,6 @@ public static class RabbitMqConfiguration
                 cfg.Host(settings.Uri);
                 cfg.SetQuorumQueue();
                 cfg.ConfigureEndpoints(context);
-
             });
         });
     }

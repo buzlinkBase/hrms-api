@@ -6,7 +6,6 @@ using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.Core.Messaging;
 
-//TenantCreatedPayload
 public class TenantCreatedWorker : IConsumer<TenantCreationRequest>
 {
     private readonly IPublishEndpoint _publisher;
@@ -48,7 +47,6 @@ public class TenantCreatedWorker : IConsumer<TenantCreationRequest>
             tenantInfo.TenantId = message.TenantId;
             tenantInfo.ConnectionString = connectionModel.ConnectionString;
             tenantProvider.SetTenantId(message.TenantId);
-            //initial migration
             _migrationService.Migrate(tenantInfo.ConnectionString);
             var payload = CreatePayload(connectionModel, clusterId, dbName, message.TenantId);
             await _publisher.Publish(payload);
