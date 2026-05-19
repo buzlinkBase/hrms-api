@@ -115,9 +115,7 @@ public static class ServiceRegistrationsExt
         {
             builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
         }
-
-        builder.Services.AddDbContextFactory<HrmsContext>(); 
-        //builder.Services.AddDbContext<HrmsContext>();
+        builder.Services.AddDbContext<HrmsContext>();
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>

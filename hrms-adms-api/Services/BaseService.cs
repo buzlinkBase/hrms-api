@@ -2,7 +2,7 @@
 using Onepunch.Common.Lib.Exceptions;
 using System.Linq.Expressions;
 
-namespace Hrms.adms.Core.Services;
+namespace Hrms.adms.Services;
 
 public abstract class BaseService<T> where T : class, IEntity
 {

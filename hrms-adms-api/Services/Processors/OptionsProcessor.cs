@@ -1,7 +1,6 @@
-﻿using Hrms.adms.Core.Services;
-using Hrms.adms.Models.DTO;
+﻿using Hrms.adms.Models.DTO;
 
-namespace Hrms.adms.Controllers.Processors;
+namespace Hrms.adms.Services.Processors;
 
 public class OptionsProcessor : ICDataProcessor
 {

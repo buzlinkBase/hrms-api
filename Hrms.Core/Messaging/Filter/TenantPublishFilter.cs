@@ -1,6 +1,6 @@
 ﻿using MassTransit;
 
-namespace OnePunch.Auth.Core.Messaging;
+namespace Hrms.Core.Messaging.Filter;
 
 public class TenantPublishFilter<T> : IFilter<PublishContext<T>> where T : class
 {

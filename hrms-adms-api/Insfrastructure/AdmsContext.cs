@@ -37,6 +37,7 @@ public class AdmsContext : DbContext
         modelBuilder.UseDateFilter();
     }
 
+    public DbSet<DeviceCommand> DeviceCommands { get; set; } 
     public DbSet<BiometricDevice> BiometricDevices { get; set; }
     public DbSet<SystemCounters> SystemCounters { get; set; }
     public DbSet<BiometricDetail> BiometricDetails { get; set; }

@@ -1,13 +1,13 @@
-﻿using Hrms.adms.Core.Services;
-using Hrms.adms.Models.DTO;
+﻿using Hrms.adms.Models.DTO;
+using Hrms.adms.Services;
 
-namespace Hrms.adms.Controllers.Processors;
+namespace Hrms.adms.Services.Processors;
 
 public class OperLogProcessor : ICDataProcessor
 {
-    private readonly BioTemplateService _bioTemplateService;
+    private readonly TemplateService _bioTemplateService;
 
-    public OperLogProcessor(BioTemplateService bioTemplateService,
+    public OperLogProcessor(TemplateService bioTemplateService,
         ITenantProvider tenantProvider)
     {
         _bioTemplateService = bioTemplateService;

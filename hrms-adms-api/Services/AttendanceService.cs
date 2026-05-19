@@ -1,4 +1,4 @@
-﻿namespace Hrms.adms.Core.Services;
+﻿namespace Hrms.adms.Services;
 
 public class AttendanceService : BaseService<Attendance>
 {

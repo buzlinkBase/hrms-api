@@ -1,15 +1,19 @@
-﻿namespace Hrms.adms.Core.Services;
+﻿namespace Hrms.adms.Services;
 
-public class BioTemplateService : BaseService<BiometricTemplate>
+public class TemplateService : BaseService<BiometricTemplate>
 {
-    public BioTemplateService(IUnitOfWorkService uow) : base(uow)
+    private readonly DeviceService _deviceService;
+
+    public TemplateService(IUnitOfWorkService uow,
+        DeviceService deviceService
+        ) : base(uow)
     {
+        _deviceService = deviceService;
     }
     public async Task AddRangeTemplate(List<CreateBiometricTemplate> models, CancellationToken token)
     {
         foreach (var model in models)
         {
-            // Look for existing record to update instead of duplicate insert
             var existing = await Context.BiometricTemplates
                 .FirstOrDefaultAsync(x => x.TenantId == model.TenantId &&
                                          x.BioId == model.BioId &&
@@ -38,6 +42,21 @@ public class BioTemplateService : BaseService<BiometricTemplate>
         await CommitChangesAsync(token);
     }
 
+    public async Task Transfer(string SN, Guid tenantId, CancellationToken token)
+    {
+        //TODO create command for transfer
+        var device = await _deviceService.FindSnAsync(SN, token);
+        if (device == null) return;
+
+        //var command = new DeviceCommandPayload
+        //{
+        //    CommandMessage = "",
+        //    DeviceSN = SN,
+        //    TenantId = device.TenantId
+        //};
+        //await _deviceService.CreateCommand(new List<DeviceCommandPayload> { command });
+
+    }
 
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {

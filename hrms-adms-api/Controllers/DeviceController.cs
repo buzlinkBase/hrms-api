@@ -1,7 +1,7 @@
 ﻿using Asp.Versioning;
-using Hrms.adms.Core.Services;
 using Hrms.adms.Extensions;
 using Hrms.adms.Models.DTO;
+using Hrms.adms.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,7 +22,7 @@ namespace Hrms.adms.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] CreateBiometricDevice payload, CancellationToken token)
         {
-            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString() 
+            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString()  
                 ?? Guid.Empty.ToString();
             var data = await _service.AddAsync(payload, Guid.Parse(tenantId), token);
             return Ok(data);

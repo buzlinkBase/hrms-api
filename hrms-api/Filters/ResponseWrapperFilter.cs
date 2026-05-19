@@ -16,7 +16,6 @@ public class ResponseWrapperFilter : IResultFilter
         {
             return;
         }
-
         // 2. Identify the Status and Message
         int statusCode = context.HttpContext.Response.StatusCode;
         // If the action set a specific status code (like 201 Created), use that instead
@@ -26,7 +25,6 @@ public class ResponseWrapperFilter : IResultFilter
         }
 
         string message = statusCode < 400 ? "Success" : "Error";
-
         // 3. Handle ObjectResult (The most common path for APIs)
         if (context.Result is ObjectResult objectResult)
         {
@@ -47,7 +45,6 @@ public class ResponseWrapperFilter : IResultFilter
                 Message = message,
                 Data = objectResult.Value
             };
-
             // Replace the result
             context.Result = new ObjectResult(wrappedResponse)
             {

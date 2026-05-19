@@ -1,4 +1,4 @@
-﻿namespace Hrms.adms.Controllers.Processors;
+﻿namespace Hrms.adms.Services.Processors;
 
 public class UserInforTableProcessor : ICDataProcessor
 {

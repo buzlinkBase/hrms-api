@@ -1,6 +1,6 @@
-﻿using Hrms.adms.Core.Services;
+﻿using Hrms.adms.Services;
 
-namespace Hrms.Core.Messaging;
+namespace Hrms.adms.Messages;
 
 public class AttSyncResponseWorker : IConsumer<BatchAttConfirmation> 
 {

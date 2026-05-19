@@ -1,4 +1,5 @@
 ﻿using Hrms.Core.Messaging;
+using Hrms.Core.Messaging.Filter;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;

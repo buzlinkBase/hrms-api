@@ -1,7 +1,7 @@
 ﻿using MassTransit;
 using Onepunch.Common.Lib.Cache;
 
-namespace Hrms.Core.Messaging;
+namespace Hrms.Core.Messaging.Filter;
 
 public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
     where T : class

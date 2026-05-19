@@ -1,8 +1,9 @@
 ﻿
 using Asp.Versioning;
-using Hrms.adms.Controllers.Processors;
-using Hrms.adms.Core.Services;
 using Hrms.adms.Filters;
+using Hrms.adms.Models.DTO;
+using Hrms.adms.Services;
+using Hrms.adms.Services.Processors;
 using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
@@ -91,6 +92,7 @@ public static class ServiceRegistrations
         builder.Services.AddScoped<IHMACService, HMACService>();
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
         //zkteco
+        builder.Services.AddScoped<ISystemClockService, SystemClockService>();
         builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");

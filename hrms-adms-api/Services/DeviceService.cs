@@ -1,17 +1,12 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
-using Hrms.adms.Models.DTO;
-using RTools_NTS.Util;
+﻿using Hrms.adms.Models.DTO;
 
-namespace Hrms.adms.Core.Services;
-
+namespace Hrms.adms.Services;
 public class DeviceService : BaseService<BiometricDevice>
 {
     public DeviceService(IUnitOfWorkService uow) : base(uow)
     {
     }
-    public async Task<UpdateBiometricDevice> AddAsync(CreateBiometricDevice payload,
-        Guid TenantId,
-        CancellationToken token)
+    public async Task<UpdateBiometricDevice> AddAsync(CreateBiometricDevice payload, Guid TenantId, CancellationToken token)
     {
         var model = new BiometricDevice
         {
@@ -222,27 +217,11 @@ public class DeviceService : BaseService<BiometricDevice>
         return await GetQueryable(x =>
                 x.SN == SN &&
                 x.Status == "Active" &&
-                x.DeletedAt == null
-        )
+                x.DeletedAt == null)
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(token);
     }
 
-    public async Task CreateCommand(List<DeviceCommandPayload> commands)
-    {
-        if (!commands.Any()) return;
-        var devCommands = new List<DeviceCommand>();
-        foreach (var command in commands)
-        {
-            devCommands.Add(new DeviceCommand
-            {
-                SN = command.DeviceSN,
-                Commands = command.CommandMessage,
-            });
-        }
-        await Repository.AddRangeAsync(devCommands);
-        await CommitChangesAsync();
-    }
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);

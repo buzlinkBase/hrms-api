@@ -3,7 +3,7 @@ using EvolveDb;
 using MySqlConnector;
 using Serilog;
 
-namespace Hrms.adms.Core.Services;
+namespace Hrms.adms.Services;
 
 public class EvolveMigrationService : IMigrationService
 {

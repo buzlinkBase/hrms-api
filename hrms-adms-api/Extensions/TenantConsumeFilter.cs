@@ -17,4 +17,5 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>> where T : class
         await next.Send(context);
     }
     public void Probe(ProbeContext context) => context.CreateFilterScope("hrms-tenant-filter");
+
 }
