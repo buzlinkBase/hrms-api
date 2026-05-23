@@ -1,5 +1,6 @@
 ﻿using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
+using Hrms.adms.Utilities;
 
 namespace Hrms.adms.Messages;
 
@@ -25,10 +26,10 @@ public class SetEmployeeWorker : IConsumer<DeviceCommandWrapper<List<SetEmployee
         var devCommands = new List<DeviceCommand>();
         foreach (var item in messages.Commands)
         {
-            var id = Guid.NewGuid();
+            var id = Guid.CreateVersion7();
             var syncEmpCmd = new DeviceCommandFormmaterPayload
             {
-                Id = id,
+                Id = id.ToString("N"),
                 Command = "SYNC_EMPLOYEES",
                 CommandPayload = "",
                 Parameters = new()

@@ -18,8 +18,6 @@ internal class Program
        .CreateLogger();
         builder.Host.UseSerilog();
 
-        Log.Information("hrms api");
-        Serilog.Debugging.SelfLog.Enable(Console.Error);
         //builder.Services.Configure<ApiBehaviorOptions>(options =>
         //{
         //    // Stops the default framework behavior of returning a 400 immediately

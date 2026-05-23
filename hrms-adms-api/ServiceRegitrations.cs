@@ -13,6 +13,7 @@ using Onepunch.Common.Lib.DbServices;
 using Polly;
 using Refit;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -107,11 +108,14 @@ public static class ServiceRegistrations
 
         builder.Services.AddDbContext<AdmsContext>((sp, options) =>
         {
+
             var connectionString = builder.Configuration.GetConnectionString("AdmsConnection");
             options.UseLazyLoadingProxies(true);
             var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
             options.UseMySql(connectionString, serverVersion);
-            options.AddInterceptors(new SoftDeleteInterceptor());
+            var tp = sp.GetRequiredService<ITenantProvider>();
+            options.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(tp));
+
         });
 
         builder.Services.AddCors(options =>

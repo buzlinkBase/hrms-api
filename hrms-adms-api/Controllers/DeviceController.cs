@@ -61,7 +61,6 @@ namespace Hrms.adms.Controllers
         {
             await _service.DeleteAsync(id, token);
             return Ok();
-        }
-
+        }  
     }
 }

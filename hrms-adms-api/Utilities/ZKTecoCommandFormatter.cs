@@ -1,17 +1,15 @@
-﻿using System.Globalization;
+﻿using Hrms.adms.Models.DTO;
 using System.Text.RegularExpressions;
 
-namespace Hrms.adms.Models.DTO;
+namespace Hrms.adms.Utilities;
 
 public class DeviceCommandFormmaterPayload
 {
-    public Guid Id { get; set; }
+    public required string Id { get; set; }   
     public string? Command { get; set; }
     public string? CommandPayload { get; set; }
     public Dictionary<string, object?>? Parameters { get; set; }
 }
-
-
 
 public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
 {
@@ -40,7 +38,9 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
             "ENROLL_FACE" => FormatFaceEnrollmentCommand(command),
             "PULL_EMPLOYEES" => FormatEmployeePullCommand(command),
             "PULL_ATTENDANCE" => FormatAttendancePullCommand(command),
-            "RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:ClearAdmin",
+            "RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:CLEAR ADMIN",
+            //"RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:SET OPTION ClearAdmin=1",
+            //"RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:ClearAdmin",
             _ => FormatRawCommand(command)
         };
     }
@@ -94,6 +94,7 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
                 $"Name={name}",
                 $"Pri={Math.Max(0, Math.Min(privilege, 14))}",
                 $"Passwd={password}",
+                $"enable=true",
                 $"Card={card}"
             };
 

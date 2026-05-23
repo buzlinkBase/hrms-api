@@ -1,6 +1,4 @@
 ﻿using Asp.Versioning;
-using Hrms.adms.Extensions;
-using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,12 +11,18 @@ namespace Hrms.adms.Controllers
     [Authorize]
     public class TemplateController : ControllerBase
     {
-        private readonly DeviceService _service;
-        public TemplateController(DeviceService service)
+        private readonly TemplateService _service;
+        public TemplateController(TemplateService service)
         {
             _service = service;
         }
 
+        [HttpGet()]
+        public async Task<IActionResult> GetAll(string sn , CancellationToken token)
+        {
+            //await _service.GetQueryable(x=>x.SN==sn);
+            return Ok();
+        }
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

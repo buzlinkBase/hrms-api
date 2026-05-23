@@ -1,14 +1,12 @@
 ﻿
 namespace Hrms.adms.Middlewares;
+
 public class TenantDatabaseMiddleware
 {
     private readonly RequestDelegate _next;
     public TenantDatabaseMiddleware(RequestDelegate next) => _next = next;
-    public async Task InvokeAsync(
-      HttpContext context,
-      ITenantProvider tenantProvider )
+    public async Task InvokeAsync(HttpContext context, ITenantProvider tenantProvider)
     {
-        var tid = tenantProvider.TenantId;
         await _next(context);
     }
 }

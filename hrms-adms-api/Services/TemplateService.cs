@@ -3,7 +3,6 @@
 public class TemplateService : BaseService<BiometricTemplate>
 {
     private readonly DeviceService _deviceService;
-
     public TemplateService(IUnitOfWorkService uow,
         DeviceService deviceService
         ) : base(uow)
@@ -42,6 +41,10 @@ public class TemplateService : BaseService<BiometricTemplate>
         await CommitChangesAsync(token);
     }
 
+    public async Task FindAll(string sn)
+    {
+          //GetQueryable(x => x.SN == sn);
+    }
     public async Task Transfer(string SN, Guid tenantId, CancellationToken token)
     {
         //TODO create command for transfer
@@ -55,9 +58,7 @@ public class TemplateService : BaseService<BiometricTemplate>
         //    TenantId = device.TenantId
         //};
         //await _deviceService.CreateCommand(new List<DeviceCommandPayload> { command });
-
     }
-
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);

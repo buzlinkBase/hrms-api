@@ -1,7 +1,5 @@
 ﻿using Hrms.adms.Models.DTO;
-
 namespace Hrms.adms.Services.Processors;
-
 public class OptionsProcessor : ICDataProcessor
 {
     private readonly ILogger<OptionsProcessor> _logger;
@@ -133,5 +131,6 @@ public class OptionsProcessor : ICDataProcessor
         //Console.WriteLine($"Face Bio - Enabled: {model.Biometrics.Face.Enabled}, Count: {model.Biometrics.Face.Count}/{model.Biometrics.Face.MaxCount}");
         //Console.WriteLine($"Palm Vein Bio Max Capacity: {(model.Biometrics.PalmVein.MaxCount?.ToString() ?? "Not Defined/Null")}");
         //Console.WriteLine($"First 3 Items in Bio Data Support array: {string.Join(", ", model.FeaturesAndProtocols.ConfigSupport.DataSupport.Take(3))}");
+
     }
 }

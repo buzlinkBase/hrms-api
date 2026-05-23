@@ -7,7 +7,7 @@ public class ConfigureSwaggerOptions : IConfigureOptions<SwaggerGenOptions>
 {
     public void Configure(SwaggerGenOptions options)
     {
-        options.OperationFilter<SwaggerHeader>();
+        //options.OperationFilter<SwaggerHeader>();
         options.SwaggerDoc("v1", new OpenApiInfo
         {
             Title = "OnePunch HRMS API",

@@ -14,7 +14,6 @@ public class OperLogProcessor : ICDataProcessor
     }
     public async Task ProcessAsync(BioPayload payload, CancellationToken token = default)
     {
-        // 1. Split by newline to separate individual records
         var lines = payload.RawData.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         var templatesToRegister = new List<CreateBiometricTemplate>();
         foreach (var line in lines)

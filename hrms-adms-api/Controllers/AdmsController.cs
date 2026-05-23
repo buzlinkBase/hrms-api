@@ -65,23 +65,24 @@ public class AdmsController : ControllerBase
     {
         using var reader = new StreamReader(Request.Body);
         string result = await reader.ReadToEndAsync();
-        //var commands = JsonSerializer.Deserialize<DeviceResult>(result);
-        //// Result will look like: "ID=101&Return=0" (0 means success)
-        ////_logger.LogInformation("Device {SN} reported: {result}", SN, result);
-        //var str = result.Split("&");
-        //if (str.Length > 0)
-        //{
-        //    var success = str[1].Split("=")[1] == "0";
-        //    if (success)
-        //    {
-        //        var Id = Guid.Parse(str[0].Split("=")[0]);
-        //        _commandService.Delete(Id);
-        //        Log.Logger.Information("devicecmd success {0}", result);
-        //        return Content("OK", "text/plain");
-        //    }
-        //}
-        //Log.Logger.Warning("devicecmd fail {0}", result);
-        //return Content("Failure", "text/plain");
+        // Result will look like: "ID=101&Return=0" (0 means success)
+        var data = result.Split('\n');
+        foreach (var item in data)
+        {
+            var str = result.Split("&");
+            if (str.Length > 0)
+            {
+                var resultTag = str[1].Split("=");
+                var success = resultTag[1] == "0";
+                if (success)
+                {
+                    var IdTag = str[0].Split("=");
+                    var Id = Guid.Parse(IdTag[1]);
+                    _commandService.Delete(Id);
+                }
+            }
+        }
+        _commandService.CommitChanges();
         return Content("OK", "text/plain");
     }
 
@@ -122,7 +123,6 @@ public class DeviceResult
     public int Id { get; set; }
     public int Return { get; set; }
     public string CMD { get; set; }
-
 }
 
 //sample commands

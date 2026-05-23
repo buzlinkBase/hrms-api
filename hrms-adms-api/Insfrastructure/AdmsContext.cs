@@ -3,8 +3,11 @@ namespace Hrms.adms.Insfrastructure;
 
 public class AdmsContext : DbContext
 {
-    public AdmsContext(DbContextOptions<AdmsContext> options) : base(options)
+    private readonly ITenantProvider _tenantProvider;
+    public AdmsContext(DbContextOptions<AdmsContext> options,
+        ITenantProvider tenantProvider) : base(options)
     {
+        _tenantProvider = tenantProvider;
     }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -13,7 +16,7 @@ public class AdmsContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         //modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
-        modelBuilder.UseDateFilter();
+        modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId); 
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
@@ -34,10 +37,9 @@ public class AdmsContext : DbContext
             entity.Ignore(b => b.FingerVein);
             entity.Ignore(b => b.PalmVein);
         });
-        modelBuilder.UseDateFilter();
     }
 
-    public DbSet<DeviceCommand> DeviceCommands { get; set; } 
+    public DbSet<DeviceCommand> DeviceCommands { get; set; }
     public DbSet<BiometricDevice> BiometricDevices { get; set; }
     public DbSet<SystemCounters> SystemCounters { get; set; }
     public DbSet<BiometricDetail> BiometricDetails { get; set; }
@@ -49,5 +51,4 @@ public class AdmsContext : DbContext
     public DbSet<MultiBioSupport> MultiBioSupports { get; set; }
     public DbSet<BiometricTemplate> BiometricTemplates { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
-
 }
