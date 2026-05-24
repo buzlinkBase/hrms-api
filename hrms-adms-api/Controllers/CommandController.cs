@@ -4,6 +4,7 @@ using Hrms.adms.Services;
 using Hrms.adms.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.SqlServer.Types;
 
 namespace Hrms.adms.Controllers;
 
@@ -21,6 +22,13 @@ public class CommandsController : ControllerBase
     {
         _service = service;
         _configuration = configuration;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAllPending([FromQuery] string SN)
+    {
+        var data = await _service.FindAllPending(SN);
+        return Ok(data);
     }
 
     [HttpPost("sync-employees")]
@@ -135,24 +143,10 @@ public class CommandsController : ControllerBase
         }
         await _service.CreateCommand(devCommands);
         return NoContent();
-        //        // --- TEST CASE 14: ENROLL_FINGERPRINT ---
-        //        var enrollFpCmd = new DeviceCommandPayload
-        //        {
-        //            Id = 114,
-        //            Command = "ENROLL_FINGERPRINT",
-        //            Parameters = new()
-        //            {
-        //                { "pin", "1005" },
-        //                { "fid", 1 }, // Finger ID (Index 0-9)
-        //                { "retry", 3 },
-        //                { "overwrite", true }
-        //            }
-        //        };
-        //        PrintResult("ENROLL_FINGERPRINT", formatter.Format(enrollFpCmd));
     }
 
-    [HttpPost("enroll")]
-    public async Task<IActionResult> Enroll([FromQuery] string SN, [FromBody] EnrollPayload payload)
+    [HttpPost("enroll-fp")]
+    public async Task<IActionResult> EnrollFinger([FromQuery] string SN, [FromBody] EnrollFPPayload payload)
     {
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
@@ -181,6 +175,38 @@ public class CommandsController : ControllerBase
         await _service.CreateCommand(new List<DeviceCommand> { devcommand });
         return NoContent();
 
+    }
+
+    [HttpPost("enroll-face")]
+    public async Task<IActionResult> EnrollFace([FromQuery] string SN, [FromBody] EnrollFacePayload payload)
+    {
+        ISystemClockService clockService = new SystemClockService(_configuration);
+        var formatter = new ZKTecoCommandFormatter(clockService);
+        var id = Guid.CreateVersion7();
+        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        {
+            Id = id.ToString("N"),
+            Command = "ENROLL_FACE",
+            CommandPayload = "",
+            Parameters = new()
+                {
+                    {"pin",payload.BioId},
+                    {"card_no", payload.CardNo},
+                    {"retry",5},
+                    {"type",  payload.FaceType},
+                    {"overwrite",  payload.Overwrite},
+                }
+        };
+        var resultCommand = formatter.Format(syncEmpCmd);
+        var devcommand = new DeviceCommand()
+        {
+            Id = id,
+            CommandType = syncEmpCmd.Command,
+            Commands = resultCommand,
+            SN = SN,
+        };
+        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        return NoContent();
     }
 
     [HttpPost("reboot")]
@@ -229,6 +255,35 @@ public class CommandsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("set-time")]
+    public async Task<IActionResult> SetTime([FromQuery] string SN, [FromQuery] bool autoServerTime)
+    {
+        ISystemClockService clockService = new SystemClockService(_configuration);
+        var formatter = new ZKTecoCommandFormatter(clockService);
+        var id = Guid.CreateVersion7();
+        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        {
+            Id = id.ToString("N"),
+            Command = "SET_TIME",
+            Parameters = new() { { "timestamp", DateTime.UtcNow } }
+        };
+
+        if (autoServerTime)
+        {
+            syncEmpCmd.Parameters = new() { { "option", "AutoServerTime" }, { "value", "1" } };
+        }
+        var resultCommand = formatter.Format(syncEmpCmd);
+        var devcommand = new DeviceCommand()
+        {
+            Id = id,
+            CommandType = syncEmpCmd.Command,
+            Commands = resultCommand,
+            SN = SN,
+        };
+        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        return NoContent();
+    }
+
     [HttpPost("enable-attendance")]
     public async Task<IActionResult> EnableDevice([FromQuery] string SN, [FromQuery] int enable)
     {
@@ -262,7 +317,7 @@ public class CommandsController : ControllerBase
         var syncEmpCmd = new DeviceCommandFormmaterPayload
         {
             Id = id.ToString("N"),
-            Command= "RM_ADMIN_PRIVILEGE",
+            Command = "RM_ADMIN_PRIVILEGE",
         };
         var resultCommand = formatter.Format(syncEmpCmd);
         var devcommand = new DeviceCommand()
@@ -274,9 +329,77 @@ public class CommandsController : ControllerBase
         };
         await _service.CreateCommand(new List<DeviceCommand> { devcommand });
         return NoContent();
+    } 
+
+    [HttpPost("pull-attendance")]
+    public async Task<IActionResult> PullAtt([FromQuery] PullAttPayload data)
+    {
+        ISystemClockService clockService = new SystemClockService(_configuration);
+        var formatter = new ZKTecoCommandFormatter(clockService);
+        var id = Guid.CreateVersion7();
+        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        {
+            Id = id.ToString("N"),
+            Command = "PULL_ATTENDANCE",
+            Parameters = new()
+                        {
+                            { "start_time", data.StartDate},
+                            { "end_time",  data.EndDate }
+                        }
+        };
+        var resultCommand = formatter.Format(syncEmpCmd);
+        var devcommand = new DeviceCommand()
+        {
+            Id = id,
+            CommandType = syncEmpCmd.Command,
+            Commands = resultCommand,
+            SN = data.SN,
+        };
+        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        return NoContent();
+    }
+
+
+    [HttpDelete()]
+    public async Task<IActionResult> Delete([FromQuery(Name = "id:Guid")] Guid Id)
+    {
+        _service.Delete(Id);
+        _service.CommitChanges();
+        return NoContent();
     }
 }
 
+public record PullAttPayload
+{
+    /// <summary>
+    /// The unique target biometric hardware serial number string.
+    /// </summary>
+    /// <example>MB460-998234B</example>
+    public string SN { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The boundary starting date threshold for log collection filter matching.
+    /// </summary>
+    /// <example>2026-05-01T00:00:00</example>
+    public DateTime StartDate { get; set; } = DateTime.Now;
+    /// <summary>
+    /// The boundary ending date threshold for log collection filter matching.
+    /// </summary>
+    /// <example>2026-05-24T23:59:59</example>
+    public DateTime EndDate { get; set; } = DateTime.Now;
+}
+public record EnrollFPPayload
+{
+    public int BioId { get; set; }
+    public int FingerIndex { get; set; }
+}
+public record EnrollFacePayload
+{
+    public int BioId { get; set; }
+    public string CardNo { get; set; } = string.Empty;
+    public int FaceType { get; set; } = 2;
+    public bool Overwrite { get; set; } = true;
+}
 //sample commands
 //class Program
 //{
@@ -494,9 +617,3 @@ public class CommandsController : ControllerBase
 //    }
 //}
 
-
-public record EnrollPayload
-{
-    public int BioId { get; set; }
-    public int FingerIndex { get; set; }
-}

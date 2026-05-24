@@ -282,7 +282,7 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
         fields.Add($"RETRY={retry}");
         fields.Add($"OVERWRITE={overwrite}");
 
-        return $"C:{command.Id}:ENROLL_BIO " + string.Join("\t", fields);
+        return $"C:{command.Id}:ENROLL_FACE " + string.Join("\t", fields);
     }
 
     private string FormatRawCommand(DeviceCommandFormmaterPayload command)

@@ -98,6 +98,8 @@ public static class ServiceRegistrations
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
         builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
+        builder.Services.AddHostedService<CleanUpDormantCommandWatcher>();
+
         builder.Services.AddHeaderPropagation(options =>
         {
             options.Headers.Add("User-Agent");
@@ -143,7 +145,11 @@ public static class ServiceRegistrations
         // Swagger (defer versioned docs to Program.cs)
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
-        builder.Services.AddSwaggerGen();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+        });
         var signingKey = builder.Configuration["JwtSettings:SigningKey"];
         if (string.IsNullOrWhiteSpace(signingKey))
         {

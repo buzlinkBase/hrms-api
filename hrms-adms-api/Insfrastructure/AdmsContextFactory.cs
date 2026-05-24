@@ -29,6 +29,6 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
         var optionsBuilder = new DbContextOptionsBuilder<AdmsContext>();
         var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
         optionsBuilder.UseMySql(connectionString, serverVersion);
-        return new AdmsContext(optionsBuilder.Options,null);
+        return new AdmsContext(optionsBuilder.Options, null);
     }
 }

@@ -9,6 +9,11 @@ public class AdmsContext : DbContext
     {
         _tenantProvider = tenantProvider;
     }
+
+    //public AdmsContext(DbContextOptions<AdmsContext> options):base(options) 
+    //{
+        
+    //}
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);

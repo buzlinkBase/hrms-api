@@ -65,7 +65,6 @@ public class AdmsController : ControllerBase
     {
         using var reader = new StreamReader(Request.Body);
         string result = await reader.ReadToEndAsync();
-        // Result will look like: "ID=101&Return=0" (0 means success)
         var data = result.Split('\n');
         foreach (var item in data)
         {
@@ -124,43 +123,8 @@ public class DeviceResult
     public int Return { get; set; }
     public string CMD { get; set; }
 }
+ 
 
-//sample commands
-//class Program
-//{
-//    static void Main(string[] args)
-//    {
-//        // 1. Initialize dependencies
-//        ISystemClockService clockService = new ClockNormalize();
-//        var formatter = new ZKTecoCommandFormatter(clockService);
-
-//        Console.WriteLine("================ ZKTECO COMMAND GENERATION ================\n");
-
-//        // --- TEST CASE 1: RESTART / REBOOT ---
-//        var rebootCmd = new DeviceCommandPayload { Id = 101, Command = "REBOOT" };
-//        PrintResult("REBOOT", formatter.Format(rebootCmd));
-
-//        // --- TEST CASE 2: CLEAR_LOGS ---
-//        var clearLogsCmd = new DeviceCommandPayload { Id = 102, Command = "CLEAR_LOGS" };
-//        PrintResult("CLEAR_LOGS", formatter.Format(clearLogsCmd));
-
-//        // --- TEST CASE 3: SET_TIME (With Timestamp) ---
-//        var setTimeCmd = new DeviceCommandPayload
-//        {
-//            Id = 103,
-//            Command = "SET_TIME",
-//            Parameters = new() { { "timestamp", DateTime.Now } }
-//        };
-//        PrintResult("SET_TIME (Timestamp)", formatter.Format(setTimeCmd));
-
-//        // --- TEST CASE 4: SET_TIME (With Option Override) ---
-//        var setTimeOptCmd = new DeviceCommandPayload
-//        {
-//            Id = 104,
-//            Command = "SET_TIME",
-//            Parameters = new() { { "option", "AutoServerTime" }, { "value", "1" } }
-//        };
-//        PrintResult("SET_TIME (Option)", formatter.Format(setTimeOptCmd));
 
 //        // --- TEST CASE 5: SET_TIMEZONE ---
 //        var setTzCmd = new DeviceCommandPayload
@@ -170,130 +134,7 @@ public class DeviceResult
 //            Parameters = new() { { "option", "TimeZone" }, { "value", "420" } } // GMT+7 Example
 //        };
 //        PrintResult("SET_TIMEZONE", formatter.Format(setTzCmd));
-
-//        // --- TEST CASE 6: ENABLE_ATTENDANCE ---
-//        var enableAttCmd = new DeviceCommandPayload { Id = 106, Command = "ENABLE_ATTENDANCE" };
-//        PrintResult("ENABLE_ATTENDANCE", formatter.Format(enableAttCmd));
-
-//        // --- TEST CASE 7: DISABLE_ATTENDANCE ---
-//        var disableAttCmd = new DeviceCommandPayload { Id = 107, Command = "DISABLE_ATTENDANCE" };
-//        PrintResult("DISABLE_ATTENDANCE", formatter.Format(disableAttCmd));
-
-//        // --- TEST CASE 8: SET_ATTENDANCE_MODE ---
-//        var attModeCmd = new DeviceCommandPayload
-//        {
-//            Id = 108,
-//            Command = "SET_ATTENDANCE_MODE",
-//            Parameters = new() { { "option", "AttFmt" }, { "value", "1" } }
-//        };
-//        PrintResult("SET_ATTENDANCE_MODE", formatter.Format(attModeCmd));
-
-//        // --- TEST CASE 9: SYNC_EMPLOYEES (Add/Update User) ---
-//        var syncEmpCmd = new DeviceCommandPayload
-//        {
-//            Id = 109,
-//            Command = "SYNC_EMPLOYEES",
-//            Parameters = new()
-//            {
-//                { "employee_code", "9988" }, // Falling back to employee_code
-//                { "name", "John Doe" },
-//                { "card_no", "12345678" },
-//                { "privilege", 0 },
-//                { "password", "4321" },
-//                { "group_code", "1" }
-//            }
-//        };
-//        PrintResult("SYNC_EMPLOYEES (Update)", formatter.Format(syncEmpCmd));
-
-//        // --- TEST CASE 10: SYNC_EMPLOYEES (Query Single User) ---
-//        var queryEmpCmd = new DeviceCommandPayload
-//        {
-//            Id = 110,
-//            Command = "SYNC_EMPLOYEES",
-//            Parameters = new() { { "action", "query" }, { "pin", "9988" } }
-//        };
-//        PrintResult("SYNC_EMPLOYEES (Query)", formatter.Format(queryEmpCmd));
-
-//        // --- TEST CASE 11: SYNC_BIOMETRICS (Fingerprint with spaced template) ---
-//        // Mimicking base64 template with spaces. Regex.Replace will strip these out.
-//        string fakeFpBase64 = "U09NRSBGSU5HRVJQUklOVCBEQVRBIEhFUkU=";
-//        var syncFpCmd = new DeviceCommandPayload
-//        {
-//            Id = 111,
-//            Command = "SYNC_BIOMETRICS",
-//            Parameters = new()
-//            {
-//                { "pin", "1002" },
-//                { "biometric_type", "fingerprint" },
-//                { "template_index", "2" },
-//                { "template_data", fakeFpBase64 },
-//                { "is_valid", "true" }
-//            }
-//        };
-//        PrintResult("SYNC_BIOMETRICS (Fingerprint)", formatter.Format(syncFpCmd));
-
-//        // --- TEST CASE 12: SYNC_BIOMETRICS (Face Template) ---
-//        string fakeFaceBase64 = "RkFDRSBURU1QTEFURSBXSVRIU1BBQ0VTIElOIEJBU0U2NA==";
-//        var syncFaceCmd = new DeviceCommandPayload
-//        {
-//            Id = 112,
-//            Command = "SYNC_BIOMETRICS",
-//            Parameters = new()
-//            {
-//                { "pin", "1002" },
-//                { "biometric_type", "face" },
-//                { "template_index", "50" },
-//                { "template_data", fakeFaceBase64 },
-//                { "face_upload_prefixed", false }
-//            }
-//        };
-//        PrintResult("SYNC_BIOMETRICS (Face)", formatter.Format(syncFaceCmd));
-
-//        // --- TEST CASE 13: SYNC_BIOMETRICS (User Photo) ---
-//        var syncPhotoCmd = new DeviceCommandPayload
-//        {
-//            Id = 113,
-//            Command = "SYNC_BIOMETRICS",
-//            Parameters = new()
-//            {
-//                { "pin", "1002" },
-//                { "biometric_type", "photo" },
-//                { "file_name", "1002.jpg" },
-//                { "template_data", "IMAGE_RAW_OR_BASE64_STREAM" }
-//            }
-//        };
-//        PrintResult("SYNC_BIOMETRICS (Photo)", formatter.Format(syncPhotoCmd));
-
-//        // --- TEST CASE 14: ENROLL_FINGERPRINT ---
-//        var enrollFpCmd = new DeviceCommandPayload
-//        {
-//            Id = 114,
-//            Command = "ENROLL_FINGERPRINT",
-//            Parameters = new()
-//            {
-//                { "pin", "1005" },
-//                { "fid", 1 }, // Finger ID (Index 0-9)
-//                { "retry", 3 },
-//                { "overwrite", true }
-//            }
-//        };
-//        PrintResult("ENROLL_FINGERPRINT", formatter.Format(enrollFpCmd));
-
-//        // --- TEST CASE 15: ENROLL_FACE ---
-//        var enrollFaceCmd = new DeviceCommandPayload
-//        {
-//            Id = 115,
-//            Command = "ENROLL_FACE",
-//            Parameters = new()
-//            {
-//                { "pin", "1005" },
-//                { "card_no", "87654321" },
-//                { "retry", 5 },
-//                { "type", 2 }
-//            }
-//        };
-//        PrintResult("ENROLL_FACE", formatter.Format(enrollFaceCmd));
-
+  
 //        // --- TEST CASE 16: PULL_EMPLOYEES (All or Single) ---
 //        var pullEmpCmd = new DeviceCommandPayload
 //        {
@@ -315,11 +156,7 @@ public class DeviceResult
 //            }
 //        };
 //        PrintResult("PULL_ATTENDANCE", formatter.Format(pullAttCmd));
-
-//        // --- TEST CASE 18: RM_ADMIN_PRIVILEGE ---
-//        var rmAdminCmd = new DeviceCommandPayload { Id = 118, Command = "RM_ADMIN_PRIVILEGE" };
-//        PrintResult("RM_ADMIN_PRIVILEGE", formatter.Format(rmAdminCmd));
-
+ 
 //        // --- TEST CASE 19: CommandPayload Direct Bypass ---
 //        var rawPayloadCmd = new DeviceCommandPayload
 //        {
@@ -333,11 +170,4 @@ public class DeviceResult
 //        PrintResult("Fallback Command", formatter.Format(fallbackCmd));
 //    }
 
-//    private static void PrintResult(string caseName, string output)
-//    {
-//        Console.ForegroundColor = ConsoleColor.Cyan;
-//        Console.Write($"{caseName,-30}: ");
-//        Console.ForegroundColor = ConsoleColor.White;
-//        Console.WriteLine(output);
-//    }
-//}
+ 
