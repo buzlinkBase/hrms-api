@@ -2,6 +2,7 @@ using Asp.Versioning.ApiExplorer;
 using Hrms.adms;
 using Hrms.adms.Extensions;
 using Hrms.adms.Middlewares;
+using Microsoft.AspNetCore.DataProtection;
 
 internal class Program
 {
@@ -11,12 +12,14 @@ internal class Program
         Log.Logger = new LoggerConfiguration()
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
-        builder.Host.UseSerilog();
-
+        builder.Host.UseSerilog(); 
         builder.Services.AddPollyPolicies();
         builder.AdmsConfigRabbitMq();
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
+        builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(@"/app/dp-keys"));
+
         var app = builder.Build();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
         app.UseSwagger();

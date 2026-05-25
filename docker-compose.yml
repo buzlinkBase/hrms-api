@@ -17,7 +17,9 @@ services:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_started          
+        condition: service_started     
+    volumes:
+      - ./data-protection-keys:/app/dp-keys     
   adms-api:
     build:
       context: .
@@ -35,6 +37,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    volumes:
+      - ./data-protection-keys:/app/dp-keys
 
 networks:
   hrmsnet:

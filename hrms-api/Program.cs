@@ -4,6 +4,7 @@ using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
 using Hrms.Core.Extensions;
 using Mapster;
+using Microsoft.AspNetCore.DataProtection;
 using Serilog;
 
 internal class Program
@@ -39,6 +40,9 @@ internal class Program
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
+        builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(@"/app/dp-keys"));
+
         var app = builder.Build();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
         app.UseSwagger();
