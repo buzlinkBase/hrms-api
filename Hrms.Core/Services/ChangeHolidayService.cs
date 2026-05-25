@@ -15,7 +15,7 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
 
         var batches = GetQueryable()
             .Where(x => Ids.Any(xx => xx == x.EmployeeId)
-                 && x.HolidayId == holidayModel.Holiday.Id)
+                 && x.HolidayId == holidayModel.HolidayId)
             .Select(x => x.BatchEntryId)
             .ToList();
 
@@ -69,7 +69,7 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
                 State = ChangeSchedState.OVERRIDEN,
                 PayrollDate = holidayModel.PayrollDateFrom,
                 EmployeeId = emp,
-                HolidayId = holidayModel.Holiday.Id,
+                HolidayId = holidayModel.HolidayId,
                 BatchEntryId = batchId,
             };
             var entity2 = new ChangeHoliday()
@@ -77,7 +77,7 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
                 State = ChangeSchedState.REPLACEMENT,
                 PayrollDate = holidayModel.PayrollDateTo,
                 EmployeeId = emp,
-                HolidayId = holidayModel.Holiday.Id,
+                HolidayId = holidayModel.HolidayId,
                 BatchEntryId = batchId,
             };
             await _uow.Repository.AddAsync(entity1, token);
