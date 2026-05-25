@@ -10,7 +10,7 @@ public class ConfigureSwaggerOptions : IConfigureOptions<SwaggerGenOptions>
         //options.OperationFilter<SwaggerHeader>();
         options.SwaggerDoc("v1", new OpenApiInfo
         {
-            Title = "OnePunch HRMS API",
+            Title = "OnePunch ADMS API",
             Version = "v1"
         });
         // 1. JWT Bearer Definition

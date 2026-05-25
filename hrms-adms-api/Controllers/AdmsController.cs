@@ -1,4 +1,5 @@
-﻿using Hrms.adms.Services;
+﻿using Asp.Versioning;
+using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
@@ -7,6 +8,8 @@ namespace Hrms.adms.Controllers;
 
 [ApiController]
 [Route("iclock")]
+[ApiVersionNeutral]
+[ApiExplorerSettings(IgnoreApi =true)]
 public class AdmsController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
