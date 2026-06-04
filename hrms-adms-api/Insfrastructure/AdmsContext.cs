@@ -56,4 +56,5 @@ public class AdmsContext : DbContext
     public DbSet<MultiBioSupport> MultiBioSupports { get; set; }
     public DbSet<BiometricTemplate> BiometricTemplates { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
+    public DbSet<DeviceUser> DeviceUsers { get; set; }
 }

@@ -41,9 +41,9 @@ public class TemplateService : BaseService<BiometricTemplate>
         await CommitChangesAsync(token);
     }
 
-    public async Task FindAll(string sn)
+    public Task<List<BiometricTemplate>> FindAll(string sn, CancellationToken token)
     {
-          //GetQueryable(x => x.SN == sn);
+        return GetQueryable(x => x.SN == sn).ToListAsync(token);
     }
     public async Task Transfer(string SN, Guid tenantId, CancellationToken token)
     {

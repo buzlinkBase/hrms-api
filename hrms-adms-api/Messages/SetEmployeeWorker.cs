@@ -46,7 +46,7 @@ public class SetEmployeeWorker : IConsumer<DeviceCommandWrapper<List<SetEmployee
             var devcommand = new DeviceCommand()
             {
                 Id = id,
-                Commands = "SYNC_EMPLOYEES",
+                Commands = resultCommand,
                 SN = messages.DeviceSN,
                 TenantId = _tenantProvider.TenantId,
             };

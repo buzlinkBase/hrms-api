@@ -2,6 +2,12 @@
 
 namespace Hrms.adms.Insfrastructure;
 
+file sealed class DesignTimeTenantProvider : ITenantProvider
+{
+    public Guid TenantId => Guid.Empty;
+    public void SetTenantId(Guid tenantId) { }
+}
+
 public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
 {
     public AdmsContext CreateDbContext(string[] args)
@@ -29,6 +35,6 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
         var optionsBuilder = new DbContextOptionsBuilder<AdmsContext>();
         var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
         optionsBuilder.UseMySql(connectionString, serverVersion);
-        return new AdmsContext(optionsBuilder.Options, null);
+        return new AdmsContext(optionsBuilder.Options, new DesignTimeTenantProvider());
     }
 }

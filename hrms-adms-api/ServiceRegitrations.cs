@@ -94,6 +94,7 @@ public static class ServiceRegistrations
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
         //zkteco
         builder.Services.AddScoped<ISystemClockService, SystemClockService>();
+        builder.Services.AddScoped<DeviceUserService>();
         builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");

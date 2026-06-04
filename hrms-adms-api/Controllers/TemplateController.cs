@@ -18,10 +18,10 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet()]
-        public async Task<IActionResult> GetAll(string sn , CancellationToken token)
+        public async Task<IActionResult> GetAll(string sn, CancellationToken token)
         {
-            //await _service.GetQueryable(x=>x.SN==sn);
-            return Ok();
+            var result = await _service.FindAll(sn, token);
+            return Ok(result);
         }
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
