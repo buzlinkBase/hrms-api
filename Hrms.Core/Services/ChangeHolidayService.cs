@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities; 
 
 namespace Hrms.Core.Services;
 
@@ -14,13 +14,13 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
         if (!Ids.Any()) return;
 
         var batches = GetQueryable()
-            .Where(x => Ids.Any(xx => xx == x.EmployeeId)
+            .Where(x => Ids.Contains(x.EmployeeId)
                  && x.HolidayId == holidayModel.HolidayId)
             .Select(x => x.BatchEntryId)
             .ToList();
 
         var existing = GetQueryable()
-           .Where(x => batches.Any(xx => xx == x.BatchEntryId))
+           .Where(x => batches.Contains(x.BatchEntryId))
            .ToList();
 
         await RemoveRangeAsync(existing, token);
@@ -33,7 +33,10 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
         CancellationToken token)
     {
         //flatten
-        return (await GetQueryable().Where(x =>
+        return (await GetQueryable()
+        .Include(x => x.Employee).ThenInclude(e => e.Client)
+        .Include(x => x.Holiday)
+        .Where(x =>
             (payload.PayrollGroupId == null || x.Employee.PayrollGroupId == payload.PayrollGroupId) &&
             (payload.EmployeeId == null || x.EmployeeId == payload.EmployeeId) &&
             (payload.ClientId == null || x.Employee.ClientId == payload.ClientId) &&
@@ -86,11 +89,10 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
     }
 
 
-    public async Task DeleteAsync(Guid Id, CancellationToken token)
+    public async Task DeleteAsync(Guid batchId, CancellationToken token)
     {
-        await RemoveAsync(Id, token);
+        await RemoveAsync(x => x.BatchEntryId == batchId, token);
         await CommitChangesAsync(token);
-
     }
 
 
