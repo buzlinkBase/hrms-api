@@ -153,9 +153,10 @@ public static class ServiceRegistrationsExt
             );
         }
         builder.Services.AddAuthorizationBuilder()
-        .SetFallbackPolicy(new AuthorizationPolicyBuilder()
-            .RequireAuthenticatedUser()
-            .Build());
+         .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
+
         builder.Services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RTools_NTS.Util;
 using System.Text;
@@ -10,6 +11,7 @@ namespace Hrms.adms.Controllers;
 [ApiController]
 [Route("iclock")]
 [ApiVersionNeutral]
+[AllowAnonymous]
 [ApiExplorerSettings(IgnoreApi =true)]
 public class AdmsController : ControllerBase
 {
