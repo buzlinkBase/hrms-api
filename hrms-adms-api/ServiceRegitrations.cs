@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using Onepunch.Common.Lib.DbServices;
 using Polly;
 using Refit;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
@@ -172,6 +173,55 @@ public static class ServiceRegistrations
                  {
                      Console.WriteLine("Auth failed: " + context.Exception.Message);
                      return Task.CompletedTask;
+                 },
+
+                 OnChallenge = async context =>
+                 {
+                     // Skip the default response
+                     context.HandleResponse();
+
+                     context.Response.StatusCode = 401;
+                     context.Response.ContentType = "application/json";
+
+                     var errorDetail = new ProblemDetails
+                     {
+                         Type = $"https://httpstatuses.com/{401}",
+                         Title = "Unauthorized",
+                         Status = (int)HttpStatusCode.Unauthorized,
+                         Detail = "Unauthorized. Token is missing or invalid.",
+                         Instance = $"{context.Request.Method} {context.Request.Path}"
+                     };
+                     var response = new ResponseModel<ProblemDetails>
+                     {
+                         Message = errorDetail.Detail,
+                         Status = (int)HttpStatusCode.Unauthorized,
+                         Data = errorDetail
+                     };
+                     await context.Response.WriteAsJsonAsync(response);
+                 },
+
+                 // ✅ Add this — fires when token is valid but user lacks permission
+                 OnForbidden = async context =>
+                 {
+                     context.Response.StatusCode = 403;
+                     context.Response.ContentType = "application/json";
+
+                     var errorDetail = new ProblemDetails
+                     {
+                         Type = $"https://httpstatuses.com/{403}",
+                         Title = "Forbidden",
+                         Status = (int)HttpStatusCode.Forbidden,
+                         Detail = "Forbidden. You do not have permission to access this resource.",
+                         Instance = $"{context.Request.Method} {context.Request.Path}"
+                     };
+                     var response = new ResponseModel<ProblemDetails>
+                     {
+                         Message = errorDetail.Detail,
+                         Status = (int)HttpStatusCode.Unauthorized,
+                         Data = errorDetail
+                     };
+
+                     await context.Response.WriteAsJsonAsync(response);
                  }
              };
              options.TokenValidationParameters = new TokenValidationParameters

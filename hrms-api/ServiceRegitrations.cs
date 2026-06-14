@@ -2,6 +2,7 @@
 using Asp.Versioning;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
+using Grpc.Core;
 using Hrms.Api.Filters;
 using Hrms.Api.Providers;
 using Hrms.Core.Interfaces;
@@ -10,6 +11,7 @@ using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Options;
@@ -20,6 +22,7 @@ using Onepunch.Common.Lib.Interfaces;
 using Polly;
 using Refit;
 using StackExchange.Redis;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -149,7 +152,10 @@ public static class ServiceRegistrationsExt
                 "JWT SigningKey is not configured. Please set 'JwtSettings:SigningKey' in appsettings.json or environment variables."
             );
         }
-
+        builder.Services.AddAuthorizationBuilder()
+        .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build());
         builder.Services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -161,9 +167,57 @@ public static class ServiceRegistrationsExt
              {
                  OnAuthenticationFailed = context =>
                  {
-                     // This will print the EXACT reason for the 401 in your console
                      Console.WriteLine("Auth failed: " + context.Exception.Message);
                      return Task.CompletedTask;
+                 },
+
+                 OnChallenge = async context =>
+                 {
+                     // Skip the default response
+                     context.HandleResponse();
+
+                     context.Response.StatusCode = 401;
+                     context.Response.ContentType = "application/json";
+
+                     var errorDetail = new ProblemDetails
+                     {
+                         Type = $"https://httpstatuses.com/{401}",
+                         Title = "Unauthorized",
+                         Status = (int)HttpStatusCode.Unauthorized,
+                         Detail = "Unauthorized. Token is missing or invalid.",
+                         Instance = $"{context.Request.Method} {context.Request.Path}"
+                     };
+                     var response = new ResponseModel<ProblemDetails>
+                     {
+                         Message = errorDetail.Detail,
+                         Status = (int)HttpStatusCode.Unauthorized,
+                        Data=errorDetail
+                     };
+                     await context.Response.WriteAsJsonAsync(response);
+                 },
+
+                 // ✅ Add this — fires when token is valid but user lacks permission
+                 OnForbidden = async context =>
+                 {
+                     context.Response.StatusCode = 403;
+                     context.Response.ContentType = "application/json";
+
+                     var errorDetail = new ProblemDetails
+                     {
+                         Type = $"https://httpstatuses.com/{403}",
+                         Title = "Forbidden",
+                         Status = (int)HttpStatusCode.Forbidden,
+                         Detail = "Forbidden. You do not have permission to access this resource.",
+                         Instance = $"{context.Request.Method} {context.Request.Path}"
+                     };
+                     var response = new ResponseModel<ProblemDetails>
+                     {
+                         Message = errorDetail.Detail,
+                         Status = (int)HttpStatusCode.Unauthorized,
+                         Data = errorDetail
+                     }; 
+
+                     await context.Response.WriteAsJsonAsync(response);
                  }
              };
              options.TokenValidationParameters = new TokenValidationParameters
