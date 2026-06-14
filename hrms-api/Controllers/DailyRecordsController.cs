@@ -26,12 +26,12 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<List<CostCenterModel>>), 200)]
     public async Task<IActionResult> Post([FromBody] List<CreateDailyRecord> model, CancellationToken token)
     {
         var models = _mapper.Map<List<DailyRecord>>(model);
         await _service.AddRangeAsync(models, token);
-        var respModel = _mapper.Map<CostCenterModel>(models);
+        var respModel = _mapper.Map<List<CostCenterModel>>(models);
         return Ok(respModel);
     }
 

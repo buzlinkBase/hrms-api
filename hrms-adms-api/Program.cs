@@ -3,6 +3,7 @@ using Hrms.adms;
 using Hrms.adms.Extensions;
 using Hrms.adms.Middlewares;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 
 internal class Program
 {
@@ -36,6 +37,12 @@ internal class Program
 
         app.UseRouting();
         app.UseCors("AllowAll");
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                     | ForwardedHeaders.XForwardedProto
+                     | ForwardedHeaders.XForwardedHost
+        });
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseSerilogRequestLogging();

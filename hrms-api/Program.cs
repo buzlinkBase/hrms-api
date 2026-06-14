@@ -5,6 +5,7 @@ using Hrms.Api.Extensions;
 using Hrms.Core.Extensions;
 using Mapster;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 
 internal class Program
@@ -64,6 +65,12 @@ internal class Program
         app.UseCors("AllowAll");
         //app.UseMiddleware<ApiKeyMiddleware>();
         //app.UseMiddleware<CorrelationIdMiddleware>();
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                     | ForwardedHeaders.XForwardedProto
+                     | ForwardedHeaders.XForwardedHost
+        });
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseHeaderPropagation();
