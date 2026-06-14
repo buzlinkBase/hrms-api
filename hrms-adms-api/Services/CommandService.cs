@@ -18,6 +18,7 @@ public class CommandService : BaseService<DeviceCommand>
     public async Task CreateCommand(List<DeviceCommand> commands)
     {
         await Repository.AddRangeAsync(commands);
+        await SaveChangesAsync();
         await CommitChangesAsync();
     }
 
@@ -45,6 +46,7 @@ public class CommandService : BaseService<DeviceCommand>
         var device = await _service.FindSnAsync(sn,CancellationToken.None);
         if (device == null) return new List<DeviceCommand>(); 
         return GetQueryable(x => x.SN == sn)
+            .OrderBy(x=>x.Id)
             .Skip(0)
             .Take(30)
             .ToList();

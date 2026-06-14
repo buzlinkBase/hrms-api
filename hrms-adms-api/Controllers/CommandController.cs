@@ -1,10 +1,12 @@
 ﻿using Asp.Versioning;
+using DocumentFormat.OpenXml.Office2010.Excel;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
 using Hrms.adms.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.SqlServer.Types;
+using System.Text;
 
 namespace Hrms.adms.Controllers;
 
@@ -329,7 +331,7 @@ public class CommandsController : ControllerBase
         };
         await _service.CreateCommand(new List<DeviceCommand> { devcommand });
         return NoContent();
-    } 
+    }
 
     [HttpPost("pull-attendance")]
     public async Task<IActionResult> PullAtt([FromQuery] PullAttPayload data)
@@ -359,6 +361,82 @@ public class CommandsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{sn}/query-templates")]
+    public async Task<IActionResult> QueryTemplates(
+       string sn,
+       [FromQuery] string? pin = null,
+       [FromQuery] int? fid = null)
+    {
+        string command;
+        var id = Guid.CreateVersion7();
+        if (string.IsNullOrEmpty(pin))
+        {
+            // All users, all fingers
+            command = $"C:{id}:DATA QUERY FINGERTMP";
+        }
+        else if (!fid.HasValue)
+        {
+            // All fingers for specific user
+            command = $"C:{id}:DATA QUERY FINGERTMP PIN={pin}";
+        }
+        else
+        {
+            // Specific finger of specific user
+            command = $"C:{id}:DATA QUERY FINGERTMP PIN={pin}\tFID={fid}";
+        }
+
+        ISystemClockService clockService = new SystemClockService(_configuration);
+        var formatter = new ZKTecoCommandFormatter(clockService);
+
+        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        {
+            Id = id.ToString("N"),
+            Command = "QUERY_FP",
+            CommandPayload = command,
+            Parameters = new Dictionary<string, object?>()
+        };
+        var resultCommand = formatter.Format(syncEmpCmd);
+        var devcommand = new DeviceCommand()
+        {
+            Id = id,
+            CommandType = syncEmpCmd.Command,
+            Commands = resultCommand,
+            SN = sn,
+        };
+        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        return NoContent();
+    }
+
+
+    [HttpPost("registry")]
+    public async Task<IActionResult> RegistryReset([FromQuery] string sn)
+    {
+        var config = new StringBuilder();
+        config.AppendLine("RegistryCode=0");
+        config.AppendLine("RegistryVer=1.0");
+        config.AppendLine($"ATTLOGStamp=0");        // ← sync attendance from beginning
+        config.AppendLine($"OPERLOGStamp=0");       // ← sync operation logs
+        config.AppendLine($"ATTPHOTOStamp=0");      // ← sync photos
+        config.AppendLine("ErrorDelay=30");
+        config.AppendLine("Delay=30");
+        config.AppendLine("TransTimes=00:00;23:59");
+        config.AppendLine("TransInterval=1");
+        config.AppendLine("TransFlag=TransData AttLog OpLog EnrollUser ChgUser EnrollFP ChgFP UserPic");
+        config.AppendLine("Realtime=1");
+        config.AppendLine("Encrypt=0");
+        config.AppendLine("TimeZone=8");
+
+        var stringCommand = config.ToString();
+        var devcommand = new DeviceCommand()
+        {
+            CommandType = "REGISTRY",
+            Commands = stringCommand,
+            SN = sn,
+        };
+        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        return NoContent();
+
+    }
 
     [HttpDelete()]
     public async Task<IActionResult> Delete([FromQuery(Name = "id:Guid")] Guid Id)
@@ -367,6 +445,8 @@ public class CommandsController : ControllerBase
         _service.CommitChanges();
         return NoContent();
     }
+
+
 }
 
 public record PullAttPayload
@@ -408,16 +488,6 @@ public record EnrollFacePayload
 //        // 1. Initialize dependencies
 //        ISystemClockService clockService = new ClockNormalize();
 //        var formatter = new ZKTecoCommandFormatter(clockService);
-
-//        Console.WriteLine("================ ZKTECO COMMAND GENERATION ================\n");
-
-//        // --- TEST CASE 1: RESTART / REBOOT ---
-//        var rebootCmd = new DeviceCommandPayload { Id = 101, Command = "REBOOT" };
-//        PrintResult("REBOOT", formatter.Format(rebootCmd));
-
-//        // --- TEST CASE 2: CLEAR_LOGS ---
-//        var clearLogsCmd = new DeviceCommandPayload { Id = 102, Command = "CLEAR_LOGS" };
-//        PrintResult("CLEAR_LOGS", formatter.Format(clearLogsCmd));
 
 //        // --- TEST CASE 3: SET_TIME (With Timestamp) ---
 //        var setTimeCmd = new DeviceCommandPayload

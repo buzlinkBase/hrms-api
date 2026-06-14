@@ -215,7 +215,7 @@ namespace Hrms.adms.Migrations
 
                     b.Property<string>("TemplateData")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("TemplateSize")
                         .HasColumnType("int");

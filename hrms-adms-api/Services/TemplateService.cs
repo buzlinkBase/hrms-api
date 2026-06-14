@@ -4,29 +4,43 @@ public class TemplateService : BaseService<BiometricTemplate>
 {
     private readonly DeviceService _deviceService;
     public TemplateService(IUnitOfWorkService uow,
-        DeviceService deviceService
-        ) : base(uow)
+        DeviceService deviceService) : base(uow)
     {
         _deviceService = deviceService;
     }
     public async Task AddRangeTemplate(List<CreateBiometricTemplate> models, CancellationToken token)
     {
+        if (models == null || models.Count == 0) return;
+
+        // Extract individual filter sets
+        var tenantId = (models.First().TenantId);
+        var bioIds = models.Select(m => m.BioId).Distinct().ToList();
+        var bioTypes = models.Select(m => m.BioType).Distinct().ToList();
+        var bioIndexes = models.Select(m => m.BioIndex).Distinct().ToList();
+
+        // EF Core can translate this into SQL IN clauses
+        var existing = await Context.BiometricTemplates
+            .Where(x => x.TenantId == tenantId &&
+                        bioIds.Contains(x.BioId))
+            .ToListAsync(token);
+
+        // Build dictionary for O(1) lookup
+        var existingDict = existing.ToDictionary(
+            x => (x.TenantId, x.BioId, x.BioType, x.BioIndex)
+        );
+
         foreach (var model in models)
         {
-            var existing = await Context.BiometricTemplates
-                .FirstOrDefaultAsync(x => x.TenantId == model.TenantId &&
-                                         x.BioId == model.BioId &&
-                                         x.BioType == model.BioType &&
-                                         x.BioIndex == model.BioIndex, token);
+            var key = (model.TenantId, model.BioId, model.BioType, model.BioIndex);
 
-            if (existing != null)
+            if (existingDict.TryGetValue(key, out var record))
             {
-                existing.TemplateData = model.TemplateData;
-                existing.TemplateSize = model.TemplateSize;
+                record.TemplateData = model.TemplateData;
+                record.TemplateSize = model.TemplateSize;
             }
             else
             {
-                Context.BiometricTemplates.Add(new BiometricTemplate
+                var newTemplate = new BiometricTemplate
                 {
                     TenantId = model.TenantId,
                     BioId = model.BioId,
@@ -34,9 +48,12 @@ public class TemplateService : BaseService<BiometricTemplate>
                     BioIndex = model.BioIndex,
                     TemplateSize = model.TemplateSize,
                     TemplateData = model.TemplateData
-                });
+                };
+                Context.BiometricTemplates.Add(newTemplate);
+                existingDict[key] = newTemplate;
             }
         }
+
         await Context.SaveChangesAsync(token);
         await CommitChangesAsync(token);
     }

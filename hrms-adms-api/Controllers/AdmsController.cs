@@ -2,6 +2,7 @@
 using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
 using Microsoft.AspNetCore.Mvc;
+using RTools_NTS.Util;
 using System.Text;
 
 namespace Hrms.adms.Controllers;
@@ -30,21 +31,47 @@ public class AdmsController : ControllerBase
     }
 
     // 1. REGISTRY
+    //[HttpPost("registry")]
+    //public IActionResult Registry([FromQuery] string SN)
+    //{
+    //    Log.Information("Registration request from Device SN: {SN}", SN);
+    //    var config = new StringBuilder();
+    //    config.AppendLine("TransFlag=1111000000");
+    //    return Content(config.ToString(), "text/plain");
+    //}
+
     [HttpPost("registry")]
     public IActionResult Registry([FromQuery] string SN)
     {
+
+        //// Upsert device record
+        //var device = await _context.Devices.FirstOrDefaultAsync(x => x.SerialNumber == SN, token);
+        //if (device == null)
+        //{
+        //    device = new Device { SerialNumber = SN, RegisteredAt = DateTime.UtcNow };
+        //    _context.Devices.Add(device);
+        //    await _context.SaveChangesAsync(token);
+        //    Log.Information("New device registered: {SN}", SN);
+        //}
         Log.Information("Registration request from Device SN: {SN}", SN);
         var config = new StringBuilder();
         config.AppendLine("RegistryCode=0");
         config.AppendLine("RegistryVer=1.0");
+        config.AppendLine($"ATTLOGStamp=0");        // ← sync attendance from beginning
+        config.AppendLine($"OPERLOGStamp=0");       // ← sync operation logs
+        config.AppendLine($"ATTPHOTOStamp=0");      // ← sync photos
+        config.AppendLine("ErrorDelay=30");
         config.AppendLine("Delay=30");
         config.AppendLine("TransTimes=00:00;23:59");
         config.AppendLine("TransInterval=1");
-        config.AppendLine("TransFlag=1111000000");
+        config.AppendLine("TransFlag=TransData AttLog OpLog EnrollUser ChgUser EnrollFP ChgFP UserPic");
         config.AppendLine("Realtime=1");
         config.AppendLine("Encrypt=0");
+        config.AppendLine("TimeZone=8");            // ← set your timezone
         return Content(config.ToString(), "text/plain");
     }
+
+
 
     // 2. HANDSHAKE
     [HttpGet("getrequest")]
@@ -91,19 +118,20 @@ public class AdmsController : ControllerBase
     // 1. HANDSHAKE (GET)
     // Handles the "Is the server there?" requests
     [HttpGet("~/iclock/cdata")]
-    public IActionResult HandleCDataGet([FromQuery] string? SN)
+    public async Task<IActionResult> HandleCDataGet([FromQuery] string SN)
     {
         return Content("OK", "text/plain");
     }
-
     // 2. DATA RECEIVER (POST)
     // Handles the actual attendance logs and data pushes
     [HttpPost("~/iclock/cdata")]
     public async Task<IActionResult> HandleCDataPost(CancellationToken token)
     {
+       
         var req = Request.Query;
         var sn = Request.Query["SN"].ToString();
         var table = Request.Query["table"].ToString();
+
         var deviceInfo = await _biometricDevice.FindSnAsync(sn, token);
         if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty) return NotFound();
         _tenantProvider.SetTenantId(deviceInfo.TenantId);
@@ -118,6 +146,8 @@ public class AdmsController : ControllerBase
         }
         await processor.ProcessAsync(new BioPayload(sn, rawBody, new Models.DTO.ZkDeviceModel { DeviceInfo = deviceInfo }), token);
         return Content("OK", "text/plain");
+
+
     }
 }
 public class DeviceResult
@@ -127,50 +157,5 @@ public class DeviceResult
     public string CMD { get; set; }
 }
  
-
-
-//        // --- TEST CASE 5: SET_TIMEZONE ---
-//        var setTzCmd = new DeviceCommandPayload
-//        {
-//            Id = 105,
-//            Command = "SET_TIMEZONE",
-//            Parameters = new() { { "option", "TimeZone" }, { "value", "420" } } // GMT+7 Example
-//        };
-//        PrintResult("SET_TIMEZONE", formatter.Format(setTzCmd));
-  
-//        // --- TEST CASE 16: PULL_EMPLOYEES (All or Single) ---
-//        var pullEmpCmd = new DeviceCommandPayload
-//        {
-//            Id = 116,
-//            Command = "PULL_EMPLOYEES",
-//            Parameters = new() { { "pin", "1005" } }
-//        };
-//        PrintResult("PULL_EMPLOYEES", formatter.Format(pullEmpCmd));
-
-//        // --- TEST CASE 17: PULL_ATTENDANCE (Filtered Logs) ---
-//        var pullAttCmd = new DeviceCommandPayload
-//        {
-//            Id = 117,
-//            Command = "PULL_ATTENDANCE",
-//            Parameters = new()
-//            {
-//                { "start_time", "2026-05-19 00:00:00" },
-//                { "end_time", "2026-05-19 23:59:59" }
-//            }
-//        };
-//        PrintResult("PULL_ATTENDANCE", formatter.Format(pullAttCmd));
- 
-//        // --- TEST CASE 19: CommandPayload Direct Bypass ---
-//        var rawPayloadCmd = new DeviceCommandPayload
-//        {
-//            Id = 119,
-//            CommandPayload = "CUSTOM:RAW:STRING:NO:ID:REQUIRED"
-//        };
-//        PrintResult("CommandPayload (Direct)", formatter.Format(rawPayloadCmd));
-
-//        // --- TEST CASE 20: Fallback Raw Command ---
-//        var fallbackCmd = new DeviceCommandPayload { Id = 120, Command = "CUSTOM_UNKNOWN_OP" };
-//        PrintResult("Fallback Command", formatter.Format(fallbackCmd));
-//    }
 
  

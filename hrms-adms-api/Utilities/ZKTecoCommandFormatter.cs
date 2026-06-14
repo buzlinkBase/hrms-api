@@ -20,7 +20,8 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
         string payload = (command.CommandPayload ?? "").ToString().Trim();
         if (!string.IsNullOrEmpty(payload))
         {
-            return payload.StartsWith("C:") ? payload : $"C:{command.Id}:{payload}";
+            string preCommand= payload.StartsWith("C:") ? payload : $"C:{command.Id}:{payload}";
+            return preCommand;
         }
 
         return command.Command?.ToUpperInvariant() switch

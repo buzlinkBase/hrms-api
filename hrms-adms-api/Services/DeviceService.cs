@@ -57,6 +57,7 @@ public class DeviceService : BaseService<BiometricDevice>
         await UpsertBiometricDetailAsync(sn, BiometricType.PalmVein, payload.Biometrics.PalmVein, token);
 
         // Final save for tracking operations falling back to insertions
+        await Context.SaveChangesAsync(token);
         await CommitChangesAsync(token);
     }
 

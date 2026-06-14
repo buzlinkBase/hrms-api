@@ -14,7 +14,6 @@ public class OptionsProcessor : ICDataProcessor
     public async Task ProcessAsync(BioPayload payload, CancellationToken token = default)
     {
         await ParseAndStoreAsync(payload, token);
-        await Task.CompletedTask;
     }
 
     private async Task ParseAndStoreAsync(BioPayload payload, CancellationToken token)

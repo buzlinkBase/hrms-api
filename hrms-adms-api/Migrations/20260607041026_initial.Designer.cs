@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Hrms.adms.Migrations
 {
     [DbContext(typeof(AdmsContext))]
-    [Migration("20260523023557_commandtable")]
-    partial class commandtable
+    [Migration("20260607041026_initial")]
+    partial class initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -218,7 +218,7 @@ namespace Hrms.adms.Migrations
 
                     b.Property<string>("TemplateData")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("TemplateSize")
                         .HasColumnType("int");
@@ -294,6 +294,52 @@ namespace Hrms.adms.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DeviceCommands");
+                });
+
+            modelBuilder.Entity("Hrms.adms.Models.Entities.DeviceUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Card")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Password")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SN")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserPin")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DeviceUsers");
                 });
 
             modelBuilder.Entity("Hrms.adms.Models.Entities.FeaturesAndProtocols", b =>

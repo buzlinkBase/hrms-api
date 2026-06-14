@@ -20,7 +20,7 @@ public class OperLogProcessor : ICDataProcessor
         {
             if (line.Contains("FP PIN"))
             {
-                var fp = ParseTemplate(line, "FP PIN", BiometricType.Fingerprint, payload.Info.DeviceInfo.TenantId);
+                var fp = await ParseTemplateAsync(line, "FP PIN", BiometricType.Fingerprint, payload.Info.DeviceInfo.TenantId);
                 if (fp != null)
                 {
                     templatesToRegister.Add(fp);
@@ -28,22 +28,20 @@ public class OperLogProcessor : ICDataProcessor
             }
             else if (line.Contains("FACE PIN"))
             {
-                var face = ParseTemplate(line, "FACE PIN", BiometricType.Face, payload.Info.DeviceInfo.TenantId);
+                var face = await ParseTemplateAsync(line, "FACE PIN", BiometricType.Face, payload.Info.DeviceInfo.TenantId);
                 if (face != null)
                 {
                     templatesToRegister.Add(face);
                 }
             }
         }
-
         if (templatesToRegister.Any())
         {
-            await _bioTemplateService.AddRangeTemplate(templatesToRegister, token);
+          await _bioTemplateService.AddRangeTemplate(templatesToRegister, token);
         }
-
     }
 
-    private CreateBiometricTemplate? ParseTemplate(string line, string pinKey, BiometricType type, Guid tenantId)
+    private async Task<CreateBiometricTemplate?> ParseTemplateAsync(string line, string pinKey, BiometricType type, Guid tenantId)
     {
         var parts = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
         var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -51,7 +49,7 @@ public class OperLogProcessor : ICDataProcessor
         foreach (var part in parts)
         {
             var kv = part.Split('=');
-            if (kv.Length == 2)
+            if (kv.Length>0 && (kv.Length == 2 || kv[0] == "TMP"))
             {
                 data.TryAdd(kv[0].Trim(), kv[1].Trim());
             }
