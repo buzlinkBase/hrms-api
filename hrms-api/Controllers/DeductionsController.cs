@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +7,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class DeductionsController : ControllerBase
     {
         private readonly DeductionService _service;
@@ -18,6 +21,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<List<DeductionModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
             var data = await _service.FindAllAsync(token);
@@ -25,6 +29,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<DeductionModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
@@ -32,6 +37,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<DeductionModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateDeduction payload, CancellationToken token)
         {
             var data = _mapper.Map<Deduction>(payload);
@@ -41,6 +47,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<DeductionModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateDeduction payload, CancellationToken token)
         {
             var data = _mapper.Map<Deduction>(payload);
@@ -50,9 +57,10 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
-            await _service.DeleteAsync(id,token);
+            await _service.DeleteAsync(id, token);
             return Ok();
         }
     }

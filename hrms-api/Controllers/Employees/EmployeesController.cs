@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +9,9 @@ namespace Hrms.Api.Controllers
     [ApiVersion("1.0")]
     [ApiController]
     [Authorize]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class EmployeesController : ControllerBase
     {
         private readonly EmployeeService _service;
@@ -31,6 +34,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("all")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GetAll(CancellationToken token)
         {
             var data = await _service.GetAll(token);
@@ -38,6 +42,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Get([FromQuery] PaginationPayload payload, CancellationToken token)
         {
             var data = await _service.LoadAll(payload, token);
@@ -45,6 +50,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("full")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GetFull([FromQuery] PaginationPayload payload, CancellationToken token)
         {
             var data = await _service.LoadAllFullAsync(payload, token);
@@ -52,6 +58,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var employee = await _service.FineOneAsync(id, token);
@@ -60,6 +67,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateEmployee payload, CancellationToken token)
         {
             var employee = _mapper.Map<Employee>(payload);
@@ -69,6 +77,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmployee payload, CancellationToken token)
         {
             var employee = _mapper.Map<Employee>(payload);
@@ -78,6 +87,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.Delete(id, token);
@@ -85,6 +95,8 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("upload-employees")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(400)]
         public async Task<IActionResult> Upload(IFormFile excelFile, CancellationToken token)
         {
             if (excelFile == null || excelFile.Length == 0)
@@ -97,6 +109,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("export-template")]
+        [ProducesResponseType(200)]
         public async Task<IActionResult> DownloadTemplate(CancellationToken token)
         {
             var dataStream = await _templateService.GetEmployeeTemplate(token);
@@ -108,4 +121,3 @@ namespace Hrms.Api.Controllers
         }
     }
 }
-

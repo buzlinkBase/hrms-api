@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +7,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class EmployeeSettingsController : ControllerBase
     {
         private readonly EmployeeSettingService _service;
@@ -19,6 +22,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<CreateEmployeeSetting>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
@@ -26,6 +30,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<CreateEmployeeSetting>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateEmployeeSetting payload, CancellationToken token)
         {
             var data = _mapper.Map<EmployeeSetting>(payload);
@@ -35,6 +40,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeSettingModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmployeeSetting payload, CancellationToken token)
         {
             var data = _mapper.Map<EmployeeSetting>(payload);

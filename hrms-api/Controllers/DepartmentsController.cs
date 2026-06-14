@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +7,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class DepartmentsController : ControllerBase
     {
         private readonly DepartmentService _service;
@@ -21,6 +24,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<DepartmentModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateDepartment payload, CancellationToken token)
         {
             var data = _mapper.Map<Department>(payload);
@@ -30,6 +34,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<List<DepartmentModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
             var data = await _service.FindAllAsync(token);
@@ -37,14 +42,15 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<DepartmentModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
             return Ok(_mapper.Map<DepartmentModel>(data));
         }
-     
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<DepartmentModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateDepartment payload, CancellationToken token)
         {
             var data = _mapper.Map<Department>(payload);
@@ -54,6 +60,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.Delete(id, token);

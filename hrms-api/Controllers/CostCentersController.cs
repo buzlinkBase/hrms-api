@@ -1,6 +1,5 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -8,6 +7,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class CostCentersController : ControllerBase
     {
         private readonly CostCenterService _service;
@@ -19,8 +21,8 @@ namespace Hrms.Api.Controllers
             _mapper = mapper;
         }
 
-
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<CostCenterModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateCostCenter payload, CancellationToken token)
         {
             var data = _mapper.Map<CostCenters>(payload);
@@ -30,8 +32,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(CostCenterModel), 200)]
-        [ProducesResponseType(typeof(CostCenterModel), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<CostCenterModel>>), 200)]
         public async Task<IActionResult> Get()
         {
             var data = await _service.FindAllAsync();
@@ -39,17 +40,15 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
-        [ProducesResponseType(typeof(CostCenterModel), 200)]
-        [ProducesResponseType(typeof(ResponseModel<ProblemDetails>),  401)]
-        [ProducesResponseType(typeof(ResponseModel<ProblemDetails>),  500)]
+        [ProducesResponseType(typeof(ResponseModel<CostCenterModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
             return Ok(_mapper.Map<CostCenterModel>(data));
         }
 
-
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<CostCenterModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateCostCenter payload, CancellationToken token)
         {
             var data = _mapper.Map<CostCenters>(payload);

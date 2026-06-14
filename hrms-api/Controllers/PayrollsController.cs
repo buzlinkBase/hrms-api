@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -6,6 +6,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class PayrollsController : ControllerBase
     {
         private readonly PayrollProcessorService _service;
@@ -15,9 +18,10 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("calculate")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Calculate([FromBody] PayrollCalcPayload payload, CancellationToken token)
         {
-            var payrolls = await _service.CalculateAsync(payload,token);
+            var payrolls = await _service.CalculateAsync(payload, token);
             var response = new
             {
                 data = payrolls,

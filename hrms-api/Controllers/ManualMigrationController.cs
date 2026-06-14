@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +9,9 @@ namespace Hrms.Api.Controllers
     [ApiVersion("1.0")]
     [ApiController]
     [Authorize]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class ManualMigrationController : ControllerBase
     {
         private readonly ManualMigrationService _service;
@@ -18,6 +21,8 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(401)]
         public async Task<IActionResult> Get([FromBody] MigrationPayload payload, CancellationToken token)
         {
             Guid.TryParse(User.GetUserClaim("TenantId"), out Guid tenantId);

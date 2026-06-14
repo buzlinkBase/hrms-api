@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,11 +8,14 @@ namespace Hrms.Api.Controllers;
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
 [ApiController]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
 public class DailyRecordsController : ControllerBase
 {
     private readonly DailyRecordService _service;
     private readonly DTRCalcService _dTRCalcService;
-    private readonly IMapper _mapper; 
+    private readonly IMapper _mapper;
     public DailyRecordsController(DailyRecordService service,
         DTRCalcService dTRCalcService,
         IMapper mapper)
@@ -22,8 +25,8 @@ public class DailyRecordsController : ControllerBase
         _mapper = mapper;
     }
 
-
     [HttpPost]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Post([FromBody] List<CreateDailyRecord> model, CancellationToken token)
     {
         var models = _mapper.Map<List<DailyRecord>>(model);
@@ -33,6 +36,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpPost("load-summary")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Load([FromBody] DTRQueryPayload payload, [FromQuery] PaginationPayload pageInfo, CancellationToken token)
     {
         return Ok(await _service.GetAllPaginatedResult(payload, pageInfo, token));
@@ -40,7 +44,8 @@ public class DailyRecordsController : ControllerBase
 
     [HttpPost("generate")]
     [AllowAnonymous]
-    public async Task<IActionResult> Generate([FromBody] DTRRequestPayload payload,  CancellationToken token)
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> Generate([FromBody] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _dTRCalcService.GetDTRInfoAsync<DailyRecord>(payload,
             ProcessorType.DTRDetail,
@@ -50,10 +55,10 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpDelete()]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Delete([FromQuery] DateRangePayload payload, CancellationToken token)
     {
         await _service.DeleteAsync(payload, token);
         return Ok();
     }
 }
-

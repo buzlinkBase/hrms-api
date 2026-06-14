@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Cache;
@@ -8,6 +8,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class EmployeeAssignAssetsController : ControllerBase
     {
         private readonly EmployeeAssignAssetService _service;
@@ -24,6 +27,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("employee")]
+        [ProducesResponseType(typeof(ResponseModel<List<AssignAssetModel>>), 200)]
         public async Task<IActionResult> GetAll([FromQuery] Guid emp_id, CancellationToken token)
         {
             var key = emp_id.ToString();
@@ -34,10 +38,10 @@ namespace Hrms.Api.Controllers
             await _cache.SetAsync(key, data, TimeSpan.FromSeconds(30));
 
             return Ok(_mapper.Map<List<AssignAssetModel>>(data));
-
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<AssignAssetModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var key = id.ToString();
@@ -49,6 +53,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<AssignAssetModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateAssignAsset payload, CancellationToken token)
         {
             var data = _mapper.Map<AssignAsset>(payload);
@@ -58,6 +63,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<AssignAssetModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateAssignAsset payload, CancellationToken token)
         {
             var data = _mapper.Map<AssignAsset>(payload);
@@ -67,6 +73,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.DeleteAsync(id, token);

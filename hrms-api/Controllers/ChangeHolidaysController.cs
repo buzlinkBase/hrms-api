@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -6,6 +6,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class ChangeHolidaysController : ControllerBase
     {
         private readonly ChangeHolidayService _service;
@@ -17,6 +20,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Get([FromQuery] ChangeHolidayQueryPayload payload, CancellationToken token)
         {
             var data = await _service.LoadAllAsync(payload, token);
@@ -31,6 +35,7 @@ namespace Hrms.Api.Controllers
         //}
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateChangeHoliday payload, CancellationToken token)
         {
             await _service.AddAsync(payload, token);
@@ -48,6 +53,7 @@ namespace Hrms.Api.Controllers
         //}
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.DeleteAsync(id, token);

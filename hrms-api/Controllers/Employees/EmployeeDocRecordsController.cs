@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +7,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class EmployeeDocRecordsController : ControllerBase
     {
         private readonly EmployeeRecordService _service;
@@ -18,8 +21,8 @@ namespace Hrms.Api.Controllers
             _mapper = mapper;
         }
 
-
         [HttpGet("employee")]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeRecordModel>>), 200)]
         public async Task<IActionResult> GetAll([FromQuery] Guid emp_id, CancellationToken token)
         {
             var data = await _service.FindAllAsync(emp_id, token);
@@ -27,6 +30,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeRecordModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
@@ -34,6 +38,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeRecordModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateEmployeeRecord payload, CancellationToken token)
         {
             var data = _mapper.Map<EmployeeRecord>(payload);
@@ -43,6 +48,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeRecordModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmployeeRecord payload, CancellationToken token)
         {
             var data = _mapper.Map<EmployeeRecord>(payload);
@@ -52,6 +58,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.Delete(id, token);

@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using OnePunch.Auth.Core.Messaging;
 
@@ -7,6 +7,9 @@ namespace Hrms.Api.Controllers;
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
 [ApiController]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
 public class AttendanceController : ControllerBase
 {
     private readonly AttendanceService _attendanceService;
@@ -22,9 +25,10 @@ public class AttendanceController : ControllerBase
         _service = service;
     }
 
-
     [HttpPost("upload-att-log")]
     [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Upload(IFormFile file, [FromForm] int branchId, CancellationToken ct)
     {
         if (file == null || file.Length == 0)

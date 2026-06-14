@@ -1,14 +1,15 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
-
-
 
 namespace Hrms.Api.Controllers;
 
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
 [ApiController]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
 public class WorkSchedulePlansController : ControllerBase
 {
     private readonly WorkSchedulePlanService _service;
@@ -20,6 +21,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Get(CancellationToken token)
     {
         var data = await _service.FindAllAsync(token);
@@ -27,6 +29,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpGet("range")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Get([FromQuery] DateRequestPayload payload, CancellationToken token)
     {
         var data = await _service.FindRange(payload, token);
@@ -34,6 +37,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
     public async Task<IActionResult> Get(Guid id, CancellationToken token)
     {
         var data = await _service.FineOneAsync(id, token);
@@ -41,6 +45,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
     public async Task<IActionResult> Post([FromBody] CreateWorkRotationPlan payload, CancellationToken token)
     {
         var data = _mapper.Map<WorkSchedulePlan>(payload);
@@ -48,7 +53,9 @@ public class WorkSchedulePlansController : ControllerBase
         var respModel = _mapper.Map<WorkSchedulePlanModel>(data);
         return Ok(respModel);
     }
+
     [HttpPost("batch")]
+    [ProducesResponseType(typeof(ResponseModel<List<WorkSchedulePlanModel>>), 200)]
     public async Task<IActionResult> PostBatch([FromBody] List<CreateWorkRotationPlan> payload, CancellationToken token)
     {
         var data = _mapper.Map<List<WorkSchedulePlan>>(payload);
@@ -58,6 +65,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
     public async Task<IActionResult> Put(Guid id, [FromBody] UpdateWorkSchedulePlan payload, CancellationToken token)
     {
         var data = _mapper.Map<WorkSchedulePlan>(payload);
@@ -67,6 +75,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken token)
     {
         await _service.DeleteAsync(id, token);

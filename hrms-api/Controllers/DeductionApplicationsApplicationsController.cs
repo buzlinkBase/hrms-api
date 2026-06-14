@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -6,6 +6,9 @@ namespace Hrms.Api.Controllers
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiVersion("1.0")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     public class DeductionApplicationsApplicationsController : ControllerBase
     {
         private readonly DeductionApplicationService _service;
@@ -17,6 +20,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<List<DeductionApplicationModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
             var data = await _service.FindAllAsync(token);
@@ -25,6 +29,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
@@ -33,6 +38,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateDeductionApplication payload, CancellationToken token)
         {
             var data = await _service.AddAsync(payload, token);
@@ -41,6 +47,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateDeductionApplication payload, CancellationToken token)
         {
             var data = await _service.UpdateAsync(payload, token);
@@ -48,12 +55,15 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.DeleteParent(id, token);
             return Ok();
         }
+
         [HttpDelete("item/{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> DeleteItem(Guid id, CancellationToken token)
         {
             await _service.DeleteChildAsync(id, token);
