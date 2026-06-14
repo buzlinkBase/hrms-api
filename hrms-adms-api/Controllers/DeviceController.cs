@@ -1,4 +1,4 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.adms.Extensions;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
@@ -11,6 +11,9 @@ namespace Hrms.adms.Controllers
     [ApiVersion("1.0")]
     [ApiController]
     [Authorize]
+    [ProducesResponseType(typeof(ProblemDetails), 400)]
+    [ProducesResponseType(typeof(ProblemDetails), 401)]
+    [ProducesResponseType(typeof(ProblemDetails), 500)]
     public class DeviceController : ControllerBase
     {
         private readonly DeviceService _service;
@@ -20,15 +23,17 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<UpdateBiometricDevice>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateBiometricDevice payload, CancellationToken token)
         {
-            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString()  
+            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString()
                 ?? Guid.Empty.ToString();
             var data = await _service.AddAsync(payload, Guid.Parse(tenantId), token);
             return Ok(data);
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<UpdateBiometricDevice>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBiometricDevice payload, CancellationToken token)
         {
             var data = await _service.UpdateStatusAsync(payload, token);
@@ -36,6 +41,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<List<BiometricDevice>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
             var data = await _service.FindAllAsync(token);
@@ -43,6 +49,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<BiometricDevice>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
@@ -50,6 +57,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet("serial/{sn}")]
+        [ProducesResponseType(typeof(ResponseModel<BiometricDevice>), 200)]
         public async Task<IActionResult> GetBySerial(string sn, CancellationToken token)
         {
             var data = await _service.GetBySerial(sn, token);
@@ -57,10 +65,11 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.DeleteAsync(id, token);
             return Ok();
-        }  
+        }
     }
 }
