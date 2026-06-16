@@ -55,6 +55,15 @@ public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
 
         bool isEligible = false;
         var minWorkingMinutes = payload.Data.CurrentShift.MinimumWorkingMinutes;
+        
+        //check if working during holiday, if it is automaticaly eligible
+        //no need to check the prior day
+        var wr = context.Payload.Ledger.GetByTag("work_time", context);
+        if (wr.TotalMinutes > 0 && wr.TotalMinutes >= minWorkingMinutes)
+        {
+            isEligible = true;
+            return isEligible;
+        }
 
         // Look back prior days until we find a valid eligibility day
         for (DateOnly curDate = payload.Data.CurrentDate.AddDays(-1); curDate >= payload.Data.PayrollStartDate.AddDays(TimeAllowance.AttLookbackDays); curDate = curDate.AddDays(-1))
