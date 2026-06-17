@@ -29,7 +29,7 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
         var connectionString = configuration.GetConnectionString("AdmsConnection");
         if (string.IsNullOrEmpty(connectionString))
         {
-            throw new InvalidOperationException("Could not find 'DefaultConnection'. Check your appsettings.json path.");
+            throw new InvalidOperationException("Could not find 'connection string'. Check your appsettings.json path.");
         }
 
         var optionsBuilder = new DbContextOptionsBuilder<AdmsContext>();
