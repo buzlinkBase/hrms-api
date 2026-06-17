@@ -8,7 +8,6 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
 {
     public HrmsContext CreateDbContext(string[] args)
     {
-        //// 1. Get the path to Hrms.Api properly
         string currentDirectory = Directory.GetCurrentDirectory();
         string basePath = Path.GetFullPath(Path.Combine(currentDirectory, "..", "hrms-api"));
         if (!Directory.Exists(basePath))
@@ -25,12 +24,11 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
         var connectionString = configuration.GetConnectionString("HrmsConnection");
         if (string.IsNullOrEmpty(connectionString))
         {
-            throw new InvalidOperationException("Could not find 'DefaultConnection'. Check your appsettings.json path.");
+            throw new InvalidOperationException("Could not find 'connection string'. Check your appsettings.json path.");
         }
-
         var optionsBuilder = new DbContextOptionsBuilder<HrmsContext>();
         var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
         optionsBuilder.UseMySql(connectionString, serverVersion, x=>x.UseNetTopologySuite());
-        return new HrmsContext(optionsBuilder.Options,null,null,null);
+        return new HrmsContext(optionsBuilder.Options,null,null);
     }
 }

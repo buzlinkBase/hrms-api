@@ -14,9 +14,6 @@
       <None Remove="db\migrations\**\*.sql" />
     </ItemGroup>
     <ItemGroup>
-      <None Include="db\migrations\V2_0_0__changetopolygon.sql" />
-    </ItemGroup>
-    <ItemGroup>
         <PackageReference Include="BuzlinkRepository" />
         <PackageReference Include="Evolve" />
 		<PackageReference Include="MassTransit.EntityFrameworkCore" />
@@ -47,8 +44,6 @@
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
     </ItemGroup>
     <ItemGroup>
-      <Content Update="db\migrations\V1_0_0__initial_create.sql">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </Content>
+      <Folder Include="db\migrations\" />
     </ItemGroup>
 </Project>

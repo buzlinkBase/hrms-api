@@ -6,10 +6,10 @@ namespace Hrms.Domain.Entities;
 public class TaxTable : BaseEntity
 {
     public DateOnly EffectiveDate { get; set; }
-    //public string SalaryType { get; set; } = string.Empty;
+    public string PayrollType  { get; set; } = PayrollFrequency.SEMI_MONTHLY.ToString();
     public decimal RangeFrom { get; set; }
     public decimal RangeTo { get; set; }
-    public decimal PercentageInAmountOf { get; set; }
+    public decimal PercentageInAmountOf { get; set; }//bracket minimum
     public decimal BaseTaxDue { get; set; }
     public decimal AddOnPercentage { get; set; }
 

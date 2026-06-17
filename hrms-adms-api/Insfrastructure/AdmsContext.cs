@@ -12,7 +12,6 @@ public class AdmsContext : DbContext
 
     //public AdmsContext(DbContextOptions<AdmsContext> options):base(options) 
     //{
-        
     //}
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

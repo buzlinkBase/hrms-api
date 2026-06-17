@@ -4,7 +4,6 @@
     CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
 ) CHARACTER SET=utf8mb4;
 
-
 ALTER DATABASE CHARACTER SET utf8mb4;
 
 CREATE TABLE `AllowanceTypes` (
@@ -13,7 +12,6 @@ CREATE TABLE `AllowanceTypes` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_AllowanceTypes` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -23,38 +21,12 @@ CREATE TABLE `Areas` (
     `Code` longtext CHARACTER SET utf8mb4 NOT NULL,
     `Name` longtext CHARACTER SET utf8mb4 NOT NULL,
     `Address` longtext CHARACTER SET utf8mb4 NOT NULL,
+    `Boundary` geometry NULL /*!80003 SRID 4326 */,
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Areas` PRIMARY KEY (`Id`)
-) CHARACTER SET=utf8mb4;
-
-CREATE TABLE `BiometricDevices` (
-    `Id` char(36) COLLATE ascii_general_ci NOT NULL,
-    `SN` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `CreatedAt` datetime(6) NOT NULL,
-    `UpdatedAt` datetime(6) NULL,
-    `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
-    `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
-    CONSTRAINT `PK_BiometricDevices` PRIMARY KEY (`Id`)
-) CHARACTER SET=utf8mb4;
-
-CREATE TABLE `BiometricTemplates` (
-    `Id` char(36) COLLATE ascii_general_ci NOT NULL,
-    `BioId` int NOT NULL,
-    `BioType` int NOT NULL,
-    `BioIndex` int NOT NULL,
-    `TemplateSize` int NOT NULL,
-    `TemplateData` text CHARACTER SET utf8mb4 NOT NULL,
-    `CreatedAt` datetime(6) NOT NULL,
-    `UpdatedAt` datetime(6) NULL,
-    `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
-    `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
-    CONSTRAINT `PK_BiometricTemplates` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
 
 CREATE TABLE `Branches` (
@@ -66,10 +38,10 @@ CREATE TABLE `Branches` (
     `Contact` longtext CHARACTER SET utf8mb4 NULL,
     `ManagerName` longtext CHARACTER SET utf8mb4 NULL,
     `Email` longtext CHARACTER SET utf8mb4 NOT NULL,
+    `Boundary` geometry NULL /*!80003 SRID 4326 */,
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Branches` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -81,7 +53,6 @@ CREATE TABLE `Clients` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Clients` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -100,7 +71,6 @@ CREATE TABLE `Companies` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Companies` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -123,7 +93,6 @@ CREATE TABLE `DeductionApplications` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_DeductionApplications` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -137,7 +106,6 @@ CREATE TABLE `DeductionPayments` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_DeductionPayments` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -148,7 +116,6 @@ CREATE TABLE `DeductionTypes` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_DeductionTypes` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -163,7 +130,6 @@ CREATE TABLE `GeneralSettings` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_GeneralSettings` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -182,7 +148,6 @@ CREATE TABLE `GovHDMFs` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_GovHDMFs` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -200,7 +165,6 @@ CREATE TABLE `GovPHICs` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_GovPHICs` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -218,7 +182,6 @@ CREATE TABLE `GovSSSes` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_GovSSSes` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -226,6 +189,7 @@ CREATE TABLE `GovSSSes` (
 CREATE TABLE `GovTaxes` (
     `Id` char(36) COLLATE ascii_general_ci NOT NULL,
     `EffectiveDate` date NOT NULL,
+    `PayrollType` longtext CHARACTER SET utf8mb4 NOT NULL,
     `RangeFrom` decimal(65,30) NOT NULL,
     `RangeTo` decimal(65,30) NOT NULL,
     `PercentageInAmountOf` decimal(65,30) NOT NULL,
@@ -234,7 +198,6 @@ CREATE TABLE `GovTaxes` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_GovTaxes` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -251,7 +214,6 @@ CREATE TABLE `HDMFContributions` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_HDMFContributions` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -269,7 +231,6 @@ CREATE TABLE `Holidays` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Holidays` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -299,7 +260,6 @@ CREATE TABLE `IncomePayments` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_IncomePayments` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -320,7 +280,6 @@ CREATE TABLE `leaveApplications` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_leaveApplications` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -337,7 +296,6 @@ CREATE TABLE `Leaves` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Leaves` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -353,7 +311,6 @@ CREATE TABLE `ManualAttendance` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_ManualAttendance` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -374,7 +331,6 @@ CREATE TABLE `OtherIncomeApplications` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_OtherIncomeApplications` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -422,7 +378,6 @@ CREATE TABLE `PayrollGroups` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_PayrollGroups` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -477,7 +432,6 @@ CREATE TABLE `Payrolls` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Payrolls` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -494,7 +448,6 @@ CREATE TABLE `PHICContributions` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_PHICContributions` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -507,7 +460,6 @@ CREATE TABLE `Positions` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Positions` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -522,7 +474,6 @@ CREATE TABLE `PremiumRates` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_PremiumRates` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -538,7 +489,6 @@ CREATE TABLE `ProratedAllowances` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_ProratedAllowances` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -557,7 +507,6 @@ CREATE TABLE `SSSContributions` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_SSSContributions` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -573,7 +522,6 @@ CREATE TABLE `TaxContributions` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_TaxContributions` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -604,7 +552,6 @@ CREATE TABLE `TimeShifts` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_TimeShifts` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -619,7 +566,6 @@ CREATE TABLE `Allowances` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Allowances` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Allowances_AllowanceTypes_IncomeTypeId` FOREIGN KEY (`IncomeTypeId`) REFERENCES `AllowanceTypes` (`Id`)
@@ -638,7 +584,6 @@ CREATE TABLE `ClientHolidays` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_ClientHolidays` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_ClientHolidays_Clients_ClientId` FOREIGN KEY (`ClientId`) REFERENCES `Clients` (`Id`) ON DELETE CASCADE
@@ -660,7 +605,6 @@ CREATE TABLE `DeductionApplicationDetails` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_DeductionApplicationDetails` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_DeductionApplicationDetails_DeductionApplications_DeductionA~` FOREIGN KEY (`DeductionApplicationId`) REFERENCES `DeductionApplications` (`Id`)
@@ -675,7 +619,6 @@ CREATE TABLE `Deductions` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Deductions` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Deductions_DeductionTypes_CategoryId` FOREIGN KEY (`CategoryId`) REFERENCES `DeductionTypes` (`Id`)
@@ -688,7 +631,6 @@ CREATE TABLE `LeaveApplicationDetails` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_LeaveApplicationDetails` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_LeaveApplicationDetails_leaveApplications_ApplicationId` FOREIGN KEY (`ApplicationId`) REFERENCES `leaveApplications` (`Id`) ON DELETE CASCADE
@@ -708,7 +650,6 @@ CREATE TABLE `OtherIncomeApplicationDetails` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_OtherIncomeApplicationDetails` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_OtherIncomeApplicationDetails_OtherIncomeApplications_OtherI~` FOREIGN KEY (`OtherIncomeApplicationId`) REFERENCES `OtherIncomeApplications` (`Id`)
@@ -723,7 +664,6 @@ CREATE TABLE `CutoffDay` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_CutoffDay` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_CutoffDay_PayrollGroups_PayrollGroupId` FOREIGN KEY (`PayrollGroupId`) REFERENCES `PayrollGroups` (`Id`) ON DELETE CASCADE
@@ -745,7 +685,6 @@ CREATE TABLE `AssignAssets` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_AssignAssets` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -765,13 +704,13 @@ CREATE TABLE `Attendances` (
     `Workstate` int NOT NULL,
     `Verifycode` longtext CHARACTER SET utf8mb4 NOT NULL,
     `LogRemarks` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `BatchCode` longtext CHARACTER SET utf8mb4 NOT NULL,
+    `BatchCode` char(36) COLLATE ascii_general_ci NOT NULL,
     `EditRemarks` longtext CHARACTER SET utf8mb4 NOT NULL,
     `LogSource` int NOT NULL,
+    `Boundary` geometry NULL /*!80003 SRID 4326 */,
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Attendances` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -786,7 +725,6 @@ CREATE TABLE `ChangeHolidays` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_ChangeHolidays` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_ChangeHolidays_Holidays_HolidayId` FOREIGN KEY (`HolidayId`) REFERENCES `Holidays` (`Id`) ON DELETE CASCADE
@@ -802,7 +740,6 @@ CREATE TABLE `ChangeRestDays` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_ChangeRestDays` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -895,7 +832,6 @@ CREATE TABLE `DailyTimeRecords` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_DailyTimeRecords` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -908,7 +844,6 @@ CREATE TABLE `Departments` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Departments` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
@@ -960,7 +895,6 @@ CREATE TABLE `Employees` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Employees` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Employees_Areas_AreaId` FOREIGN KEY (`AreaId`) REFERENCES `Areas` (`Id`),
@@ -981,7 +915,6 @@ CREATE TABLE `Sections` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Sections` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Sections_Departments_DepartmentId` FOREIGN KEY (`DepartmentId`) REFERENCES `Departments` (`Id`)
@@ -997,7 +930,6 @@ CREATE TABLE `Dependents` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Dependents` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Dependents_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`)
@@ -1011,7 +943,6 @@ CREATE TABLE `Educations` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Educations` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Educations_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`)
@@ -1026,7 +957,6 @@ CREATE TABLE `EmployeeRecords` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_EmployeeRecords` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_EmployeeRecords_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`)
@@ -1044,7 +974,6 @@ CREATE TABLE `EmployeeSettings` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_EmployeeSettings` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_EmployeeSettings_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1060,7 +989,6 @@ CREATE TABLE `Employments` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Employments` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Employments_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`)
@@ -1076,7 +1004,6 @@ CREATE TABLE `HDMFRates` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_HDMFRates` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_HDMFRates_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1096,7 +1023,6 @@ CREATE TABLE `LeaveLedgers` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_LeaveLedgers` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_LeaveLedgers_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1118,7 +1044,6 @@ CREATE TABLE `OTApplications` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_OTApplications` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_OTApplications_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1134,7 +1059,6 @@ CREATE TABLE `PHICRates` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_PHICRates` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_PHICRates_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1147,7 +1071,6 @@ CREATE TABLE `RestDayDates` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_RestDayDates` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_RestDayDates_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`)
@@ -1160,7 +1083,6 @@ CREATE TABLE `RestDays` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_RestDays` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_RestDays_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1174,7 +1096,6 @@ CREATE TABLE `Skills` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_Skills` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_Skills_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`)
@@ -1191,7 +1112,6 @@ CREATE TABLE `SSSRates` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_SSSRates` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_SSSRates_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1206,7 +1126,6 @@ CREATE TABLE `TaxRates` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_TaxRates` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_TaxRates_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1221,7 +1140,6 @@ CREATE TABLE `ThirteenthMonthLedgers` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_ThirteenthMonthLedgers` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_ThirteenthMonthLedgers_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1237,7 +1155,6 @@ CREATE TABLE `UTApplications` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_UTApplications` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_UTApplications_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE
@@ -1251,37 +1168,11 @@ CREATE TABLE `WorkSchedulePlans` (
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
-    `TenantId` char(36) COLLATE ascii_general_ci NOT NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_WorkSchedulePlans` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_WorkSchedulePlans_Employees_EmployeeId` FOREIGN KEY (`EmployeeId`) REFERENCES `Employees` (`Id`) ON DELETE CASCADE,
     CONSTRAINT `FK_WorkSchedulePlans_TimeShifts_TimeShiftId` FOREIGN KEY (`TimeShiftId`) REFERENCES `TimeShifts` (`Id`) ON DELETE CASCADE
 ) CHARACTER SET=utf8mb4;
-
-INSERT INTO `Leaves` (`Id`, `Category`, `Code`, `CreatedAt`, `Credits`, `DeletedAt`, `Description`, `LeaveReset`, `PaySource`, `Remarks`, `Status`, `TenantId`, `UpdatedAt`)
-VALUES ('11111111-1111-1111-1111-111111111111', NULL, 'SIL', TIMESTAMP '0001-01-01 00:00:00', 5.0, NULL, 'Service Incentive Leave', 1, 'Company', 'Labor Code mandated', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('22222222-2222-2222-2222-222222222222', NULL, 'ML', TIMESTAMP '0001-01-01 00:00:00', 105.0, NULL, 'Maternity Leave', 0, 'Government', 'RA 11210 Expanded Maternity Leave Law', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('33333333-3333-3333-3333-333333333333', NULL, 'PL', TIMESTAMP '0001-01-01 00:00:00', 7.0, NULL, 'Paternity Leave', 0, 'Company', 'RA 8187', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('44444444-4444-4444-4444-444444444444', NULL, 'SPL', TIMESTAMP '0001-01-01 00:00:00', 7.0, NULL, 'Parental Leave for Solo Parents', 1, 'Company', 'RA 8972 Solo Parents’ Welfare Act', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('55555555-5555-5555-5555-555555555555', NULL, 'SLW', TIMESTAMP '0001-01-01 00:00:00', 60.0, NULL, 'Special Leave for Women (Gynecological Disorders)', 0, 'Company', 'RA 9710 Magna Carta of Women', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('66666666-6666-6666-6666-666666666666', NULL, 'VAWC', TIMESTAMP '0001-01-01 00:00:00', 10.0, NULL, 'Leave for Victims of Violence Against Women and Children', 0, 'Company', 'RA 9262', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('77777777-7777-7777-7777-777777777777', NULL, 'MC', TIMESTAMP '0001-01-01 00:00:00', 5.0, NULL, 'Magna Carta Leave (Gov’t Employees)', 1, 'Company', 'RA 7305 for Public Health Workers', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('88888888-8888-8888-8888-888888888888', NULL, 'RL', TIMESTAMP '0001-01-01 00:00:00', 120.0, NULL, 'Rehabilitation Leave (Occupational Injuries)', 0, 'Company', 'Occupational safety provisions', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('99999999-9999-9999-9999-999999999999', NULL, 'EL', TIMESTAMP '0001-01-01 00:00:00', 10.0, NULL, 'Educational Leave (Gov’t Employees)', 1, 'Company', 'Civil Service rules', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 'SEL', TIMESTAMP '0001-01-01 00:00:00', 5.0, NULL, 'Special Emergency Leave (Calamities)', 0, 'Company', 'Company policy / calamity provisions', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', NULL, 'VL', TIMESTAMP '0001-01-01 00:00:00', 10.0, NULL, 'Vacation Leave', 1, 'Company', 'Company policy benefit', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL),
-('cccccccc-cccc-cccc-cccc-cccccccccccc', NULL, 'SL', TIMESTAMP '0001-01-01 00:00:00', 10.0, NULL, 'Sick Leave', 1, 'Company', 'Company policy benefit', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', NULL);
-
-INSERT INTO `PremiumRates` (`Id`, `CreatedAt`, `DeletedAt`, `Description`, `Rate`, `Remarks`, `ShortDescription`, `Status`, `TenantId`, `Type`, `UpdatedAt`)
-VALUES ('11111111-1111-1111-1111-111111111111', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Regular Day', 1.0, 0, 'REG', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'REGULAR', NULL),
-('22222222-2222-2222-2222-222222222222', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Night Differential', 1.1, 0, 'ND', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'NIGHTDIFF', NULL),
-('33333333-3333-3333-3333-333333333333', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Overtime', 1.25, 0, 'OT', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'OVERTIME', NULL),
-('44444444-4444-4444-4444-444444444444', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Rest Day Duty', 1.3, 0, 'RD', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'RESTDAY_DUTY', NULL),
-('55555555-5555-5555-5555-555555555555', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Legal Holiday (No Work)', 1.0, 0, 'LH', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'LEGAL_HOLIDAY', NULL),
-('66666666-6666-6666-6666-666666666666', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Legal Holiday Duty', 2.0, 0, 'LH-DUTY', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'LEGAL_HOLIDAY_DUTY', NULL),
-('77777777-7777-7777-7777-777777777777', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Special Working Holiday', 1.0, 0, 'SP-WH', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'SPECIAL_WORKING', NULL),
-('88888888-8888-8888-8888-888888888888', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Special Non-Working Holiday', 1.3, 0, 'SP-NWH', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'SPECIAL_NON_WORKING', NULL),
-('99999999-9999-9999-9999-999999999999', TIMESTAMP '0001-01-01 00:00:00', NULL, 'Special Rest Day', 1.5, 0, 'RD-SP', 'Active', 'c1b8aaaf-6bff-4f68-97c7-626f16ea9197', 'RESTDAY_SPECIAL', NULL);
 
 CREATE INDEX `IX_Allowances_IncomeTypeId` ON `Allowances` (`IncomeTypeId`);
 
@@ -1398,6 +1289,5 @@ ALTER TABLE `DailyTimeRecords` ADD CONSTRAINT `FK_DailyTimeRecords_Employees_Emp
 ALTER TABLE `Departments` ADD CONSTRAINT `FK_Departments_Employees_HeadId` FOREIGN KEY (`HeadId`) REFERENCES `Employees` (`Id`) ON DELETE RESTRICT;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('20260312125419_initialcreate', '8.0.24');
- 
+VALUES ('20260617125333_initial_create', '9.0.2');
 

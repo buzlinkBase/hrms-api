@@ -23,9 +23,11 @@ namespace Hrms.Api.Controllers
 
         [HttpGet()]
         [ProducesResponseType(typeof(ResponseModel<List<WTaxModel>>), 200)]
-        public async Task<IActionResult> Get([FromQuery] DateOnly effectivity, CancellationToken token)
+        public async Task<IActionResult> Get([FromQuery] DateOnly effectivity,
+            [FromQuery] string payrollType,
+            CancellationToken token)
         {
-            var data = await _service.FindAllAsync(effectivity, token);
+            var data = await _service.FindAllAsync(effectivity, payrollType, token);
             return Ok(_mapper.Map<List<WTaxModel>>(data));
         }
 
