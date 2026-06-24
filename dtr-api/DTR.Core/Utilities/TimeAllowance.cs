@@ -14,4 +14,6 @@ public class TimeAllowance
     public static double OTTimeCaptureAllowanceMinutes { get; set; } = -30;
     public static int AttLookbackDays { get; set; } = -7;
     public static int AttLookforward { get; set; } = 4;
+    public static bool CheckAfterHoliday { get; set; } = false;
+
 }

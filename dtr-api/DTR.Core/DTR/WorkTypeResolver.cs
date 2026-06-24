@@ -1,107 +1,127 @@
-﻿namespace DTR.Core;
+﻿using Hrms.Domain.Entities;
 
+namespace DTR.Core;
+
+/// <summary>
+/// Resolves the <see cref="WorkType"/> for a shift by evaluating attendance, leave,
+/// rest-day, and holiday status against a fixed priority order:
+///
+///   1. Incomplete attendance         — always wins; nothing else matters if the punches don't pair up.
+///   2. Worked while on leave         — half-day leave: attendance plus an active leave
+///                                       application for the same day. Wins outright over
+///                                       rest-day and holiday duty classification below.
+///   3. Worked the shift (pure duty)  — rest day / legal / special holiday duty variants,
+///                                       else regular work.
+///   4. On leave (no duty)            — leave on a rest day collapses to a plain rest day;
+///                                       leave on a holiday is recorded as holiday-leave;
+///                                       otherwise paid/unpaid leave per the leave's pay type.
+///   5. Rest day (no duty, no leave).
+///   6. Holiday (no duty, no leave, not a rest day) — legal, then special.
+///   7. Absent — fallback when none of the above apply.
+///
+/// This order is significant and intentional; do not reorder branches without
+/// confirming the payroll rules that depend on it.
+/// </summary>
 public static class WorkTypeResolver
 {
     public static WorkType Resolve(TimeContext context)
     {
-        var att = context.Payload.Provider.AttendanceProvider.CurrentShiftAttendance();
-        var withAtt = att.Any();
-        var leave = context.Payload.Data.CurrentLeave;
-        var isLegal = context.IsLegalHoliday();
-        var isSpecial = context.IsSpecialHoliday();
+        var attendance = context.Payload.Provider.AttendanceProvider.CurrentShiftAttendance();
+        var hasAttendance = attendance.Any();
+        var hasIncompleteAttendance = hasAttendance && attendance.Count % 2 != 0;
 
-        var special = context.Payload.Provider.HolidayProvider
-          .GetHolidayInfoDuringShift(HolidayType.SPECIAL, context.Payload.Data.Employee, context.Payload.Data.CurrentShift)
-          ;
-
-        var isNonworkingSpecial = special?.WorkType == HolidayWorkType.NonWorking && isSpecial;
-        var IsPaidSpecial = (special?.IsPaid ?? false) && special?.WorkType == HolidayWorkType.NonWorking && isSpecial;
-        var isRestDay = new IsRestDaySpec().IsSatisfiedBy(context.CanonicalTimeRange, context);
-
-        if (withAtt && att.Count % 2 != 0)
+        if (hasIncompleteAttendance)
             return WorkType.Incomplete;
 
-        // Rest day + holiday duty
-        if (isRestDay && isLegal && withAtt)
-            return WorkType.RestDayLegalHolidayDuty;
+        var leave = context.Payload.Data.CurrentLeave;
+        var isRestDay = new IsRestDaySpec().IsSatisfiedBy(context.CanonicalTimeRange, context);
+        var isLegalHoliday = context.IsLegalHoliday();
+        var isSpecialHoliday = context.IsSpecialHoliday();
+        var isNonWorkingSpecialHoliday = isSpecialHoliday && IsNonWorkingSpecialHoliday(context);
 
-        //if (isRestDay && isSpecial && withAtt && isNonworkingSpecial)
-        //    return WorkType.RestDaySpecialHolidayDutyNW;
+        if (hasAttendance)
+            return ResolveDutyWorkType(leave, isRestDay, isLegalHoliday, isSpecialHoliday, isNonWorkingSpecialHoliday);
 
-        if (isRestDay && isSpecial && withAtt)
-            return WorkType.RestDaySpecialHolidayDuty;
+        if (leave != null)
+            return ResolveLeaveWorkType(leave, isRestDay, isLegalHoliday, isSpecialHoliday);
 
-        // Holiday duty
-        if (isLegal && withAtt)
-            return WorkType.RegularHolidayDuty;
-
-        if (isSpecial && withAtt && isNonworkingSpecial)
-            return WorkType.SpecialHolidayDutyNW;
-
-        if (isSpecial && withAtt)
-            return WorkType.SpecialHolidayDuty;
-
-        // Holiday no duty
-        if (isLegal && !withAtt)
-            return WorkType.RegularHoliday;
-
-        if (isSpecial && !withAtt)
-            return WorkType.SpecialHoliday;
-
-        // Rest day
-        if (isRestDay && withAtt)
-            return WorkType.RestDayDuty;
-
-        if (isRestDay && !withAtt)
+        if (isRestDay)
             return WorkType.RestDay;
 
-        // Leave
-        if (leave != null && !withAtt)
+        if (isLegalHoliday)
+            return WorkType.RegularHoliday;
+
+        if (isSpecialHoliday)
+            return isNonWorkingSpecialHoliday ? WorkType.SpecialNonWorking : WorkType.SpecialHoliday;
+
+        return WorkType.Absent;
+    }
+
+    /// <summary>
+    /// Employee has attendance for the shift. If a leave application is also active for
+    /// the same day (half-day leave), that combined classification wins outright over
+    /// rest-day and holiday duty classification. Otherwise resolves pure duty.
+    /// </summary>
+    private static WorkType ResolveDutyWorkType(LeaveApplication? leave, bool isRestDay, bool isLegalHoliday, bool isSpecialHoliday, bool isNonWorkingSpecialHoliday)
+    {
+        if (leave != null)
+            return ResolveDutyOnLeaveWorkType(leave);
+
+        if (isRestDay)
         {
-            if (isLegal)
-                return leave.PayType == PayType.WithPay ? WorkType.PaidLeave : WorkType.PaidLeaveOnLegalHoliday; // or define WorkType.PaidLeaveOnLegalHoliday
-
-            //TODO inspect holiday here for non working special
-            if (isSpecial)
-                return leave.PayType == PayType.WithPay ? WorkType.PaidLeave : WorkType.PaidLeaveOnSpecialHoliday; // or define WorkType.PaidLeaveOnSpecialHoliday
-
-            if (isRestDay)
-                return WorkType.RestDay;
-
-            return leave.PayType == PayType.WithPay ? WorkType.PaidLeave : WorkType.UnpaidLeave;
+            if (isLegalHoliday) return WorkType.RestDayLegalHolidayDuty;
+            if (isSpecialHoliday) return WorkType.RestDaySpecialHolidayDuty;
+            return WorkType.RestDayDuty;
         }
 
-        if (isSpecial && !withAtt && isNonworkingSpecial)
-            return WorkType.SpecialNonWorking;
+        if (isLegalHoliday)
+            return WorkType.RegularHolidayDuty;
 
-        //shift is not present 
-        ///posible the currentshift is covered by the prior shift
-        //if (new IsCurrentShiftPresent().IsSatisfiedBy(TimeRange.Empty, context))
-        //    return WorkType.Skipped;
-
-        if (!withAtt) // Absent
-            return WorkType.Absent;
+        if (isSpecialHoliday)
+            return isNonWorkingSpecialHoliday ? WorkType.SpecialHolidayDutyNW : WorkType.SpecialHolidayDuty;
 
         return WorkType.RegularWorkDay;
     }
-    //private static bool CheckIfSkipped(TimeContext context)
-    //{
-    //    var shift = context.Payload.Data.CurrentShift;
-    //    if (shift == null) return false;
 
-    //    var employeeId = context.Payload.Data.Employee.Id;
-    //    var keys = context.Payload.ContextModel.ValueCache.GetAllKeys();
-    //    var fullSkipKey = new CachedKey($"skipped:{shift.StartTime:yyyy-MM-dd HH:mm:ss}->{shift.EndTime:yyyy-MM-dd HH:mm:ss}:{employeeId}");
-    //    var dateSkipKey = new CachedKey($"skipped:{shift.ShiftDate.ToString()}:{employeeId}");
-    //    //foreach (var k in keys)
-    //    //{
-    //    //    if (k == fullSkipKey || k == dateSkipKey)
-    //    //    {
-    //    //        return true;
-    //    //    }
-    //    //    return false;
-    //    //}
-    //    return false;
-    //}
+    /// <summary>
+    /// Employee worked part of the shift while also having an active leave application
+    /// covering the same day (half-day leave). Classified purely by the leave's pay type —
+    /// this does not fall through to rest-day or holiday duty resolution.
+    /// </summary>
+    private static WorkType ResolveDutyOnLeaveWorkType(LeaveApplication leave) =>
+        leave.PayType == PayType.WithPay
+            ? WorkType.PaidLeaveDuty
+            : WorkType.UnpaidLeaveDuty;
+
+    /// <summary>
+    /// Employee has no attendance but is on leave. Leave takes precedence over plain
+    /// absence/holiday classification, except that leave on a rest day is recorded
+    /// as simply a rest day (the leave itself is moot — the employee wasn't
+    /// scheduled to work regardless).
+    /// </summary>
+    private static WorkType ResolveLeaveWorkType(LeaveApplication leave, bool isRestDay, bool isLegalHoliday, bool isSpecialHoliday)
+    {
+        if (isRestDay)
+            return WorkType.RestDay;
+
+        if (isLegalHoliday)
+            return WorkType.PaidLeaveOnLegalHoliday;
+
+        if (isSpecialHoliday)
+            return WorkType.PaidLeaveOnSpecialHoliday;
+
+        return leave.PayType == PayType.WithPay
+            ? WorkType.PaidLeave
+            : WorkType.UnpaidLeave;
+    }
+
+    private static bool IsNonWorkingSpecialHoliday(TimeContext context)
+    {
+        var specialHoliday = context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
+            HolidayType.SPECIAL,
+            context.Payload.Data.Employee,
+            context.Payload.Data.CurrentShift);
+
+        return specialHoliday?.WorkType == HolidayWorkType.NonWorking;
+    }
 }
-

@@ -148,7 +148,7 @@ public enum DayType
     NIGHT_DIFF,
     NONHOLIDAY,
 }
- 
+
 //public enum ATT_TYPE
 //{
 //    REGISTERED,
@@ -170,12 +170,13 @@ public enum WorkType
     RestDaySpecialHolidayDuty,
     PaidLeaveOnSpecialHoliday,
     SpecialNonWorking,
-    //RestDaySpecialHolidayDutyNW,
     PaidLeave,
     UnpaidLeave,
     Absent,
     Incomplete,
     Skipped,
+    PaidLeaveDuty,
+    UnpaidLeaveDuty, 
 }
 
 public enum DTRStatus

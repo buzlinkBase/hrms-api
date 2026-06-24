@@ -1,134 +1,216 @@
 ﻿using Hrms.Domain.Entities;
 
 namespace DTR.Core;
-
+/// <summary>
+/// Rule specification: is the employee eligible for holiday pay for the given period?
+/// Delegates to a type-specific evaluator (legal vs. special holiday rules differ).
+/// </summary>
 public class IsEligibleForHoliday : IRuleSpecification
 {
     private readonly HolidayType _holidayType;
-
     public IsEligibleForHoliday(HolidayType holidayType)
     {
         _holidayType = holidayType;
     }
+
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
-        var evaluator = HolidayEligibiltyEvaluatorFactory.Create(_holidayType);
-        var result = evaluator.Evaluate(input, context);
-        return result;
+        var evaluator = HolidayEligibilityEvaluatorFactory.Create(_holidayType);
+        return evaluator.Evaluate(input, context);
     }
 }
 
-public interface IHolidayEligibiltyEvaluator
+public interface IHolidayEligibilityEvaluator
 {
     bool Evaluate(TimeRange input, TimeContext context);
 }
 
-public class HolidayEligibiltyEvaluatorFactory
+public static class HolidayEligibilityEvaluatorFactory
 {
-    public static IHolidayEligibiltyEvaluator Create(HolidayType type)
+    public static IHolidayEligibilityEvaluator Create(HolidayType type) => type switch
     {
-        switch (type)
-        {
-            case HolidayType.SPECIAL:
-                return new SpecialHolidayEligibiltyEvaluator();
-            case HolidayType.LEGAL:
-                return new LegalHolidayEligibiltyEvaluator();
-            default:
-                throw new NotImplementedException("HolidayEligibiltyEvaluatorFactory");
-        }
-    }
+        HolidayType.SPECIAL => new SpecialHolidayEligibilityEvaluator(),
+        HolidayType.LEGAL => new LegalHolidayEligibilityEvaluator(),
+        _ => throw new NotImplementedException($"No {nameof(IHolidayEligibilityEvaluator)} registered for holiday type '{type}'.")
+    };
 }
 
-public class LegalHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
+/// <summary>
+/// Special (non-legal) holidays grant automatic eligibility — there is no
+/// attendance qualification requirement.
+/// </summary>
+public class SpecialHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
 {
-    public LegalHolidayEligibiltyEvaluator()
-    {
+    public bool Evaluate(TimeRange input, TimeContext context) => true;
+}
 
-    }
+/// <summary>
+/// Legal holiday eligibility follows DOLE's "qualifying day" rule:
+///   1. If the employee actually worked the holiday itself, they're eligible outright.
+///   2. Otherwise, eligibility depends on the *day before* the holiday: the employee
+///      must have worked it, been on paid leave, or otherwise had a qualifying day.
+///      Non-qualifying days (rest day, skipped, special-non-working with no pay) are
+///      skipped over when searching backward for that qualifying day.
+///   3. If <see cref="TimeAllowance.CheckAfterHoliday"/> is enabled, eligibility is
+///      additionally conditioned on the employee having a qualifying day *after*
+///      the holiday too (same search, run forward).
+/// </summary>
+public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
+{
     public bool Evaluate(TimeRange input, TimeContext context)
     {
         var payload = context.Payload;
-        var key = SpecEvaluationCache.CreateKey<IsEligibleForHoliday>(context);
-        var cached = context.Payload.SharedSpecCache.GetByKey(key);
+        var cacheKey = SpecEvaluationCache.CreateKey<IsEligibleForHoliday>(context);
+
+        var cached = payload.SharedSpecCache.GetByKey(cacheKey);
         if (cached.Found)
             return cached.Value;
 
-        bool isEligible = false;
-        var minWorkingMinutes = payload.Data.CurrentShift.MinimumWorkingMinutes;
-        
-        //check if working during holiday, if it is automaticaly eligible
-        //no need to check the prior day
-        var wr = context.Payload.Ledger.GetByTag("work_time", context);
-        if (wr.TotalMinutes > 0 && wr.TotalMinutes >= minWorkingMinutes)
-        {
-            isEligible = true;
-            return isEligible;
-        }
+        bool isEligible = WorkedHolidayItself(context)
+            || HasQualifyingDayLookingBack(context);
 
-        // Look back prior days until we find a valid eligibility day
-        for (DateOnly curDate = payload.Data.CurrentDate.AddDays(-1); curDate >= payload.Data.PayrollStartDate.AddDays(TimeAllowance.AttLookbackDays); curDate = curDate.AddDays(-1))
-        {
-            var result = ProcessLineAsync(curDate, context).GetAwaiter().GetResult();
-            if (result == null)
-                continue; // skip null results, keep searching
+        //TODO get this setting from company db TimeAllowance.CheckAfterHoliday
+        // NOTE: this guard intentionally sits here rather than at the top of Evaluate.
+        // The lookback search above must still run inside nested ProcessLineAsync calls
+        // (e.g. for consecutive holidays like Dec 25 + 26), so it can't be short-circuited
+        // by the suppression flag. Only the *forward* check is suppressed during recursion,
+        // to avoid forward-check ↔ forward-check cycles.
+        if (TimeAllowance.CheckAfterHoliday && isEligible && !LegalHolidayForwardCheck.SuppressForwardCheck.Value)
+            isEligible = HasQualifyingDayLookingForward(context);
 
-            if (result.WorkTypeEnum == WorkType.Skipped) continue;
-
-            // If no work recorded
-            if (result.WorkDate == DateOnly.MinValue)
-            {
-                if (result.WorkTypeEnum == WorkType.RestDay)
-                    continue; // skip rest day, check earlier
-
-                // Eligible if prior day is holiday or paid leave
-                isEligible =
-                    result.HolCount > 0 ||
-                    result.WorkTypeEnum == WorkType.PaidLeaveOnLegalHoliday ||
-                    result.WorkTypeEnum == WorkType.PaidLeave;
-                break;
-            }
-
-            // If there was work, check hours
-            var workhours =
-                  result.RegularNetHours
-                + result.RestDayHours
-                + result.SpecialHolHours
-                + result.LegalHolHours;
-
-            if (result.WorkTypeEnum == WorkType.RestDayDuty && minWorkingMinutes.ToHour() > workhours) continue; // not enough hours, check earlier, since this is still a rest day
-            if (workhours == 0 && result.WorkTypeEnum == WorkType.SpecialNonWorking) continue;
-
-            isEligible = workhours > 0 && workhours >= minWorkingMinutes.ToHour();
-            break;
-        }
-
-        payload.SharedSpecCache.Record(key, isEligible);
+        payload.SharedSpecCache.Record(cacheKey, isEligible);
         return isEligible;
-
     }
 
-    private async Task<DailyRecord?> ProcessLineAsync(DateOnly curDate, TimeContext context)
+    /// <summary>
+    /// An employee who actually worked enough of the holiday itself is eligible
+    /// regardless of attendance on the surrounding days.
+    /// </summary>
+    private static bool WorkedHolidayItself(TimeContext context)
     {
-        //run dtr line for the specified date
-        DailyRecord? result = default;
+        var minWorkingMinutes = context.Payload.Data.CurrentShift.MinimumWorkingMinutes;
+        var workTime = context.Payload.Ledger.GetByTag("work_time", context);
+        return workTime.TotalMinutes > 0 && workTime.TotalMinutes >= minWorkingMinutes;
+    }
+
+    private bool HasQualifyingDayLookingBack(TimeContext context)
+    {
+        var payload = context.Payload;
+        var earliestDate = payload.Data.PayrollStartDate.AddDays(TimeAllowance.AttLookbackDays);
+        for (var date = payload.Data.CurrentDate.AddDays(-1); date >= earliestDate; date = date.AddDays(-1))
+        {
+            var record = ProcessLineAsync(date, context).GetAwaiter().GetResult();
+            if (record is null)
+                continue;
+
+            var verdict = ClassifyDay(record, context, lookingForward: false);
+            if (verdict == DayVerdict.Inconclusive)
+                continue;
+
+            return verdict == DayVerdict.Qualifies;
+        }
+
+        return false;
+    }
+
+    private bool HasQualifyingDayLookingForward(TimeContext context)
+    {
+        var payload = context.Payload;
+        var latestDate = payload.Data.CurrentDate.AddDays(TimeAllowance.AttLookforward);
+        if (WorkedHolidayItself(context)) return true;
+        // Suppress nested forward checks while recursing into ProcessLineAsync below —
+        // otherwise a holiday-adjacent-to-a-holiday could trigger a forward check inside
+        // a forward check. try/finally guarantees the flag clears even on early return,
+        // so it never leaks into the next date processed by the outer caller's loop.
+        LegalHolidayForwardCheck.SuppressForwardCheck.Value = true;
+        try
+        {
+            for (var date = payload.Data.CurrentDate.AddDays(1); date <= latestDate; date = date.AddDays(1))
+            {
+                var record = ProcessLineAsync(date, context).GetAwaiter().GetResult();
+                if (record is null)
+                    continue;
+
+                var verdict = ClassifyDay(record, context, lookingForward: true);
+                if (verdict == DayVerdict.Inconclusive)
+                    continue;
+
+                return verdict == DayVerdict.Qualifies;
+            }
+
+            return false;
+        }
+        finally
+        {
+            LegalHolidayForwardCheck.SuppressForwardCheck.Value = false;
+        }
+    }
+
+    private enum DayVerdict
+    {
+        /// <summary>Day doesn't decide eligibility either way — keep searching.</summary>
+        Inconclusive,
+        Qualifies,
+        DoesNotQualify
+    }
+
+    /// <summary>
+    /// Determines whether a single day (found while searching backward or forward
+    /// from the holiday) settles eligibility, and if so, which way.
+    ///
+    /// NOTE ON ASYMMETRY: the forward search additionally treats
+    /// <see cref="WorkType.RegularHoliday"/> as inconclusive (skip and keep looking);
+    /// the backward search does not currently have that case. This mirrors the
+    /// original implementation. If this is unintentional, it should be reconciled —
+    /// flagging here rather than silently changing the behavior.
+    /// </summary>
+    private static DayVerdict ClassifyDay(DailyRecord record, TimeContext context, bool lookingForward)
+    {
+        var minWorkingHours = context.Payload.Data.CurrentShift.MinimumWorkingMinutes.ToHour();
+        var workHours = record.TotalHours;
+
+        if (workHours == 0 && record.WorkTypeEnum is WorkType.SpecialNonWorking or WorkType.Skipped or WorkType.RestDay)
+            return DayVerdict.Inconclusive;
+
+        if (lookingForward && record.WorkTypeEnum == WorkType.RegularHoliday)
+            return DayVerdict.Inconclusive;
+
+        if (record.HolCount > 0 ||
+            record.WorkTypeEnum is WorkType.PaidLeaveOnLegalHoliday
+            or WorkType.PaidLeaveOnSpecialHoliday
+            or WorkType.PaidLeave
+            or WorkType.PaidLeaveDuty
+            )
+            return DayVerdict.Qualifies;
+
+        if (record.WorkTypeEnum == WorkType.RestDayDuty && minWorkingHours > workHours)
+            return DayVerdict.Inconclusive;
+
+        if (record.WorkTypeEnum == WorkType.SpecialNonWorking)
+            return DayVerdict.Inconclusive;
+
+        return workHours > 0 && workHours >= minWorkingHours
+            ? DayVerdict.Qualifies
+            : DayVerdict.DoesNotQualify;
+    }
+
+    private static async Task<DailyRecord?> ProcessLineAsync(DateOnly date, TimeContext context)
+    {
         var payload = context.Payload;
         var employee = payload.Data.Employee;
-
         var dtrService = payload.Provider.DtrContextModel.DtrService;
-        if (dtrService != null)
-        {
-            var prioDtr = await dtrService.GetDTRInfoAsync<DailyRecord>(new DTRRequestPayload(curDate, curDate,
-                     employee.DepartmentId, employee.Id, employee.ClientId, employee.PayrollGroupId), ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
 
-            return prioDtr.FirstOrDefault();
-        }
+        if (dtrService is null)
+            return null;
+
+        DailyRecord? result = null;
+        await dtrService.GetDTRInfoAsync<DailyRecord>(
+            new DTRRequestPayload(date, date, employee.DepartmentId, employee.Id, employee.ClientId, employee.PayrollGroupId), ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
         return result;
     }
 }
-public class SpecialHolidayEligibiltyEvaluator : IHolidayEligibiltyEvaluator
+
+public static class LegalHolidayForwardCheck
 {
-    public bool Evaluate(TimeRange input, TimeContext context)
-    {
-        return true;//eligible automaticaly
-    }
+    public static readonly AsyncLocal<bool> SuppressForwardCheck = new();
 }
