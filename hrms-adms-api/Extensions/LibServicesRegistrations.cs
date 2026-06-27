@@ -6,7 +6,7 @@ namespace Hrms.adms.Extensions;
 
 public static class LibServicesRegistrations
 {
-    public static void RegisterHRCoreServices(this IServiceCollection services)
+    public static void RegisterAdmsCoreServices(this IServiceCollection services)
     {
         AddLibraryAssemblyDependencies(services, "hrms-adms-api");
     }

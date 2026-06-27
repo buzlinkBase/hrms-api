@@ -27,6 +27,7 @@ internal class Program
         config.Default.NameMatchingStrategy(NameMatchingStrategy.Flexible);
         builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
         builder.Services.AddPollyPolicies();
+        builder.Services.RegisterAdmsCoreServices();
         builder.AdmsConfigRabbitMq();
         builder.RegisterSelfServices();
         builder.Services.AddDataProtection()

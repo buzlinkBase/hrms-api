@@ -95,13 +95,12 @@ public static class ServiceRegistrations
         builder.Services.AddScoped<IHMACService, HMACService>();
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
         //zkteco
-        builder.Services.AddScoped<ISystemClockService, SystemClockService>();
-        builder.Services.AddScoped<DeviceUserService>();
+        builder.Services.AddScoped<ISystemClockService, SystemClockService>();  
         builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
         builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
-        //builder.Services.AddHostedService<CleanUpDormantCommandWatcher>();
+        builder.Services.AddHostedService<CleanUpDormantCommandWatcher>();
 
         builder.Services.AddHeaderPropagation(options =>
         {
