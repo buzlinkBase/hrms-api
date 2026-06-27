@@ -1,7 +1,9 @@
 using Asp.Versioning.ApiExplorer;
 using Hrms.adms;
+using Hrms.adms.Exceptions;
 using Hrms.adms.Extensions;
 using Hrms.adms.Middlewares;
+using Mapster;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 
@@ -13,15 +15,37 @@ internal class Program
         Log.Logger = new LoggerConfiguration()
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
-        builder.Host.UseSerilog(); 
+        builder.Host.UseSerilog();
+        builder.Services.AddProblemDetails(c =>
+        {
+            //c.CustomizeProblemDetails = context =>
+            //{
+            //    context.ProblemDetails.Extensions.TryAdd("requestId", context.HttpContext.TraceIdentifier);
+            //};
+        });
+        var config = new TypeAdapterConfig();
+        config.Default.NameMatchingStrategy(NameMatchingStrategy.Flexible);
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
         builder.Services.AddPollyPolicies();
         builder.AdmsConfigRabbitMq();
         builder.RegisterSelfServices();
-        builder.Services.RegisterHRCoreServices();
         builder.Services.AddDataProtection()
         .PersistKeysToFileSystem(new DirectoryInfo(@"/app/dp-keys"));
 
         var app = builder.Build();
+        // 1. FIRST: Parse headers from Nginx on localhost immediately
+        var forwardedOptions = new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                             | ForwardedHeaders.XForwardedProto
+                             | ForwardedHeaders.XForwardedHost
+        };
+        forwardedOptions.KnownNetworks.Clear();
+        forwardedOptions.KnownProxies.Clear();
+        app.UseForwardedHeaders(forwardedOptions);
+        // 2. SECOND: API Documentation
+        app.UseExceptionHandler();
+        app.UseStatusCodePages();
         var apiVersionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
         app.UseSwagger();
         app.UseSwaggerUI(options =>
@@ -30,22 +54,18 @@ internal class Program
             options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
             foreach (var description in apiVersionProvider.ApiVersionDescriptions)
             {
-                options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json",
-                                        $"HRMS API {description.ApiVersion}");
+                options.SwaggerEndpoint($"./{description.GroupName}/swagger.json",
+                              $"ADMS API {description.ApiVersion}");
             }
+            options.RoutePrefix = "swagger";
         });
-
+        app.UseSerilogRequestLogging();
         app.UseRouting();
         app.UseCors("AllowAll");
-        app.UseForwardedHeaders(new ForwardedHeadersOptions
-        {
-            ForwardedHeaders = ForwardedHeaders.XForwardedFor
-                     | ForwardedHeaders.XForwardedProto
-                     | ForwardedHeaders.XForwardedHost
-        });
+        //app.UseMiddleware<ApiKeyMiddleware>();
+        //app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseSerilogRequestLogging();
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();

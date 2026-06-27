@@ -123,7 +123,11 @@ public static class ServiceRegistrationsExt
         {
             options.AddPolicy("AllowAll", policy =>
             {
-                policy.AllowAnyOrigin()
+                policy.WithOrigins(
+                    "http://localhost:5173",
+                    "http://localhost:4200",
+                    "https://api.onepunch.site")
+                      .AllowCredentials()
                       .AllowAnyMethod()
                       .AllowAnyHeader();
             });

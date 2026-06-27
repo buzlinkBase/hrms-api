@@ -101,7 +101,7 @@ public static class ServiceRegistrations
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
         builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");
-        builder.Services.AddHostedService<CleanUpDormantCommandWatcher>();
+        //builder.Services.AddHostedService<CleanUpDormantCommandWatcher>();
 
         builder.Services.AddHeaderPropagation(options =>
         {
@@ -127,7 +127,11 @@ public static class ServiceRegistrations
        {
            options.AddPolicy("AllowAll", policy =>
            {
-               policy.AllowAnyOrigin()
+               policy.WithOrigins(
+                   "http://localhost:5173",
+                   "http://localhost:4200",
+                   "https://api.onepunch.site")
+                     .AllowCredentials()
                      .AllowAnyMethod()
                      .AllowAnyHeader();
            });
