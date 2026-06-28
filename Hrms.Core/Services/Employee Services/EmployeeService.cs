@@ -164,7 +164,10 @@ public class EmployeeService : BaseService<Employee>
             || x.Suffix.Contains(payload.Keyword);
 
         var query = GetQueryable(exp);
-        var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit);
+        var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit)
+            .OrderBy(x => x.LastName)
+            .ThenBy(x => x.FirstName)
+            ;
         var employees = await dataQuery
             .ProjectToType<EmployeeModel>(_config)
             .ToListAsync();
@@ -183,7 +186,10 @@ public class EmployeeService : BaseService<Employee>
             || x.Suffix.Contains(payload.Keyword);
 
         var query = GetQueryable(exp);
-        var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit);
+        var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit)
+            .OrderBy(x => x.LastName)
+            .ThenBy(x => x.FirstName)
+            ;
 
         var employees = await dataQuery
             .Include(x => x.Skills)
