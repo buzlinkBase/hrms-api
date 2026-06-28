@@ -15,22 +15,35 @@ public class TenantProviderAccessor : ITenantProvider
     {
         get
         {
-            if (_tenantId != Guid.Empty) return _tenantId;
+            // If already cached/set, return it immediately
+            if (_tenantId != Guid.Empty)
+                return _tenantId;
+
             var context = _httpContextAccessor.HttpContext;
-            if (context == null) return Guid.Empty;
-            // 1. Try to get from Header
-            var header = context.Request.Headers["X-Tenant-ID"].FirstOrDefault();
-            if (Guid.TryParse(header, out var headerId))
+            if (context == null)
+                return Guid.Empty;
+
+            // 1. Try to get from User JWT Claims first (Now case-insensitive thanks to your extension!)
+            var claimTenantId = context.User?.GetUserClaim("tenantId");
+            if (Guid.TryParse(claimTenantId, out var claimId) && claimId != Guid.Empty)
+            {
+                _tenantId = claimId;
+                return _tenantId;
+            }
+
+            // 2. Fallback: Try to get from Header ("X-Tenant-ID") last
+            // Cleaned up using your new 'GetHeader' extension method!
+            var header = context.Request.GetHeader("X-Tenant-ID");
+            if (Guid.TryParse(header, out var headerId) && headerId != Guid.Empty)
             {
                 _tenantId = headerId;
                 return _tenantId;
             }
-            var ClaimTenantId = context.User.GetUserClaim("TenantId");
-            return Guid.TryParse(ClaimTenantId, out var tenantId) && tenantId != Guid.Empty
-                ? tenantId
-                : Guid.Empty;
+
+            return Guid.Empty;
         }
     }
+
 
     public void SetTenantId(Guid tenantId) => _tenantId = tenantId;
 }

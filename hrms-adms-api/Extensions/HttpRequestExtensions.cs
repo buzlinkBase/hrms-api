@@ -1,5 +1,5 @@
 ﻿using System.Security.Claims;
-
+using Serilog; // Assuming you are using Serilog based on Log.Logger
 
 namespace Hrms.adms.Extensions;
 
@@ -45,10 +45,12 @@ public static class HttpRequestExtensions
             Log.Logger.Error("TenantId is not found in the token user:{0} claim:{1}", user, claim);
             throw new ArgumentException("Claim type must be provided.", nameof(claim));
         }
-        return user.FindFirstValue(claim);
+        // FIX: Replaced case-sensitive FindFirstValue with a case-insensitive check
+        return user.Claims
+            .FirstOrDefault(c => string.Equals(c.Type, claim, StringComparison.OrdinalIgnoreCase))?.Value;
     }
 
-    public static string? GetUserClaim(this HttpContext context, string claim) 
+    public static string? GetUserClaim(this HttpContext context, string claim)
     {
         var user = context.User;
         return GetUserClaim(user, claim);
