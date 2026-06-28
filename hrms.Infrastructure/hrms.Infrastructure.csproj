@@ -44,7 +44,6 @@
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
     </ItemGroup>
     <ItemGroup>
-      <Folder Include="db\migrations\" />
       <Folder Include="Migrations\" />
     </ItemGroup>
 </Project>
