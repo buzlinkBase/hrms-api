@@ -20,7 +20,7 @@ public class TenantDatabaseMiddleware
 
         if (tid != Guid.Empty)
         {
-            var key = $"connection:{tid}"; // Use colon for better Redis grouping
+            var key = $"connection:{tid}";
             var cache = await cacheService.GetAsync<string>(key);
             if (!string.IsNullOrWhiteSpace(cache))
             {
