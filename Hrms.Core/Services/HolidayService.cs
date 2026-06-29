@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities;
+﻿using ClosedXML;
+using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
 
@@ -92,6 +93,20 @@ public class HolidayService : BaseService<Holiday>
         var result = await GetOneAsync(Id, token);
         return _mapper.Map<HolidayModel?>(result);
     }
+
+    public async Task<HolidayModel?> FindLatest(Guid Id, CancellationToken token)
+    {
+        var result = await GetOneAsync(Id, token);
+        if (result == null) return _mapper.Map<HolidayModel?>(result);
+        var curDate = DateTime.UtcNow;
+        if (result.IsRecuring)
+        {
+            result.HolYear = curDate.Year;
+            result.HolDate = DateOnly.FromDateTime(new DateTime(result.HolYear, result.HolDate.Month, result.HolDate.Day));
+        }
+        return _mapper.Map<HolidayModel?>(result);
+    }
+
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
@@ -105,7 +120,7 @@ public class HolidayService : BaseService<Holiday>
         ;
         await RemoveRangeAsync(holidays, token);
         await CommitChangesAsync(token);
-    } 
+    }
 }
 
 public readonly record struct Holidaykey(Guid EmpId, DateOnly PayrollId);

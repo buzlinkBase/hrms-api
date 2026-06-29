@@ -36,6 +36,14 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<HolidayModel>(data));
         }
 
+        [HttpGet("latest/{id}")]
+        [ProducesResponseType(typeof(ResponseModel<HolidayModel>), 200)]
+        public async Task<IActionResult> GetLatestHoliday(Guid id, CancellationToken token)
+        {
+            var data = await _service.FindLatest(id, token);
+            return Ok(_mapper.Map<HolidayModel>(data));
+        }
+
         [HttpPost]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateHoliday payload, CancellationToken token)
