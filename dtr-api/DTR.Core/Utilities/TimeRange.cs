@@ -1,16 +1,16 @@
 ﻿namespace DTR.Core;
 
 
-public record TimeRange(double TotalMinutes, TimeRangeCollection TimeRecords)
+public record TimeRange(double TotalMinutes, TimeRecordCollection TimeRecords)
 {
     private Dictionary<string, object> Metadata { get; set; } = new();
-    public TimeRange(double totalMinutes) : this(totalMinutes, new TimeRangeCollection()) { }
-    public TimeRange() : this(0, new TimeRangeCollection()) { }
+    public TimeRange(double totalMinutes) : this(totalMinutes, new TimeRecordCollection()) { }
+    public TimeRange() : this(0, new TimeRecordCollection()) { }
     public static TimeRange Empty => new TimeRange();
     public static TimeRange Set(double minutes, DateTime startTime, DateTime endTime) => new TimeRange(minutes, TimeRangeSetter.SetTimeRangeCollection(startTime, endTime));
-    public static TimeRange Set(double minutes, TimeRangeCollection timeRecords) => new TimeRange(minutes, timeRecords);
+    public static TimeRange Set(double minutes, TimeRecordCollection timeRecords) => new TimeRange(minutes, timeRecords);
 
-    public static TimeRange Set(TimeRangeCollection timeRecords)
+    public static TimeRange Set(TimeRecordCollection timeRecords)
     {
         var totalMinutes = timeRecords.TotalMinutes();
         return new TimeRange(totalMinutes, timeRecords);
@@ -27,24 +27,24 @@ public record TimeRange(double TotalMinutes, TimeRangeCollection TimeRecords)
         if (left.IsEmpty()) return right;
         if (right.IsEmpty()) return left;
 
-        var combinedRecords = new TimeRangeCollection();
+        var combinedRecords = new TimeRecordCollection();
         combinedRecords.AddRange(left.TimeRecords);
         combinedRecords.AddRange(right.TimeRecords);
 
         // Filter out zero-length records 
         var cleanedCollection = combinedRecords
             .MergeOverlapping()
-            .ToTimeRangeCollection();
+            .ToTimeRecordCollection();
         //generate new timeRange from Collection
         return cleanedCollection.ToTimeRange();
     }
 }
 
-public class TimeRangeCollection : List<TimeRecord>
+public class TimeRecordCollection : List<TimeRecord>
 {
-    public TimeRangeCollection() { }
-    public static TimeRangeCollection Empty => new TimeRangeCollection();
-    public TimeRangeCollection(IEnumerable<TimeRecord> records)
+    public TimeRecordCollection() { }
+    public static TimeRecordCollection Empty => new TimeRecordCollection();
+    public TimeRecordCollection(IEnumerable<TimeRecord> records)
         : base(records ?? Enumerable.Empty<TimeRecord>())
     {
     }

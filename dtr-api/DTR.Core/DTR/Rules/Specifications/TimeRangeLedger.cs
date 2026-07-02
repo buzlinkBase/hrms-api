@@ -28,21 +28,21 @@ public class TimeRangeLedger : ValueCache<TimeRangeLedgerCacheKey, TimeRange>
         return found ? result! : TimeRange.Empty;
     }
 
-    public TimeRangeCollection GetAllocated(TimeRangeLedgerCacheKey key)
+    public TimeRecordCollection GetAllocated(TimeRangeLedgerCacheKey key)
     {
         var (found, timeRange) = base.GetByKey(key);
-        return found ? timeRange!.TimeRecords : new TimeRangeCollection();
+        return found ? timeRange!.TimeRecords : new TimeRecordCollection();
     }
 
-    public TimeRangeCollection GetAllAllocatedExcept(TimeRangeLedgerCacheKey key)
+    public TimeRecordCollection GetAllAllocatedExcept(TimeRangeLedgerCacheKey key)
     {
         return Snapshot()
             .Where(kvp => kvp.Key.Date == key.Date && kvp.Key.EmployeeId == key.EmployeeId && kvp.Key != key)
             .SelectMany(kvp => kvp.Value.TimeRecords)
-            .ToTimeRangeCollection();
+            .ToTimeRecordCollection();
     }
 
-    public IEnumerable<(TimeRangeLedgerCacheKey Key, TimeRangeCollection Range)> GetAllClaims(DateOnly date, Guid employeeId)
+    public IEnumerable<(TimeRangeLedgerCacheKey Key, TimeRecordCollection Range)> GetAllClaims(DateOnly date, Guid employeeId)
     {
         return Snapshot()
             .Where(kvp => kvp.Key.Date == date && kvp.Key.EmployeeId == employeeId)

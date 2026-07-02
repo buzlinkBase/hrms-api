@@ -63,7 +63,7 @@ public class ActualWorkHoursProvider : IHolidayTimeProvider
     }
 
     private TimeRange IntersectHolidaySlices(TimeRange RegularTimeRange,
-        TimeRangeCollection holidaySlices,
+        TimeRecordCollection holidaySlices,
         HolidayType holidayType
         )
     {

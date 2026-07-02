@@ -49,7 +49,7 @@ public class RegularHourPolicy : ConditionalPolicyBase
         return capped;
     }
 
-    private TimeRangeCollection ComputeUsableTime(TimeContext context, TimeRangeCollection usable, CurrentShift shift)
+    private TimeRecordCollection ComputeUsableTime(TimeContext context, TimeRecordCollection usable, CurrentShift shift)
     {
         //if (shift.ShiftType == TimeShiftType.FLEXI || shift.LunchBreakOption != PunchMode.PAID_BREAK_COMPRESS) return usable;
         //if (shift.ShiftType == TimeShiftType.FLEXI) return usable;
@@ -57,7 +57,7 @@ public class RegularHourPolicy : ConditionalPolicyBase
 
         //extract breaks
         var xtractor = BreakExtractorFactory.Create(context);
-        var allbreaks = new TimeRangeCollection();
+        var allbreaks = new TimeRecordCollection();
         allbreaks.AddRange(xtractor.SelectMany(x => x.Extract(usable, shift)));
         allbreaks = allbreaks.MergeOverlapping().Retag("clean_Breaks");
         if (!allbreaks.Any()) return usable;
@@ -86,12 +86,12 @@ public class RegularHourPolicy : ConditionalPolicyBase
         return newUsable;
     }
 
-    private TimeRangeCollection ExcludeBreakTime(TimeContext context, TimeRangeCollection usable, CurrentShift shift)
+    private TimeRecordCollection ExcludeBreakTime(TimeContext context, TimeRecordCollection usable, CurrentShift shift)
     {
         //if (shift.ShiftType == TimeShiftType.FLEXI) return usable;
         if (shift.WithAMBreak == BreakMode.UNPAID_BREAK && shift.AMBreakStartTime.HasValue && shift.AMBreakEndTime.HasValue)
         {
-            var tr = new TimeRangeCollection()
+            var tr = new TimeRecordCollection()
             {
                 new TimeRecord(shift.AMBreakStartTime.Value,shift.AMBreakEndTime.Value,"morning_break_period")
             };
@@ -101,7 +101,7 @@ public class RegularHourPolicy : ConditionalPolicyBase
         }
         if (shift.WithPMBreakTime == BreakMode.UNPAID_BREAK && shift.PMBreakStartTime.HasValue && shift.PMBreakEndTime.HasValue)
         {
-            var tr = new TimeRangeCollection()
+            var tr = new TimeRecordCollection()
             {
                 new TimeRecord(shift.PMBreakStartTime.Value,shift.PMBreakEndTime.Value,"pm_break_period")
             };
@@ -114,7 +114,7 @@ public class RegularHourPolicy : ConditionalPolicyBase
         {
             if (shift.LunchStartTime.HasValue && shift.LunchEndTime.HasValue)
             {
-                var tr = new TimeRangeCollection()
+                var tr = new TimeRecordCollection()
                     {
                         new TimeRecord(shift.LunchStartTime.Value,shift.LunchEndTime.Value,"lunch_break_period_use_time")
                     };
@@ -124,7 +124,7 @@ public class RegularHourPolicy : ConditionalPolicyBase
             }
             else if (shift.LunchBreakDurationMinutes > 0)//fallback if only breakduration is set
             {
-                var tr = new TimeRangeCollection()
+                var tr = new TimeRecordCollection()
                     {
                         new TimeRecord(shift.StartTime.AddHours(4),shift.StartTime.AddHours(4).AddMinutes(shift.LunchBreakDurationMinutes),"lunch_break_period_use_computeBreak")
                     };
@@ -157,7 +157,7 @@ public class RegularHourPolicy : ConditionalPolicyBase
 
 public class GracePeriodAdjustment
 {
-    public static void SetGracePeriod(TimeContext context, TimeRangeCollection usable)
+    public static void SetGracePeriod(TimeContext context, TimeRecordCollection usable)
     {
         //Alter the first log to cater grace period
         if (!usable.Any()) return;

@@ -59,7 +59,7 @@ public class First8HrPolicy : ConditionalPolicyBase
             .ToTimeRange();
 
         // 🔗 Merge regular and reclaimed
-        var shiftts = new TimeRangeCollection
+        var shiftts = new TimeRecordCollection
         {
             new TimeRecord
             {

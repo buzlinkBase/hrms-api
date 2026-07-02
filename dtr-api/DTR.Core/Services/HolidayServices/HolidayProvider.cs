@@ -13,7 +13,7 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
     public DefaultHolidayProvider(Dictionary<Holidaykey, List<HolidayInfo>> holidays) : base(holidays)
     {
     }
-    public override TimeRangeCollection GetHolidayDuringDate(HolidayType type, EmployeeDTRRun employee, DateOnly date)
+    public override TimeRecordCollection GetHolidayDuringDate(HolidayType type, EmployeeDTRRun employee, DateOnly date)
     {
         var shift = new CurrentShift()
         {
@@ -23,7 +23,7 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
         };
         return GetHolidayDuringShift(type, employee, shift);
     }
-    public override TimeRangeCollection GetHolidayDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift)
+    public override TimeRecordCollection GetHolidayDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift)
     {
         var shiftRange = new TimeRecord(shift.StartTime, shift.EndTime);
 
@@ -54,7 +54,7 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
             .Where(r => r != null)
             .OfType<TimeRecord>();
 
-        return holidaySlices.ToTimeRangeCollection();
+        return holidaySlices.ToTimeRecordCollection();
     }
 
     public override HolidayInfo? GetHolidayInfoDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift)
@@ -86,7 +86,7 @@ public  abstract class HolidayProviderBase
     {
         _holidays = holidays;
     }
-    public abstract TimeRangeCollection GetHolidayDuringDate(HolidayType type, EmployeeDTRRun employee, DateOnly date);
-    public abstract TimeRangeCollection GetHolidayDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift);
+    public abstract TimeRecordCollection GetHolidayDuringDate(HolidayType type, EmployeeDTRRun employee, DateOnly date);
+    public abstract TimeRecordCollection GetHolidayDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift);
     public abstract HolidayInfo? GetHolidayInfoDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift);
 }

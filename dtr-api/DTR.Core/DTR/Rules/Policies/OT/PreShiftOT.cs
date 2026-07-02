@@ -38,13 +38,13 @@ public class PreShiftOTHandler : OTComputationHandlerBase
 }
 public class CalculatePreShiftOverTime
 {
-    public TimeRange ComputePreShiftOvertime(TimeRangeCollection records, DateTime shiftStartTime)
+    public TimeRange ComputePreShiftOvertime(TimeRecordCollection records, DateTime shiftStartTime)
     {
         if (records == null || !records.Any())
-            return new TimeRange(0, new TimeRangeCollection());
+            return new TimeRange(0, new TimeRecordCollection());
 
         var sorted = records.OrderBy(r => r.StartTime).ToList();
-        var preShiftOT = new TimeRangeCollection();
+        var preShiftOT = new TimeRecordCollection();
         double totalPreShiftMinutes = 0;
 
         foreach (var r in sorted)

@@ -22,7 +22,7 @@ public class BreakWindowExtractor
 
 public interface IBreakExtractor
 {
-    TimeRangeCollection Extract(TimeRangeCollection punches, CurrentShift shift);
+    TimeRecordCollection Extract(TimeRecordCollection punches, CurrentShift shift);
 }
 
 public static class BreakWindowHelper
@@ -71,14 +71,14 @@ public class AmBreakExtractor : IBreakExtractor
         _context = context;
     }
 
-    public TimeRangeCollection Extract(TimeRangeCollection punches, CurrentShift shift)
+    public TimeRecordCollection Extract(TimeRecordCollection punches, CurrentShift shift)
     {
         // Guard clause: AM break must be enabled and have valid times
         if (shift.WithAMBreak != BreakMode.PAID_BREAK
             || !shift.AMBreakStartTime.HasValue
             || !shift.AMBreakEndTime.HasValue)
         {
-            return new TimeRangeCollection();
+            return new TimeRecordCollection();
         }
 
         // Raw allowance-adjusted times
@@ -91,10 +91,10 @@ public class AmBreakExtractor : IBreakExtractor
         // If invalid window, return empty
         if (startTime == endTime)
         {
-            return new TimeRangeCollection();
+            return new TimeRecordCollection();
         }
 
-        var breaks = new TimeRangeCollection();
+        var breaks = new TimeRecordCollection();
 
         // Look for gaps between punches inside the break window
         for (int i = 0; i < punches.Count - 1; i++)
@@ -127,13 +127,13 @@ public class PmBreakExtractor : IBreakExtractor
         _context = context;
     }
 
-    public TimeRangeCollection Extract(TimeRangeCollection punches, CurrentShift shift)
+    public TimeRecordCollection Extract(TimeRecordCollection punches, CurrentShift shift)
     {
         if (shift.WithPMBreakTime != BreakMode.PAID_BREAK
             || !shift.PMBreakStartTime.HasValue
             || !shift.PMBreakEndTime.HasValue)
         {
-            return new TimeRangeCollection();
+            return new TimeRecordCollection();
         }
 
         // Raw allowance-adjusted times
@@ -143,9 +143,9 @@ public class PmBreakExtractor : IBreakExtractor
         // Clamp to shift boundaries
         var (startTime, endTime) = BreakWindowHelper.ClampBreakWindow(rawStart, rawEnd, shift.StartTime, shift.EndTime);
 
-        if (startTime == endTime) return new TimeRangeCollection(); // invalid window
+        if (startTime == endTime) return new TimeRecordCollection(); // invalid window
 
-        var breaks = new TimeRangeCollection();
+        var breaks = new TimeRecordCollection();
 
         for (int i = 0; i < punches.Count - 1; i++)
         {
@@ -174,9 +174,9 @@ public class LunchBreakExtractor : IBreakExtractor
         _context = context;
     }
 
-    public TimeRangeCollection Extract(TimeRangeCollection punches, CurrentShift shift)
+    public TimeRecordCollection Extract(TimeRecordCollection punches, CurrentShift shift)
     {
-        if (shift.LunchBreakOption != BreakMode.PAID_BREAK ) return new TimeRangeCollection();
+        if (shift.LunchBreakOption != BreakMode.PAID_BREAK ) return new TimeRecordCollection();
 
         var breakAllowance = TimeAllowance.LunchPaidBreakCaptureAllowance;
 
@@ -192,9 +192,9 @@ public class LunchBreakExtractor : IBreakExtractor
         // Clamp to shift boundaries
         var (startTime, endTime) = BreakWindowHelper.ClampBreakWindow(rawStart, rawEnd, shift.StartTime, shift.EndTime);
 
-        if (startTime == endTime) return new TimeRangeCollection(); // invalid window
+        if (startTime == endTime) return new TimeRecordCollection(); // invalid window
 
-        var breaks = new TimeRangeCollection();
+        var breaks = new TimeRecordCollection();
 
         for (int i = 0; i < punches.Count - 1; i++)
         {
@@ -224,10 +224,10 @@ public static class PaidBreakCalculator
     /// <param name="actualBreaks">List of detected break windows</param>
     /// <param name="allowedBreakMinutes">Total allowed paid break minutes</param>
     /// <returns>List of TimeRecords tagged as "PAID_BREAK"</returns>
-    public static TimeRangeCollection ComputePaidBreaks(TimeRangeCollection actualBreaks, double allowedBreakMinutes)
+    public static TimeRecordCollection ComputePaidBreaks(TimeRecordCollection actualBreaks, double allowedBreakMinutes)
     {
         if (!actualBreaks.Any()) return new();
-        var paidBreaks = new TimeRangeCollection();
+        var paidBreaks = new TimeRecordCollection();
         double accumulated = 0;
 
         foreach (var br in actualBreaks.OrderBy(b => b.StartTime))
@@ -258,10 +258,10 @@ public static class PaidBreakCalculator
 }
 public class OverbreakCalculator
 {
-    public static TimeRangeCollection ComputeOverbreaks(TimeRangeCollection actualBreaks, double allowedBreakMinutes)
+    public static TimeRecordCollection ComputeOverbreaks(TimeRecordCollection actualBreaks, double allowedBreakMinutes)
     {
         if (!actualBreaks.Any()) return new();
-        var overBreaks = new TimeRangeCollection();
+        var overBreaks = new TimeRecordCollection();
         double accumulated = 0;
 
         foreach (var br in actualBreaks.OrderBy(b => b.StartTime))

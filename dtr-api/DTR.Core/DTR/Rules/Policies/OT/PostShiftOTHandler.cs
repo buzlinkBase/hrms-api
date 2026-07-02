@@ -41,7 +41,7 @@ public class PostShiftOTHandler : OTComputationHandlerBase
         var postShiftOT = usable
             .Where(r => r.StartTime >= withCaptureAllowance)
             .Select(r => r.Tag("OT_auto"))
-            .ToTimeRangeCollection()
+            .ToTimeRecordCollection()
             .ToTimeRange();
 
 
@@ -51,7 +51,7 @@ public class PostShiftOTHandler : OTComputationHandlerBase
 
         var OTshift = new CurrentShift() { StartTime = otStart.Value, EndTime = otOut.Value };
 
-        var tr = new TimeRangeCollection()
+        var tr = new TimeRecordCollection()
         {
             new TimeRecord(OTshift.StartTime,OTshift.EndTime)
         };

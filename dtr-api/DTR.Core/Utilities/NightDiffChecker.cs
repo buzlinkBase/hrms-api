@@ -46,13 +46,13 @@ public class NightDiffChecker
 
 public class NightDiffCalculator
 {
-    public static TimeRange Calculate(TimeRangeCollection timeRecords)
+    public static TimeRange Calculate(TimeRecordCollection timeRecords)
     { 
         if (timeRecords == null || timeRecords.Count == 0)
             return new TimeRange();
 
         double totalTime = 0;
-        var trCollection = new TimeRangeCollection();
+        var trCollection = new TimeRecordCollection();
         for (int i = 0; i < timeRecords.Count; i++)
         {
             var timeRange = timeRecords[i];

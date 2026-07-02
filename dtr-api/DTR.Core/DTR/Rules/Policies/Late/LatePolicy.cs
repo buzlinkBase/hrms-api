@@ -65,7 +65,7 @@ public class LatePolicy : ConditionalPolicyBase
         var lateEndLog = payload.Ledger.GetByTag("RegularTimeTopUp", context)
             .IsEmpty() ? firstLog.Value : shiftStart.AddMinutes(lacking);
 
-        var lateSlice = new TimeRangeCollection { new TimeRecord(shiftStart, lateEndLog, "late_slice_entry") }.ToTimeRange();
+        var lateSlice = new TimeRecordCollection { new TimeRecord(shiftStart, lateEndLog, "late_slice_entry") }.ToTimeRange();
 
         var processor = new LateDeductionProcessor(new ILateDeductionHandler[]
         {

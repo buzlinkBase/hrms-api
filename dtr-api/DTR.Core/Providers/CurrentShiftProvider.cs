@@ -50,14 +50,14 @@ public class CrossMultiDateCurrentShiftProvider : ICurrentShiftProvider
         var key = new CurrentTimeShiftKey(_payload.Employee.Id, filterDate);
         _payload.AllTimeShifts.TryGetValue(key, out var shift);
         if (shift == null) return null;
-        var curTimeRecords = new TimeRangeCollection()
+        var curTimeRecords = new TimeRecordCollection()
         {
             new TimeRecord { StartTime = shift.StartTime, EndTime = shift.EndTime }
         };
 
         /// Always check cache for exclusions
         /// exlude current shift if it is covered from prior shift and Skipped
-        var toExclude = new TimeRangeCollection();
+        var toExclude = new TimeRecordCollection();
         var keyPrio = new TimeRangeLedgerCacheKey("PrioShift", filterDate, _payload.Employee.Id);
         var result = _context.ValueCache.GetByKey(keyPrio);
         if (result.Found && result.Value != null)
@@ -76,7 +76,7 @@ public class CrossMultiDateCurrentShiftProvider : ICurrentShiftProvider
             .MergeOverlapping()
             .Exclude(toExclude)
             .Where(x => x.StartTime > shift.StartTime)
-            .ToTimeRangeCollection();
+            .ToTimeRecordCollection();
 
         //check if currentshift is not totaly overriden by the prioShift(NextShift)
         if (currentShiftCollectionRange.TotalMinutes() == 0) return null;
@@ -103,7 +103,7 @@ public class CrossMultiDateCurrentShiftProvider : ICurrentShiftProvider
         {
             //set nextshift cached
             //for check in next day shift
-            var trc = new TimeRangeCollection();
+            var trc = new TimeRecordCollection();
             var nextShiftKey = new TimeRangeLedgerCacheKey("PrioShift", next.ShiftDate, _payload.Employee.Id);
             trc.Add(new TimeRecord(next.StartTime, next.EndTime));
             _context.ValueCache.Record(nextShiftKey, TimeRange.Set(trc));
@@ -124,7 +124,7 @@ public class CrossMultiDateCurrentShiftProvider : ICurrentShiftProvider
         foreach (var currentDate in dates)
         {
             var skipkey = new TimeRangeLedgerCacheKey("Skipped", currentDate, _payload.Employee.Id);
-            var trc = new TimeRangeCollection();
+            var trc = new TimeRecordCollection();
             trc.Add(new TimeRecord(currentDate.ToDateTime(TimeOnly.MinValue), currentDate.AddDays(1).ToDateTime(TimeOnly.MinValue)));
             _context.ValueCache.Record(skipkey, TimeRange.Set(trc));
         }

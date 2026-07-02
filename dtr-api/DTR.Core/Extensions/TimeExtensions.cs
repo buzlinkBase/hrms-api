@@ -26,18 +26,18 @@ public static class TimeExtensions
     }
     public static TimeRecord Tag(this TimeRecord r, string label)
     => new(r.StartTime, r.EndTime, label);
-    public static TimeRangeCollection Retag(this TimeRangeCollection source, string newTag)
+    public static TimeRecordCollection Retag(this TimeRecordCollection source, string newTag)
     {
         if (string.IsNullOrWhiteSpace(newTag) || source == null || source.Count == 0)
-            return source ?? new TimeRangeCollection();
+            return source ?? new TimeRecordCollection();
 
         var retagged = source
             .Select(r => r.Tag(newTag))
-            .ToTimeRangeCollection();
+            .ToTimeRecordCollection();
 
         return retagged;
     }
-    public static double TotalMinutes(this TimeRangeCollection records)
+    public static double TotalMinutes(this TimeRecordCollection records)
     {
         var result = records
             .Where(x => x.IsValid())
@@ -59,7 +59,7 @@ public static class TimeExtensions
     {
         return TimeRangeCalculator.GetTotalMinutes(record.StartTime, record.EndTime);
     }
-    public static TimeRange ToTimeRange(this TimeRangeCollection collection)
+    public static TimeRange ToTimeRange(this TimeRecordCollection collection)
     {
         if (collection is null || collection.Count == 0)
             return TimeRange.Empty;
@@ -70,26 +70,26 @@ public static class TimeExtensions
     }
 
 
-    public static TimeRangeCollection ToTimeRangeCollection(this IEnumerable<TimeRecord> ranges)
+    public static TimeRecordCollection ToTimeRecordCollection(this IEnumerable<TimeRecord> ranges)
     {
         // Defensive fallback if null
         if (ranges is null)
-            return new TimeRangeCollection();
+            return new TimeRecordCollection();
 
         // Optionally: filter invalid or zero-length ranges
         var validRanges = ranges
             .Where(r => TimeRangeCalculator.GetTotalMinutes(r.StartTime, r.EndTime) > 0)
             .OrderBy(r => r.StartTime)
             .ToList();
-        return new TimeRangeCollection(validRanges);
+        return new TimeRecordCollection(validRanges);
     }
-    public static TimeRangeCollection MergeOverlapping(this TimeRangeCollection records)
+    public static TimeRecordCollection MergeOverlapping(this TimeRecordCollection records)
     {
         var sorted = records
              .OrderBy(r => r.StartTime)
              .ToList();
 
-        var merged = new TimeRangeCollection();
+        var merged = new TimeRecordCollection();
         foreach (var range in sorted)
         {
             if (!merged.Any())
@@ -110,9 +110,9 @@ public static class TimeExtensions
         }
         return merged;
     }
-    public static TimeRangeCollection Exclude(this TimeRangeCollection baseRange, TimeRangeCollection exclusions)
+    public static TimeRecordCollection Exclude(this TimeRecordCollection baseRange, TimeRecordCollection exclusions)
     {
-        var result = new TimeRangeCollection();
+        var result = new TimeRecordCollection();
         foreach (var baseItem in baseRange)
         {
             var remainingSlices = new List<TimeRecord> { baseItem };
@@ -149,31 +149,31 @@ public static class TimeExtensions
         if (rEnd < oEnd)
             yield return new TimeRecord(rEnd, oEnd, original.Tag);
     }
-    public static TimeRange CapAndCrop(this TimeRangeCollection actualTime, CurrentShift shift)
+    public static TimeRange CapAndCrop(this TimeRecordCollection actualTime, CurrentShift shift)
     {
         return CapAndCrop(actualTime, shift.StartTime, shift.EndTime, TimeRangeCalculator.GetTotalMinutes(shift.StartTime, shift.EndTime));
     }
-    public static TimeRange CapAndCrop(this TimeRangeCollection actualTime, CurrentShift shift, double maxMinutes)
+    public static TimeRange CapAndCrop(this TimeRecordCollection actualTime, CurrentShift shift, double maxMinutes)
     {
         return CapAndCrop(actualTime, shift.StartTime, shift.EndTime, maxMinutes);
     }
-    public static TimeRange CapAndCrop(this TimeRangeCollection actualTime, DateTime shiftStart, DateTime shiftEnd, double maxMinutes)
+    public static TimeRange CapAndCrop(this TimeRecordCollection actualTime, DateTime shiftStart, DateTime shiftEnd, double maxMinutes)
     {
-        var shiftRange = new TimeRangeCollection
+        var shiftRange = new TimeRecordCollection
         {
             new TimeRecord(shiftStart, shiftEnd)
         };
 
         // Limit only to shift boundary
         var withinShift = actualTime.Intersect(shiftRange);
-        TimeRangeCollection merged = withinShift.MergeOverlapping();            // Avoid over-count
+        TimeRecordCollection merged = withinShift.MergeOverlapping();            // Avoid over-count
         var total = merged.TotalMinutes();
 
         if (total <= maxMinutes)
             return new TimeRange(total, merged);
 
         // Cap at Max Working Limit
-        var capped = new TimeRangeCollection();
+        var capped = new TimeRecordCollection();
         double remaining = maxMinutes;
 
         foreach (var slice in merged)
@@ -196,12 +196,12 @@ public static class TimeExtensions
 
         return new TimeRange(maxMinutes, capped);
     }
-    public static TimeRange CropFromStart(this TimeRangeCollection source, double minutesToRetain)
+    public static TimeRange CropFromStart(this TimeRecordCollection source, double minutesToRetain)
     {
         if (source == null || source.Count == 0 || minutesToRetain <= 0)
             return new TimeRange();
 
-        var cropped = new TimeRangeCollection();
+        var cropped = new TimeRecordCollection();
         double remaining = minutesToRetain;
 
         foreach (var record in source.OrderBy(r => r.StartTime))
@@ -232,12 +232,12 @@ public static class TimeExtensions
         }
         return cropped.ToTimeRange();
     }
-    public static TimeRange CropFromEnd(this TimeRangeCollection source, double minutesToRetain)
+    public static TimeRange CropFromEnd(this TimeRecordCollection source, double minutesToRetain)
     {
         if (source == null || source.Count == 0 || minutesToRetain <= 0)
             return new TimeRange();
 
-        var cropped = new TimeRangeCollection();
+        var cropped = new TimeRecordCollection();
         double remaining = minutesToRetain;
 
         foreach (var record in source.OrderByDescending(r => r.EndTime))
@@ -269,12 +269,12 @@ public static class TimeExtensions
 
         return cropped.ToTimeRange();
     }
-    public static TimeRange DeductFromEnd(this TimeRangeCollection source, double minutesToRemove)
+    public static TimeRange DeductFromEnd(this TimeRecordCollection source, double minutesToRemove)
     {
         if (source == null || source.Count == 0 || minutesToRemove <= 0)
             return source.ToTimeRange();
 
-        var result = new TimeRangeCollection();
+        var result = new TimeRecordCollection();
         double remaining = minutesToRemove;
 
         foreach (var record in source.OrderByDescending(r => r.EndTime))
@@ -309,11 +309,11 @@ public static class TimeExtensions
         }
 
         // Reorder to preserve original ascending sequence
-        return new TimeRangeCollection(result.OrderBy(r => r.StartTime)).ToTimeRange();
+        return new TimeRecordCollection(result.OrderBy(r => r.StartTime)).ToTimeRange();
     }
-    public static TimeRangeCollection Intersect(this TimeRangeCollection source, TimeRangeCollection mask, string tag = "")
+    public static TimeRecordCollection Intersect(this TimeRecordCollection source, TimeRecordCollection mask, string tag = "")
     {
-        var result = new TimeRangeCollection();
+        var result = new TimeRecordCollection();
         foreach (var src in source)
         {
             foreach (var m in mask)
@@ -341,14 +341,14 @@ public static class TimeExtensions
     {
         return a.StartTime < b.EndTime && b.StartTime < a.EndTime;
     }
-    public static TimeRange FlattenUntilShiftEnd(this TimeRangeCollection records, DateTime shiftStartTime, TimeSpan shiftDuration)
+    public static TimeRange FlattenUntilShiftEnd(this TimeRecordCollection records, DateTime shiftStartTime, TimeSpan shiftDuration)
     {
         if (records == null || !records.Any())
-            return new TimeRange(0, new TimeRangeCollection());
+            return new TimeRange(0, new TimeRecordCollection());
 
         var shiftEndTime = shiftStartTime.Add(shiftDuration);
         var sorted = records.OrderBy(r => r.StartTime).ToList();
-        var collected = new TimeRangeCollection();
+        var collected = new TimeRecordCollection();
         double accumulated = 0;
 
         foreach (var r in sorted)
@@ -376,10 +376,10 @@ public static class TimeExtensions
         return new TimeRange(accumulated, collected);
     }
 
-    public static TimeRange FlattenUntil(this TimeRangeCollection records, double targetMinutes)
+    public static TimeRange FlattenUntil(this TimeRecordCollection records, double targetMinutes)
     {
         var sorted = records.OrderBy(r => r.StartTime).ToList();
-        var collected = new TimeRangeCollection();
+        var collected = new TimeRecordCollection();
         double accumulated = 0;
 
         foreach (var r in sorted)
@@ -406,7 +406,7 @@ public static class TimeExtensions
 
         return new TimeRange(accumulated, collected);
     }
-    public static TimeRange FlattenAfter(this TimeRangeCollection records, DateTime afterTime)
+    public static TimeRange FlattenAfter(this TimeRecordCollection records, DateTime afterTime)
     {
         if (records == null || records.Count == 0)
             return TimeRange.Empty;
@@ -423,7 +423,7 @@ public static class TimeExtensions
                 return new TimeRecord(croppedStart, r.EndTime, r.Tag);
             })
             .Where(r => r.IsValid()) // Remove invalid records
-            .ToTimeRangeCollection();
+            .ToTimeRecordCollection();
 
         var total = filtered.TotalMinutes();
         return new TimeRange(total, filtered);

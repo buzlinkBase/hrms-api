@@ -62,7 +62,7 @@ public class AppliedOvertimePolicy : ConditionalPolicyBase
         var fallbackSlices = usable
             .Where(r => r.StartTime >= otStart && r.StartTime >= shiftEnd)
             .Select(r => new TimeRecord(r.StartTime, r.EndTime, "OT_applied"))
-            .ToTimeRangeCollection()
+            .ToTimeRecordCollection()
             .CropFromStart(manualMinutes);
 
 
