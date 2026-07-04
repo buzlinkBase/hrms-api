@@ -8,7 +8,14 @@ public class MappingProfile : IRegister
 {
     public void Register(TypeAdapterConfig config)
     {
-        // General Simple Mappings
+        // Use the passed-in 'config' instance instead of GlobalSettings
+        config.NewConfig<DateTime, DateOnly>()
+            .MapWith(src => DateOnly.FromDateTime(src));
+
+        // Handle nullable DateTimes as well
+        config.NewConfig<DateTime?, DateOnly?>()
+            .MapWith(src => src.HasValue ? DateOnly.FromDateTime(src.Value) : null);
+
         config.NewConfig<PayrollSummaryLine, Payroll>().TwoWays();
         config.NewConfig<CreateDepartment, Department>().TwoWays();
         config.NewConfig<UpdateDepartment, Department>();
@@ -36,6 +43,12 @@ public class MappingProfile : IRegister
             .AfterMapping((src, dest) => ApplyEmployeeReferenceFixes(dest));
 
         config.NewConfig<UpdateEmployee, Employee>()
+            .Map(
+                dest => dest.HireDate,
+                src => src.HireDate.HasValue && src.HireDate.Value != DateTime.MinValue
+                    ? DateOnly.FromDateTime(src.HireDate.Value)
+                    : DateOnly.FromDateTime(DateTime.UtcNow) 
+            )
             .AfterMapping((src, dest) => ApplyEmployeeReferenceFixes(dest));
 
         // Complex Employee to Model Mappings

@@ -15,6 +15,7 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
         var statusCode = exception switch
         {
             GuardException => StatusCodes.Status400BadRequest,
+            ValidationException => StatusCodes.Status400BadRequest,
             UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
             UnauthorizedException => StatusCodes.Status401Unauthorized,
             _ => StatusCodes.Status500InternalServerError,
@@ -40,13 +41,6 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
                 errorDetail.Extensions.Add("innerException", exception.InnerException.Message);
             }
         //}
-
-        errorDetail.Extensions.Add("stackTrace", exception.StackTrace);
-        if (exception.InnerException != null)
-        {
-            errorDetail.Extensions.Add("innerException", exception.InnerException.Message);
-        }
-
         // 2. Wrap it in your standard ResponseModel
         var response = new ResponseModel<ProblemDetails>
         {
@@ -77,6 +71,10 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
     {
         400 => "Bad Request",
         401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        422 => "Validation Error",
+        500 => "Server Error",
         _ => "An internal server error occurred"
     };
 }

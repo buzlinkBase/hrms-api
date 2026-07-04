@@ -17,7 +17,7 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
 
         var configuration = new ConfigurationBuilder()
             .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: false) // Essential config
+            .AddJsonFile("appsettings.json", optional: false) 
             .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
