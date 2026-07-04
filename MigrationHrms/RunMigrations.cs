@@ -15,24 +15,23 @@ public class MigrationRunner
         var db = scope.ServiceProvider.GetRequiredService<TenantContext>();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
         var systemName = Environment.GetEnvironmentVariable("SYSTEM_NAME") ?? "HRIS";
-        var newVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? "1.0.0";
-
+        // all Tenant must have this version
+        //run migration if tenant dont have this migration TargetVersion
+        var TargetVersion =  "1.0.1";
         if (string.IsNullOrEmpty(systemName))
         {
             Console.WriteLine("SYSTEM_NAME env var not found. Skipping migration trigger.");
             return;
         }
-
         // 1. Update ONLY the target for the system being deployed
         await db.SchemaVersions
             .Where(sv => sv.System == systemName)
-            .ExecuteUpdateAsync(s => s.SetProperty(v => v.TargetVersion, newVersion));
+            .ExecuteUpdateAsync(s => s.SetProperty(v => v.TargetVersion, TargetVersion));
 
         // 2. Query only that system's pending migrations
         var pending = await db.SchemaVersions
             .Where(sv => sv.System == systemName && sv.CurrentVersion != sv.TargetVersion)
             .ToListAsync();
-
         try
         {
             // Target only the rows for THIS system that need an update

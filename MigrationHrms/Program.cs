@@ -11,7 +11,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables(); // GitHub Secrets override appsettings
-builder.rmqConfig();
+builder.HrmsConfigRabbitMq();
 
 builder.Services.AddDbContext<TenantContext>(options =>
 {
