@@ -84,6 +84,7 @@ public static class ServiceRegistrationsExt
         {
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         });
 
         builder.Services.AddRefitClient<IBranchClient>(new RefitSettings

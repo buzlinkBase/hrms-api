@@ -78,6 +78,7 @@ public static class ServiceRegistrations
         {
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         });
         MessagePackSerializer.DefaultOptions = mpackOptions;
         builder.Services.AddRefitClient<IConnectionClient>(new RefitSettings

@@ -5,7 +5,7 @@ namespace Hrms.Domain.ValueObjects;
 
 public class CreateEmployee
 {
-    public int BioId { get; set; } = 0;
+    public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
     public Guid? PayrollGroupId { get; set; }
@@ -80,6 +80,7 @@ public class CreateEmployee
     //public CreatePosition? Position { get; set; }
     //public CreateArea? Area { get; set; }
     public ICollection<RestDayModel> RestDays { get; set; }
+    public string Status { get; set; } = "Active";
     //public CreateTimeShift? TimeShift { get; set; }
 }
 public class UpdateEmployee : CreateEmployee
@@ -130,10 +131,11 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public string? ClientName { get; set; }
     [IgnoreMember] public string? PositionName { get; set; }
     [IgnoreMember] public string? AreaName { get; set; }
+    [IgnoreMember] public string Status { get; set; }
 }
 public class EmployeeFullModel
 {
-    public int BioId { get; set; } = 0;
+    public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
     public Guid? PayrollGroupId { get; set; }
@@ -212,6 +214,7 @@ public class EmployeeFullModel
     public string? DepartmentName { get; set; }
     public string? PositionName { get; set; }
     public string? AreaName { get; set; }
+    public string Status { get; set; }
 }
 public class EmployeeModelPayrollRun
 {
@@ -248,6 +251,7 @@ public class EmployeeModelPayrollRun
     //public string TIN { get; set; } = string.Empty; 
     public EmployeeSettingModel? Settings { get; set; }
     public string FullName { get; set; }
+    public string Status { get; set; }
 
 }
 [MessagePackObject]
@@ -317,7 +321,7 @@ public class EmployeeSettingModel : UpdateEmployeeSetting
 public partial class EmployeePackModel
 {
     [Key(0)] public Guid Id { get; set; }
-    [Key(1)] public int BioId { get; set; } = 0;
+    [Key(1)] public int? BioId { get; set; }
     [Key(2)] public Guid? DepartmentId { get; set; }
     [Key(3)] public Guid? PayrollGroupId { get; set; }
     [Key(4)] public Guid? ClientId { get; set; }

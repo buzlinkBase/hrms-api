@@ -1,6 +1,7 @@
 ﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
+using NPOI.SS.Formula.Functions;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
@@ -78,14 +79,7 @@ public class EmployeeService : BaseService<Employee>
             model.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
         }
         var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
-        if (branch != null)
-        {
-            model.BranchId = branch.Id;
-        }
-        else
-        {
-            model.BranchId = null;
-        }
+        model.BranchId = branch?.Id;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
@@ -114,7 +108,6 @@ public class EmployeeService : BaseService<Employee>
         //{
         //    await CreateRangeAsync(newEmployees, token);
         //}
-
     }
 
     public async Task UpdateAsync(Employee model, CancellationToken token)
@@ -123,14 +116,17 @@ public class EmployeeService : BaseService<Employee>
         {
             model.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
         }
-        var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
-        if (branch != null)
-        {
-            model.BranchId = branch.Id;
-        }
-        await ModifyAsync(model, token);
-        await CommitChangesAsync(token);
 
+        var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
+        model.BranchId = branch?.Id;
+        await ModifyAsync(model, token);
+        await _uow.SaveChangesAsync(token);
+
+        var incomingDayNames = model.RestDays.Select(rd => rd.DayName).ToHashSet();
+        await _uow.Context.RestDays
+            .Where(x => x.EmployeeId == model.Id && !incomingDayNames.Contains(x.DayName))
+            .ExecuteDeleteAsync(token);
+        await CommitChangesAsync(token);
     }
 
     //public Employee? FindBio(int bioId)

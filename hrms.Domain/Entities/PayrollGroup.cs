@@ -12,6 +12,7 @@ public class PayrollGroup : BaseEntity
 public class CutoffDay : BaseEntity
 {
     public Guid PayrollGroupId { get; set; }
+
     public virtual PayrollGroup PayrollGroup { get; set; }
     /// <summary>
     /// Day of the month when cutoff occurs (e.g., 15, 30).

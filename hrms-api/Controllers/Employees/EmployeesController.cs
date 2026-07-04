@@ -34,7 +34,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("all")]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeModel>>), 200)]
         public async Task<IActionResult> GetAll(CancellationToken token)
         {
             var data = await _service.GetAll(token);
@@ -42,7 +42,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeModel>>), 200)]
         public async Task<IActionResult> Get([FromQuery] PaginationPayload payload, CancellationToken token)
         {
             var data = await _service.LoadAll(payload, token);
@@ -50,7 +50,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("full")]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeFullModel>>), 200)]
         public async Task<IActionResult> GetFull([FromQuery] PaginationPayload payload, CancellationToken token)
         {
             var data = await _service.LoadAllFullAsync(payload, token);

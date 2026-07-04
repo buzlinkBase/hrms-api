@@ -2,7 +2,7 @@
 
 public class UploadEmployeeDto
 {
-    public int BioId { get; set; }
+    public int? BioId { get; set; }
     public string FirstName { get; set; }
     public string MiddleName { get; set; }
     public string LastName { get; set; }
