@@ -38,7 +38,7 @@ public class EmployeeService : BaseService<Employee>
     {
         if (model.BioId.HasValue || model.BioId > 0)
         {
-            var emp = GetQueryable(x => x.Id!=model.Id &&  x.BioId == model.BioId.Value).FirstOrDefault();
+            var emp = GetQueryable(x => x.Id != model.Id && x.BioId == model.BioId.Value).FirstOrDefault();
             if (emp != null)
             {
                 return new EvaluationResult("Bio ID conflicts with another employee");
@@ -69,7 +69,7 @@ public class EmployeeService : BaseService<Employee>
             }
         }
         return await base.CreateValidatorAsync(model, token);
-    }}
+    }
 
     public async Task AddAsync(Employee model, CancellationToken token)
     {
