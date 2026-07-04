@@ -34,9 +34,16 @@ public class EmployeeService : BaseService<Employee>
         _sectionService = sectionService;
     }
 
-    protected override async Task<EvaluationResult> CreateValidatorAsync(Employee model,
-        CancellationToken token)
+    protected override async Task<EvaluationResult> CreateValidatorAsync(Employee model, CancellationToken token)
     {
+        if (model.BioId.HasValue || model.BioId > 0)
+        {
+            var emp = GetQueryable(x => x.Id!=model.Id &&  x.BioId == model.BioId.Value).FirstOrDefault();
+            if (emp != null)
+            {
+                return new EvaluationResult("Bio ID conflicts with another employee");
+            }
+        }
         var py = await _payrollGroupService.FineOneAsync(model.PayrollGroupId, token);
         if (py == null)
         {
@@ -62,7 +69,7 @@ public class EmployeeService : BaseService<Employee>
             }
         }
         return await base.CreateValidatorAsync(model, token);
-    }
+    }}
 
     public async Task AddAsync(Employee model, CancellationToken token)
     {
@@ -74,6 +81,10 @@ public class EmployeeService : BaseService<Employee>
         if (branch != null)
         {
             model.BranchId = branch.Id;
+        }
+        else
+        {
+            model.BranchId = null;
         }
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -122,10 +133,10 @@ public class EmployeeService : BaseService<Employee>
 
     }
 
-    public Employee? FindBio(int bioId)
-    {
-        return GetQueryable(x => x.BioId == bioId).FirstOrDefault();
-    }
+    //public Employee? FindBio(int bioId)
+    //{
+    //    return GetQueryable(x => x.BioId == bioId).FirstOrDefault();
+    //}
 
     public async Task<List<Employee>> FindByIds(List<Guid> Ids, CancellationToken token)
     {

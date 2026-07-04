@@ -1,10 +1,13 @@
 ﻿
+using Hrms.Domain.Entities.EmployeeEntities;
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Hrms.Domain.ValueObjects;
 
 public class CreateDailyRecord
 {
-    public string WorkType { get; set; } = string.Empty;
-    public string FullName { get; set; } = string.Empty;
+    public string WorkType { get; set; } = "REGULAR WOsRK DAY";
+    public string FullName { get; set; }
     public Guid EmployeeId { get; set; }
     public string empCode { get; set; } = string.Empty;
     public int BioId { get; set; } = 0;
@@ -15,7 +18,6 @@ public class CreateDailyRecord
 
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }
-
 
     //regualar Days
     public double LHHolidayTotalDays { get; set; }
@@ -47,10 +49,6 @@ public class CreateDailyRecord
     public double NDOT { get; set; } = 0;
     public double SP { get; set; } = 0;
     public double LH { get; set; } = 0;
-
-    //end minutes
-
-
     public double RegDayMinutes { get; set; }
     public double RegDayNDMinutes { get; set; }
     public double RegDayOTMinutes { get; set; }
@@ -65,7 +63,8 @@ public class CreateDailyRecord
 
     //hours
     public double LateHours { get; set; }
-    //public double UTHours { get; set; }
+    [NotMapped]
+    public double UTHours { get; set; }
     public double OverBreakHours { get; set; }
     public double LateForOTHours { get; set; }
 
@@ -103,16 +102,17 @@ public class CreateDailyRecord
     public double LeaveMinutes { get; set; }
     public double OB { get; set; }
     public int Absent { get; set; }
-    public double TotalHours { get; set; }
     public string Note { get; set; } = string.Empty;
     public DTRStatus RecordStatus { get; set; } = DTRStatus.OPEN;
     public DTRSOURCE Source { get; set; }
     public Guid UserId { get; set; }
     public Guid? ClientId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid? PayrollGroupId { get; set; }
     public Guid? DepartmentId { get; set; }
     public int HolCount { get; set; } = 0;
     public int SPCount { get; set; } = 0;
+    public double ShiftWorkingHour { get; set; }
 }
 public class UpdateDailyRecord : CreateDailyRecord
 {

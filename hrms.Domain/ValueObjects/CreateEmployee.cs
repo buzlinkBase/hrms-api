@@ -19,7 +19,7 @@ public class CreateEmployee
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; }
-    public DateOnly HireDate { get; set; }
+    public DateTime? HireDate { get; set; }
     public DateTime? ContractStart { get; set; }
     public DateTime? ContractEnd { get; set; }
 
@@ -349,5 +349,5 @@ public class EmployeeDTRRun
     public string LastName { get; set; } = string.Empty;
     public string MiddleName { get; set; } = string.Empty;
     public string Suffix { get; set; } = string.Empty;
-    public List<RestDayModel> RestDays { get; set; } 
+    public List<RestDayModel> RestDays { get; set; }
 }

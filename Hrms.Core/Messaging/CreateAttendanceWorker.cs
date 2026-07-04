@@ -46,8 +46,8 @@ public class AttEmployeeSetter
     public async Task<List<Attendance>> ParseAttLogs(List<CreateAttendancePayload> messages, LOGSOURCE logSource)
     {
         var employees = await _service.Context.Employees
-             .Where(x => x.BioId != 0)
-             .ToDictionaryAsync(x => x.BioId, x => x);
+             .Where(x => x.BioId>0) 
+             .ToDictionaryAsync(x => x.BioId!.Value, x => x);
 
         var atts = new List<Attendance>();
         foreach (var att in messages)

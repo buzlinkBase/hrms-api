@@ -50,7 +50,6 @@ public class EmployeeImportService
         SetDefaults(data);
         ValidateImportData(data, allEmployees);
 
-
         var branches = await ExtractBranchesAsync(data, token);
         var shifts = ExtractShifts(data);
         var clients = ExtractClients(data);
@@ -593,7 +592,7 @@ public class EmployeeImportService
 public class BasicEmployeeInfo
 {
     public Guid Id { get; set; }
-    public int BioId { get; set; }
+    public int? BioId { get; set; }
     public string FirstName { get; set; }
     public string MiddleName { get; set; }
     public string LastName { get; set; }
