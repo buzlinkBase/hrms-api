@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Onepunch.Common.Lib;
+using Serilog;
 using TenantStoreApi.Infrastructure;
 
 namespace MigrationHrns;
@@ -17,10 +18,10 @@ public class MigrationRunner
         var systemName = Environment.GetEnvironmentVariable("SYSTEM_NAME") ?? "HRIS";
         // all Tenant must have this version
         //run migration if tenant dont have this migration TargetVersion
-        var TargetVersion =  "1.0.1";
+        var TargetVersion = "1.0.1";
         if (string.IsNullOrEmpty(systemName))
         {
-            Console.WriteLine("SYSTEM_NAME env var not found. Skipping migration trigger.");
+            Log.Information("SYSTEM_NAME env var not found. Skipping migration trigger.");
             return;
         }
         // 1. Update ONLY the target for the system being deployed
@@ -46,7 +47,7 @@ public class MigrationRunner
                 })
                 .ToListAsync();
 
-            Console.WriteLine($"Found {pendingMigrations.Count} migrations for {systemName}");
+            Log.Information($"Found {pendingMigrations.Count} migrations for {systemName}");
 
             foreach (var m in pendingMigrations)
             {
@@ -61,20 +62,18 @@ public class MigrationRunner
                     context.Headers.Set("X-Tenant-ID", m.TenantId.ToString());
                     context.CorrelationId = m.TenantId;
                 });
-                Console.WriteLine($"[QUEUED] Tenant: {m.TenantId} to {m.TargetVersion}");
+                Log.Information($"[QUEUED] Tenant: {m.TenantId} to {m.TargetVersion}");
             }
-
             // IMPORTANT: Flush the bus before exiting
             // If you Exit(0) immediately, the message might still be in the local buffer
             var busControl = host.Services.GetRequiredService<IBusControl>();
             await busControl.StopAsync();
-
             Environment.Exit(0);
+            Log.Information($"running migration console successfully");
         }
         catch (Exception ex)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ Error: {ex.Message}");
+            Log.Error($"Error: {ex.Message}");
             Environment.Exit(1);
         }
     }
