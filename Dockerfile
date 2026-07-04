@@ -22,6 +22,7 @@ COPY ["hrms-adms-api/hrms-adms-api.csproj", "hrms-adms-api/"]
 # 4. Restore dependencies
 RUN dotnet restore "hrms-api/hrms-api.csproj"
 RUN dotnet restore "hrms-adms-api/hrms-adms-api.csproj"
+RUN dotnet restore "MigrationHrms/MigrationHrms.csproj"
 
 # 5. Copy the rest of the source code
 COPY . .
@@ -32,6 +33,10 @@ RUN dotnet publish "hrms-api/hrms-api.csproj" -c Release -o /app/publish/hrms
 
 FROM build AS publish-adms
 RUN dotnet publish "hrms-adms-api/hrms-adms-api.csproj" -c Release -o /app/publish/adms
+
+
+FROM build AS publish-migration
+RUN dotnet publish "MigrationHrms/MigrationHrms.csproj" -c Release -o /app/publish/migration
 
 # Final Stage
 
@@ -45,3 +50,12 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS adms-service
 WORKDIR /app
 COPY --from=publish-adms /app/publish/adms .
 ENTRYPOINT ["dotnet", "hrms-adms-api.dll"]
+
+
+# ADDED: Final Runtime Stage for Migration Console App
+# Uses the smaller 'runtime' image since it doesn't host an HTTP web server
+FROM mcr.microsoft.com/dotnet/runtime:9.0 AS migration-service
+WORKDIR /app
+COPY --from=publish-migration /app/publish/migration .
+ENTRYPOINT ["dotnet", "MigrationHrms.dll"]
+

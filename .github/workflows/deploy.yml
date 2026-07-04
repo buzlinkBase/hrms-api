@@ -14,10 +14,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GH_PAT }}
-        # CRITICAL: This pulls the content of your tenantstore submodule
+        # Pulls the content of your tenantstore submodule
         submodules: recursive
-        # If tenantstore is a private repo, you may need a PAT:
-        # token: ${{ secrets.GH_PAT }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -31,14 +29,11 @@ jobs:
     - name: Build and push hrms-api
       uses: docker/build-push-action@v4
       with:
-        # Keep context at root so Docker can see the tenantstore/ folder
         context: .
-        # Point to the Dockerfile inside your subfolder
         file: Dockerfile
         target: hrms-service  
         push: true
         tags: jhoncee2018/hrms-api:latest
-        # This helps with build speed on subsequent runs
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -53,6 +48,17 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    # --- UPDATED: Build and push migration console app ---
+    - name: Build and push migration-service
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: Dockerfile
+        target: migration-service
+        push: true
+        tags: jhoncee2018/hrms-migration:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     - name: SSH into Droplet and deploy
       uses: appleboy/ssh-action@v1.0.0
@@ -66,6 +72,11 @@ jobs:
           
           echo "Updating images..."
           docker compose pull
+          
+          # --- UPDATED: Pass runtime configuration variables & run migrations first ---
+          echo "Running database migrations..."
+          ConnectionStrings__TenantStoreConnection="${{ secrets.PROD_TENANT_DB_CONNECTION_STRING }}" \
+          docker compose run --rm migration-service
           
           echo "Restarting services..."
           # --force-recreate ensures it uses the newly pulled image

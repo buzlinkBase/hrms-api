@@ -1,4 +1,4 @@
-services: 
+services:
   hrms-api:
     build:
       context: .
@@ -13,17 +13,13 @@ services:
       - hrmsnet
     env_file:
       - .env
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_started     
     volumes:
-      - ./data-protection-keys:/app/dp-keys     
+      - ./data-protection-keys:/app/dp-keys
+
   adms-api:
     build:
       context: .
-      target: adms-service  
+      target: adms-service
       dockerfile: Dockerfile
     image: jhoncee2018/hrms-adms-api:latest
     container_name: adms-api
@@ -33,14 +29,23 @@ services:
     networks:
       - hrmsnet
     env_file:
-      - .env 
-    depends_on:
-      mysql:
-        condition: service_healthy
+      - .env
     volumes:
       - ./data-protection-keys:/app/dp-keys
+
+  # --- NEW: Migration Runner Service ---
+  migration-service:
+    image: jhoncee2018/hrms-migration:latest
+    container_name: hrms-migration-runner
+    # No "restart: always" here because this is a short-lived task, not a background daemon
+    networks:
+      - hrmsnet
+    env_file:
+      - .env
+    environment:
+      - ConnectionStrings__TenantStoreConnection=${ConnectionStrings__TenantStoreConnection}
 
 networks:
   hrmsnet:
     external: true
-    name: root_hrmsnet 
+    name: root_hrmsnet
