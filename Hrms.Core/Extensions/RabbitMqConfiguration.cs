@@ -65,7 +65,18 @@ public class DbMigrationActionWorkerDefinition : ConsumerDefinition<DbMigrationA
 {
     public DbMigrationActionWorkerDefinition()
     {
+        // ConcurrencyLimit ensures MassTransit processes them concurrently 
+        // up to this limit. Keep this matching or lower than PrefetchCount.
+        ConcurrentMessageLimit = 2;
         EndpointName = "hrms-migration-runner-que";
+    }
+    protected override void ConfigureConsumer(
+        IReceiveEndpointConfigurator endpointConfigurator,
+        IConsumerConfigurator<DbMigrationActionWorker> consumerConfigurator,
+        IRegistrationContext context)
+    {
+        // CRITICAL: Controls how many migration messages this worker pulls at once
+        endpointConfigurator.PrefetchCount = 2;
     }
 }
 
