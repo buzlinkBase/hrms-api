@@ -37,14 +37,14 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<TimeShiftModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateTimeShift payload, CancellationToken token)
         {
             return Ok(await _service.AddAsync(payload, token));
         }
 
         [HttpPut("{id}")]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<TimeShiftModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateTimeShift payload, CancellationToken token)
         {
             var data = await _service.UpdateAsync(id, payload, token);

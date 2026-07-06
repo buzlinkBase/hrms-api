@@ -18,6 +18,7 @@ public enum TimeShiftType
 
 public enum BreakMode
 {
+    NONE, 
     UNPAID_BREAK,
     PAID_BREAK, 
 }
