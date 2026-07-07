@@ -29,10 +29,16 @@ public class AttendanceController : ControllerBase
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     [ProducesResponseType(400)]
-    public async Task<IActionResult> Upload(IFormFile file, [FromForm] int branchId, CancellationToken ct)
+    public async Task<IActionResult> Upload(IFormFile file,
+        [FromForm] Guid? branchId,
+        [FromForm] Guid? operationAreaId,
+        CancellationToken ct)
     {
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
+
+        //var BranchID  = Guid.Parse(branchId ?? "");
+        //var OperationArea   = Guid.Parse(operationAreaId ?? "");
 
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
