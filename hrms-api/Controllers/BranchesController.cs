@@ -1,120 +1,71 @@
-﻿//using Asp.Versioning;
-//using AutoMapper;
-//using Hrms.Domain.Entities.HR;
-//using Microsoft.AspNetCore.Mvc;
+using Asp.Versioning;
+using Hrms.Domain.Entities;
+using Microsoft.AspNetCore.Mvc;
+using Onepunch.Common.Lib.DTO;
 
-//namespace Hrms.Api.Controllers
-//{
-//    [Route("api/v{version:apiVersion}/[controller]")]
-//    [ApiVersion("1.0")]
-//    [ApiController]
-//    public class BranchesController : ControllerBase
-//    {
-//        private readonly BranchService _service;
-//        private readonly IMapper _mapper;
-//        public BranchesController(BranchService service, IMapper mapper)
-//        {
-//            _service = service;
-//            _mapper = mapper;
-//        }
+namespace Hrms.Api.Controllers
+{
+    [Route("api/v{version:apiVersion}/[controller]")]
+    [ApiVersion("1.0")]
+    [ApiController]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+    [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    public class BranchesController : ControllerBase
+    {
+        private readonly BranchService _service;
+        private readonly IMapper _mapper;
 
-//        [HttpGet]
-//        public async Task<IActionResult> Get(CancellationToken token)
-//        {
-//            var data = await _service.FindAllAsync(token);
-//            return Ok(_mapper.Map<List<BranchModel>>(data));
-//        }
+        public BranchesController(BranchService service, 
+            BranchService branchService,
+            IMapper mapper)
+        {
+            _service = service;
+            _mapper = mapper;
+        }
 
-//        [HttpGet("{id}")]
-//        public async Task<IActionResult> Get(Guid id, CancellationToken token)
-//        {
-//            var data = await _service.FineOneAsync(id, token);
-//            return Ok(_mapper.Map<BranchModel>(data));
-//        }
+        [HttpPost]
+        [ProducesResponseType(typeof(ResponseModel<BranchModel>), 200)]
+        public async Task<IActionResult> Post([FromBody] CreateBranch payload, CancellationToken token)
+        {
+            var data = _mapper.Map<Branch>(payload);
+            await _service.AddAsync(data, token);
+            var respModel = _mapper.Map<DepartmentModel>(data);
+            return Ok(respModel);
+        }
 
-//        [HttpPost]
-//        public async Task<IActionResult> Post([FromBody] CreateBranch payload, CancellationToken token)
-//        {
-//            var data = _mapper.Map<Branch>(payload);
-//            await _service.AddAsync(data, token);
-//            var respModel = _mapper.Map<BranchModel>(data);
-//            return Ok(respModel);
-//        }
+        [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<List<BranchModel>>), 200)]
+        public async Task<IActionResult> Get(CancellationToken token)
+        {
+            var data = await _service.FindAllAsync(token);
+            return Ok(_mapper.Map<List<BranchModel>>(data));
+        }
 
-//        [HttpPut("{id}")]
-//        public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBranch payload, CancellationToken token)
-//        {
-//            var data = _mapper.Map<Branch>(payload);
-//            data.Id = id;
-//            await _service.UpdateAsync(data, token);
-//            return Ok(_mapper.Map<BranchModel>(data));
-//        }
+        [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<BranchModel>), 200)]
+        public async Task<IActionResult> Get(Guid id, CancellationToken token)
+        {
+            var data = await _service.FineOneAsync(id, token);
+            return Ok(_mapper.Map<BranchModel>(data));
+        }
 
-//        [HttpDelete("{id}")]
-//        public async Task<IActionResult> Delete(Guid id, CancellationToken token)
-//        {
-//            await _service.DeleteAsync(id, token);
-//            return Ok();
-//        }
-//    }
-//}
-//using Asp.Versioning;
-//using AutoMapper;
-//using Hrms.Domain.Entities.HR;
-//using Microsoft.AspNetCore.Mvc;
+        [HttpPut("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<BranchModel>), 200)]
+        public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBranch payload, CancellationToken token)
+        {
+            var data = _mapper.Map<Branch>(payload);
+            data.Id = id;
+            await _service.UpdateAsync(data, token);
+            return Ok(_mapper.Map<BranchModel>(data));
+        }
 
-//namespace Hrms.Api.Controllers
-//{
-//    [Route("api/v{version:apiVersion}/[controller]")]
-//    [ApiVersion("1.0")]
-//    [ApiController]
-//    public class BranchesController : ControllerBase
-//    {
-//        private readonly BranchService _service;
-//        private readonly IMapper _mapper;
-//        public BranchesController(BranchService service, IMapper mapper)
-//        {
-//            _service = service;
-//            _mapper = mapper;
-//        }
-
-//        [HttpGet]
-//        public async Task<IActionResult> Get(CancellationToken token)
-//        {
-//            var data = await _service.FindAllAsync(token);
-//            return Ok(_mapper.Map<List<BranchModel>>(data));
-//        }
-
-//        [HttpGet("{id}")]
-//        public async Task<IActionResult> Get(Guid id, CancellationToken token)
-//        {
-//            var data = await _service.FineOneAsync(id, token);
-//            return Ok(_mapper.Map<BranchModel>(data));
-//        }
-
-//        [HttpPost]
-//        public async Task<IActionResult> Post([FromBody] CreateBranch payload, CancellationToken token)
-//        {
-//            var data = _mapper.Map<Branch>(payload);
-//            await _service.AddAsync(data, token);
-//            var respModel = _mapper.Map<BranchModel>(data);
-//            return Ok(respModel);
-//        }
-
-//        [HttpPut("{id}")]
-//        public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBranch payload, CancellationToken token)
-//        {
-//            var data = _mapper.Map<Branch>(payload);
-//            data.Id = id;
-//            await _service.UpdateAsync(data, token);
-//            return Ok(_mapper.Map<BranchModel>(data));
-//        }
-
-//        [HttpDelete("{id}")]
-//        public async Task<IActionResult> Delete(Guid id, CancellationToken token)
-//        {
-//            await _service.DeleteAsync(id, token);
-//            return Ok();
-//        }
-//    }
-//}
+        [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Delete(Guid id, CancellationToken token)
+        {
+            await _service.Delete(id, token);
+            return Ok();
+        }
+    }
+}

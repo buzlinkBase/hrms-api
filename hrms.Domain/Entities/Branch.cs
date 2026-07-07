@@ -13,5 +13,6 @@ public class Branch : BaseEntity
     public string? ManagerName { get; set; }
     public string Email { get; set; } = string.Empty;
     public Polygon? Boundary  { get; set; }
+    
 }
 

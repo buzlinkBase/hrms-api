@@ -1,70 +1,59 @@
-﻿using Hrms.Core.Interfaces;
-using Hrms.Core.Validations;
+﻿using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
 
 public class BranchService : BaseService<Branch>
 {
-    private readonly IMapper _mapper;
-    public BranchService(IUnitOfWorkService uow,IMapper mapper ) : base(uow)
+    public BranchService(IUnitOfWorkService service ) : base(service)
     {
-        _mapper = mapper;
     }
 
-    //protected override async Task<EvaluationResult> CreateValidatorAsync(Branch model, CancellationToken token)
-    //{
-    //    var result = new BranchValidator(_uow, _tenantProvider).Validate(model);
-    //    if (!result.IsValid)
-    //    {
-    //        return EvaluationResult.Fail(result.Errors);
-    //    }
-    //    return await base.CreateValidatorAsync(model, token);
-    //}
-
-    private void GenerateCode(Branch model)
+    protected override async Task<EvaluationResult> CreateValidatorAsync(Branch model, CancellationToken token)
     {
-        var codeCount = GetQueryable().Count();
-        if (model != null && string.IsNullOrEmpty(model.Code))
+        var validator = new BranchValidator();
+        var result = validator.Validate(model);
+        if (!result.IsValid)
         {
-            model.Code = codeCount.FormatCode();
+            return EvaluationResult.Fail(result.Errors);
         }
+
+        var existing = await _uow.Repository
+        .Find<Branch>(x => x.Code == model.Code && x.Id != model.Id)
+        .FirstOrDefaultAsync(token);
+
+        if (existing != null)
+        {
+            return EvaluationResult.Fail("Branch code already exists.");
+        }
+
+        return await base.CreateValidatorAsync(model, token);
     }
 
-    public async Task AddAsync(CreateBranch model, CancellationToken token = default)
+    public async Task AddAsync(Branch model, CancellationToken token)
     {
-        var branch = _mapper.Map<Branch>(model);
-        GenerateCode(branch);
-        await CreateAsync(branch, token);
-        await CommitChangesAsync(token); 
-    }
-
-    public async Task UpdateAsync(UpdateBranch model, CancellationToken token = default) 
-    {
-        var branch = _mapper.Map<Branch>(model);
-        GenerateCode(branch);
-        await ModifyAsync(branch, token);
+        await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-
-    public async Task AddOrUpdateAsync(UpdateBranch model, CancellationToken token = default)
+    public async Task UpdateAsync(Branch model, CancellationToken token)
     {
-        var branch = _mapper.Map<Branch>(model);
-        await CreateOrUpdateAsync(branch, token);
+        await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
-
-    public async Task<List<Branch>> FindAllAsync(Guid tenantId, CancellationToken token = default)
+    public async Task AddOrUpdateAsync(Branch model, CancellationToken token)
+    {
+        await CreateOrUpdateAsync(model, token);
+        await CommitChangesAsync();
+    }
+    public async Task<List<Branch>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable().ToListAsync(token);
     }
-
-    public async Task<Branch?> FindOneAsync(Guid Id, CancellationToken token = default)
+    public async Task<Branch?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return await GetOneAsync(Id, token);
     }
-
-    public async Task DeleteAsync(Guid Id, CancellationToken token = default)
+    public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
