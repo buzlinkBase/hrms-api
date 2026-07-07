@@ -75,17 +75,48 @@ public static class ServiceRegistrationsExt
 
         MessagePackSerializer.DefaultOptions = mpackOptions;
 
+        //builder.Services.AddControllers(options =>
+        //{
+        //    options.Filters.Add<ResponseWrapperFilter>();
+        //    options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
+        //    options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
+        //}).AddJsonOptions(options =>
+        //{
+        //    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        //    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        //    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        //}).AddNewtonsoftJson(options =>
+        //{
+        //    // 1. Create the NetTopologySuite serializer
+        //    var serializer = NetTopologySuite.IO.GeoJsonSerializerFactory.Create();
+
+        //    // 2. Loop through and add its specific GeoJSON converters to Newtonsoft
+        //    foreach (var converter in serializer.Converters)
+        //    {
+        //        options.SerializerSettings.Converters.Add(converter);
+        //    }
+        //});
+
         builder.Services.AddControllers(options =>
         {
             options.Filters.Add<ResponseWrapperFilter>();
             options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
             options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
-        }).AddJsonOptions(options =>
-        {
-            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-            options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-        });
+        })
+         .AddNewtonsoftJson(options =>
+         {
+             // 1. Core Newtonsoft Settings
+             options.SerializerSettings.ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver();
+             options.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
+             options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+             // 2. Add NetTopologySuite GeoJSON converters
+             // Use the static Create() method on GeoJsonSerializer itself
+             var serializer = NetTopologySuite.IO.GeoJsonSerializer.Create();
+             foreach (var converter in serializer.Converters)
+             {
+                 options.SerializerSettings.Converters.Add(converter);
+             }
+         });
 
         builder.Services.AddRefitClient<IBranchClient>(new RefitSettings
         {

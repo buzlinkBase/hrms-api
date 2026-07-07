@@ -8,7 +8,9 @@ public class MappingProfile : IRegister
 {
     public void Register(TypeAdapterConfig config)
     {
-        // Use the passed-in 'config' instance instead of GlobalSettings
+        TypeAdapterConfig<NetTopologySuite.Geometries.Polygon, NetTopologySuite.Geometries.Polygon>.NewConfig()
+            .MapWith(src => src);
+
         config.NewConfig<DateTime, DateOnly>()
             .MapWith(src => DateOnly.FromDateTime(src));
 
@@ -47,7 +49,7 @@ public class MappingProfile : IRegister
                 dest => dest.HireDate,
                 src => src.HireDate.HasValue && src.HireDate.Value != DateTime.MinValue
                     ? DateOnly.FromDateTime(src.HireDate.Value)
-                    : DateOnly.FromDateTime(DateTime.UtcNow) 
+                    : DateOnly.FromDateTime(DateTime.UtcNow)
             )
             .AfterMapping((src, dest) => ApplyEmployeeReferenceFixes(dest));
 
@@ -107,9 +109,7 @@ public class MappingProfile : IRegister
         config.NewConfig<PayrollGroup, PayrollGroupModel>();
         config.NewConfig<CutoffModel, CutoffDay>().TwoWays();
 
-        config.NewConfig<CreateCostCenter, CostCenters>();
-        config.NewConfig<UpdateCostCenter, CostCenters>();
-        config.NewConfig<CostCenters, CostCenterModel>();
+
 
         config.NewConfig<CreateLeave, Leave>();
         config.NewConfig<UpdateLeave, Leave>();
@@ -155,13 +155,24 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateDeduction, CreateDeduction>();
         config.NewConfig<CreateDeduction, DeductionTypeModel>();
 
-        // Org Structure
-        config.NewConfig<CreateBranch, Branch>();
-        config.NewConfig<UpdateBranch, Branch>();
-        config.NewConfig<Branch, BranchModel>().TwoWays();
+        config.NewConfig<CreateBranch, Branch>()
+            .Map(dest => dest.Boundary, src => src.Boundary);
+        config.NewConfig<UpdateBranch, Branch>()
+            .Map(dest => dest.Boundary, src => src.Boundary);
+        config.NewConfig<Branch, BranchModel>()
+            .Map(dest => dest.Boundary, src => src.Boundary)
+            .TwoWays();
+
+        config.NewConfig<CreateCostCenter, CostCenters>()
+            .Map(dest => dest.Boundary, src => src.Boundary);
+        config.NewConfig<UpdateCostCenter, CostCenters>()
+            .Map(dest => dest.Boundary, src => src.Boundary);
+        config.NewConfig<CostCenters, CostCenterModel>()
+            .Map(dest => dest.Boundary, src => src.Boundary)
+            .TwoWays();
 
         config.NewConfig<CreatePosition, Position>();
-        config.NewConfig<UpdateBranch, Position>();
+        config.NewConfig<UpdatePosition, Position>();
         config.NewConfig<Position, PositionModel>();
 
         config.NewConfig<CreateTimeShift, TimeShift>();
