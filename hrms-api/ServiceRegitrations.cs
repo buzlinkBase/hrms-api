@@ -138,9 +138,6 @@ public static class ServiceRegistrationsExt
                     "https://hris.onepunch.site",
                     "https://hris-dev.onepunch.site",
                     "https://hris-staging.onepunch.site",
-                    "https://hris.onepunch.site",
-                    "https://hris-dev.onepunch.site",
-                    "https://hris-staging.onepunch.site",
                     "https://api.onepunch.site")
                       .AllowCredentials()
                       .AllowAnyMethod()
