@@ -46,7 +46,7 @@ public class AttEmployeeSetter
     public async Task<List<Attendance>> ParseAttLogs(List<CreateAttendancePayload> messages, LOGSOURCE logSource)
     {
         var employees = await _service.Context.Employees
-             .Where(x => x.BioId>0) 
+             .Where(x => x.BioId > 0)
              .ToDictionaryAsync(x => x.BioId!.Value, x => x);
 
         var atts = new List<Attendance>();
@@ -62,11 +62,12 @@ public class AttEmployeeSetter
                 BranchId = att.BranchId ?? employee?.BranchId,
                 DepartmentId = att.DepartmentId ?? employee?.DepartmentId,
                 ClientId = att.ClientId ?? employee?.ClientId,
+                OperationAreaId = att.OperationAreaId ?? employee?.AreaId,
                 DeviceName = att.DeviceName,
                 IP = att.IPAddress,
                 Boundary = att.Coordinates,
                 LogSource = logSource,
-                EditRemarks= employee==null ? "Unregistered Employee" : ""
+                EditRemarks = employee == null ? "Unregistered Employee" : ""
             };
             atts.Add(attendance);
         }

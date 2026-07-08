@@ -14,6 +14,7 @@ public class Attendance : BaseEntity, IUserField
     public Guid? DepartmentId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? BranchId { get; set; }
+    public Guid? OperationAreaId  { get; set; }
     public Guid UserId { get; set; }
     public string UserName { get; set; } = "Admin";
     public virtual int Workstate { get; set; }

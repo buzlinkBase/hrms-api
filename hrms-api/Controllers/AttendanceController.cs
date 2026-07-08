@@ -32,6 +32,8 @@ public class AttendanceController : ControllerBase
     public async Task<IActionResult> Upload(IFormFile file,
         [FromForm] Guid? branchId,
         [FromForm] Guid? operationAreaId,
+        [FromForm] Guid? clientId, 
+        [FromForm] Guid? departmentId, 
         CancellationToken ct)
     {
         if (file == null || file.Length == 0)
@@ -51,6 +53,13 @@ public class AttendanceController : ControllerBase
         }
 
         var parsedData = await parser.Parse(memoryStream);
+        foreach (var item in parsedData)
+        {
+            item.BranchId = branchId;
+            item.ClientId = clientId;
+            item.OperationAreaId = operationAreaId;
+            item.DepartmentId = departmentId;
+        }
         var atts = await new AttEmployeeSetter(_attendanceService.Uow)
            .ParseAttLogs(parsedData, LOGSOURCE.UPLOADED);
 
