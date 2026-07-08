@@ -14,5 +14,5 @@ public class UpdateSection : CreateSection
 }
 public class SectionModel : UpdateSection
 {
-    public string DepartmentName { get; set; }
+    public string? DepartmentName { get; set; }
 }

@@ -56,25 +56,25 @@ public class MappingProfile : IRegister
         // Complex Employee to Model Mappings
         config.NewConfig<Employee, EmployeeModel>()
             .Map(dest => dest.FullName, src => src.FullName())
-            .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup.Name)
-            .Map(dest => dest.ClientName, src => src.Client.Name)
-            .Map(dest => dest.PositionName, src => src.Position.Name)
-            .Map(dest => dest.BranchName, src => src.Branch.Name)
-            .Map(dest => dest.DepartmentName, src => src.Department.Name)
-            .Map(dest => dest.TimeShiftName, src => src.TimeShift.ShiftName)
-            .Map(dest => dest.AreaName, src => src.Area.Name)
-            .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup.PayrollFrequency);
+            .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup == null ? "" : src.PayrollGroup.Name)
+            .Map(dest => dest.ClientName, src => src.Client == null ? "" : src.Client.Name)
+            .Map(dest => dest.PositionName, src => src.Position == null ? "" : src.Position.Name)
+            .Map(dest => dest.BranchName, src => src.Branch == null ? "" : src.Branch.Name)
+            .Map(dest => dest.DepartmentName, src => src.Department == null ? "" : src.Department.Name)
+            .Map(dest => dest.TimeShiftName, src => src.TimeShift == null ? "" : src.TimeShift.ShiftName)
+            .Map(dest => dest.AreaName, src => src.Area == null ? "" : src.Area.Name)
+            .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup == null ? PayrollFrequency.SEMI_MONTHLY : src.PayrollGroup.PayrollFrequency);
 
         config.NewConfig<Employee, EmployeeFullModel>()
             .Map(dest => dest.FullName, src => src.FullName())
-            .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup.Name)
-            .Map(dest => dest.ClientName, src => src.Client.Name)
-            .Map(dest => dest.PositionName, src => src.Position.Name)
-            .Map(dest => dest.BranchName, src => src.Branch.Name)
-            .Map(dest => dest.DepartmentName, src => src.Department.Name)
-            .Map(dest => dest.TimeShiftName, src => src.TimeShift.ShiftName)
-            .Map(dest => dest.AreaName, src => src.Area.Name)
-            .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup.PayrollFrequency);
+            .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup == null ? "" : src.PayrollGroup.Name)
+            .Map(dest => dest.ClientName, src => src.Client == null ? "" : src.Client.Name)
+            .Map(dest => dest.PositionName, src => src.Position == null ? "" : src.Position.Name)
+            .Map(dest => dest.BranchName, src => src.Branch == null ? "" : src.Branch.Name)
+            .Map(dest => dest.DepartmentName, src => src.Department == null ? "" : src.Department.Name)
+            .Map(dest => dest.TimeShiftName, src => src.TimeShift == null ? "" : src.TimeShift.ShiftName)
+            .Map(dest => dest.AreaName, src => src.Area == null ? "" : src.Area.Name)
+            .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup == null ? PayrollFrequency.SEMI_MONTHLY : src.PayrollGroup.PayrollFrequency);
 
         config.NewConfig<RestDayModel, RestDay>().TwoWays();
 
@@ -186,7 +186,7 @@ public class MappingProfile : IRegister
         config.NewConfig<CreateSection, Section>();
         config.NewConfig<UpdateSection, Section>();
         config.NewConfig<Section, SectionModel>()
-            .Map(dest => dest.DepartmentName, src => src.Department.Name);
+            .Map(dest => dest.DepartmentName, src => src.Department == null ? "" : src.Department.Name);
 
         config.NewConfig<CreateCompany, Company>();
         config.NewConfig<UpdateCompany, Company>();
