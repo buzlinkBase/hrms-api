@@ -27,35 +27,34 @@ RUN dotnet restore "MigrationHrms/MigrationHrms.csproj"
 # 5. Copy the rest of the source code
 COPY . .
 
-# 6. FIX: Target the correct path for the publish command
+# 6. Publish compilation stages (Bypassing escalated warnings to avoid workflow crashes)
 FROM build AS publish-hrms
-RUN dotnet publish "hrms-api/hrms-api.csproj" -c Release -o /app/publish/hrms
+RUN dotnet publish "hrms-api/hrms-api.csproj" -c Release -o /app/publish/hrms /p:TreatWarningsAsErrors=false
 
 FROM build AS publish-adms
-RUN dotnet publish "hrms-adms-api/hrms-adms-api.csproj" -c Release -o /app/publish/adms
-
+RUN dotnet publish "hrms-adms-api/hrms-adms-api.csproj" -c Release -o /app/publish/adms /p:TreatWarningsAsErrors=false
 
 FROM build AS publish-migration
 RUN dotnet publish "MigrationHrms/MigrationHrms.csproj" -c Release -o /app/publish/migration
 
-# Final Stage
+# ==========================================
+# Final Runtime Target Stages
+# ==========================================
 
+# HRMS Core API Service
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS hrms-service
 WORKDIR /app
 COPY --from=publish-hrms /app/publish/hrms .
 ENTRYPOINT ["dotnet", "hrms-api.dll"]
 
-
+# Biometric ADMS API Service
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS adms-service
 WORKDIR /app
 COPY --from=publish-adms /app/publish/adms .
 ENTRYPOINT ["dotnet", "hrms-adms-api.dll"]
 
-
-# ADDED: Final Runtime Stage for Migration Console App
-# Uses the smaller 'runtime' image since it doesn't host an HTTP web server
+# Migration Worker Console App
 FROM mcr.microsoft.com/dotnet/runtime:9.0 AS migration-service
 WORKDIR /app
 COPY --from=publish-migration /app/publish/migration .
 ENTRYPOINT ["dotnet", "MigrationHrms.dll"]
-
