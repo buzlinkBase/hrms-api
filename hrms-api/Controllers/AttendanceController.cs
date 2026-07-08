@@ -41,7 +41,6 @@ public class AttendanceController : ControllerBase
 
         //var BranchID  = Guid.Parse(branchId ?? "");
         //var OperationArea   = Guid.Parse(operationAreaId ?? "");
-
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
         memoryStream.Seek(0, SeekOrigin.Begin);
@@ -60,6 +59,7 @@ public class AttendanceController : ControllerBase
             item.OperationAreaId = operationAreaId;
             item.DepartmentId = departmentId;
         }
+
         var atts = await new AttEmployeeSetter(_attendanceService.Uow)
            .ParseAttLogs(parsedData, LOGSOURCE.UPLOADED);
 

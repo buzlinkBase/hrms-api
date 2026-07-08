@@ -36,6 +36,7 @@ public class AttLogTableProcessor : ICDataProcessor
                     BranchId = payload.Info.DeviceInfo.BranchId,
                     ClientId = payload.Info.DeviceInfo.ClientId,
                     DepartmentId = payload.Info.DeviceInfo.DepartmentId,
+                    OperationAreaId = payload.Info.DeviceInfo.OperationAreaId,
                     DeviceName = payload.SN,
                     IPAddress=payload.Info.DeviceInfo.IpAddress,
                 };
@@ -58,6 +59,7 @@ public class AttLogTableProcessor : ICDataProcessor
                 BioId = attendance.BioId,
                 ClientId = attendance.ClientId,
                 DepartmentId = attendance.DepartmentId,
+                OperationAreaId = attendance.OperationAreaId,
                 DeviceName = payload.SN,
                 TenantId = attendance.TenantId,
                 WorkDateTime = attendance.WorkDateTime,

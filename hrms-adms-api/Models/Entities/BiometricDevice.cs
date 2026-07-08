@@ -15,6 +15,7 @@ public class BiometricDevice : BaseEntity, IEntityTenant
     public Guid? BranchId { get; set; }  
     public Guid? ClientId { get; set; }  
     public Guid? DepartmentId { get; set; }
+    public Guid? OperationAreaId  { get; set; }
     public string Status { get; set; } = "Active";
 }
 public class SystemCounters : BaseEntity
