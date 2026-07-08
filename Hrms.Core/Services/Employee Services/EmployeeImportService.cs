@@ -263,7 +263,9 @@ public class EmployeeImportService
         {
             errors.Add($"The Excel file contains duplicate BioIds: {string.Join(", ", internalDuplicates)}");
         }
-        var dbEmployeeMap = dbEmployees.ToDictionary(x => x.BioId);
+        var dbEmployeeMap = dbEmployees
+            .Where(x=>x.BioId.HasValue)
+            .ToDictionary(x => x.BioId!.Value);
         foreach (var item in data)
         {
             if (dbEmployeeMap.TryGetValue(item.BioId, out var existing))
