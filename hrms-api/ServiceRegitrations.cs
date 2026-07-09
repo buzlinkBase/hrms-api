@@ -100,8 +100,7 @@ public static class ServiceRegistrationsExt
         builder.Services.AddControllers(options =>
         {
             options.Filters.Add<ResponseWrapperFilter>();
-            options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
-            options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
+            options.RespectBrowserAcceptHeader = true;
         })
          .AddNewtonsoftJson(options =>
          {
@@ -116,6 +115,10 @@ public static class ServiceRegistrationsExt
              {
                  options.SerializerSettings.Converters.Add(converter);
              }
+         }).AddMvcOptions(options =>
+         {
+             options.InputFormatters.Add(new MessagePackInputFormatter(mpackOptions));
+             options.OutputFormatters.Add(new MessagePackOutputFormatter(mpackOptions));
          });
 
         builder.Services.AddRefitClient<IBranchClient>(new RefitSettings

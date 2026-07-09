@@ -20,7 +20,7 @@ public class AttLogTableProcessor : ICDataProcessor
     {
         var atts = new List<CreateAttendancePayload>();
         var lines = payload.RawData.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-        var batch = Guid.NewGuid();
+        var batch = Guid.NewGuid().ToString("N");
         foreach (var line in lines)
         {
             var fields = line.Split('\t');

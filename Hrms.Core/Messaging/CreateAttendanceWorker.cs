@@ -5,7 +5,6 @@ namespace OnePunch.Auth.Core.Messaging;
 
 public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
 {
-
     private readonly AttendanceService _attService;
     private readonly IUnitOfWorkService _uow;
     private readonly IPublishEndpoint _publish;
@@ -23,7 +22,8 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
     public async Task Consume(ConsumeContext<AttendancePayloadWrapper> context)
     {
         var messages = context.Message.AttLogs;
-        var atts = await new AttEmployeeSetter(_uow).ParseAttLogs(messages, LOGSOURCE.ADMS);
+        var atts = await new AttEmployeeSetter(_uow)
+            .ParseAttLogs(messages, LOGSOURCE.ADMS);
         await _attService.AddRangeAsync(atts);
         if (await _attService.CommitChangesAsync(context.CancellationToken))
         {

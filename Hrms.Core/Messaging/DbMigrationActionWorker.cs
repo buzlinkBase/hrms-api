@@ -1,4 +1,5 @@
 ﻿using MassTransit;
+using Newtonsoft.Json;
 
 namespace Hrms.Core.Messaging;
 
@@ -21,6 +22,7 @@ public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>
     public async Task Consume(ConsumeContext<MigrateTenantDb> context)
     {
         var message = context.Message;
+        Log.Information("Hrms-migration ran {0}", JsonConvert.SerializeObject(message));
         if (message.System != "HRIS") return;
         var connectionString = _connectionInfo.ConnectionString;
         _migrationService.Migrate(connectionString);

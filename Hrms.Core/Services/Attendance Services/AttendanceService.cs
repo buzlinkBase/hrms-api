@@ -24,7 +24,7 @@ public class AttendanceService : BaseService<Attendance>
              .ToList();
         foreach (var key in uniqueRecordKeys)
         {
-            await  GetQueryable()
+            await GetQueryable()
                 .Where(x => x.BioId == key.BioId && x.WorkDateTime == key.WorkDateTime)
                 .ExecuteDeleteAsync(token);
         }
@@ -44,6 +44,32 @@ public class AttendanceService : BaseService<Attendance>
     {
         await CreateRangeAsync(models, token);
     }
+
+    public async Task<List<AttendaceModel>> GetManualAtt(LOGSOURCE source, AttendanceFilterDate filter)
+    {
+        DateTime fromDate = (filter?.FromDate ?? DateTime.Today).Date;
+        DateTime toDate = (filter?.ToDate ?? DateTime.Today).Date.AddDays(1);
+        Guid? filterEmployeeId = filter?.EmployeeId;
+
+        return await Uow.Context.Attendances
+            .Where(x => x.LogSource == source &&
+                        x.WorkDateTime >= fromDate &&
+                        x.WorkDateTime < toDate &&
+                        (filterEmployeeId == null || x.EmployeeId == filterEmployeeId))  
+            .Select(x => new AttendaceModel
+            {
+                Id = x.Id,
+                Batch = x.BatchCode,
+                EmployeeId = x.EmployeeId,
+                WorkDateTime = x.WorkDateTime,
+                Name = x.Employee != null
+                    ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
+                    : "",
+                Boundary = x.Boundary
+            })
+            .ToListAsync();
+    }
+
     public async Task<Dictionary<AttendanceEmpId, List<Attendance>>> LoadAttForDTRProcess(DateOnly from,
         DateOnly to,
         bool canProcess,
@@ -109,13 +135,51 @@ public class AttendanceService : BaseService<Attendance>
         return result;
     }
 
-    public async Task Remove(Guid Id)
+    public async Task Remove(Guid Id, CancellationToken token)
     {
-        await RemoveAsync(Id);
+        await RemoveAsync(Id, token);
+
     }
+
+    public async Task RemoveBatch(string batch, CancellationToken token)
+    {
+        await Context.Attendances
+             .Where(x => x.BatchCode == batch && x.BatchCode != "")
+             .ExecuteDeleteAsync(token);
+    }
+
+    public async Task Remove(List<Guid> Ids)
+    {
+        //only manual logs can be deleted
+        await Uow.Context.Attendances
+            .Where(x => Ids.Contains(x.Id))
+            .ExecuteDeleteAsync();
+    }
+
     public async Task Remove(Attendance model)
     {
         await RemoveAsync(model);
     }
 }
 public readonly record struct AttendanceEmpId(Guid EmpId);
+
+public class ManualAttendanceService : BaseService<ManualBatchEntryLog>
+{
+    public ManualAttendanceService(IUnitOfWorkService service) : base(service)
+    {
+    }
+
+    public async Task<List<ManualAttModel>> LoadBatch(DateTime? filterDate)
+    {
+        DateOnly? targetDate = filterDate.HasValue ? DateOnly.FromDateTime(filterDate.Value) : null;
+        return await Context.ManualAttendance
+            .Where(x => !targetDate.HasValue || x.FromDate == targetDate.Value)
+            .Select(x => new ManualAttModel
+            {
+                BatchCode = x.BatchCode,
+                Date = new DateTime(x.FromDate.Year, x.FromDate.Month, x.FromDate.Day)
+            })
+            .ToListAsync();
+    }
+
+}

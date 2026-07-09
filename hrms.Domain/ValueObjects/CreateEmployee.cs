@@ -3,6 +3,15 @@ using MessagePack;
 
 namespace Hrms.Domain.ValueObjects;
 
+public record EmployeeFilter
+{
+    public Guid? DepartmentId { get; set; }
+    public Guid? PayrollGroupId  { get; set; }
+    public Guid? ClientId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? OperationAreaId { get; set; }
+}
+
 public class CreateEmployee
 {
     public int? BioId { get; set; }
@@ -355,3 +364,21 @@ public class EmployeeDTRRun
     public string Suffix { get; set; } = string.Empty;
     public List<RestDayModel> RestDays { get; set; }
 }
+
+public class EmployeeFilterResponseModel
+{
+    public Guid Id { get; set; }
+    public string? Name { get; set; }
+    public Guid? BranchId  { get; set; }
+    public Guid? AreaId { get; set; }
+    public Guid? ClientId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public Guid? PayrollGroupId { get; set; }
+    public string? DepartmentName { get; set; }
+    public string? ClientName { get; set; }
+    public string? BranchName  { get; set; }
+    public string? PayrollGroupName { get; set; }
+    public string? AreaName { get; set; }
+}
+
+

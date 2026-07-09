@@ -66,7 +66,7 @@ public class MappingProfile : IRegister
             .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup == null ? PayrollFrequency.SEMI_MONTHLY : src.PayrollGroup.PayrollFrequency);
 
         config.NewConfig<Employee, EmployeeFullModel>()
-            .Map(dest => dest.FullName, src => src.FullName())
+             .Map(dest => dest.FullName, src => src.LastName + ", " + src.FirstName + " " + src.MiddleName + " " + src.Suffix)
             .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup == null ? "" : src.PayrollGroup.Name)
             .Map(dest => dest.ClientName, src => src.Client == null ? "" : src.Client.Name)
             .Map(dest => dest.PositionName, src => src.Position == null ? "" : src.Position.Name)
@@ -77,6 +77,14 @@ public class MappingProfile : IRegister
             .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup == null ? PayrollFrequency.SEMI_MONTHLY : src.PayrollGroup.PayrollFrequency);
 
         config.NewConfig<RestDayModel, RestDay>().TwoWays();
+
+        config.NewConfig<Employee, EmployeeFilterResponseModel>()
+            .Map(dest => dest.Name, src => src.LastName + ", " + src.FirstName + " " + src.MiddleName + " " + src.Suffix)
+            .Map(dest => dest.PayrollGroupName, src => src.PayrollGroup.Name)
+            .Map(dest => dest.ClientName, src => src.Client.Name)
+            .Map(dest => dest.BranchName, src => src.Branch.Name)
+            .Map(dest => dest.DepartmentName, src => src.Department.Name)
+            .Map(dest => dest.AreaName, src => src.Area.Name);
 
         // Skill, Education, Records
         config.NewConfig<CreateSkill, Skill>();

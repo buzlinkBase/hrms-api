@@ -3,7 +3,7 @@
 public class Attendance : BaseEntity
 {
     public int BioId { get; set; }
-    public Guid BatchId  { get; set; }
+    public string BatchId  { get; set; } =string.Empty;
     public DateTime WorkDateTime { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? ClientId { get; set; }

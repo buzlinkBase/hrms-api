@@ -20,7 +20,7 @@ public class Attendance : BaseEntity, IUserField
     public virtual int Workstate { get; set; }
     public virtual string Verifycode { get; set; } = string.Empty;
     public string LogRemarks { get; set; } = string.Empty;
-    public Guid BatchCode { get; set; } = Guid.Empty;
+    public string BatchCode { get; set; } = string.Empty;
     public string EditRemarks { get; set; } = string.Empty;
     public LOGSOURCE LogSource { get; set; } = LOGSOURCE.UPLOADED;
     [NotMapped]

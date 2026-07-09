@@ -10,7 +10,7 @@ public class AttendanceService : BaseService<Attendance>
         await CreateRangeAsync(attendances);
     }
 
-    public async Task UpdateSync(Guid batchId)
+    public async Task UpdateSync(string batchId)
     {
         await Context.Attendances
              .Where(x => x.BatchId == batchId)

@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -118,6 +119,15 @@ namespace Hrms.Api.Controllers
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "employees.xlsx"
             );
+        }
+
+        [HttpGet("filter")]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeFilterResponseModel>>), 200)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> GetManualEntry([FromQuery] EmployeeFilter filter, CancellationToken ct)
+        {
+            var result = await _service.Filter(filter, ct);
+            return Ok(result);
         }
     }
 }

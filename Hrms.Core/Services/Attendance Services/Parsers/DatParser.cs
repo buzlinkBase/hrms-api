@@ -4,16 +4,20 @@ public class DatParser : IFileParser
 {
 
     private readonly ITenantProvider _tenantProvider;
-    public DatParser(ITenantProvider tenantProvider)
+    private readonly IUnitOfWorkService _uow;
+
+    public DatParser(ITenantProvider tenantProvider,
+        IUnitOfWorkService uow)
     {
         _tenantProvider = tenantProvider;
+        _uow = uow;
     }
 
     public async Task<List<CreateAttendancePayload>> Parse(Stream stream)
     {
         using var reader = new StreamReader(stream);
         var content = await reader.ReadToEndAsync();
-        var batch = Guid.NewGuid();
+        var batch = Guid.NewGuid().ToString("N");
         var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
         var parsedLogs = new List<CreateAttendancePayload>();
         foreach (var line in lines)

@@ -214,7 +214,6 @@ public class EmployeeService : BaseService<Employee>
             MetaData = new PaginationMetaData(await query.CountAsync(), payload.Page, payload.Limit)
         };
     }
-
     public async Task<Employee?> FineOneAsync(Guid Id, CancellationToken token)
     {
         var result = await GetQueryable(x => x.Id == Id)
@@ -223,6 +222,20 @@ public class EmployeeService : BaseService<Employee>
             ;
         return result;
     }
+
+    public async Task<List<EmployeeFilterResponseModel>> Filter(EmployeeFilter filter, CancellationToken token)
+    {
+        var result = await GetQueryable(x =>
+            (filter.BranchId == null || x.BranchId == filter.BranchId.Value) &&
+            (filter.DepartmentId == null || x.DepartmentId == filter.DepartmentId.Value) &&
+            (filter.ClientId == null || x.ClientId == filter.ClientId.Value) &&
+            (filter.PayrollGroupId == null || x.PayrollGroupId == filter.PayrollGroupId.Value) &&
+            (filter.OperationAreaId == null || x.AreaId == filter.OperationAreaId.Value))
+            .ProjectToType<EmployeeFilterResponseModel>()
+            .ToListAsync(token);
+        return result;
+    }
+
 
     public async Task Delete(Guid Id, CancellationToken token)
     {

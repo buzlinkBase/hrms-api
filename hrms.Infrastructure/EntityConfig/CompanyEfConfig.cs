@@ -35,13 +35,3 @@ internal class AreaConfig : IEntityTypeConfiguration<CostCenters>
 
     }
 }
-
-internal class AttendanceConfig : IEntityTypeConfiguration<Attendance>
-{
-    public void Configure(EntityTypeBuilder<Attendance> builder)
-    {
-        builder.Property(e => e.Boundary)
-      .HasColumnType("geometry")
-      .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
-    }
-}

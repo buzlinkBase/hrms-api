@@ -1,5 +1,7 @@
 using Asp.Versioning;
+using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OnePunch.Auth.Core.Messaging;
 
 namespace Hrms.Api.Controllers;
@@ -13,34 +15,36 @@ namespace Hrms.Api.Controllers;
 public class AttendanceController : ControllerBase
 {
     private readonly AttendanceService _attendanceService;
+    private readonly EmployeeService _employeeService;
     private readonly IServiceProvider _serviceProvider;
     private readonly DailyRecordService _service;
     public AttendanceController(
-        AttendanceService attendanceService,
-         IServiceProvider serviceProvider,
-        DailyRecordService service)
+                AttendanceService attendanceService,
+                EmployeeService employeeService,
+                DailyRecordService service,
+                IServiceProvider serviceProvider
+        )
     {
         _attendanceService = attendanceService;
+        _employeeService = employeeService;
         _serviceProvider = serviceProvider;
         _service = service;
     }
 
     [HttpPost("upload-att-log")]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> Upload(IFormFile file,
         [FromForm] Guid? branchId,
         [FromForm] Guid? operationAreaId,
-        [FromForm] Guid? clientId, 
-        [FromForm] Guid? departmentId, 
+        [FromForm] Guid? clientId,
+        [FromForm] Guid? departmentId,
         CancellationToken ct)
     {
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
 
-        //var BranchID  = Guid.Parse(branchId ?? "");
-        //var OperationArea   = Guid.Parse(operationAreaId ?? "");
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
         memoryStream.Seek(0, SeekOrigin.Begin);
@@ -68,4 +72,100 @@ public class AttendanceController : ControllerBase
 
         return Ok("Success");
     }
+    [HttpPost("manual-entry")]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ManualEntry([FromBody] List<CreateAttendance> payload, CancellationToken ct)
+    {
+        if (payload == null || !payload.Any())
+        {
+            return BadRequest("Payload cannot be empty.");
+        }
+        var employeeIds = payload.Select(x => x.EmployeeId).ToHashSet();
+        var employees = await _service.Context.Employees
+            .Where(x => x.BioId.HasValue && employeeIds.Contains(x.Id))
+            .Select(x => new
+            {
+                x.Id,
+                BioId = x.BioId!.Value,
+                x.DepartmentId,
+                x.AreaId,
+                x.ClientId,
+                x.PayrollGroupId,
+                x.BranchId
+            })
+            .ToDictionaryAsync(x => x.Id, x => x, ct);
+
+        var batchCount = await _attendanceService.Context.Attendances
+            .Where(x => x.LogSource == LOGSOURCE.MANUAL)
+            .Select(x => x.BatchCode)
+            .Distinct()
+            .CountAsync(ct);
+
+        var batch = string.Concat("BATCH", "-", DateTime.UtcNow.Date.ToString("yyyMMdd"),"-", (batchCount + 1).ToString().PadLeft(3, '0'));
+
+        var attendances = new List<Attendance>(payload.Count);
+        foreach (var att in payload)
+        {
+            var key = att.EmployeeId;
+            if (!employees.TryGetValue(key, out var employee))
+            {
+                continue;
+            }
+            attendances.Add(new Attendance
+            {
+                BatchCode = batch,
+                BioId = employee.BioId,
+                WorkDateTime = att.WorkTime,
+                EmployeeId = employee.Id,
+                BranchId = employee.BranchId,
+                DepartmentId = employee.DepartmentId,
+                ClientId = employee.ClientId,
+                OperationAreaId = employee.AreaId,
+                DeviceName = "Manual",
+                IP = string.Empty,
+                Boundary = null,
+                LogSource = LOGSOURCE.MANUAL,
+                EditRemarks = string.Empty
+            });
+        }
+        if (attendances.Any())
+        {
+            await _attendanceService.AddRangeAsync(attendances, ct);
+            await _attendanceService.CommitChangesAsync(ct);
+        }
+        return Ok("success");
+    }
+
+    [HttpGet("generate")]
+    [ProducesResponseType(typeof(ResponseModel<List<AttendaceModel>>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetManualEntry([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
+    {
+        var logsource = LOGSOURCE.MANUAL;
+        var result = await _attendanceService
+            .GetManualAtt(logsource, filter);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
+    {
+        await _attendanceService.Remove(id, ct);
+        return Ok("success");
+    }
+
+    [HttpDelete("batch/{batch}")]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Delete([FromRoute] string batch, CancellationToken ct)
+    {
+        await _attendanceService.RemoveBatch(batch, ct);
+        return Ok("success");
+    }
+
 }
+
+
