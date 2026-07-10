@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace DTR.Core;
 /// <summary>
@@ -204,8 +205,8 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
             return null;
 
         DailyRecord? result = null;
-        await dtrService.GetDTRInfoAsync<DailyRecord>(
-            new DTRRequestPayload(date, date, employee.DepartmentId, employee.Id, employee.ClientId, employee.PayrollGroupId), ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
+        var curPayload = dtrService.GetPayload(date.ToDateTime(TimeOnly.MinValue));
+        await dtrService.GetDTRInfoAsync<DailyRecord>(curPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
         return result;
     }
 }

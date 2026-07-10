@@ -54,6 +54,42 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("columnar-raw")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> GenerateRawColumnarView([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
+            ProcessorType.RawColumnarLog,
+            token,
+            IncludeNullResponse.Include);
+        return Ok(result);
+    }
+
+    [HttpGet("clean-row")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> CleanRowView([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _dTRCalcService.GetDTRInfoAsync<List<RowLogModel>>(payload,
+            ProcessorType.RawRowLog,
+            token,
+            IncludeNullResponse.Include);
+        return Ok(result);
+    }
+
+    [HttpGet("clean-columnar")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> CleanColumnarView([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
+            ProcessorType.CleanColumnarLog,
+            token,
+            IncludeNullResponse.Include);
+        return Ok(result);
+    }
+
     [HttpDelete()]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Delete([FromQuery] DateRangePayload payload, CancellationToken token)

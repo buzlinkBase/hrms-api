@@ -1,10 +1,11 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
 using MessagePack;
 
-namespace Hrms.Domain.ValueObjects;
+namespace Hrms.Domain.ValueObjects; 
 
-public record EmployeeFilter
+public record  EmployeeFilter
 {
+    public Guid? EmployeeId  { get; set; }
     public Guid? DepartmentId { get; set; }
     public Guid? PayrollGroupId  { get; set; }
     public Guid? ClientId { get; set; }

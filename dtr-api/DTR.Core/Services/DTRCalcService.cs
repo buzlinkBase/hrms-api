@@ -1,9 +1,14 @@
-﻿namespace DTR.Core;
+﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Infrastructure.Migrations;
+
+namespace DTR.Core;
 
 public class DTRCalcService
 {
     private readonly CurrentRangeDTRPayloadService _payloadRangeService;
     private CancellationToken? Token;
+    private DTRRequestPayload? Payload;
     public DTRCalcService(CurrentRangeDTRPayloadService payloadRangeService)
     {
         _payloadRangeService = payloadRangeService;
@@ -20,10 +25,33 @@ public class DTRCalcService
         var canProcess = true;
         var context = await _payloadRangeService.SetPayload(canProcess, payload, removedoublePunch);
         Token = token;
+        Payload = payload;
         context.DtrService = this;
         var calculator = new DailyRecordCompute(context);
-        return calculator.ProcessDailyRecords(processor, payload.FromDate, payload.ToDate, token, ignoreNull, processOnlyPairedAtt);
+        var FromDate = DateOnly.FromDateTime(payload.FromDate);
+        var ToDate = DateOnly.FromDateTime(payload.ToDate);
+        return calculator.ProcessDailyRecords(processor, FromDate, ToDate, token, ignoreNull, processOnlyPairedAtt);
     }
     public CancellationToken GetToken => Token ?? CancellationToken.None;
+    public DTRRequestPayload GetPayload(DateTime date)
+    {
+        if (Payload == null)
+        {
+            return new DTRRequestPayload
+            {
+                BranchId = Guid.Empty,
+                ClientId = Guid.Empty,
+                DepartmentId = Guid.Empty,
+                EmployeeId = Guid.Empty,
+                OperationAreaId = Guid.Empty,
+                PayrollGroupId = Guid.Empty,
+                FromDate = date,
+                ToDate = date
+            };
+        }
+        Payload.FromDate = date;
+        Payload.ToDate = date;
+        return Payload;
+    }
 
 }

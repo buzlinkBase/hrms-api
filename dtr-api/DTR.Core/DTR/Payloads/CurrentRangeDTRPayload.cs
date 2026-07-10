@@ -73,8 +73,8 @@ public class CurrentRangeDTRPayloadService
 
     private static (DateOnly fromDate, DateOnly toDate) GetDateRange(DTRRequestPayload payload)
     {
-        var from = payload.FromDate.AddDays(TimeAllowance.AttLookbackDays);
-        var to = payload.ToDate.AddDays(TimeAllowance.AttLookforward);
+        var from = DateOnly.FromDateTime(payload.FromDate.Date.AddDays(TimeAllowance.AttLookbackDays));
+        var to = DateOnly.FromDateTime(payload.ToDate.Date.AddDays(TimeAllowance.AttLookforward));
         return (from, to);
     }
 
@@ -86,12 +86,7 @@ public class CurrentRangeDTRPayloadService
     {
 
         var (fromDate, toDate) = GetDateRange(payload);
-        var rawLogs = await _attendanceService.LoadAttForDTRProcess(fromDate, toDate,
-                    canProcess,
-                    payload.EmployeeId, payload.DepartmentId,
-                    payload.ClientId, payload.PayrollGroupId,
-                    token);
-
+        var rawLogs = await _attendanceService.LoadAttForDTRProcess(payload, canProcess, token);
         var util = new AttendanceUtility(rawLogs);
         var gap = removeDoublePunch ? TimeAllowance.DoublePunchGap : 0;
         return util.RemoveDoublePunch(gap);
@@ -99,7 +94,7 @@ public class CurrentRangeDTRPayloadService
 
     private async Task<List<EmployeeDTRRun>> ExtractEmployees(DTRRequestPayload payload, CancellationToken token)
     {
-        var query = _employeeService.GetQueryable(x=>x.BioId>0);
+        var query = _employeeService.GetQueryable(x => x.BioId > 0);
 
         if (payload.EmployeeId.HasValue)
         {

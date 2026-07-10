@@ -10,13 +10,18 @@ using System.Threading.Tasks;
 
 namespace Hrms.Domain.ValueObjects;
 
-public record AttendanceFilter : EmployeeFilter { }
+public record  AttendanceFilter : EmployeeFilter {
+    public DateTime FromDate  { get; set; }
+    public DateTime ToDate  { get; set; }
+}
+
 public record AttendanceFilterDate
 {
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public Guid? EmployeeId { get; set; }
 }
+
 public record CreateAttendance
 {
     public DateTime WorkTime { get; set; }

@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -71,23 +72,33 @@ public class AttendanceService : BaseService<Attendance>
             .ToListAsync();
     }
 
-    public async Task<List<AttendanceModel>> GetRawLogs(AttendanceFilterDate filter)
+    public async Task<List<AttendanceModel>> GetRawLogs(AttendanceFilter filter)
     {
-        DateTime fromDate = (filter?.FromDate ?? DateTime.Today).Date;
-        DateTime toDate = (filter?.ToDate ?? DateTime.Today).Date.AddDays(1);
-        Guid? filterEmployeeId = filter?.EmployeeId;
+        DateTime fromDate = (filter?.FromDate ?? DateTime.MinValue).Date;
+        DateTime toDate = (filter?.ToDate ?? DateTime.MaxValue);
+
+        Guid? EmployeeId = filter?.EmployeeId;
+        Guid? BranchId = filter?.BranchId;
+        Guid? DepartmentId = filter?.DepartmentId;
+        Guid? ClientId = filter?.ClientId;
+        Guid? PayrollGroupId = filter?.PayrollGroupId;
+        Guid? OperationAreaId = filter?.OperationAreaId;
+
 
         return await Uow.Context.Attendances
-            .Where(x => x.WorkDateTime >= fromDate &&
-                        x.WorkDateTime < toDate &&
-                        (filterEmployeeId == null || x.EmployeeId == filterEmployeeId))
+            .Where(x => x.WorkDateTime >= fromDate && x.WorkDateTime < toDate &&
+                        (EmployeeId == null || x.EmployeeId == EmployeeId) &&
+                        (BranchId == null || x.BranchId == BranchId) &&
+                        (DepartmentId == null || x.DepartmentId == DepartmentId) &&
+                        (PayrollGroupId == null || x.DepartmentId == PayrollGroupId) &&
+                        (OperationAreaId == null || x.EmployeeId == OperationAreaId))
             .Select(x => new AttendanceModel
             {
                 Id = x.Id,
                 Batch = x.BatchCode,
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
-                LogSource=x.LogSource.ToString(),
+                LogSource = x.LogSource.ToString(),
                 Name = x.Employee != null
                     ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
                     : "",
@@ -98,18 +109,25 @@ public class AttendanceService : BaseService<Attendance>
     }
 
 
-    public async Task<Dictionary<AttendanceEmpId, List<Attendance>>> LoadAttForDTRProcess(DateOnly from,
-        DateOnly to,
+    public async Task<Dictionary<AttendanceEmpId, List<Attendance>>> LoadAttForDTRProcess(
+        DTRRequestPayload payload,
         bool canProcess,
-        Guid? EmployeeId,
-        Guid? departmentId,
-        Guid? clientId,
-        Guid? payrollGroupId,
         CancellationToken token)
     {
+        var from = payload.FromDate;
+        var to = payload.ToDate;
+        var EmployeeId = payload.EmployeeId;
+        var departmentId = payload.DepartmentId;
+        var payrollGroupId = payload.PayrollGroupId;
+        var branchId = payload.BranchId;
+        var areaId  = payload.OperationAreaId;
+        var clientId = payload.ClientId;
+        var fromWD = DateOnly.FromDateTime(payload.FromDate);
+        var toWD = DateOnly.FromDateTime(payload.ToDate);
+
         var dtrLookup = await _uow.Context.DailyTimeRecords
-            .Where(dtr => dtr.WorkDate >= from &&
-                          dtr.WorkDate <= to)
+            .Where(dtr => dtr.WorkDate >= fromWD &&
+                          dtr.WorkDate <= toWD)
             .Select(dtr => new
             {
                 dtr.EmployeeId,
@@ -122,9 +140,6 @@ public class AttendanceService : BaseService<Attendance>
         );
 
         var spec = new UserHasViewSpec<Attendance>(canProcess);
-        // 1. Move Date conversion to DateTime to help EF translation
-        DateTime fromDate = @from.ToDateTime(TimeOnly.MinValue);
-        DateTime toDate = to.ToDateTime(TimeOnly.MaxValue);
 
         var data = await _uow.Repository
             .Find(spec)
@@ -132,13 +147,15 @@ public class AttendanceService : BaseService<Attendance>
             .AsSplitQuery()
             .Include(x => x.Employee)
             .Where(x =>
-                x.WorkDateTime >= fromDate &&
-                x.WorkDateTime <= toDate &&
-                x.EmployeeId.HasValue &&
+                x.WorkDateTime >= from &&
+                x.WorkDateTime <= to &&
+                x.EmployeeId != null &&
                 (EmployeeId == null || EmployeeId == Guid.Empty || x.EmployeeId == EmployeeId) &&
-                (payrollGroupId == null || payrollGroupId == Guid.Empty || (x.Employee != null && x.Employee.PayrollGroupId == payrollGroupId)) &&
-                (clientId == null || clientId == Guid.Empty || x.ClientId == clientId) &&
-                (departmentId == null || departmentId == Guid.Empty || (x.Employee != null && x.Employee.DepartmentId == departmentId)))
+                (branchId == null || branchId == Guid.Empty || x.BranchId == areaId) && // Note: double check if x.BranchId == areaId was intentional here instead of branchId
+                (departmentId == null || departmentId == Guid.Empty || x.DepartmentId == departmentId) &&
+                (areaId == null || areaId == Guid.Empty || x.OperationAreaId == areaId) &&
+                (payrollGroupId == null || payrollGroupId == Guid.Empty || x.Employee!.PayrollGroupId == payrollGroupId) &&
+                (clientId == null || clientId == Guid.Empty || x.ClientId == clientId))
             .ToListAsync(token);
 
         foreach (var attendance in data)

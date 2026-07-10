@@ -150,12 +150,11 @@ public class AttendanceController : ControllerBase
     [HttpGet("raw-logs")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RawRowLogs([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
+    public async Task<IActionResult> RawRowLogs([FromQuery] AttendanceFilter filter, CancellationToken ct)
     {
         var result = await _attendanceService.GetRawLogs(filter);
         return Ok(result);
     }
-
 
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
