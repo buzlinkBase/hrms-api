@@ -23,14 +23,14 @@ public record CreateAttendance
     public Guid EmployeeId { get; set; }
 }
 
-public class AttendaceModel
+public class AttendanceModel
 {
     public Guid Id { get; set; }
     public Guid? EmployeeId { get; set; }
     public string? Name { get; set; }
     public DateTime WorkDateTime { get; set; }
-    public string Batch { get; set; }
-    public Polygon? Boundary { get; set; }
+    public string Batch { get; set; } = string.Empty;
+    public string LogSource { get; set; } = LOGSOURCE.OTHER.ToString();
 }
 
 

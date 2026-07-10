@@ -44,8 +44,7 @@ public class AttendanceService : BaseService<Attendance>
     {
         await CreateRangeAsync(models, token);
     }
-
-    public async Task<List<AttendaceModel>> GetManualAtt(LOGSOURCE source, AttendanceFilterDate filter)
+    public async Task<List<AttendanceModel>> GetLog(AttendanceFilterDate filter, LOGSOURCE source = LOGSOURCE.MANUAL)
     {
         DateTime fromDate = (filter?.FromDate ?? DateTime.Today).Date;
         DateTime toDate = (filter?.ToDate ?? DateTime.Today).Date.AddDays(1);
@@ -55,20 +54,49 @@ public class AttendanceService : BaseService<Attendance>
             .Where(x => x.LogSource == source &&
                         x.WorkDateTime >= fromDate &&
                         x.WorkDateTime < toDate &&
-                        (filterEmployeeId == null || x.EmployeeId == filterEmployeeId))  
-            .Select(x => new AttendaceModel
+                        (filterEmployeeId == null || x.EmployeeId == filterEmployeeId))
+            .Select(x => new AttendanceModel
             {
                 Id = x.Id,
                 Batch = x.BatchCode,
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
+                LogSource = x.LogSource.ToString(),
                 Name = x.Employee != null
                     ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
                     : "",
-                Boundary = x.Boundary
             })
+            .OrderByDescending(x => x.Batch)
+            .ThenBy(x => x.Name)
             .ToListAsync();
     }
+
+    public async Task<List<AttendanceModel>> GetRawLogs(AttendanceFilterDate filter)
+    {
+        DateTime fromDate = (filter?.FromDate ?? DateTime.Today).Date;
+        DateTime toDate = (filter?.ToDate ?? DateTime.Today).Date.AddDays(1);
+        Guid? filterEmployeeId = filter?.EmployeeId;
+
+        return await Uow.Context.Attendances
+            .Where(x => x.WorkDateTime >= fromDate &&
+                        x.WorkDateTime < toDate &&
+                        (filterEmployeeId == null || x.EmployeeId == filterEmployeeId))
+            .Select(x => new AttendanceModel
+            {
+                Id = x.Id,
+                Batch = x.BatchCode,
+                EmployeeId = x.EmployeeId,
+                WorkDateTime = x.WorkDateTime,
+                LogSource=x.LogSource.ToString(),
+                Name = x.Employee != null
+                    ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
+                    : "",
+            })
+            .OrderByDescending(x => x.Batch)
+            .ThenBy(x => x.Name)
+            .ToListAsync();
+    }
+
 
     public async Task<Dictionary<AttendanceEmpId, List<Attendance>>> LoadAttForDTRProcess(DateOnly from,
         DateOnly to,
@@ -134,20 +162,17 @@ public class AttendanceService : BaseService<Attendance>
             );
         return result;
     }
-
     public async Task Remove(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
 
     }
-
     public async Task RemoveBatch(string batch, CancellationToken token)
     {
         await Context.Attendances
              .Where(x => x.BatchCode == batch && x.BatchCode != "")
              .ExecuteDeleteAsync(token);
     }
-
     public async Task Remove(List<Guid> Ids)
     {
         //only manual logs can be deleted
@@ -162,7 +187,6 @@ public class AttendanceService : BaseService<Attendance>
     }
 }
 public readonly record struct AttendanceEmpId(Guid EmpId);
-
 public class ManualAttendanceService : BaseService<ManualBatchEntryLog>
 {
     public ManualAttendanceService(IUnitOfWorkService service) : base(service)

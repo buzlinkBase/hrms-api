@@ -102,7 +102,7 @@ public class AttendanceController : ControllerBase
             .Distinct()
             .CountAsync(ct);
 
-        var batch = string.Concat("BATCH", "-", DateTime.UtcNow.Date.ToString("yyyMMdd"),"-", (batchCount + 1).ToString().PadLeft(3, '0'));
+        var batch = string.Concat("BATCH", "-", DateTime.UtcNow.Date.ToString("yyyMMdd"), "-", (batchCount + 1).ToString().PadLeft(3, '0'));
 
         var attendances = new List<Attendance>(payload.Count);
         foreach (var att in payload)
@@ -115,9 +115,9 @@ public class AttendanceController : ControllerBase
             attendances.Add(new Attendance
             {
                 BatchCode = batch,
+                EmployeeId = employee.Id,
                 BioId = employee.BioId,
                 WorkDateTime = att.WorkTime,
-                EmployeeId = employee.Id,
                 BranchId = employee.BranchId,
                 DepartmentId = employee.DepartmentId,
                 ClientId = employee.ClientId,
@@ -126,7 +126,7 @@ public class AttendanceController : ControllerBase
                 IP = string.Empty,
                 Boundary = null,
                 LogSource = LOGSOURCE.MANUAL,
-                EditRemarks = string.Empty
+                EditRemarks = string.Empty,
             });
         }
         if (attendances.Any())
@@ -138,15 +138,24 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("generate")]
-    [ProducesResponseType(typeof(ResponseModel<List<AttendaceModel>>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetManualEntry([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
     {
-        var logsource = LOGSOURCE.MANUAL;
         var result = await _attendanceService
-            .GetManualAtt(logsource, filter);
+            .GetLog(filter, LOGSOURCE.MANUAL);
         return Ok(result);
     }
+
+    [HttpGet("raw-logs")]
+    [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RawRowLogs([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
+    {
+        var result = await _attendanceService.GetRawLogs(filter);
+        return Ok(result);
+    }
+
 
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
@@ -154,6 +163,7 @@ public class AttendanceController : ControllerBase
     public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
     {
         await _attendanceService.Remove(id, ct);
+        await _attendanceService.CommitChangesAsync(ct);
         return Ok("success");
     }
 
@@ -163,9 +173,8 @@ public class AttendanceController : ControllerBase
     public async Task<IActionResult> Delete([FromRoute] string batch, CancellationToken ct)
     {
         await _attendanceService.RemoveBatch(batch, ct);
+        await _attendanceService.CommitChangesAsync(ct);
         return Ok("success");
     }
 
 }
-
-
