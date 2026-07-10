@@ -42,18 +42,6 @@ public class DailyRecordsController : ControllerBase
         return Ok(await _service.GetAllPaginatedResult(payload, pageInfo, token));
     }
 
-    [HttpPost("generate")]
-    [AllowAnonymous]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-    public async Task<IActionResult> Generate([FromBody] DTRRequestPayload payload, CancellationToken token)
-    {
-        var result = await _dTRCalcService.GetDTRInfoAsync<DailyRecord>(payload,
-            ProcessorType.DTRDetail,
-            token,
-            IncludeNullResponse.Include);
-        return Ok(result);
-    }
-
     [HttpGet("columnar-raw")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
@@ -89,6 +77,19 @@ public class DailyRecordsController : ControllerBase
             IncludeNullResponse.Include);
         return Ok(result);
     }
+
+    [HttpGet("dtr-detail")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> DTRDetailView([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _dTRCalcService.GetDTRInfoAsync<DTRDetailModel>(payload,
+            ProcessorType.DTRDetail,
+            token,
+            IncludeNullResponse.Include);
+        return Ok(result);
+    }
+
 
     [HttpDelete()]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]

@@ -1,18 +1,15 @@
-﻿using Hrms.Domain.Entities;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿namespace DTR.Core;
 
-namespace DTR.Core;
-
-public class CleanDTRDetailProcessor : IDTRProcessor<DailyRecord>
+public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
 {
-    public DailyRecord? Process(DTRProcessorPayload payload)
+    public DTRDetailModel? Process(DTRProcessorPayload payload)
     {
         var calculator = RegularTimeCalculatorFactory.Create(payload);
         var cannonicalTimeRange  =  calculator.Calculate();
         return MapResultsToDailyRecord(payload, cannonicalTimeRange);
     }
 
-    private DailyRecord MapResultsToDailyRecord(DTRProcessorPayload payload, TimeRange cannonicalTimeRange)
+    private DTRDetailModel MapResultsToDailyRecord(DTRProcessorPayload payload, TimeRange cannonicalTimeRange)
     {
         var context = new TimeContext
         {
@@ -50,7 +47,7 @@ public class CleanDTRDetailProcessor : IDTRProcessor<DailyRecord>
 }
 public class DailyRecordBuilder
 {
-    public static DailyRecord Build(
+    public static DTRDetailModel Build(
         TimeContext context,
         PipeLineResult pipeline,
         EvaluatedColumnResult evaluated,
@@ -66,18 +63,16 @@ public class DailyRecordBuilder
             recordState = (int)context.Payload.Data.CurrentAttendance[0].RecordStatus;
         }
         var state = (DTRStatus)recordState;
-
-        var dtr = new DailyRecord
+        var dtr = new DTRDetailModel
         {
             ShiftWorkingHour = context.Payload.Data.CurrentShift.MaxWorkingMinutes / 60,
-            AttStatus = recordState,
-            RecordStatus = state,
+            AttStatus = recordState.ToString(),
+            RecordStatus = state.ToString(),
             HolCount = pipeline.Plus8.GetMetaData<int>("HolidayCount"),
             SPCount = pipeline.Plus8.GetMetaData<int>("SPHolidayCount"),
             FullName = emp.FullName(),
             EmployeeId = emp.Id,
             BioId = emp?.BioId ?? 0,
-            empCode = emp?.BioId.ToString() ?? "",
             WorkDate = context.Payload.Data.CurrentDate,
             ShiftName = context.Payload.Data.CurrentShift.ShiftName,
             ShiftStartTime = context.Payload.Data.CurrentShift.StartTime,
@@ -94,7 +89,6 @@ public class DailyRecordBuilder
             RegularNDDays = NightDiff.Regular.TotalMinutes.ToDays(),
             RegularOTDays = evaluated.RegOT.TotalMinutes.ToDays(),
             RegularNDOTDays = NightDiff.RegOT.TotalMinutes.ToDays(),
-
 
             //rest Working Days
             RestDayDays = evaluated.RestWork.ToDays(),
@@ -167,12 +161,8 @@ public class DailyRecordBuilder
             RestSpecialDayOTHours = (NightDiff.Rest + NightDiff.SP).TotalMinutes.ToHour(),
             RestSpecialDayNDHours = (evaluated.RestOT + evaluated.SPOT).TotalMinutes.ToHour(),
             RestSpecialDayNDOTHours = (NightDiff.RestOT + NightDiff.SPOT).TotalMinutes.ToHour(),
-
             OB = 0,
             Absent = workType == WorkType.Absent ? 1 : 0,
-            DepartmentId = emp?.DepartmentId,
-            PayrollGroupId = emp?.PayrollGroupId,
-            ClientId = emp?.ClientId,
         };
         return dtr;
     }
