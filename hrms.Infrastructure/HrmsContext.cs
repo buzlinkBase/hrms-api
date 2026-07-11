@@ -4,8 +4,11 @@ using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.Configuration;
 namespace Hrms.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 public class HrmsContext : DbContext, IDbContext
 {
@@ -42,6 +45,15 @@ public class HrmsContext : DbContext, IDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        //generate sortable GUID
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var idProperty = entityType.FindProperty("Id");
+            if (idProperty != null && idProperty.ClrType == typeof(Guid))
+            {
+                idProperty.SetValueGeneratorFactory((_, __) => new Version7GuidValueGenerator());
+            }
+        }
         modelBuilder.UseDateFilter();
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
@@ -119,4 +131,13 @@ public class HrmsContext : DbContext, IDbContext
 
 
     #endregion
+}
+
+public class Version7GuidValueGenerator : ValueGenerator<Guid>
+{
+    public override bool GeneratesTemporaryValues => false;
+    public override Guid Next(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        return Guid.CreateVersion7();
+    }
 }
