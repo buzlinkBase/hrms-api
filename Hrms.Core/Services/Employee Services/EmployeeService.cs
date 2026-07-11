@@ -89,9 +89,8 @@ public class EmployeeService : BaseService<Employee>
         if (models == null || models.Count == 0) return;
         var newemps = models.Where(x => x.Id == Guid.Empty).ToList();
         var old = models.Where(x => x.Id != Guid.Empty).ToList();
+        await ModifyRangeAsync(old, token); 
         await CreateRangeAsync(newemps, token);
-        await ModifyRangeAsync(old, token);
-
         //var empBios = GetQueryable().Select(x => x.BioId).ToList();
         //var existingBioIds = new HashSet<int>(empBios);
         //var newEmployees = models

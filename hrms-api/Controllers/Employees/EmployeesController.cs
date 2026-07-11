@@ -96,6 +96,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("upload-employees")]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         [ProducesResponseType(400)]
         public async Task<IActionResult> Upload(IFormFile excelFile, CancellationToken token)

@@ -46,14 +46,14 @@ public class HrmsContext : DbContext, IDbContext
     {
         base.OnModelCreating(modelBuilder);
         //generate sortable GUID
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            var idProperty = entityType.FindProperty("Id");
-            if (idProperty != null && idProperty.ClrType == typeof(Guid))
-            {
-                idProperty.SetValueGeneratorFactory((_, __) => new Version7GuidValueGenerator());
-            }
-        }
+        //foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        //{
+        //    var idProperty = entityType.FindProperty("Id");
+        //    if (idProperty != null && idProperty.ClrType == typeof(Guid))
+        //    {
+        //        idProperty.SetValueGeneratorFactory((_, __) => new Version7GuidValueGenerator());
+        //    }
+        //}
         modelBuilder.UseDateFilter();
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();

@@ -44,7 +44,7 @@ public class DailyRecordsController : ControllerBase
 
     [HttpGet("columnar-raw")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
     public async Task<IActionResult> GenerateRawColumnarView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
@@ -56,7 +56,7 @@ public class DailyRecordsController : ControllerBase
 
     [HttpGet("clean-row")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<ObjectCollection<List<ColumnarLogModel>>>), 200)]
     public async Task<IActionResult> CleanRowView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _dTRCalcService.GetDTRInfoAsync<List<RowLogModel>>(payload,
@@ -68,7 +68,7 @@ public class DailyRecordsController : ControllerBase
 
     [HttpGet("clean-columnar")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
     public async Task<IActionResult> CleanColumnarView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
@@ -80,7 +80,7 @@ public class DailyRecordsController : ControllerBase
 
     [HttpGet("dtr-detail")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<ObjectCollection<DTRDetailModel>>), 200)]
     public async Task<IActionResult> DTRDetailView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _dTRCalcService.GetDTRInfoAsync<DTRDetailModel>(payload,

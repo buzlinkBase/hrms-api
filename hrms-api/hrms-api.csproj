@@ -47,4 +47,9 @@
       <Folder Include="wwwroot\" />
       <Folder Include="wwwroot\Templates\" />
     </ItemGroup>
+    <ItemGroup>
+      <Content Update="wwwroot\Templates\employee_template.xlsx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
 </Project>

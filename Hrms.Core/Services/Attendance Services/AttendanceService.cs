@@ -115,7 +115,7 @@ public class AttendanceService : BaseService<Attendance>
         CancellationToken token)
     {
         var from = payload.FromDate;
-        var to = payload.ToDate;
+        var to = payload.ToDate.AddDays(1);
         var EmployeeId = payload.EmployeeId;
         var departmentId = payload.DepartmentId;
         var payrollGroupId = payload.PayrollGroupId;
