@@ -36,11 +36,13 @@ public class HolidayService : BaseService<Holiday>
             .Select(x => new HolidayResult(x.Id,
              x.Description,
              x.AreaId,
+             x.Area.Name,
              x.IsRecuring ? $"{x.HolDate.ToString("MMM dd,")} {year}" : x.HolDate.ToString("MMM dd, yyyy"),
              x.HolType == HolidayType.LEGAL ? "Legal" : "Special",
              x.IsRecuring,
              x.IsPaid,
-             x.WorkType))
+             x.WorkType,
+             x.Status))
             .ToList()
             ;
     }
@@ -127,8 +129,10 @@ public readonly record struct Holidaykey(Guid EmpId, DateOnly PayrollId);
 public record HolidayResult(Guid Id,
     string Description,
     Guid AreaId,
+    string AreaName,
     string HolDate,
     string HolidayType,
     bool IsRecuring,
     bool IsPaid,
-    HolidayWorkType WorkType);
+    HolidayWorkType WorkType,
+    string status);
