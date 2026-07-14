@@ -1,9 +1,10 @@
 ﻿namespace Hrms.adms.Models.Entities;
 
 public class BiometricDevice : BaseEntity, IEntityTenant
-{
+{ 
     public string SN { get; set; } = string.Empty;
     public string DeviceName { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
     public string MacAddress { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
     public string Platform { get; set; } = string.Empty;

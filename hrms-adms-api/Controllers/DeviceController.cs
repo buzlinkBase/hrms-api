@@ -41,7 +41,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(ResponseModel<List<BiometricDevice>>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<BiometricDeviceModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
             var data = await _service.FindAllAsync(token);
@@ -49,7 +49,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet("{id}")]
-        [ProducesResponseType(typeof(ResponseModel<BiometricDevice>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<BiometricDeviceModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var data = await _service.FineOneAsync(id, token);
@@ -57,7 +57,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet("serial/{sn}")]
-        [ProducesResponseType(typeof(ResponseModel<BiometricDevice>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<BiometricDeviceModel>), 200)]
         public async Task<IActionResult> GetBySerial(string sn, CancellationToken token)
         {
             var data = await _service.GetBySerial(sn, token);

@@ -1,6 +1,7 @@
 ﻿using Hrms.adms.Models.DTO;
 
 namespace Hrms.adms.Services;
+
 public class DeviceService : BaseService<BiometricDevice>
 {
     public DeviceService(IUnitOfWorkService uow) : base(uow)
@@ -12,6 +13,12 @@ public class DeviceService : BaseService<BiometricDevice>
         {
             SN = payload.SN,
             TenantId = TenantId,
+            Description = payload.Description ?? "",
+            DeviceName = payload.DeviceName ?? "",
+            BranchId = payload.BranchId,
+            ClientId = payload.ClientId,
+            OperationAreaId = payload.AreaId,
+            Status = payload.Status
         };
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -192,8 +199,14 @@ public class DeviceService : BaseService<BiometricDevice>
         {
             Id = payload.Id,
             SN = payload.SN,
+            Description = payload.Description ?? "",
+            DeviceName = payload.DeviceName ?? "",
+            BranchId = payload.BranchId,
+            ClientId = payload.ClientId,
+            OperationAreaId = payload.AreaId,
             Status = payload.Status
         };
+
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
         return payload;
@@ -203,14 +216,53 @@ public class DeviceService : BaseService<BiometricDevice>
         return await GetQueryable()
             .ToListAsync(token);
     }
-    public async Task<BiometricDevice?> FineOneAsync(Guid Id, CancellationToken token)
+    public async Task<BiometricDeviceModel?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        var result = await GetQueryable(x => x.Id == Id)
+            .Select(x => new BiometricDeviceModel
+            {
+                Id = x.Id,
+                TenantId = x.TenantId,
+                DeviceName = x.DeviceName,
+                Description = x.Description,
+                SN = x.SN,
+                BranchId = x.BranchId,
+                ClientId = x.ClientId,
+                DepartmentId = x.DepartmentId,
+                IpAddress = x.IpAddress,
+                MacAddress = x.MacAddress,
+                OperationAreaId = x.OperationAreaId,
+                Platform = x.Platform,
+                OemVendor = x.OemVendor,
+                Status = x.Status
+            })
+            .FirstOrDefaultAsync(token)
+            ;
+
+        return result;
     }
 
-    public async Task<BiometricDevice?> GetBySerial(string sn, CancellationToken token)
+    public async Task<BiometricDeviceModel?> GetBySerial(string sn, CancellationToken token)
     {
-        return await GetQueryable(x => x.SN == sn).FirstOrDefaultAsync();
+        return await GetQueryable(x => x.SN == sn)
+            .Select(x => new BiometricDeviceModel
+            {
+                Id = x.Id,
+                TenantId = x.TenantId,
+                DeviceName = x.DeviceName,
+                Description = x.Description,
+                SN = x.SN,
+                BranchId = x.BranchId,
+                ClientId = x.ClientId,
+                DepartmentId = x.DepartmentId,
+                IpAddress = x.IpAddress,
+                MacAddress = x.MacAddress,
+                OperationAreaId = x.OperationAreaId,
+                Platform = x.Platform,
+                OemVendor = x.OemVendor,
+                Status = x.Status
+            })
+            .FirstOrDefaultAsync(token);
     }
 
     public async Task<BiometricDevice?> FindSnAsync(string SN, CancellationToken token)
