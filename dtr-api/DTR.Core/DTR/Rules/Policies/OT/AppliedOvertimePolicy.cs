@@ -84,7 +84,7 @@ public class AppliedOvertimePolicy : ConditionalPolicyBase
         //    ? 0.00
         //    : (shift.LunchBreakDurationMinutes == 0 ? breakTime : shift.LunchBreakDurationMinutes);
 
-        if (shift.ShiftType == TimeShiftType.SPLIT)
+        if (shift.ShiftType == TimeShiftType.FLEXI)
         {
             var regKey = TimeRangeLedger.CreateKey<RegularHourPolicy>(context);
             var data = context.Payload.Ledger.GetAllAllocatedExcept(regKey);

@@ -459,7 +459,7 @@ public class EmployeeImportService
 
                 var shiftType = (x.ShiftType?.Contains("Fix") == true || x.ShiftType?.Contains("Fixed") == true)
                     ? TimeShiftType.FIXED
-                    : TimeShiftType.SPLIT;
+                    : TimeShiftType.FLEXI;
 
                 // FIXED: Check for null instead of TimeSpan.Zero
                 var hasBreak = lunchOut.HasValue && lunchIn.HasValue;

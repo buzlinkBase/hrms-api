@@ -124,7 +124,7 @@ public class OTTimeInNotRequiredProviderFactory
         {
             case TimeShiftType.FIXED://base on timeshift
                 return new FixedOT(context);
-            case TimeShiftType.SPLIT://based on regularClaimed caping
+            case TimeShiftType.FLEXI://based on regularClaimed caping
                 return new FlexiOT(context);
             default:
                 throw new NotImplementedException("IShiftTypeIdentifier");

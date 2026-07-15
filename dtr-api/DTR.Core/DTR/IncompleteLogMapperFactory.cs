@@ -13,7 +13,7 @@ public static class IncompleteLogMapperFactory
         payload.Data.CurrentShift.ShiftType switch
         {
             TimeShiftType.FIXED => new FlexiMapper(payload),//use flexi to show all logs instead of limitted to nearpunch
-            TimeShiftType.SPLIT => new FlexiMapper(payload),
+            TimeShiftType.FLEXI => new FlexiMapper(payload),
             _ => throw new NotImplementedException("Unsupported shift type [IncompleteLogModel]")
         };
 }

@@ -206,7 +206,7 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
 
         DailyRecord? result = null;
         var curPayload = dtrService.GetPayload(date.ToDateTime(TimeOnly.MinValue));
-        await dtrService.GetDTRInfoAsync<DTRDetailModel>(curPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
+        await dtrService.GetDTRInfoAsync<DailyRecord>(curPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
         return result;
     }
 }
