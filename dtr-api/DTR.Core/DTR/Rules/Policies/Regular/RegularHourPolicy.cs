@@ -184,7 +184,7 @@ public class TimeAllocationFactory
         {
             case TimeShiftType.FIXED:
                 return new FixShiftAllocation(input, context);
-            case TimeShiftType.FLEXI:
+            case TimeShiftType.SPLIT:
                 return new FlexiShiftAllocation(input, context);
             default:
                 throw new NotImplementedException("TimeAllocationFactory");

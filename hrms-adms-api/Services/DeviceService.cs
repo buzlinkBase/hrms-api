@@ -211,9 +211,9 @@ public class DeviceService : BaseService<BiometricDevice>
         await CommitChangesAsync(token);
         return payload;
     }
-    public async Task<List<BiometricDevice>> FindAllAsync(CancellationToken token)
+    public async Task<List<BiometricDevice>> FindAllAsync(Guid tenantId , CancellationToken token)
     {
-        return await GetQueryable()
+        return await GetQueryable(x=>x.TenantId== tenantId)
             .ToListAsync(token);
     }
     public async Task<BiometricDeviceModel?> FineOneAsync(Guid Id, CancellationToken token)

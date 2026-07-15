@@ -13,7 +13,7 @@ public enum IncomeClassType
 public enum TimeShiftType
 {
     FIXED,
-    FLEXI
+    SPLIT
 }
 
 public enum BreakMode

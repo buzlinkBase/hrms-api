@@ -2,10 +2,10 @@
 
 public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
 {
-    public DTRDetailModel? Process(DTRProcessorPayload payload)
+    public DTRDetailModel Process(DTRProcessorPayload payload)
     {
         var calculator = RegularTimeCalculatorFactory.Create(payload);
-        var cannonicalTimeRange  =  calculator.Calculate();
+        var cannonicalTimeRange = calculator.Calculate();
         return MapResultsToDailyRecord(payload, cannonicalTimeRange);
     }
 
@@ -80,7 +80,7 @@ public class DailyRecordBuilder
             StartTime = context.CanonicalTimeRange.TimeRecords.MinBy(x => x.StartTime)?.StartTime,
             EndTime = context.CanonicalTimeRange.TimeRecords.MaxBy(x => x.EndTime)?.EndTime,
             WorkType = StringHelpers.AddSpacesBeforeCaps(workType.ToString()).Trim(),
-            WorkTypeEnum= workType,
+            WorkTypeEnum = workType,
             //hol Day
             LHHolidayTotalDays = evaluated.LegalHoliday.TotalMinutes.ToDays(),
             SPHolidayTotalDays = evaluated.SPHoliday.TotalMinutes.ToDays(),
