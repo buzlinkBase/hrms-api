@@ -1,4 +1,4 @@
-﻿ 
+ 
 namespace DTR.Core;
 
 public class RegularHourPolicy : ConditionalPolicyBase
@@ -51,8 +51,8 @@ public class RegularHourPolicy : ConditionalPolicyBase
 
     private TimeRecordCollection ComputeUsableTime(TimeContext context, TimeRecordCollection usable, CurrentShift shift)
     {
-        //if (shift.ShiftType == TimeShiftType.FLEXI || shift.LunchBreakOption != PunchMode.PAID_BREAK_COMPRESS) return usable;
-        //if (shift.ShiftType == TimeShiftType.FLEXI) return usable;
+        //if (shift.ShiftType == TimeShiftType.SPLIT || shift.LunchBreakOption != PunchMode.PAID_BREAK_COMPRESS) return usable;
+        //if (shift.ShiftType == TimeShiftType.SPLIT) return usable;
         //for paid compress break Time
 
         //extract breaks
@@ -88,7 +88,7 @@ public class RegularHourPolicy : ConditionalPolicyBase
 
     private TimeRecordCollection ExcludeBreakTime(TimeContext context, TimeRecordCollection usable, CurrentShift shift)
     {
-        //if (shift.ShiftType == TimeShiftType.FLEXI) return usable;
+        //if (shift.ShiftType == TimeShiftType.SPLIT) return usable;
         if (shift.WithAMBreak == BreakMode.UNPAID_BREAK && shift.AMBreakStartTime.HasValue && shift.AMBreakEndTime.HasValue)
         {
             var tr = new TimeRecordCollection()
@@ -185,7 +185,7 @@ public class TimeAllocationFactory
             case TimeShiftType.FIXED:
                 return new FixShiftAllocation(input, context);
             case TimeShiftType.SPLIT:
-                return new FlexiShiftAllocation(input, context);
+                return new SplitShiftAllocation(input, context);
             default:
                 throw new NotImplementedException("TimeAllocationFactory");
         }
@@ -211,12 +211,12 @@ public class FixShiftAllocation : ITimeAllocation
         //return Math.Min(480, TimeRangeCalculator.GetTotalMinutes(shift.StartTime, shift.EndTime));
     }
 }
-public class FlexiShiftAllocation : ITimeAllocation
+public class SplitShiftAllocation : ITimeAllocation
 {
     private readonly TimeRange _input;
     private readonly TimeContext _context;
 
-    public FlexiShiftAllocation(TimeRange input, TimeContext context)
+    public SplitShiftAllocation(TimeRange input, TimeContext context)
     {
         _input = input;
         _context = context;

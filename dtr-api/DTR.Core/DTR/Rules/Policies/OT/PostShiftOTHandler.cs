@@ -1,4 +1,4 @@
-﻿namespace DTR.Core;
+namespace DTR.Core;
 public class PostShiftOTUnrestrictedHandler : PostShiftOTHandler
 {
     public TimeRange Calculate(TimeRange input, TimeContext context) => Process(input, context);
@@ -125,7 +125,7 @@ public class OTTimeInNotRequiredProviderFactory
             case TimeShiftType.FIXED://base on timeshift
                 return new FixedOT(context);
             case TimeShiftType.SPLIT://based on regularClaimed caping
-                return new FlexiOT(context);
+                return new SplitOT(context);
             default:
                 throw new NotImplementedException("IShiftTypeIdentifier");
         }
@@ -146,11 +146,11 @@ public class FixedOT : IShiftTypeIdentifier
         return start;
     }
 }
-public class FlexiOT : IShiftTypeIdentifier
+public class SplitOT : IShiftTypeIdentifier
 {
     private readonly TimeContext _context;
 
-    public FlexiOT(TimeContext context)
+    public SplitOT(TimeContext context)
     {
         _context = context;
     }

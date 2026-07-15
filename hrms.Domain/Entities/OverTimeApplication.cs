@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities;
 
@@ -9,7 +9,7 @@ public class OverTimeApplication : BaseEntity
     public DateOnly OTDate { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
-    public bool FlexiEndTime { get; set; }
+    public bool SplitEndTime { get; set; }
     public bool PaidByNetDutyTime { get; set; }
     public double OverTimeThreshold { get; set; }
     public string Remarks { get; set; } = string.Empty;

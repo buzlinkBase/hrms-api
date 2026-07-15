@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
@@ -80,7 +80,7 @@ public class AppliedOvertimePolicy : ConditionalPolicyBase
         //{
         //    breakTime = (shift.LunchEndTime.Value - shift.LunchStartTime.Value).TotalMinutes;
         //}
-        //double TotalBreak = shift.ShiftType == TimeShiftType.FLEXI
+        //double TotalBreak = shift.ShiftType == TimeShiftType.SPLIT
         //    ? 0.00
         //    : (shift.LunchBreakDurationMinutes == 0 ? breakTime : shift.LunchBreakDurationMinutes);
 
