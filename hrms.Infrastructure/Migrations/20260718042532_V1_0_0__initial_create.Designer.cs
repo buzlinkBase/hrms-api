@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    [Migration("20260708002638_operationarea")]
-    partial class operationarea
+    [Migration("20260718042532_V1_0_0__initial_create")]
+    partial class V1_0_0__initial_create
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,10 +32,11 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("BatchCode")
-                        .HasColumnType("char(36)");
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
 
-                    b.Property<int>("BioId")
+                    b.Property<int?>("BioId")
                         .HasColumnType("int");
 
                     b.Property<Polygon>("Boundary")
@@ -109,6 +110,15 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("LogSource", "BatchCode")
+                        .HasDatabaseName("IX_Attendance_LogSource_BatchCode");
+
+                    b.HasIndex("LogSource", "WorkDateTime")
+                        .HasDatabaseName("IX_Attendance_ls_wt");
+
+                    b.HasIndex("BranchId", "DepartmentId", "OperationAreaId", "ClientId")
+                        .HasDatabaseName("IX_Att_BRId_DepId_Area_ClId_LS");
 
                     b.ToTable("Attendances");
                 });
@@ -1907,7 +1917,7 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("AreaId")
+                    b.Property<Guid?>("AreaId")
                         .HasColumnType("char(36)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1946,6 +1956,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AreaId");
 
                     b.ToTable("Holidays");
                 });
@@ -3740,6 +3752,15 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Holiday", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.CostCenters", "Area")
+                        .WithMany()
+                        .HasForeignKey("AreaId");
+
+                    b.Navigation("Area");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplicationDetail", b =>

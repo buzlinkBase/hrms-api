@@ -83,11 +83,11 @@ public class AttendanceController : ControllerBase
         }
         var employeeIds = payload.Select(x => x.EmployeeId).ToHashSet();
         var employees = await _service.Context.Employees
-            .Where(x => x.BioId.HasValue && employeeIds.Contains(x.Id))
+            .Where(x => employeeIds.Contains(x.Id))
             .Select(x => new
             {
                 x.Id,
-                BioId = x.BioId!.Value,
+                x.BioId,
                 x.DepartmentId,
                 x.AreaId,
                 x.ClientId,

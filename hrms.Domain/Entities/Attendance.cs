@@ -5,7 +5,7 @@ namespace Hrms.Domain.Entities;
 
 public class Attendance : BaseEntity, IUserField
 {
-    public int BioId { get; set; }
+    public int? BioId { get; set; }
     public DateTime WorkDateTime { get; set; }
     public string IP { get; set; } = string.Empty;
     public string DeviceName { get; set; } = string.Empty;

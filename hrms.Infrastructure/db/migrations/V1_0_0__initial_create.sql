@@ -4,6 +4,7 @@
     CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
 ) CHARACTER SET=utf8mb4;
 
+START TRANSACTION;
 ALTER DATABASE CHARACTER SET utf8mb4;
 
 CREATE TABLE `AllowanceTypes` (
@@ -216,23 +217,6 @@ CREATE TABLE `HDMFContributions` (
     `DeletedAt` datetime(6) NULL,
     `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK_HDMFContributions` PRIMARY KEY (`Id`)
-) CHARACTER SET=utf8mb4;
-
-CREATE TABLE `Holidays` (
-    `Id` char(36) COLLATE ascii_general_ci NOT NULL,
-    `Description` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `HolType` int NOT NULL,
-    `WorkType` int NOT NULL,
-    `HolYear` int NOT NULL,
-    `HolDate` date NOT NULL,
-    `IsRecuring` tinyint(1) NOT NULL,
-    `IsPaid` tinyint(1) NOT NULL,
-    `AreaId` char(36) COLLATE ascii_general_ci NOT NULL,
-    `CreatedAt` datetime(6) NOT NULL,
-    `UpdatedAt` datetime(6) NULL,
-    `DeletedAt` datetime(6) NULL,
-    `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
-    CONSTRAINT `PK_Holidays` PRIMARY KEY (`Id`)
 ) CHARACTER SET=utf8mb4;
 
 CREATE TABLE `InboxState` (
@@ -571,6 +555,24 @@ CREATE TABLE `Allowances` (
     CONSTRAINT `FK_Allowances_AllowanceTypes_IncomeTypeId` FOREIGN KEY (`IncomeTypeId`) REFERENCES `AllowanceTypes` (`Id`)
 ) CHARACTER SET=utf8mb4;
 
+CREATE TABLE `Holidays` (
+    `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+    `Description` longtext CHARACTER SET utf8mb4 NOT NULL,
+    `HolType` int NOT NULL,
+    `WorkType` int NOT NULL,
+    `HolYear` int NOT NULL,
+    `HolDate` date NOT NULL,
+    `IsRecuring` tinyint(1) NOT NULL,
+    `IsPaid` tinyint(1) NOT NULL,
+    `AreaId` char(36) COLLATE ascii_general_ci NULL,
+    `CreatedAt` datetime(6) NOT NULL,
+    `UpdatedAt` datetime(6) NULL,
+    `DeletedAt` datetime(6) NULL,
+    `Status` longtext CHARACTER SET utf8mb4 NOT NULL,
+    CONSTRAINT `PK_Holidays` PRIMARY KEY (`Id`),
+    CONSTRAINT `FK_Holidays_Areas_AreaId` FOREIGN KEY (`AreaId`) REFERENCES `Areas` (`Id`)
+) CHARACTER SET=utf8mb4;
+
 CREATE TABLE `ClientHolidays` (
     `Id` char(36) COLLATE ascii_general_ci NOT NULL,
     `ClientId` char(36) COLLATE ascii_general_ci NOT NULL,
@@ -691,7 +693,7 @@ CREATE TABLE `AssignAssets` (
 
 CREATE TABLE `Attendances` (
     `Id` char(36) COLLATE ascii_general_ci NOT NULL,
-    `BioId` int NOT NULL,
+    `BioId` int NULL,
     `WorkDateTime` datetime(6) NOT NULL,
     `IP` longtext CHARACTER SET utf8mb4 NOT NULL,
     `DeviceName` longtext CHARACTER SET utf8mb4 NOT NULL,
@@ -699,12 +701,13 @@ CREATE TABLE `Attendances` (
     `DepartmentId` char(36) COLLATE ascii_general_ci NULL,
     `ClientId` char(36) COLLATE ascii_general_ci NULL,
     `BranchId` char(36) COLLATE ascii_general_ci NULL,
+    `OperationAreaId` char(36) COLLATE ascii_general_ci NULL,
     `UserId` char(36) COLLATE ascii_general_ci NOT NULL,
     `UserName` longtext CHARACTER SET utf8mb4 NOT NULL,
     `Workstate` int NOT NULL,
     `Verifycode` longtext CHARACTER SET utf8mb4 NOT NULL,
     `LogRemarks` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `BatchCode` char(36) COLLATE ascii_general_ci NOT NULL,
+    `BatchCode` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
     `EditRemarks` longtext CHARACTER SET utf8mb4 NOT NULL,
     `LogSource` int NOT NULL,
     `Boundary` geometry NULL /*!80003 SRID 4326 */,
@@ -850,7 +853,7 @@ CREATE TABLE `Departments` (
 
 CREATE TABLE `Employees` (
     `Id` char(36) COLLATE ascii_general_ci NOT NULL,
-    `BioId` int NOT NULL,
+    `BioId` int NULL,
     `EmployeeNo` longtext CHARACTER SET utf8mb4 NOT NULL,
     `DepartmentId` char(36) COLLATE ascii_general_ci NULL,
     `PayrollGroupId` char(36) COLLATE ascii_general_ci NOT NULL,
@@ -1178,6 +1181,12 @@ CREATE INDEX `IX_Allowances_IncomeTypeId` ON `Allowances` (`IncomeTypeId`);
 
 CREATE INDEX `IX_AssignAssets_EmployeeId` ON `AssignAssets` (`EmployeeId`);
 
+CREATE INDEX `IX_Att_BRId_DepId_Area_ClId_LS` ON `Attendances` (`BranchId`, `DepartmentId`, `OperationAreaId`, `ClientId`);
+
+CREATE INDEX `IX_Attendance_LogSource_BatchCode` ON `Attendances` (`LogSource`, `BatchCode`);
+
+CREATE INDEX `IX_Attendance_ls_wt` ON `Attendances` (`LogSource`, `WorkDateTime`);
+
 CREATE INDEX `IX_Attendances_EmployeeId` ON `Attendances` (`EmployeeId`);
 
 CREATE INDEX `IX_ChangeHolidays_EmployeeId` ON `ChangeHolidays` (`EmployeeId`);
@@ -1206,8 +1215,6 @@ CREATE INDEX `IX_EmployeeRecords_EmployeeId` ON `EmployeeRecords` (`EmployeeId`)
 
 CREATE INDEX `IX_Employees_AreaId` ON `Employees` (`AreaId`);
 
-CREATE UNIQUE INDEX `IX_Employees_BioId` ON `Employees` (`BioId`);
-
 CREATE INDEX `IX_Employees_BranchId` ON `Employees` (`BranchId`);
 
 CREATE INDEX `IX_Employees_ClientId` ON `Employees` (`ClientId`);
@@ -1233,6 +1240,8 @@ CREATE UNIQUE INDEX `IX_EmployeeSettings_EmployeeId` ON `EmployeeSettings` (`Emp
 CREATE INDEX `IX_Employments_EmployeeId` ON `Employments` (`EmployeeId`);
 
 CREATE UNIQUE INDEX `IX_HDMFRates_EmployeeId` ON `HDMFRates` (`EmployeeId`);
+
+CREATE INDEX `IX_Holidays_AreaId` ON `Holidays` (`AreaId`);
 
 CREATE INDEX `IX_InboxState_Delivered` ON `InboxState` (`Delivered`);
 
@@ -1289,5 +1298,7 @@ ALTER TABLE `DailyTimeRecords` ADD CONSTRAINT `FK_DailyTimeRecords_Employees_Emp
 ALTER TABLE `Departments` ADD CONSTRAINT `FK_Departments_Employees_HeadId` FOREIGN KEY (`HeadId`) REFERENCES `Employees` (`Id`) ON DELETE RESTRICT;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('20260617125333_initial_create', '9.0.2');
+VALUES ('20260718042532_V1_0_0__initial_create', '9.0.2');
+
+COMMIT;
 

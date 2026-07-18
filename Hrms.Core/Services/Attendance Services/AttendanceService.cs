@@ -20,13 +20,13 @@ public class AttendanceService : BaseService<Attendance>
         }
 
         var uniqueRecordKeys = attendances
-             .GroupBy(x => new { x.BioId, x.WorkDateTime })
+             .GroupBy(x => new { x.BioId, x.EmployeeId, x.WorkDateTime })
              .Select(group => group.Key)
              .ToList();
         foreach (var key in uniqueRecordKeys)
         {
             await GetQueryable()
-                .Where(x => x.BioId == key.BioId && x.WorkDateTime == key.WorkDateTime)
+                .Where(x => x.BioId == key.BioId && x.EmployeeId == key.EmployeeId && x.WorkDateTime == key.WorkDateTime)
                 .ExecuteDeleteAsync(token);
         }
 
@@ -120,7 +120,7 @@ public class AttendanceService : BaseService<Attendance>
         var departmentId = payload.DepartmentId;
         var payrollGroupId = payload.PayrollGroupId;
         var branchId = payload.BranchId;
-        var areaId  = payload.OperationAreaId;
+        var areaId = payload.OperationAreaId;
         var clientId = payload.ClientId;
         var fromWD = DateOnly.FromDateTime(payload.FromDate);
         var toWD = DateOnly.FromDateTime(payload.ToDate);

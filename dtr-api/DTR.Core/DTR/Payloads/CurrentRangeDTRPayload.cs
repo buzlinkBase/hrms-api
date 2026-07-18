@@ -94,8 +94,7 @@ public class CurrentRangeDTRPayloadService
 
     private async Task<List<EmployeeDTRRun>> ExtractEmployees(DTRRequestPayload payload, CancellationToken token)
     {
-        var query = _employeeService.GetQueryable(x => x.BioId > 0);
-
+        var query = _employeeService.GetQueryable();
         if (payload.EmployeeId.HasValue)
         {
             query = query.Where(x => x.Id == payload.EmployeeId.Value);
@@ -122,7 +121,7 @@ public class CurrentRangeDTRPayloadService
             MiddleName = x.MiddleName,
             Suffix = x.Suffix,
             TimeShiftId = x.TimeShiftId,
-            BioId = x.BioId!.Value,
+            BioId = x.BioId,
             PayrollGroupId = x.PayrollGroupId,
             DepartmentId = x.DepartmentId,
             DepartmentName = x.Department != null ? x.Department.Name : null,

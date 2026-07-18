@@ -175,7 +175,7 @@ public class FallbackSchedule : WorkScheduleHandler
             MinimumWorkMinutes = 0,
             MaxWorkingMinutes = 480,
             WithOT = true,
-            ShiftType = TimeShiftType.FLEXI,
+            ShiftType = TimeShiftType.SPLIT,
         };
     }
     protected override CurrentShift GetCurrentShift(EmployeeDTRRun employee, DateOnly date)

@@ -33,7 +33,7 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(255)");
 
-                    b.Property<int>("BioId")
+                    b.Property<int?>("BioId")
                         .HasColumnType("int");
 
                     b.Property<Polygon>("Boundary")
@@ -1914,7 +1914,7 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("AreaId")
+                    b.Property<Guid?>("AreaId")
                         .HasColumnType("char(36)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1953,6 +1953,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AreaId");
 
                     b.ToTable("Holidays");
                 });
@@ -3747,6 +3749,15 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Holiday", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.CostCenters", "Area")
+                        .WithMany()
+                        .HasForeignKey("AreaId");
+
+                    b.Navigation("Area");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplicationDetail", b =>

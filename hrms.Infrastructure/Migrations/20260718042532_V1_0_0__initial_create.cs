@@ -8,7 +8,7 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class initial_create : Migration
+    public partial class V1_0_0__initial_create : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -371,32 +371,6 @@ namespace Hrms.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_HDMFContributions", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "Holidays",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Description = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    HolType = table.Column<int>(type: "int", nullable: false),
-                    WorkType = table.Column<int>(type: "int", nullable: false),
-                    HolYear = table.Column<int>(type: "int", nullable: false),
-                    HolDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    IsRecuring = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    IsPaid = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    AreaId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Holidays", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -918,6 +892,37 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "Holidays",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Description = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    HolType = table.Column<int>(type: "int", nullable: false),
+                    WorkType = table.Column<int>(type: "int", nullable: false),
+                    HolYear = table.Column<int>(type: "int", nullable: false),
+                    HolDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    IsRecuring = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    IsPaid = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Holidays", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Holidays_Areas_AreaId",
+                        column: x => x.AreaId,
+                        principalTable: "Areas",
+                        principalColumn: "Id");
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "ClientHolidays",
                 columns: table => new
                 {
@@ -1136,7 +1141,7 @@ namespace Hrms.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    BioId = table.Column<int>(type: "int", nullable: false),
+                    BioId = table.Column<int>(type: "int", nullable: true),
                     WorkDateTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     IP = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -1146,6 +1151,7 @@ namespace Hrms.Infrastructure.Migrations
                     DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    OperationAreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     UserName = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -1154,7 +1160,8 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     LogRemarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    BatchCode = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    BatchCode = table.Column<string>(type: "varchar(255)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     EditRemarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     LogSource = table.Column<int>(type: "int", nullable: false),
@@ -1356,7 +1363,7 @@ namespace Hrms.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    BioId = table.Column<int>(type: "int", nullable: false),
+                    BioId = table.Column<int>(type: "int", nullable: true),
                     EmployeeNo = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
@@ -1999,6 +2006,21 @@ namespace Hrms.Infrastructure.Migrations
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Att_BRId_DepId_Area_ClId_LS",
+                table: "Attendances",
+                columns: new[] { "BranchId", "DepartmentId", "OperationAreaId", "ClientId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attendance_LogSource_BatchCode",
+                table: "Attendances",
+                columns: new[] { "LogSource", "BatchCode" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attendance_ls_wt",
+                table: "Attendances",
+                columns: new[] { "LogSource", "WorkDateTime" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Attendances_EmployeeId",
                 table: "Attendances",
                 column: "EmployeeId");
@@ -2070,12 +2092,6 @@ namespace Hrms.Infrastructure.Migrations
                 column: "AreaId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Employees_BioId",
-                table: "Employees",
-                column: "BioId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Employees_BranchId",
                 table: "Employees",
                 column: "BranchId");
@@ -2141,6 +2157,11 @@ namespace Hrms.Infrastructure.Migrations
                 table: "HDMFRates",
                 column: "EmployeeId",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Holidays_AreaId",
+                table: "Holidays",
+                column: "AreaId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_InboxState_Delivered",

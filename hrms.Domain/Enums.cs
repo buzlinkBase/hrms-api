@@ -5,8 +5,8 @@ public enum IncomeClassType
     Deminimis,
     Regular,
     Commission,
-    Bonus, 
-    Reimbursement,  
+    Bonus,
+    Reimbursement,
     Others
 }
 
@@ -19,11 +19,11 @@ public enum TimeShiftType
 
 public enum BreakMode
 {
-    NONE, 
+    NONE,
     UNPAID_BREAK,
-    PAID_BREAK, 
+    PAID_BREAK,
 }
- 
+
 public enum SalaryAdjustmentType
 {
     Salary,
@@ -178,7 +178,7 @@ public enum WorkType
     Incomplete,
     Skipped,
     PaidLeaveDuty,
-    UnpaidLeaveDuty, 
+    UnpaidLeaveDuty,
 }
 
 public enum DTRStatus
@@ -198,7 +198,7 @@ public enum PayType
     WithoutPay
 }
 
-public enum LeaveDayType 
+public enum LeaveDayType
 {
     WholeDay,
     HalfDay

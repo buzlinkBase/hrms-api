@@ -30,7 +30,7 @@ public class AttendanceProvider
             return new List<Attendance>();
 
         //hours before shift
-        var allowance = currentShift.ShiftType == TimeShiftType.FLEXI ? 0 : TimeAllowance.TimeInAllowance;
+        var allowance = currentShift.ShiftType == TimeShiftType.SPLIT ? 0 : TimeAllowance.TimeInAllowance;
 
         //get only att within set window
         var allAtts = attendances

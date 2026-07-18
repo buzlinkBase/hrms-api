@@ -27,18 +27,22 @@ public class AttLogTableProcessor : ICDataProcessor
             if (fields.Length >= 2)
             {
                 var bioId = int.TryParse(fields[0], out int id) ? id : 0;
+                if (!DateTime.TryParse(fields[1], out DateTime dt))
+                {
+                    continue;
+                }
                 var attendance = new CreateAttendancePayload
                 {
                     BioId = bioId,
                     BatchId = batch,
-                    WorkDateTime = DateTime.TryParse(fields[1], out DateTime dt) ? dt : DateTime.Now,
+                    WorkDateTime = dt,
                     TenantId = payload.Info.DeviceInfo.TenantId,
                     BranchId = payload.Info.DeviceInfo.BranchId,
                     ClientId = payload.Info.DeviceInfo.ClientId,
                     DepartmentId = payload.Info.DeviceInfo.DepartmentId,
                     OperationAreaId = payload.Info.DeviceInfo.OperationAreaId,
                     DeviceName = payload.SN,
-                    IPAddress=payload.Info.DeviceInfo.IpAddress,
+                    IPAddress = payload.Info.DeviceInfo.IpAddress,
                 };
                 atts.Add(attendance);
             }
@@ -46,10 +50,9 @@ public class AttLogTableProcessor : ICDataProcessor
 
         if (!atts.Any()) return;
         await _publisher.Publish(new AttendancePayloadWrapper { AttLogs = atts });
-
         //store syncing record
         //this batch can be resend if something went DLQ arrise
-        var attentties = new List<Attendance>();
+        var attendances = new List<Attendance>();
         foreach (var attendance in atts)
         {
             var att = new Attendance
@@ -64,9 +67,9 @@ public class AttLogTableProcessor : ICDataProcessor
                 TenantId = attendance.TenantId,
                 WorkDateTime = attendance.WorkDateTime,
             };
-            attentties.Add(att);
+            attendances.Add(att);
         }
-        await _service.AddRangeAsync(attentties);
+        await _service.AddRangeAsync(attendances);
         await _service.CommitChangesAsync(token);
     }
 }
