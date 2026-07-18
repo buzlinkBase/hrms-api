@@ -475,8 +475,7 @@ public class CommandsController : ControllerBase
             SN = sn,
         };
         await _service.CreateCommand(new List<DeviceCommand> { devcommand });
-        return NoContent();
-
+        return NoContent(); 
     }
 
     [HttpDelete()]

@@ -46,7 +46,7 @@ namespace Hrms.adms.Controllers
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<BiometricDeviceModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
-        {
+        { 
             var tenantId = HttpContext.ParseTenant();
             if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
             var data = await _service.FindAllAsync(tenantId, token);
