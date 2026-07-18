@@ -11,7 +11,7 @@ public class Holiday : BaseEntity
     public DateOnly HolDate { get; set; }
     public bool IsRecuring { get; set; }
     public bool IsPaid { get; set; }
-    public Guid AreaId { get; set; }
+    public Guid? AreaId { get; set; }
     //[ForeignKey(nameof(AreaId))]
     public virtual CostCenters Area { get; set; }
 }

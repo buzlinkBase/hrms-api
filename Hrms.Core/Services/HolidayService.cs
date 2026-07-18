@@ -128,8 +128,8 @@ public class HolidayService : BaseService<Holiday>
 public readonly record struct Holidaykey(Guid EmpId, DateOnly PayrollId);
 public record HolidayResult(Guid Id,
     string Description,
-    Guid AreaId,
-    string AreaName,
+    Guid? AreaId,
+    string? AreaName,
     string HolDate,
     string HolidayType,
     bool IsRecuring,

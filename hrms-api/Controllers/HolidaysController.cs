@@ -21,9 +21,10 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<HolidayResult>>), 200)]
         public async Task<IActionResult> Get([FromQuery(Name = "year")] int year, CancellationToken token)
         {
+            var curYear = year == 0 ? DateTime.UtcNow.Year : year;
             var data = await _service.FindAllAsync(year, token);
             return Ok(data);
         }
