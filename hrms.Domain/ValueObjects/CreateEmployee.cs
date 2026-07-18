@@ -369,6 +369,7 @@ public class EmployeeDTRRun
 public class EmployeeFilterResponseModel
 {
     public Guid Id { get; set; }
+    public int? BioId  { get; set; }
     public string? Name { get; set; }
     public Guid? BranchId  { get; set; }
     public Guid? AreaId { get; set; }
