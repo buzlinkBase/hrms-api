@@ -9,7 +9,7 @@ public class PreShiftOTHandler : OTComputationHandlerBase
     protected override bool CanHandle(TimeRange input, TimeContext context)
     {
         var shift = context.Payload.Data.CurrentShift;
-        if (shift.ShiftType == TimeShiftType.SPLIT) return false;
+        if (shift.ShiftType == TimeShiftType.FLEXI) return false;
 
         if (context.Payload.Data.Employee.ClientId.HasValue)
         {

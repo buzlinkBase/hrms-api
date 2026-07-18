@@ -26,7 +26,8 @@ namespace Hrms.adms.Controllers
         [ProducesResponseType(typeof(ResponseModel<UpdateBiometricDevice>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateBiometricDevice payload, CancellationToken token)
         {
-            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString() ?? Guid.Empty.ToString();
+            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString()
+                ?? Guid.Empty.ToString();
             var data = await _service.AddAsync(payload, Guid.Parse(tenantId), token);
             return Ok(data);
         }
@@ -43,9 +44,7 @@ namespace Hrms.adms.Controllers
         [ProducesResponseType(typeof(ResponseModel<List<BiometricDeviceModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
-            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString() ?? Guid.Empty.ToString();
-            var parseTenantId = Guid.Parse(tenantId);
-            var data = await _service.FindAllAsync(parseTenantId, token);
+            var data = await _service.FindAllAsync(token);
             return Ok(data);
         }
 

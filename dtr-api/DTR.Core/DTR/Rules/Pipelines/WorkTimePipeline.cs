@@ -29,7 +29,7 @@ public class RegularTimeShiftRuleFactory
         {
             case TimeShiftType.FIXED:
                 return new FixedShiftRegularTimePolicy(context, specification);
-            case TimeShiftType.SPLIT:
+            case TimeShiftType.FLEXI:
                 return new FixedShiftRegularTimePolicy(context, specification);
             default:
                 throw new NotImplementedException("IRegularTimeShiftRule");
