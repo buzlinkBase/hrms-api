@@ -96,7 +96,7 @@ public static class ServiceRegistrations
         builder.Services.AddScoped<IHMACService, HMACService>();
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
         //zkteco
-        builder.Services.AddScoped<ISystemClockService, SystemClockService>();  
+        builder.Services.AddScoped<ISystemClockService, SystemClockService>();
         builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
@@ -113,7 +113,6 @@ public static class ServiceRegistrations
 
         builder.Services.AddDbContext<AdmsContext>((sp, options) =>
         {
-
             var connectionString = builder.Configuration.GetConnectionString("AdmsConnection");
             options.UseLazyLoadingProxies(true);
             var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));

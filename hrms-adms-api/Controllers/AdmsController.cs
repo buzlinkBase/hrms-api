@@ -3,7 +3,6 @@ using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RTools_NTS.Util;
 using System.Text;
 
 namespace Hrms.adms.Controllers;
@@ -109,7 +108,7 @@ public class AdmsController : ControllerBase
                 {
                     var IdTag = str[0].Split("=");
                     var Id = Guid.Parse(IdTag[1]);
-                    _commandService.Delete(Id);
+                    _commandService.DeleteAsync(Id);
                 }
             }
         }

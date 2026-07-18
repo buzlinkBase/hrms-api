@@ -50,6 +50,13 @@ public static class HttpRequestExtensions
             .FirstOrDefault(c => string.Equals(c.Type, claim, StringComparison.OrdinalIgnoreCase))?.Value;
     }
 
+    public static Guid ParseTenant(this HttpContext context)
+    {
+        var parseTenant = context.User.GetUserClaim("tenantId")?.ToString()
+          ?? Guid.Empty.ToString();
+        return Guid.Parse(parseTenant);
+    }
+
     public static string? GetUserClaim(this HttpContext context, string claim)
     {
         var user = context.User;

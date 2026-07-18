@@ -193,7 +193,7 @@ public class DeviceService : BaseService<BiometricDevice>
         }
     }
 
-    public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, CancellationToken token)
+    public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, Guid tenantId, CancellationToken token)
     {
         var model = new BiometricDevice
         {
@@ -204,21 +204,22 @@ public class DeviceService : BaseService<BiometricDevice>
             BranchId = payload.BranchId,
             ClientId = payload.ClientId,
             OperationAreaId = payload.AreaId,
-            Status = payload.Status
+            Status = payload.Status,
+            TenantId = tenantId,
         };
 
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
         return payload;
     }
-    public async Task<List<BiometricDevice>> FindAllAsync(CancellationToken token)
+    public async Task<List<BiometricDevice>> FindAllAsync(Guid tenantId, CancellationToken token)
     {
-        return await GetQueryable()
+        return await GetQueryable(x => x.TenantId == tenantId)
             .ToListAsync(token);
     }
-    public async Task<BiometricDeviceModel?> FineOneAsync(Guid Id, CancellationToken token)
+    public async Task<BiometricDeviceModel?> FineOneAsync(Guid Id, Guid tenantId, CancellationToken token)
     {
-        var result = await GetQueryable(x => x.Id == Id)
+        var result = await GetQueryable(x => x.Id == Id && x.TenantId == tenantId)
             .Select(x => new BiometricDeviceModel
             {
                 Id = x.Id,
@@ -242,9 +243,9 @@ public class DeviceService : BaseService<BiometricDevice>
         return result;
     }
 
-    public async Task<BiometricDeviceModel?> GetBySerial(string sn, CancellationToken token)
+    public async Task<BiometricDeviceModel?> GetBySerial(string sn, Guid tenantId, CancellationToken token)
     {
-        return await GetQueryable(x => x.SN == sn)
+        return await GetQueryable(x => x.SN == sn && x.TenantId == tenantId)
             .Select(x => new BiometricDeviceModel
             {
                 Id = x.Id,

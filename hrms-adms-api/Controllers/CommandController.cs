@@ -1,8 +1,10 @@
 ﻿using Asp.Versioning;
 using DocumentFormat.OpenXml.Office2010.Excel;
+using Hrms.adms.Extensions;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
 using Hrms.adms.Utilities;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.SqlServer.Types;
@@ -27,15 +29,20 @@ public class CommandsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllPending([FromQuery] string SN)
+    public async Task<ActionResult<List<CommandReturnModel>>> GetAllPending([FromQuery] string SN)
     {
-        var data = await _service.FindAllPending(SN);
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+        var data = await _service.FindAllPending(SN, tenantId);
         return Ok(data);
     }
 
     [HttpPost("sync-employees")]
     public async Task<IActionResult> Create([FromQuery] string SN, [FromBody] List<SetEmployeeCommandPayload> payload)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var devCommands = new List<DeviceCommand>();
@@ -75,6 +82,9 @@ public class CommandsController : ControllerBase
     [HttpPost("sync-biometric")]
     public async Task<IActionResult> SyncBio([FromQuery] string SN, [FromBody] List<SyncBioPayload> payload)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var devCommands = new List<DeviceCommand>();
@@ -112,6 +122,9 @@ public class CommandsController : ControllerBase
     [HttpPost("sync-face")]
     public async Task<IActionResult> SyncFace([FromQuery] string SN, [FromBody] List<SyncBioPayload> payload)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var devCommands = new List<DeviceCommand>();
@@ -150,6 +163,9 @@ public class CommandsController : ControllerBase
     [HttpPost("enroll-fp")]
     public async Task<IActionResult> EnrollFinger([FromQuery] string SN, [FromBody] EnrollFPPayload payload)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -182,6 +198,9 @@ public class CommandsController : ControllerBase
     [HttpPost("enroll-face")]
     public async Task<IActionResult> EnrollFace([FromQuery] string SN, [FromBody] EnrollFacePayload payload)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -214,6 +233,9 @@ public class CommandsController : ControllerBase
     [HttpPost("reboot")]
     public async Task<IActionResult> Reboot([FromQuery] string SN)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -237,6 +259,9 @@ public class CommandsController : ControllerBase
     [HttpPost("clear-logs")]
     public async Task<IActionResult> ClearLogs([FromQuery] string SN)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -260,6 +285,9 @@ public class CommandsController : ControllerBase
     [HttpPost("set-time")]
     public async Task<IActionResult> SetTime([FromQuery] string SN, [FromQuery] bool autoServerTime)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -289,6 +317,9 @@ public class CommandsController : ControllerBase
     [HttpPost("enable-attendance")]
     public async Task<IActionResult> EnableDevice([FromQuery] string SN, [FromQuery] int enable)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -305,6 +336,7 @@ public class CommandsController : ControllerBase
             CommandType = syncEmpCmd.Command,
             Commands = resultCommand,
             SN = SN,
+
         };
         await _service.CreateCommand(new List<DeviceCommand> { devcommand });
         return NoContent();
@@ -313,6 +345,9 @@ public class CommandsController : ControllerBase
     [HttpPost("clear-admin")]
     public async Task<IActionResult> ClearAdmin([FromQuery] string SN)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -336,6 +371,9 @@ public class CommandsController : ControllerBase
     [HttpPost("pull-attendance")]
     public async Task<IActionResult> PullAtt([FromQuery] PullAttPayload data)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
         var id = Guid.CreateVersion7();
@@ -367,6 +405,9 @@ public class CommandsController : ControllerBase
        [FromQuery] string? pin = null,
        [FromQuery] int? fid = null)
     {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
         string command;
         var id = Guid.CreateVersion7();
         if (string.IsNullOrEmpty(pin))
@@ -439,14 +480,15 @@ public class CommandsController : ControllerBase
     }
 
     [HttpDelete()]
-    public async Task<IActionResult> Delete([FromQuery(Name = "id:Guid")] Guid Id)
+    public async Task<IActionResult> Delete([FromQuery] Guid id)
     {
-        _service.Delete(Id);
-        _service.CommitChanges();
-        return NoContent();
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
+        await _service.DeleteAsync(id);
+        await _service.CommitChangesAsync();
+        return Ok();
     }
-
-
 }
 
 public record PullAttPayload

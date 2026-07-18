@@ -26,9 +26,10 @@ namespace Hrms.adms.Controllers
         [ProducesResponseType(typeof(ResponseModel<UpdateBiometricDevice>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateBiometricDevice payload, CancellationToken token)
         {
-            var tenantId = HttpContext.User.GetUserClaim("TenantId")?.ToString()
-                ?? Guid.Empty.ToString();
-            var data = await _service.AddAsync(payload, Guid.Parse(tenantId), token);
+            var tenantId = HttpContext.ParseTenant();
+            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
+            var data = await _service.AddAsync(payload, tenantId, token);
             return Ok(data);
         }
 
@@ -36,7 +37,9 @@ namespace Hrms.adms.Controllers
         [ProducesResponseType(typeof(ResponseModel<UpdateBiometricDevice>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBiometricDevice payload, CancellationToken token)
         {
-            var data = await _service.UpdateStatusAsync(payload, token);
+            var tenantId = HttpContext.ParseTenant();
+            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+            var data = await _service.UpdateStatusAsync(payload, tenantId, token);
             return Ok(data);
         }
 
@@ -44,7 +47,9 @@ namespace Hrms.adms.Controllers
         [ProducesResponseType(typeof(ResponseModel<List<BiometricDeviceModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
-            var data = await _service.FindAllAsync(token);
+            var tenantId = HttpContext.ParseTenant();
+            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+            var data = await _service.FindAllAsync(tenantId, token);
             return Ok(data);
         }
 
@@ -52,7 +57,10 @@ namespace Hrms.adms.Controllers
         [ProducesResponseType(typeof(ResponseModel<BiometricDeviceModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
-            var data = await _service.FineOneAsync(id, token);
+            var tenantId = HttpContext.ParseTenant();
+            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
+            var data = await _service.FineOneAsync(id, tenantId, token);
             return Ok(data);
         }
 
@@ -60,7 +68,10 @@ namespace Hrms.adms.Controllers
         [ProducesResponseType(typeof(ResponseModel<BiometricDeviceModel>), 200)]
         public async Task<IActionResult> GetBySerial(string sn, CancellationToken token)
         {
-            var data = await _service.GetBySerial(sn, token);
+            var tenantId = HttpContext.ParseTenant();
+            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+
+            var data = await _service.GetBySerial(sn, tenantId, token);
             return Ok(data);
         }
 

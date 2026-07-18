@@ -27,7 +27,7 @@ public class CleanUpDormantCommandWatcher : BackgroundService
                     {
                         foreach (var command in data)
                         {
-                            service.Delete(command.Id);
+                            service.DeleteAsync(command.Id);
                         }
                         await service.CommitChangesAsync();
                     }

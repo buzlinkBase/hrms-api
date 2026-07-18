@@ -1,8 +1,4 @@
-﻿using System.Configuration;
-using System.Net.WebSockets;
-
-namespace Hrms.adms.Services;
-
+﻿namespace Hrms.adms.Services;
 public class CommandService : BaseService<DeviceCommand>
 {
     private readonly DeviceService _service;
@@ -22,12 +18,19 @@ public class CommandService : BaseService<DeviceCommand>
         await CommitChangesAsync();
     }
 
-    public async Task<List<DeviceCommand>> FindAllPending(string sn)
+    public async Task<List<CommandReturnModel>> FindAllPending(string sn, Guid tenantId)
     {
-        var data = await GetQueryable(x=>x.SN==sn)
+        var data = await GetQueryable(x => x.SN == sn && x.TenantId == tenantId)
+            .Select(x => new CommandReturnModel()
+            {
+                Id = x.Id,
+                SN = x.SN,
+                CommandType = x.CommandType
+            })
             .ToListAsync();
         return data;
     }
+
     public async Task<List<DeviceCommand>> FindOldCommandAsync()
     {
         if (!int.TryParse(_configuration["CLEAN_UP_AGE"], out int maxAgeMinutes))
@@ -43,17 +46,23 @@ public class CommandService : BaseService<DeviceCommand>
 
     public async Task<List<DeviceCommand>> GetAllCommandsAsync(string sn)
     {
-        var device = await _service.FindSnAsync(sn,CancellationToken.None);
-        if (device == null) return new List<DeviceCommand>(); 
+        var device = await _service.FindSnAsync(sn, CancellationToken.None);
+        if (device == null) return new List<DeviceCommand>();
         return GetQueryable(x => x.SN == sn)
-            .OrderBy(x=>x.Id)
+            .OrderBy(x => x.Id)
             .Skip(0)
             .Take(30)
             .ToList();
     }
-    public void Delete(Guid Id)
+    public async Task DeleteAsync(Guid Id)
     {
-        GetQueryable(x => x.Id == Id)
-            .ExecuteDelete();
+        await GetQueryable(x => x.Id == Id )
+             .ExecuteDeleteAsync();
     }
+}
+public record CommandReturnModel
+{
+    public Guid Id { get; set; }
+    public string SN { get; set; }
+    public string CommandType { get; set; }
 }
