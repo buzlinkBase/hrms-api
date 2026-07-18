@@ -21,9 +21,10 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<HolidayResult>>), 200)]
         public async Task<IActionResult> Get([FromQuery(Name = "year")] int year, CancellationToken token)
         {
+            var curYear = year == 0 ? DateTime.UtcNow.Year : year;
             var data = await _service.FindAllAsync(year, token);
             return Ok(data);
         }
@@ -48,7 +49,8 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateHoliday payload, CancellationToken token)
         {
-            return Ok(await _service.AddAsync(payload, token));
+            var response = await _service.AddAsync(payload, token);
+            return Ok(response);
         }
 
         [HttpPut("{id}")]

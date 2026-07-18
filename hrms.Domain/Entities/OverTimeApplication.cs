@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities;
 

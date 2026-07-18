@@ -1,4 +1,4 @@
-﻿
+
 using System.ComponentModel.DataAnnotations;
 
 namespace DTR.Models;
@@ -39,7 +39,7 @@ public class TimeShift : BaseEntity
     //Minimum extra hours before overtime applies.
     public double OverTimeThreshold { get; set; } = 60;
     //public bool PaidByNetDutyTime { get; set; }
-    //flexi
+    //split
     public double MinimumWorkMinutes { get; set; } = 0;
     public double MaxWorkingMinutes { get; set; } = 480;
 }

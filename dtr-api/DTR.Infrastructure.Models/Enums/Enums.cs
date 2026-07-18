@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace DTR.Models;
 
@@ -12,7 +12,7 @@ public enum BreakMode
 public enum TimeShiftType
 {
     FIXED,
-    FLEXI
+    SPLIT
 }
 public enum SalaryType
 {

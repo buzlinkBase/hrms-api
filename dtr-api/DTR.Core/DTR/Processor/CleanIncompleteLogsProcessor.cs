@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
@@ -74,11 +74,11 @@ internal class FixMapper : IIncompleteLogShiftMapper
         return dtr;
     }
 }
-internal class FlexiMapper : IIncompleteLogShiftMapper
+internal class SplitMapper : IIncompleteLogShiftMapper
 {
     private readonly DTRProcessorPayload _payload;
 
-    public FlexiMapper(DTRProcessorPayload payload)
+    public SplitMapper(DTRProcessorPayload payload)
     {
         _payload = payload;
     }

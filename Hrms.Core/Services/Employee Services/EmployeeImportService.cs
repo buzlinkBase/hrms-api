@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel;
+using ClosedXML.Excel;
 using Ganss.Excel;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
@@ -710,7 +710,7 @@ public class TemplateDownloaderService
         worksheet.Cell("V3").Value = SalaryTypes.LastOrDefault();
 
 
-        var shiftTypes = new List<string>() { "Fixed", "Flexi" };
+        var shiftTypes = new List<string>() { "Fixed", "Split" };
         helperSheet = workbook.Worksheets.Add("ShiftTypes");
         CreateSheet(helperSheet, shiftTypes);
         range = helperSheet.Range(1, 1, shiftTypes.Count, 1);

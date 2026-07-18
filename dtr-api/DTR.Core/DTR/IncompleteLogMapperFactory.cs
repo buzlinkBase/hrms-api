@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
@@ -12,8 +12,8 @@ public static class IncompleteLogMapperFactory
     public static IIncompleteLogShiftMapper Create(DTRProcessorPayload payload) =>
         payload.Data.CurrentShift.ShiftType switch
         {
-            TimeShiftType.FIXED => new FlexiMapper(payload),//use flexi to show all logs instead of limitted to nearpunch
-            TimeShiftType.FLEXI => new FlexiMapper(payload),
+            TimeShiftType.FIXED => new SplitMapper(payload),//use split to show all logs instead of limitted to nearpunch
+            TimeShiftType.SPLIT => new SplitMapper(payload),
             _ => throw new NotImplementedException("Unsupported shift type [IncompleteLogModel]")
         };
 }

@@ -169,4 +169,13 @@ public class DTRDetailModel
     public double RestSpecialDayOTHours { get; set; }
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
+    public double TotalHours => new[]
+                {
+                    RegularNetHours, RegularOTHours, RegularNDHours, RegularNDOTHours,
+                    RestDayHours, RestDayOTHours, RestDayNDHours, RestDayNDOTHours,
+                    //RestLegalDayHours, RestLegalDayOTHours, RestLegalDayNDHours, RestLegalDayNDOTHours,
+                    //RestSpecialDayHours, RestSpecialDayOTHours, RestSpecialDayNDHours, RestSpecialDayNDOTHours,
+                    LegalHolHours, LegalHolOTHours, LegalHolNightDiffHours, LegalHolNightDiffOTHours,
+                    SpecialHolHours, SpecialHolOTHours, SpecialHolNightDiffHours, SpecialHolNightDiffOTHours
+                }.Sum();
 }

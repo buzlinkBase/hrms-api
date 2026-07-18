@@ -16,7 +16,6 @@ public class IsEligibleWorkHours : IRuleSpecification
         var reaching = minimumWorkHours <= attTotalMinutes;
 
         payload.SharedSpecCache.Record(key, reaching);
-        return reaching;
-
+        return reaching; 
     }
 }

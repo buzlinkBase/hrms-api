@@ -1,4 +1,4 @@
-﻿namespace DTR.Core;
+namespace DTR.Core;
 
 public record CurrentShiftProviderPayload
 {
@@ -167,7 +167,7 @@ public class CrossMultiDateCurrentShiftProvider : ICurrentShiftProvider
     //}
 
     //private TimeSpan GetAllowanceTimeSpan(CurrentShift current)
-    //    => TimeSpan.FromMinutes(current.ShiftType == TimeShiftType.FLEXI ? 0 : TimeAllowance.TimeInAllowance * -1);
+    //    => TimeSpan.FromMinutes(current.ShiftType == TimeShiftType.SPLIT ? 0 : TimeAllowance.TimeInAllowance * -1);
 
 }
 public class CurrentShiftProvider : ICurrentShiftProvider

@@ -1,4 +1,4 @@
-﻿namespace Hrms.Domain.ValueObjects;
+namespace Hrms.Domain.ValueObjects;
 
 public class CreateOverTimeApplication
 {
