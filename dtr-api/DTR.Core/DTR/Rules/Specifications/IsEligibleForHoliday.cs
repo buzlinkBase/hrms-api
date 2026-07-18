@@ -1,7 +1,4 @@
-﻿using Hrms.Domain.Entities;
-using System.IdentityModel.Tokens.Jwt;
-
-namespace DTR.Core;
+﻿namespace DTR.Core;
 /// <summary>
 /// Rule specification: is the employee eligible for holiday pay for the given period?
 /// Delegates to a type-specific evaluator (legal vs. special holiday rules differ).
@@ -138,7 +135,6 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
 
                 return verdict == DayVerdict.Qualifies;
             }
-
             return false;
         }
         finally
@@ -165,7 +161,7 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
     /// original implementation. If this is unintentional, it should be reconciled —
     /// flagging here rather than silently changing the behavior.
     /// </summary>
-    private static DayVerdict ClassifyDay(DailyRecord record, TimeContext context, bool lookingForward)
+    private static DayVerdict ClassifyDay(DTRDetailModel record, TimeContext context, bool lookingForward)
     {
         var minWorkingHours = context.Payload.Data.CurrentShift.MinimumWorkingMinutes.ToHour();
         var workHours = record.TotalHours;
@@ -195,7 +191,7 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
             : DayVerdict.DoesNotQualify;
     }
 
-    private static async Task<DailyRecord?> ProcessLineAsync(DateOnly date, TimeContext context)
+    private static async Task<DTRDetailModel?> ProcessLineAsync(DateOnly date, TimeContext context)
     {
         var payload = context.Payload;
         var employee = payload.Data.Employee;
@@ -204,10 +200,9 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
         if (dtrService is null)
             return null;
 
-        DailyRecord? result = null;
         var curPayload = dtrService.GetPayload(date.ToDateTime(TimeOnly.MinValue));
-        await dtrService.GetDTRInfoAsync<DTRDetailModel>(curPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
-        return result;
+        var result = await dtrService.GetDTRInfoAsync<DTRDetailModel>(curPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
+        return result.FirstOrDefault();
     }
 }
 

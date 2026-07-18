@@ -48,7 +48,8 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateHoliday payload, CancellationToken token)
         {
-            return Ok(await _service.AddAsync(payload, token));
+            var response = await _service.AddAsync(payload, token);
+            return Ok(response);
         }
 
         [HttpPut("{id}")]

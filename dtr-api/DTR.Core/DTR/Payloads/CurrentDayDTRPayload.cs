@@ -11,8 +11,12 @@ public class CurrentDayDTRPayload
     bool processOnlyPairedAtt = true)
     {
         var shiftProvider = CreateShiftProvider(context, curEmployee, currentDate);
-        var currentShift = shiftProvider.GetCurrentShift();
 
+        var currentShift = shiftProvider.GetCurrentShift();
+        if (currentShift!.ShiftType == TimeShiftType.SPLIT)
+        {
+
+        }
         //capture attendance
         var attendanceProvider = CreateAttendanceProvider(context, curEmployee, shiftProvider);
         var currentAtt = attendanceProvider.CurrentShiftAttendance();
@@ -47,7 +51,7 @@ public class CurrentDayDTRPayload
     }
     public static ICurrentShiftProvider CreateShiftProvider(DTRContextModel context, EmployeeDTRRun employee, DateOnly curDate)
     {
-        return ShiftProviderFactory.Create( context,employee,curDate);
+        return ShiftProviderFactory.Create(context, employee, curDate);
     }
 
     private static AttendanceProvider CreateAttendanceProvider(
