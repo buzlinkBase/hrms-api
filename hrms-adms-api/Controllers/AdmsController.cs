@@ -3,6 +3,7 @@ using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RTools_NTS.Util;
 using System.Text;
 
 namespace Hrms.adms.Controllers;
@@ -11,7 +12,7 @@ namespace Hrms.adms.Controllers;
 [Route("iclock")]
 [ApiVersionNeutral]
 [AllowAnonymous]
-[ApiExplorerSettings(IgnoreApi =true)]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class AdmsController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
@@ -59,13 +60,14 @@ public class AdmsController : ControllerBase
         config.AppendLine("RegistryCode=0");
         config.AppendLine("RegistryVer=1.0");
         config.AppendLine($"ATTLOGStamp=0");        // ← sync attendance from beginning
-        config.AppendLine($"OPERLOGStamp=0");       // ← sync operation logs
-        config.AppendLine($"ATTPHOTOStamp=0");      // ← sync photos
+        //config.AppendLine($"OPERLOGStamp=0");       // ← sync operation logs
+        //config.AppendLine($"ATTPHOTOStamp=0");      // ← sync photos
         config.AppendLine("ErrorDelay=30");
         config.AppendLine("Delay=30");
         config.AppendLine("TransTimes=00:00;23:59");
         config.AppendLine("TransInterval=1");
-        config.AppendLine("TransFlag=TransData AttLog OpLog EnrollUser ChgUser EnrollFP ChgFP UserPic");
+        config.AppendLine("TransFlag=TransData AttLog  EnrollUser ChgUser EnrollFP ChgFP ");
+        //config.AppendLine("TransFlag=TransData AttLog OpLog EnrollUser ChgUser EnrollFP ChgFP UserPic");
         config.AppendLine("Realtime=1");
         config.AppendLine("Encrypt=0");
         config.AppendLine("TimeZone=8");            // ← set your timezone
@@ -76,8 +78,20 @@ public class AdmsController : ControllerBase
 
     // 2. HANDSHAKE
     [HttpGet("getrequest")]
-    public async Task<IActionResult> GetRequest([FromQuery] string SN)
+    public async Task<IActionResult> GetRequest([FromQuery] string SN, CancellationToken token)
     {
+
+        var deviceInfo = await _biometricDevice.FindSnAsync(SN, token);
+        if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty)
+        {
+            return Content("Unregistered", "text/plain");
+        }
+        _tenantProvider.SetTenantId(deviceInfo.TenantId);
+        deviceInfo.State = "Online";
+        _commandService.Context.BiometricDevices.Update(deviceInfo);
+        await _commandService.CommitChangesAsync(token);
+
+        //TODO add SignalR here to publish state 
         var data = await _commandService.GetAllCommandsAsync(SN);
         if (data == null || !data.Any())
         {
@@ -108,7 +122,7 @@ public class AdmsController : ControllerBase
                 {
                     var IdTag = str[0].Split("=");
                     var Id = Guid.Parse(IdTag[1]);
-                    _commandService.DeleteAsync(Id);
+                    await _commandService.DeleteAsync(Id);
                 }
             }
         }
@@ -119,20 +133,34 @@ public class AdmsController : ControllerBase
     // 1. HANDSHAKE (GET)
     // Handles the "Is the server there?" requests
     [HttpGet("~/iclock/cdata")]
-    public async Task<IActionResult> HandleCDataGet([FromQuery] string SN)
+    public async Task<IActionResult> HandleCDataGet([FromQuery] string SN, CancellationToken token)
     {
         return Content("OK", "text/plain");
+
+        //var config = new StringBuilder();
+        //config.AppendLine("RegistryCode=0");
+        //config.AppendLine("RegistryVer=1.0");
+        //config.AppendLine("ATTLOGStamp=0");
+        //config.AppendLine("OPERLOGStamp=0");
+        //config.AppendLine("ATTPHOTOStamp=0");
+        //config.AppendLine("ErrorDelay=30");
+        //config.AppendLine("Delay=30");
+        //config.AppendLine("TransTimes=00:00;23:59");
+        //config.AppendLine("TransInterval=1");
+        //config.AppendLine("TransFlag=TransData AttLog OpLog EnrollUser ChgUser EnrollFP ChgFP UserPic");
+        //config.AppendLine("Realtime=1");
+        //config.AppendLine("Encrypt=0");
+        //config.AppendLine("TimeZone=8");
+        //return Content(config.ToString(), "text/plain");
     }
     // 2. DATA RECEIVER (POST)
     // Handles the actual attendance logs and data pushes
     [HttpPost("~/iclock/cdata")]
     public async Task<IActionResult> HandleCDataPost(CancellationToken token)
     {
-       
         var req = Request.Query;
         var sn = Request.Query["SN"].ToString();
         var table = Request.Query["table"].ToString();
-
         var deviceInfo = await _biometricDevice.FindSnAsync(sn, token);
         if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty) return NotFound();
         _tenantProvider.SetTenantId(deviceInfo.TenantId);
@@ -157,6 +185,5 @@ public class DeviceResult
     public int Return { get; set; }
     public string CMD { get; set; }
 }
- 
 
- 
+

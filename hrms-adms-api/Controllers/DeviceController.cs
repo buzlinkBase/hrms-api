@@ -39,14 +39,14 @@ namespace Hrms.adms.Controllers
         {
             var tenantId = HttpContext.ParseTenant();
             if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
-            var data = await _service.UpdateStatusAsync(payload, tenantId, token);
+            var data = await _service.UpdateStatusAsync(payload, token);
             return Ok(data);
         }
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<BiometricDeviceModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
-        { 
+        {
             var tenantId = HttpContext.ParseTenant();
             if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
             var data = await _service.FindAllAsync(tenantId, token);
@@ -59,7 +59,6 @@ namespace Hrms.adms.Controllers
         {
             var tenantId = HttpContext.ParseTenant();
             if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
-
             var data = await _service.FineOneAsync(id, tenantId, token);
             return Ok(data);
         }

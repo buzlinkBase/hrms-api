@@ -193,7 +193,7 @@ public class DeviceService : BaseService<BiometricDevice>
         }
     }
 
-    public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, Guid tenantId, CancellationToken token)
+    public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, CancellationToken token)
     {
         var model = new BiometricDevice
         {
@@ -205,16 +205,33 @@ public class DeviceService : BaseService<BiometricDevice>
             ClientId = payload.ClientId,
             OperationAreaId = payload.AreaId,
             Status = payload.Status,
-            TenantId = tenantId,
         };
-
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
         return payload;
     }
-    public async Task<List<BiometricDevice>> FindAllAsync(Guid tenantId, CancellationToken token)
+    public async Task<List<BiometricDeviceModel>> FindAllAsync(Guid tenantId, CancellationToken token)
     {
         return await GetQueryable(x => x.TenantId == tenantId)
+            .Select(x => new BiometricDeviceModel
+            {
+                Id = x.Id,
+                SN = x.SN,
+                DeviceName = x.DeviceName,
+                Description = x.Description,
+                FwVersion = x.FwVersion,
+                LanguageCode = x.LanguageCode,
+                PushVersion = x.PushVersion,
+                RegDeviceType = x.RegDeviceType,
+                BranchId = x.BranchId,
+                ClientId = x.ClientId,
+                DepartmentId = x.DepartmentId,
+                OperationAreaId = x.OperationAreaId,
+                Platform = x.Platform,
+                OemVendor = x.OemVendor,
+                State = x.State,
+                Status = x.Status
+            })
             .ToListAsync(token);
     }
     public async Task<BiometricDeviceModel?> FineOneAsync(Guid Id, Guid tenantId, CancellationToken token)
@@ -223,18 +240,20 @@ public class DeviceService : BaseService<BiometricDevice>
             .Select(x => new BiometricDeviceModel
             {
                 Id = x.Id,
-                TenantId = x.TenantId,
+                SN = x.SN,
                 DeviceName = x.DeviceName,
                 Description = x.Description,
-                SN = x.SN,
+                FwVersion = x.FwVersion,
+                LanguageCode = x.LanguageCode,
+                PushVersion = x.PushVersion,
+                RegDeviceType=x.RegDeviceType,
                 BranchId = x.BranchId,
                 ClientId = x.ClientId,
-                DepartmentId = x.DepartmentId,
-                IpAddress = x.IpAddress,
-                MacAddress = x.MacAddress,
+                DepartmentId = x.DepartmentId, 
                 OperationAreaId = x.OperationAreaId,
                 Platform = x.Platform,
                 OemVendor = x.OemVendor,
+                State=x.State,
                 Status = x.Status
             })
             .FirstOrDefaultAsync(token)
@@ -249,18 +268,20 @@ public class DeviceService : BaseService<BiometricDevice>
             .Select(x => new BiometricDeviceModel
             {
                 Id = x.Id,
-                TenantId = x.TenantId,
+                SN = x.SN,
                 DeviceName = x.DeviceName,
                 Description = x.Description,
-                SN = x.SN,
+                FwVersion = x.FwVersion,
+                LanguageCode = x.LanguageCode,
+                PushVersion = x.PushVersion,
+                RegDeviceType = x.RegDeviceType,
                 BranchId = x.BranchId,
                 ClientId = x.ClientId,
                 DepartmentId = x.DepartmentId,
-                IpAddress = x.IpAddress,
-                MacAddress = x.MacAddress,
                 OperationAreaId = x.OperationAreaId,
                 Platform = x.Platform,
                 OemVendor = x.OemVendor,
+                State = x.State,
                 Status = x.Status
             })
             .FirstOrDefaultAsync(token);

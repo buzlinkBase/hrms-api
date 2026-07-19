@@ -1,7 +1,7 @@
 ﻿namespace Hrms.adms.Models.Entities;
 
 public class BiometricDevice : BaseEntity, IEntityTenant
-{ 
+{
     public string SN { get; set; } = string.Empty;
     public string DeviceName { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
@@ -12,12 +12,13 @@ public class BiometricDevice : BaseEntity, IEntityTenant
     public string FwVersion { get; set; } = string.Empty;
     public string PushVersion { get; set; } = string.Empty;
     public string? RegDeviceType { get; set; } = string.Empty;
-    public int LanguageCode { get; set; } =  69;
-    public Guid? BranchId { get; set; }  
-    public Guid? ClientId { get; set; }  
+    public int LanguageCode { get; set; } = 69;
+    public Guid? BranchId { get; set; }
+    public Guid? ClientId { get; set; }
     public Guid? DepartmentId { get; set; }
-    public Guid? OperationAreaId  { get; set; }
+    public Guid? OperationAreaId { get; set; }
     public string Status { get; set; } = "Active";
+    public string State { get; set; } = "Offline";
 }
 public class SystemCounters : BaseEntity
 {
@@ -30,7 +31,7 @@ public class SystemCounters : BaseEntity
 public class BiometricDetail : BaseEntity
 {
     public string SN { get; set; } = string.Empty;
-    public  BiometricType Type { get; set; }
+    public BiometricType Type { get; set; }
     public bool Enabled { get; set; }
     public string Version { get; set; } = string.Empty;
     public int Count { get; set; }

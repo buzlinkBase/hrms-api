@@ -158,8 +158,8 @@ public class DailyRecordBuilder
             RestLegalDayNDOTHours = (NightDiff.RestOT + NightDiff.LHOT).TotalMinutes.ToHour(),
 
             RestSpecialDayHours = (evaluated.RestWork + evaluated.SPHoliday).TotalMinutes.ToHour(),
-            RestSpecialDayOTHours = (NightDiff.Rest + NightDiff.SP).TotalMinutes.ToHour(),
-            RestSpecialDayNDHours = (evaluated.RestOT + evaluated.SPOT).TotalMinutes.ToHour(),
+            RestSpecialDayOTHours = (evaluated.RestOT + evaluated.SPOT).TotalMinutes.ToHour(),
+            RestSpecialDayNDHours = (NightDiff.Rest + NightDiff.SP).TotalMinutes.ToHour(),
             RestSpecialDayNDOTHours = (NightDiff.RestOT + NightDiff.SPOT).TotalMinutes.ToHour(),
             OB = 0,
             Absent = workType == WorkType.Absent ? 1 : 0,
