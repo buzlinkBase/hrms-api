@@ -22,16 +22,15 @@ public class CleanUpDormantCommandWatcher : BackgroundService
                 {
                     var service = scope.ServiceProvider.GetRequiredService<CommandService>();
                     var data = await service.FindOldCommandAsync();
-
                     if (data != null && data.Any())
                     {
                         foreach (var command in data)
                         {
-                            service.DeleteAsync(command.Id);
+                            await service.DeleteAsync(command.Id);
                         }
                         await service.CommitChangesAsync();
                     }
-                } // <--- Scope is safely disposed of here every 5 minutes
+                } 
             }
             catch (Exception ex)
             {

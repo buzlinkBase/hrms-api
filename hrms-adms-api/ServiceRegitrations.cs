@@ -98,6 +98,7 @@ public static class ServiceRegistrations
         //zkteco
         builder.Services.AddScoped<ISystemClockService, SystemClockService>();
         builder.Services.AddKeyedScoped<ICDataProcessor, AttLogTableProcessor>("ATTLOG");
+        //builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("BIODATA"); bio template
         builder.Services.AddKeyedScoped<ICDataProcessor, OperLogProcessor>("OPERLOG");
         builder.Services.AddKeyedScoped<ICDataProcessor, UserInforTableProcessor>("USERINFO");
         builder.Services.AddKeyedScoped<ICDataProcessor, OptionsProcessor>("options");

@@ -449,6 +449,76 @@ public class CommandsController : ControllerBase
     }
 
 
+    [HttpPost("delete-employee")]
+    public async Task<IActionResult> DeleteEmployee([FromQuery] string SN, [FromQuery] string pin)
+    {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+        if (string.IsNullOrWhiteSpace(pin)) return BadRequest("Employee PIN is required");
+
+        ISystemClockService clockService = new SystemClockService(_configuration);
+        var formatter = new ZKTecoCommandFormatter(clockService);
+        var id = Guid.CreateVersion7();
+
+        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        {
+            Id = id.ToString("N"),
+            Command = "DELETE_USER",
+            Parameters = new()
+            {
+                { "employee_code", pin }
+            }
+        };
+
+        var resultCommand = formatter.Format(syncEmpCmd);
+        var devcommand = new DeviceCommand()
+        {
+            Id = id,
+            CommandType = syncEmpCmd.Command,
+            Commands = resultCommand,
+            SN = SN,
+        };
+
+        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        return NoContent();
+    }
+
+    [HttpPost("delete-fingerprint")]
+    public async Task<IActionResult> DeleteFingerprint([FromQuery] string SN, [FromQuery] string pin, [FromQuery] int? fingerIndex = null)
+    {
+        var tenantId = HttpContext.ParseTenant();
+        if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+        if (string.IsNullOrWhiteSpace(pin)) return BadRequest("Employee PIN is required");
+
+        ISystemClockService clockService = new SystemClockService(_configuration);
+        var formatter = new ZKTecoCommandFormatter(clockService);
+        var id = Guid.CreateVersion7();
+
+        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        {
+            Id = id.ToString("N"),
+            Command = "DELETE_BIOMETRICS",
+            Parameters = new()
+            {
+                { "pin", pin },
+                { "biometric_type", "fingerprint" },
+                { "template_index", fingerIndex?.ToString() ?? "all" } // "all" or explicit finger index 0-9
+            }
+        };
+
+        var resultCommand = formatter.Format(syncEmpCmd);
+        var devcommand = new DeviceCommand()
+        {
+            Id = id,
+            CommandType = syncEmpCmd.Command,
+            Commands = resultCommand,
+            SN = SN,
+        };
+
+        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        return NoContent();
+    }
+
     [HttpPost("registry")]
     public async Task<IActionResult> RegistryReset([FromQuery] string sn)
     {
