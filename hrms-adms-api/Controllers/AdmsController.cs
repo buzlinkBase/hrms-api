@@ -3,7 +3,6 @@ using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RTools_NTS.Util;
 using System.Text;
 
 namespace Hrms.adms.Controllers;
@@ -19,6 +18,7 @@ public class AdmsController : ControllerBase
     private readonly ITenantProvider _tenantProvider;
     private readonly DeviceService _biometricDevice;
     private readonly CommandService _commandService;
+
     public AdmsController(
         IServiceProvider serviceProvider,
         ITenantProvider tenantProvider,
@@ -33,70 +33,49 @@ public class AdmsController : ControllerBase
     }
 
     // 1. REGISTRY
-    //[HttpPost("registry")]
-    //public IActionResult Registry([FromQuery] string SN)
-    //{
-    //    Log.Information("Registration request from Device SN: {SN}", SN);
-    //    var config = new StringBuilder();
-    //    config.AppendLine("TransFlag=1111000000");
-    //    return Content(config.ToString(), "text/plain");
-    //}
-
     [HttpPost("registry")]
     public IActionResult Registry([FromQuery] string SN)
     {
-
-        //// Upsert device record
-        //var device = await _context.Devices.FirstOrDefaultAsync(x => x.SerialNumber == SN, token);
-        //if (device == null)
-        //{
-        //    device = new Device { SerialNumber = SN, RegisteredAt = DateTime.UtcNow };
-        //    _context.Devices.Add(device);
-        //    await _context.SaveChangesAsync(token);
-        //    Log.Information("New device registered: {SN}", SN);
-        //}
         Log.Information("Registration request from Device SN: {SN}", SN);
+
         var config = new StringBuilder();
-        config.AppendLine("RegistryCode=0");
-        config.AppendLine("RegistryVer=1.0");
-        config.AppendLine($"ATTLOGStamp=0");        // ← sync attendance from beginning
-        //config.AppendLine($"OPERLOGStamp=0");       // ← sync operation logs
-        //config.AppendLine($"ATTPHOTOStamp=0");      // ← sync photos
-        config.AppendLine("ErrorDelay=30");
-        config.AppendLine("Delay=30");
-        config.AppendLine("TransTimes=00:00;23:59");
-        config.AppendLine("TransInterval=1");
-        config.AppendLine("TransFlag=TransData AttLog  EnrollUser ChgUser EnrollFP ChgFP ");
-        //config.AppendLine("TransFlag=TransData AttLog OpLog EnrollUser ChgUser EnrollFP ChgFP UserPic");
-        config.AppendLine("Realtime=1");
-        config.AppendLine("Encrypt=0");
-        config.AppendLine("TimeZone=8");            // ← set your timezone
+        config.Append("RegistryCode=0\r\n");
+        config.Append("RegistryVer=1.0\r\n");
+        config.Append("ATTLOGStamp=0\r\n");
+        config.Append("ErrorDelay=30\r\n");
+        config.Append("Delay=30\r\n");
+        config.Append("TransTimes=00:00;23:59\r\n");
+        config.Append("TransInterval=1\r\n");
+        config.Append("TransFlag=TransData AttLog EnrollUser ChgUser EnrollFP ChgFP\r\n");
+        config.Append("Realtime=1\r\n");
+        config.Append("Encrypt=0\r\n");
+        config.Append("TimeZone=8\r\n");
+
         return Content(config.ToString(), "text/plain");
     }
-
-
 
     // 2. HANDSHAKE
     [HttpGet("getrequest")]
     public async Task<IActionResult> GetRequest([FromQuery] string SN, CancellationToken token)
     {
-
         var deviceInfo = await _biometricDevice.FindSnAsync(SN, token);
-        if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty)
+        if (deviceInfo == null || deviceInfo.TenantId == Guid.Empty)
         {
             return Content("Unregistered", "text/plain");
         }
+
         _tenantProvider.SetTenantId(deviceInfo.TenantId);
         deviceInfo.State = "Online";
         _commandService.Context.BiometricDevices.Update(deviceInfo);
         await _commandService.CommitChangesAsync(token);
 
-        //TODO add SignalR here to publish state 
+        // TODO: add SignalR here to publish state 
         var data = await _commandService.GetAllCommandsAsync(SN);
         if (data == null || !data.Any())
         {
             return Content("OK", "text/plain");
         }
+
         var responseText = string.Join("\n", data.Select(item => item.Commands));
         if (string.IsNullOrWhiteSpace(responseText))
         {
@@ -110,80 +89,93 @@ public class AdmsController : ControllerBase
     {
         using var reader = new StreamReader(Request.Body);
         string result = await reader.ReadToEndAsync();
+
         var data = result.Split('\n');
         foreach (var item in data)
         {
-            var str = result.Split("&");
-            if (str.Length > 0)
+            if (string.IsNullOrWhiteSpace(item)) continue;
+
+            // FIX: Parsing individual line item array instead of the raw body root
+            var str = item.Split("&");
+            if (str.Length > 1)
             {
                 var resultTag = str[1].Split("=");
-                var success = resultTag[1] == "0";
+                var success = resultTag.Length > 1 && resultTag[1] == "0";
+
                 if (success)
                 {
-                    var IdTag = str[0].Split("=");
-                    var Id = Guid.Parse(IdTag[1]);
-                    await _commandService.DeleteAsync(Id);
+                    var idTag = str[0].Split("=");
+                    if (idTag.Length > 1 && Guid.TryParse(idTag[1], out Guid id))
+                    {
+                        await _commandService.DeleteAsync(id);
+                    }
                 }
             }
         }
+
         _commandService.CommitChanges();
         return Content("OK", "text/plain");
     }
 
     // 1. HANDSHAKE (GET)
-    // Handles the "Is the server there?" requests
+    // Handles the initial operational handshake and configuration registry payload delivery
     [HttpGet("~/iclock/cdata")]
     public async Task<IActionResult> HandleCDataGet([FromQuery] string SN, CancellationToken token)
     {
-        return Content("OK", "text/plain");
+        Log.Information("HandleCDataGet request from Device SN: {SN}", SN);
 
-        //var config = new StringBuilder();
-        //config.AppendLine("RegistryCode=0");
-        //config.AppendLine("RegistryVer=1.0");
-        //config.AppendLine("ATTLOGStamp=0");
-        //config.AppendLine("OPERLOGStamp=0");
-        //config.AppendLine("ATTPHOTOStamp=0");
-        //config.AppendLine("ErrorDelay=30");
-        //config.AppendLine("Delay=30");
-        //config.AppendLine("TransTimes=00:00;23:59");
-        //config.AppendLine("TransInterval=1");
+        var config = new StringBuilder();
+        config.Append("RegistryCode=0\r\n");
+        config.Append("RegistryVer=1.0\r\n");
+        config.Append("ATTLOGStamp=0\r\n");
+        //config.Append("OPERLOGStamp=0\r\n");
+        //config.Append("ATTPHOTOStamp=0\r\n");
+        config.Append("ErrorDelay=30\r\n");
+        config.Append("Delay=30\r\n");
+        config.Append("TransTimes=00:00;23:59\r\n");
+        config.Append("TransInterval=1\r\n");
+        config.Append("TransFlag=TransData AttLog  EnrollUser ChgUser EnrollFP ChgFP \r\n");
         //config.AppendLine("TransFlag=TransData AttLog OpLog EnrollUser ChgUser EnrollFP ChgFP UserPic");
-        //config.AppendLine("Realtime=1");
-        //config.AppendLine("Encrypt=0");
-        //config.AppendLine("TimeZone=8");
-        //return Content(config.ToString(), "text/plain");
+        config.Append("Realtime=1\r\n");
+        config.Append("Encrypt=0\r\n");
+        config.Append("TimeZone=8\r\n");
+        return Content(config.ToString(), "text/plain");
     }
+
     // 2. DATA RECEIVER (POST)
-    // Handles the actual attendance logs and data pushes
+    // Handles incoming transactional records like ATTLOG tables
     [HttpPost("~/iclock/cdata")]
     public async Task<IActionResult> HandleCDataPost(CancellationToken token)
     {
-        var req = Request.Query;
         var sn = Request.Query["SN"].ToString();
         var table = Request.Query["table"].ToString();
+
         var deviceInfo = await _biometricDevice.FindSnAsync(sn, token);
-        if (deviceInfo == null || Guid.Empty == deviceInfo.TenantId || deviceInfo.TenantId == Guid.Empty) return NotFound();
+        if (deviceInfo == null || deviceInfo.TenantId == Guid.Empty)
+        {
+            return NotFound();
+        }
+
         _tenantProvider.SetTenantId(deviceInfo.TenantId);
 
         using var reader = new StreamReader(Request.Body);
         string rawBody = await reader.ReadToEndAsync();
+
         var processor = _serviceProvider.GetKeyedService<ICDataProcessor>(table);
         if (processor == null)
         {
-            Log.Warning($"SN: {sn} bio table not manage table: {table}");
+            Log.Warning("SN: {sn} biometric table processor not found for target table: {table}", sn, table);
             return Content("Not Manage");
         }
+
         await processor.ProcessAsync(new BioPayload(sn, rawBody, new Models.DTO.ZkDeviceModel { DeviceInfo = deviceInfo }), token);
         return Content("OK", "text/plain");
-
-
     }
 }
+
 public class DeviceResult
 {
     public int Id { get; set; }
     public int Return { get; set; }
     public string CMD { get; set; }
 }
-
-
