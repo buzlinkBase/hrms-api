@@ -23,7 +23,7 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
     {
         var messages = context.Message.AttLogs;
         var atts = await new AttEmployeeSetter(_uow)
-            .ParseAttLogs(messages, LOGSOURCE.ADMS);
+            .ParseAttLogs(messages, LOGSOURCE.SYNC);
         await _attService.AddRangeAsync(atts);
         if (await _attService.CommitChangesAsync(context.CancellationToken))
         {

@@ -15,17 +15,36 @@ public class GeneralSettingService : BaseService<GeneralSetting>
         _uow.Repository.Remove<GeneralSetting>(x => x.IdentityTypeId == IdentityId && x.IdentityType == IdentityType);
     }
 
-    public async Task<Dictionary<string, GeneralSettingModel>> GetSettingsAsync(string IdentityType)
+    public async Task<Dictionary<string, GeneralSettingModel>> GetSettingsAsync(string identityType)
     {
-        return await GetQueryable(x => x.IdentityType == IdentityType)
-            .ToDictionaryAsync(x => x.Description, x => new GeneralSettingModel()
+        // 1. Guard against invalid inputs
+        if (string.IsNullOrWhiteSpace(identityType))
+        {
+            return new Dictionary<string, GeneralSettingModel>();
+        }
+
+        // 2. Project the data first to minimize database payload and memory footprint
+        var settingsList = await GetQueryable(x => x.IdentityType == identityType)
+            .Select(x => new GeneralSettingModel
             {
                 Id = x.Id,
                 Key = x.Description,
                 Metadata = x.Metadata,
                 IdentityId = x.IdentityTypeId,
                 Value = x.Value
-            });
+            })
+            .ToListAsync();
+
+        // 3. Safely handle potential duplicate keys by keeping the latest entry
+        var settingsDictionary = new Dictionary<string, GeneralSettingModel>(StringComparer.OrdinalIgnoreCase);
+        foreach (var setting in settingsList)
+        {
+            if (!string.IsNullOrEmpty(setting.Key))
+            {
+                settingsDictionary[setting.Key] = setting;
+            }
+        }
+        return settingsDictionary;
     }
 
     public async Task<Dictionary<SettingGroupKey, Dictionary<string, GeneralSettingModel>>> GetSettingsAsync(string IdentityType, HashSet<string>? identities)
@@ -56,17 +75,17 @@ public class GeneralSettingService : BaseService<GeneralSetting>
         var TimeInDayType = HolidayTimeBasis.BasedOnTimeInDayType;
         var HolPresentation = HolidayCreditMode.AutoCredit;
 
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = inclusion.ToString() });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.OTEligibility.ToString(), Value = role.ToString() });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.AttFillLimit.ToString(), Value = entryLimit.ToString() });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.IsHalfDayLateOn.ToString(), Value = "false" });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.IsWholeDayLateOn.ToString(), Value = "false" });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.HalfDayLateThresholdMinutes.ToString(), Value = "0" });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.WholeDayLateThresholdMinutes.ToString(), Value = "0" });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.NightDiffThreshold.ToString(), Value = "5" });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.HolidayTimeBasis.ToString(), Value = TimeInDayType.ToString() });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.IsHolPlusReg.ToString(), Value = "true" });
-        settings.Add(new GeneralSetting {  IdentityType = "Company", Description = SettingKey.HolidayColumnPresentation.ToString(), Value = HolPresentation.ToString() });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = inclusion.ToString() });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.OTEligibility.ToString(), Value = role.ToString() });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.AttFillLimit.ToString(), Value = entryLimit.ToString() });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.IsHalfDayLateOn.ToString(), Value = "false" });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.IsWholeDayLateOn.ToString(), Value = "false" });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.HalfDayLateThresholdMinutes.ToString(), Value = "0" });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.WholeDayLateThresholdMinutes.ToString(), Value = "0" });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.NightDiffThreshold.ToString(), Value = "5" });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.HolidayTimeBasis.ToString(), Value = TimeInDayType.ToString() });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.IsHolPlusReg.ToString(), Value = "true" });
+        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.HolidayColumnPresentation.ToString(), Value = HolPresentation.ToString() });
         await AddRangeAsync(settings, TenantId);
 
     }

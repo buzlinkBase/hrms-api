@@ -193,18 +193,18 @@ public class DeviceService : BaseService<BiometricDevice>
         }
     }
 
-    public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, CancellationToken token)
+    public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, Guid tenantId, CancellationToken token)
     {
         var model = new BiometricDevice
         {
             Id = payload.Id,
             SN = payload.SN,
             Description = payload.Description ?? "",
-            DeviceName = payload.DeviceName ?? "",
             BranchId = payload.BranchId,
             ClientId = payload.ClientId,
             OperationAreaId = payload.AreaId,
             Status = payload.Status,
+            TenantId = tenantId,
         };
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
@@ -246,14 +246,14 @@ public class DeviceService : BaseService<BiometricDevice>
                 FwVersion = x.FwVersion,
                 LanguageCode = x.LanguageCode,
                 PushVersion = x.PushVersion,
-                RegDeviceType=x.RegDeviceType,
+                RegDeviceType = x.RegDeviceType,
                 BranchId = x.BranchId,
                 ClientId = x.ClientId,
-                DepartmentId = x.DepartmentId, 
+                DepartmentId = x.DepartmentId,
                 OperationAreaId = x.OperationAreaId,
                 Platform = x.Platform,
                 OemVendor = x.OemVendor,
-                State=x.State,
+                State = x.State,
                 Status = x.Status
             })
             .FirstOrDefaultAsync(token)

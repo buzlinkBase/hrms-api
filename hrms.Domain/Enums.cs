@@ -306,7 +306,7 @@ public enum LOGSOURCE
     MANUAL,
     UPLOADED,
     BIOMETRIC,
-    ADMS,
+    SYNC,
     GEOFENCE,
     MOBILE,
     OTHER
