@@ -47,8 +47,8 @@ public class AttendanceService : BaseService<Attendance>
     }
     public async Task<List<AttendanceModel>> GetLog(AttendanceFilterDate filter, LOGSOURCE source = LOGSOURCE.MANUAL)
     {
-        DateTime fromDate = (filter?.FromDate ?? DateTime.Today).Date;
-        DateTime toDate = (filter?.ToDate ?? DateTime.Today).Date.AddDays(1);
+        DateTime fromDate =  (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
+        DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
         Guid? filterEmployeeId = filter?.EmployeeId;
 
         return await Uow.Context.Attendances
@@ -74,8 +74,8 @@ public class AttendanceService : BaseService<Attendance>
 
     public async Task<List<AttendanceModel>> GetRawLogs(AttendanceFilter filter)
     {
-        DateTime fromDate = (filter?.FromDate ?? DateTime.MinValue).Date;
-        DateTime toDate = (filter?.ToDate ?? DateTime.MaxValue);
+        DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
+        DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
 
         Guid? EmployeeId = filter?.EmployeeId;
         Guid? BranchId = filter?.BranchId;

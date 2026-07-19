@@ -33,7 +33,7 @@ public class CompanyPolicyService
 
     private void SetOTeligibilityRule(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
     {
-        policy.OTEligibility = OvertimeEligibilityRule.RequireFullRegularHours;
+        policy.OTEligibility = OvertimeEligibilityRule.IndependentOfAttendanceIssues;
         if (data.TryGetValue(SettingKey.OTEligibility.ToString(), out GeneralSettingModel? val1))
         {
             var settingvalue = GeneralSettingsUtil.ParseEnum(val1.Value, OvertimeEligibilityRule.RequireFullRegularHours);
@@ -128,5 +128,4 @@ public class CompanyPolicyService
             policy.HolidayColumnPresentation = settingvalue;
         }
     }
-
 }
