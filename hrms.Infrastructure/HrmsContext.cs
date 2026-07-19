@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.Configuration;
 namespace Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 
 public class HrmsContext : DbContext, IDbContext
 {

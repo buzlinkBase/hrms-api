@@ -3,7 +3,6 @@
     `ProductVersion` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
     CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
 ) CHARACTER SET=utf8mb4;
-
  
 ALTER DATABASE CHARACTER SET utf8mb4;
 
@@ -1299,4 +1298,19 @@ ALTER TABLE `Departments` ADD CONSTRAINT `FK_Departments_Employees_HeadId` FOREI
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('20260718042532_V1_0_0__initial_create', '9.0.2');
- 
+
+INSERT INTO `GeneralSettings` (`Id`, `CreatedAt`, `DeletedAt`, `Description`, `IdentityType`, `IdentityTypeId`, `Metadata`, `Status`, `UpdatedAt`, `Value`)
+VALUES ('0123f5e6-d7c8-4234-bcda-6789012345fa', TIMESTAMP '0001-01-01 00:00:00', NULL, 'NightDiffThreshold', 'Company', NULL, NULL, 'Active', NULL, '0'),
+('1234a5b6-c7d8-4345-cdab-7890123456ab', TIMESTAMP '0001-01-01 00:00:00', NULL, 'AttFillLimit', 'Company', NULL, NULL, 'Active', NULL, 'NOLIMIT'),
+('2345b6c7-d8e9-4456-dabc-8901234567bc', TIMESTAMP '0001-01-01 00:00:00', NULL, 'HolidayTimeBasis', 'Company', NULL, NULL, 'Active', NULL, 'BasedOnTimeInDayType'),
+('3456c7d8-e9f0-4567-abcd-9012345678cd', TIMESTAMP '0001-01-01 00:00:00', NULL, 'IsHolPlusReg', 'Company', NULL, NULL, 'Active', NULL, 'True'),
+('4567d8e9-f012-4678-bcda-0123456789de', TIMESTAMP '0001-01-01 00:00:00', NULL, 'HolidayColumnPresentation', 'Company', NULL, NULL, 'Active', NULL, 'AutoCredit'),
+('a2618e39-1a02-4055-989a-7b3bcc61f7b3', TIMESTAMP '0001-01-01 00:00:00', NULL, 'OTEligibility', 'Company', NULL, NULL, 'Active', NULL, 'IndependentOfAttendanceIssues'),
+('b1a2c3d4-e5f6-4789-abcd-1234567890ab', TIMESTAMP '0001-01-01 00:00:00', NULL, 'OTInclusion', 'Company', NULL, NULL, 'Active', NULL, 'UsePostShiftWork'),
+('c2b3a4d5-f6e7-4890-bcda-2345678901bc', TIMESTAMP '0001-01-01 00:00:00', NULL, 'IsHalfDayLateOn', 'Company', NULL, NULL, 'Active', NULL, 'False'),
+('d3c4b5a6-e7f8-4901-cdab-3456789012cd', TIMESTAMP '0001-01-01 00:00:00', NULL, 'HalfDayLateThresholdMinutes', 'Company', NULL, NULL, 'Active', NULL, '0'),
+('e4d5c6b7-f8e9-4012-dabc-4567890123de', TIMESTAMP '0001-01-01 00:00:00', NULL, 'IsWholeDayLateOn', 'Company', NULL, NULL, 'Active', NULL, 'False'),
+('f5e6d7c8-9012-4123-abcd-5678901234ef', TIMESTAMP '0001-01-01 00:00:00', NULL, 'WholeDayLateThresholdMinutes', 'Company', NULL, NULL, 'Active', NULL, '0');
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20260719135808_general_settings', '9.0.2');
