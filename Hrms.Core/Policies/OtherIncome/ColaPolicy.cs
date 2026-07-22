@@ -1,6 +1,4 @@
-﻿using Hrms.Core.Policies.DeductionPolicies;
-
-namespace Hrms.Core.Policies.OtherIncome;
+﻿namespace Hrms.Core.Policies.OtherIncome;
 
 internal class ColaPolicy : PayrollPolicyBase<AllowancePipeData, PayrollContext>
 {
@@ -11,7 +9,7 @@ internal class ColaPolicy : PayrollPolicyBase<AllowancePipeData, PayrollContext>
         //var days = context.Payload.DaysDiffPayrollPeriod(context) 
         //    + 1
         //    - (context.Payload.);
-        var cola= context.Employee.Cola;
+        var cola = context.Employee.Cola;
         //switch (context.Employee.PayrollFrequency)
         //{
         //    case PayrollFrequency.DAILY:

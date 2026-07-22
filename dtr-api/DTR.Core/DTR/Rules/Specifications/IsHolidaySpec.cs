@@ -15,7 +15,7 @@ public class IsHolidaySpec : IRuleSpecification
             return cached.Value;
 
         var eval = HolidaySpecComputationBasesFactory.Create(input, context);
-        var data= eval.Evaluate(_holidayType);
+        var data = eval.Evaluate(_holidayType);
         context.Payload.SharedSpecCache.Record(key, data);
         return data;
 
@@ -26,7 +26,7 @@ public class IsCurrentShiftPresent : IRuleSpecification
 {
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
-        return context.Payload.Data.CurrentShift!=null;
+        return context.Payload.Data.CurrentShift != null;
     }
 }
 

@@ -12,7 +12,7 @@ public class IsAppliedOTSpec : IRuleSpecification
         var shift = context.Payload.Data.CurrentShift;
 
         var isEligible = context.Payload.Provider.OTProvider
-            .HasOTApplication(shift.ShiftDate) ;
+            .HasOTApplication(shift.ShiftDate);
 
         context.Payload.SharedSpecCache.Record(key, isEligible);
         return isEligible;
@@ -30,7 +30,7 @@ public class IsSystemAutoComputeOT : IRuleSpecification
             return cached.Value;
 
         var shift = context.Payload.Data.CurrentShift;
-        var isEligible = shift.WithOT  ;
+        var isEligible = shift.WithOT;
         context.Payload.SharedSpecCache.Record(key, isEligible);
         return isEligible;
 

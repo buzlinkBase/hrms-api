@@ -99,13 +99,13 @@ public class DailyRecordService : BaseService<DailyRecord>
             .AsNoTracking()
             .Where(x => x.BatchCode == BatchCode)
              ;
-            //.Where(x =>
-            //     //(x.WorkDate >= fromDate && x.WorkDate <= toDate) &&
-            //     (payload.EmployeeId == null || x.EmployeeId == payload.EmployeeId) &&
-            //     (payload.DepartmentId == null || (x.DepartmentId.HasValue ? x.DepartmentId.Value == payload.DepartmentId : x.DepartmentId == payload.DepartmentId)) &&
-            //     (payload.PayrollGroupId == null || (x.PayrollGroupId.HasValue ? x.PayrollGroupId.Value == payload.PayrollGroupId : x.PayrollGroupId == payload.PayrollGroupId)) &&
-            //     (payload.ClientId == null || (x.ClientId.HasValue ? x.ClientId.Value == payload.ClientId : x.ClientId == payload.ClientId))
-            //);
+        //.Where(x =>
+        //     //(x.WorkDate >= fromDate && x.WorkDate <= toDate) &&
+        //     (payload.EmployeeId == null || x.EmployeeId == payload.EmployeeId) &&
+        //     (payload.DepartmentId == null || (x.DepartmentId.HasValue ? x.DepartmentId.Value == payload.DepartmentId : x.DepartmentId == payload.DepartmentId)) &&
+        //     (payload.PayrollGroupId == null || (x.PayrollGroupId.HasValue ? x.PayrollGroupId.Value == payload.PayrollGroupId : x.PayrollGroupId == payload.PayrollGroupId)) &&
+        //     (payload.ClientId == null || (x.ClientId.HasValue ? x.ClientId.Value == payload.ClientId : x.ClientId == payload.ClientId))
+        //);
 
         return await dtr
             .Where(x => x.Posted)

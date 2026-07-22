@@ -1,18 +1,9 @@
-﻿using Hrms.Domain.Entities.EmployeeEntities;
-using Microsoft.SqlServer.Types;
-using NetTopologySuite.Geometries;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Hrms.Domain.ValueObjects;
 
-namespace Hrms.Domain.ValueObjects;
-
-public record  AttendanceFilter : EmployeeFilter {
-    public DateOnly FromDate  { get; set; }
-    public DateOnly ToDate  { get; set; }
+public record AttendanceFilter : EmployeeFilter
+{
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
 }
 
 public record AttendanceFilterDate

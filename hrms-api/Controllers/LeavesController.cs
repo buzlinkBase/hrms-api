@@ -1,7 +1,6 @@
 using Asp.Versioning;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 
 namespace Hrms.Api.Controllers
 {

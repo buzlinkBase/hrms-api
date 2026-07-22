@@ -41,7 +41,7 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
             "PULL_ATTENDANCE" => FormatAttendancePullCommand(command),
             "RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:CLEAR ADMIN",
             "DELETE_USER" => FormatDelete(command),
-            "DELETE_BIOMETRICS" => FormatDeleteFP(command), 
+            "DELETE_BIOMETRICS" => FormatDeleteFP(command),
             //"RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:SET OPTION ClearAdmin=1",
             //"RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:ClearAdmin",
             _ => FormatRawCommand(command)

@@ -15,5 +15,5 @@ public class PolicyPipeline
             input = policy.Apply(input, context);
         }
         return input;
-    } 
+    }
 }

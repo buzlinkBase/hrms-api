@@ -9,7 +9,7 @@ public class EnumExtrator
     public static string[] GetNames<T>() => Enum.GetNames(typeof(T));
     public static string GetName<T>(T evalue) where T : Enum
     {
-          return Enum.GetName(typeof(T), evalue);
+        return Enum.GetName(typeof(T), evalue);
     }
 
     public static TEnum GetValue<TEnum>(string name) where TEnum : struct, Enum

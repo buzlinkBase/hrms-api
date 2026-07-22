@@ -1,10 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace Hrms.Domain.Entities.EmployeeEntities;
+﻿namespace Hrms.Domain.Entities.EmployeeEntities;
 
 public class Employee : BaseEntity
 {
-    public int? BioId { get; set; } 
+    public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
     public Guid PayrollGroupId { get; set; }

@@ -7,7 +7,7 @@ namespace DTR.Core;
 //}
 public class ObjectCollection<T> : Collection<T> { }
 public class DailyRecordCollection : ObjectCollection<DailyRecord> { }
-public class IncompleteLogCollection  : Collection<ColumnarLogModel> { }
+public class IncompleteLogCollection : Collection<ColumnarLogModel> { }
 //public class AttendanceCollection : Collection<Attendance> {
 //    public AttendanceCollection(List<Attendance> attendances) : base(attendances) { }
 //    public AttendanceCollection() { }
@@ -16,7 +16,8 @@ public class IncompleteLogCollection  : Collection<ColumnarLogModel> { }
 //    public TimeShiftCollection(List<CurrentShift> CurrentShifts) : base(CurrentShifts) { }
 //    public TimeShiftCollection() { }
 //}
-public class TimeBreakCollection : Collection<TimeRange> {
+public class TimeBreakCollection : Collection<TimeRange>
+{
     public TimeBreakCollection(List<TimeRange> timeRanges) : base(timeRanges) { }
     public TimeBreakCollection() { }
 }

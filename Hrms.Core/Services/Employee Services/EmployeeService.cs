@@ -1,8 +1,6 @@
 ﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
-using Microsoft.AspNetCore.Mvc;
-using NPOI.SS.Formula.Functions;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;

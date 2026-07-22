@@ -1,8 +1,4 @@
-﻿using Hrms.Domain.Entities;
-using Hrms.Domain.Entities.EmployeeEntities;
-using Hrms.Infrastructure.Migrations;
-
-namespace DTR.Core;
+﻿namespace DTR.Core;
 
 public class DTRCalcService
 {

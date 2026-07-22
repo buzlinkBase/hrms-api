@@ -1,6 +1,7 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services;
+
 public class EmployeeDependentService : BaseService<Dependent>
 {
     public EmployeeDependentService(IUnitOfWorkService uow) : base(uow)

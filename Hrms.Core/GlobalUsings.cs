@@ -3,7 +3,7 @@ global using Hrms.Core.Calculators.Payloads;
 global using Hrms.Core.Policies;
 global using Hrms.Core.Policies.DTRPolicies;
 global using Hrms.Core.Specs;
-global using Serilog;
 global using Onepunch.Common.Lib;
 global using Onepunch.Common.Lib.DTO;
 global using Onepunch.Common.Lib.Interfaces;
+global using Serilog;

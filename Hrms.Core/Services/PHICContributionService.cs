@@ -15,9 +15,9 @@ public class PHICContributionService : BaseService<PHICContribution>
         _config = config;
         _mapper = mapper;
     }
-    public async Task AddAsync(PHICContribution model,CancellationToken token)
+    public async Task AddAsync(PHICContribution model, CancellationToken token)
     {
-        await CreateAsync(model,token);
+        await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
     public async Task UpdateAsync(PHICContribution model, CancellationToken token)
@@ -25,7 +25,7 @@ public class PHICContributionService : BaseService<PHICContribution>
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
-    
+
 
     public async Task<Dictionary<EmployeeKey, List<PHICContributionModel>>> LoadContributionsAsync(DateOnly fromDate, DateOnly toDate,
         CancellationToken token)

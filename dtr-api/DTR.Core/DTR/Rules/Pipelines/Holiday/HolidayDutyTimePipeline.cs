@@ -24,7 +24,7 @@ public class HolidayDutyTimePipeline
 
         if (_holidayType == HolidayType.SPECIAL)
         {
-            var holidays = _context.Payload.Provider.HolidayProvider 
+            var holidays = _context.Payload.Provider.HolidayProvider
                 .GetHolidayDuringDate(_holidayType, _context.Payload.Data.Employee, _context.Payload.Data.CurrentDate);
 
             var multiplier = holidays.Count();

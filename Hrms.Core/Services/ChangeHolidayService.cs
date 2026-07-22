@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities; 
+﻿using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
 
@@ -96,16 +96,16 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
     }
 
 
-    public async  Task<Dictionary<Holidaykey, List<ChangeHoliday>>>
+    public async Task<Dictionary<Holidaykey, List<ChangeHoliday>>>
         GetAllChangedHolidayAsync(DateOnly fromDate, DateOnly toDate,
         CancellationToken token)
     {
-          return await GetQueryable()
-            .Where(x => x.PayrollDate >= fromDate && x.PayrollDate <= toDate)
-            .AsNoTracking()
-            .GroupBy(x => new Holidaykey(x.EmployeeId, x.PayrollDate))
-            .ToDictionaryAsync(x => x.Key, x => x.Distinct().ToList(), token)
-            ;
+        return await GetQueryable()
+          .Where(x => x.PayrollDate >= fromDate && x.PayrollDate <= toDate)
+          .AsNoTracking()
+          .GroupBy(x => new Holidaykey(x.EmployeeId, x.PayrollDate))
+          .ToDictionaryAsync(x => x.Key, x => x.Distinct().ToList(), token)
+          ;
     }
 }
 

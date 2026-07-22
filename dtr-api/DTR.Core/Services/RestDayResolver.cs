@@ -10,7 +10,7 @@ public class RestDayResolver
     private readonly ChangeRestDayService _changeRestDayService;
     private readonly RestDayDateService _restDayDateService;
     public RestDayResolver(ChangeRestDayService changeRestDayService,
-        RestDayDateService  restDayDateService)
+        RestDayDateService restDayDateService)
     {
         _changeRestDayService = changeRestDayService;
         _restDayDateService = restDayDateService;
@@ -21,7 +21,7 @@ public class RestDayResolver
     {
 
         var employeeIds = new HashSet<Guid>(employees.Select(e => e.Id));
-        var allOff = await _changeRestDayService.GetChangeRestDays(fromDate, toDate, employeeIds,token);
+        var allOff = await _changeRestDayService.GetChangeRestDays(fromDate, toDate, employeeIds, token);
         var allSpecDates = await _restDayDateService.LoadRestDayDate(fromDate, toDate, employeeIds, token);
         var overrideOff = new OverrideDayOffHandler(allOff);
         var specDateOff = new SpecificDateOffHandler(allSpecDates);

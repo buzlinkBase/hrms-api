@@ -11,7 +11,7 @@ public class IsReachMaxWorkingHour : IRuleSpecification
             return cached.Value;
 
 
-        var regTime = payload.Ledger.GetByTag("final_RegularTime", context); 
+        var regTime = payload.Ledger.GetByTag("final_RegularTime", context);
 
         var result = regTime != null && regTime.TotalMinutes >= payload.Data.CurrentShift.MaxWorkingMinutes;
 

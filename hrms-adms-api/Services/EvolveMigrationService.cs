@@ -1,7 +1,6 @@
 ﻿
 using EvolveDb;
 using MySqlConnector;
-using Serilog;
 
 namespace Hrms.adms.Services;
 

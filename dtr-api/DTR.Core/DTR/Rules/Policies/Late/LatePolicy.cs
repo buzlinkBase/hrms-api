@@ -1,6 +1,4 @@
-﻿ 
-using Microsoft.EntityFrameworkCore;
-namespace DTR.Core;
+﻿namespace DTR.Core;
 
 public class LatePolicy : ConditionalPolicyBase
 {

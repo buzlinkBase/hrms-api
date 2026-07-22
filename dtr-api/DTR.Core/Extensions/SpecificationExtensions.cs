@@ -7,10 +7,10 @@ public static class SpecificationExtensions
     public static Specification<T> And<T>(this Specification<T> left, Specification<T> right) where T : BaseEntity
         => new AndSpecification<T>(left, right);
 
-    public static Specification<T> Or<T>(this Specification<T> left, Specification<T> right)  where T : BaseEntity
+    public static Specification<T> Or<T>(this Specification<T> left, Specification<T> right) where T : BaseEntity
         => new OrSpecification<T>(left, right);
 
-    public static Specification<T> Not<T>(this Specification<T> inner)  where T : BaseEntity
+    public static Specification<T> Not<T>(this Specification<T> inner) where T : BaseEntity
         => new NotSpecification<T>(inner);
 }
 public class AndSpecification<T> : Specification<T> where T : BaseEntity
@@ -22,7 +22,7 @@ public class AndSpecification<T> : Specification<T> where T : BaseEntity
     {
         _left = left;
         _right = right;
-    } 
+    }
     public override Expression<Func<T, bool>> Criteria =>
         x => _left.Criteria.Compile().Invoke(x) && _right.Criteria.Compile().Invoke(x);
 }

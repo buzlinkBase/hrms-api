@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
-namespace DTR.Core;
+﻿namespace DTR.Core;
 
 public class HolidayPlus8TimePipeline
 {
@@ -8,7 +7,7 @@ public class HolidayPlus8TimePipeline
     public HolidayPlus8TimePipeline(TimeContext context, IRuleSpecification? ElibleSpec = null)
     {
         _context = context;
-        _specification = ElibleSpec ?? 
+        _specification = ElibleSpec ??
             new IsHolidaySpec(HolidayType.LEGAL)
             .And(new IsEligibleForHoliday(HolidayType.LEGAL));
     }
@@ -38,8 +37,8 @@ public class HolidayPlus8TimePipeline
 
         var satisfied = _specification.IsSatisfiedBy(cannonicalTimeRange, _context);
         if (!satisfied) return TimeRange.Empty;
-        var defaultMinutes = satisfied 
-            ? (_context.Payload.Data.CurrentShift.MaxWorkingMinutes) 
+        var defaultMinutes = satisfied
+            ? (_context.Payload.Data.CurrentShift.MaxWorkingMinutes)
             : 0;
 
         var multiplier = holidays.Count();

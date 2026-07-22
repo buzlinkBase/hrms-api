@@ -5,9 +5,9 @@ namespace DTR.Core;
 
 public class TimeRangeCalculator
 {
-   //private  const double MinuteEpsilon = 1E-6; // ~0.06 milliseconds
-   // private static double NormalizeMinutes(double minutes) =>
-   //     Math.Abs(minutes) < MinuteEpsilon ? 0 : minutes;
+    //private  const double MinuteEpsilon = 1E-6; // ~0.06 milliseconds
+    // private static double NormalizeMinutes(double minutes) =>
+    //     Math.Abs(minutes) < MinuteEpsilon ? 0 : minutes;
     public static double GetTotalMinutes(DateTime startTime, DateTime endTime)
     {
         return Math.Max(0, (endTime - startTime).TotalMinutes);
@@ -16,13 +16,13 @@ public class TimeRangeCalculator
     public static double RoundToMinimumBound(double workingMinutes, double minBoundMinutes, double maxBoundMinutes)
     {
         if (minBoundMinutes >= workingMinutes && minBoundMinutes < maxBoundMinutes)
-            return minBoundMinutes; 
+            return minBoundMinutes;
         return workingMinutes;
     }
 
     public static TimeRange GetTimeRange(List<Attendance> pairedAtt)
     {
-        if (!pairedAtt.Any()) return TimeRange.Empty; 
+        if (!pairedAtt.Any()) return TimeRange.Empty;
 
         return TimeRangeSetter
             .SetTimeRangeCollection(pairedAtt)

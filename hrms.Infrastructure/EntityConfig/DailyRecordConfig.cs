@@ -1,5 +1,4 @@
-﻿using Hrms.Domain;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -26,6 +25,6 @@ public class DailyRecordConfig : IEntityTypeConfiguration<DailyRecord>
         .HasOne(d => d.Employee)
         .WithMany()
         .HasForeignKey(d => d.EmployeeId)
-        .IsRequired(false); 
+        .IsRequired(false);
     }
 }

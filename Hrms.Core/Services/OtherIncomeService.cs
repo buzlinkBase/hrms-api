@@ -33,7 +33,7 @@ public class OtherIncomeService : BaseService<OtherIncome>
              .SetProperty(x => x.IsTaxable, newRecord.IsTaxable)
              , token);
         }
-    } 
+    }
     public async Task<List<OtherIncome>> FindAllAsync()
     {
         return await GetQueryable().ToListAsync();

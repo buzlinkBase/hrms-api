@@ -48,7 +48,7 @@ internal class FixMapper : IIncompleteLogShiftMapper
         Attendance? lunchOut = null;
         Attendance? lunchIn = null;
 
-        if (shift.LunchBreakOption ==  BreakMode.UNPAID_BREAK)
+        if (shift.LunchBreakOption == BreakMode.UNPAID_BREAK)
         {
             lunchOut = AttendanceHelper.GetPunchNear(shift.LunchStartTime!.Value, attendances, 30);
             lunchIn = AttendanceHelper.GetPunchNear(shift.LunchEndTime!.Value, attendances, 30);
@@ -84,7 +84,7 @@ internal class SplitMapper : IIncompleteLogShiftMapper
     }
 
     public ColumnarLogModel MapData(DTRProcessorPayload payload, List<Attendance> attendances, DateOnly payrollDate)
-    { 
+    {
         var dtr = new ColumnarLogModel
         {
             EmpNo = payload.Data.Employee.BioId.ToString(),
@@ -95,7 +95,7 @@ internal class SplitMapper : IIncompleteLogShiftMapper
             DepartmentId = payload.Data.Employee.DepartmentId,
             WorkDate = payrollDate,
             ShiftName = _payload.Data.CurrentShift.ShiftName,
-            Department = _payload.Data.Employee?.DepartmentName   ?? "",
+            Department = _payload.Data.Employee?.DepartmentName ?? "",
             ShiftStart = _payload.Data.CurrentShift.StartTime,
             ShiftEnd = _payload.Data.CurrentShift.EndTime,
             BreakOut = _payload.Data.CurrentShift.LunchStartTime,
@@ -123,4 +123,4 @@ internal class SplitMapper : IIncompleteLogShiftMapper
         };
         return dtr;
     }
-} 
+}

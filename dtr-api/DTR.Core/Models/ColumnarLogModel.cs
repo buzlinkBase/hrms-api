@@ -1,8 +1,4 @@
-﻿using Hrms.Domain.Entities;
-using Hrms.Domain.Entities.EmployeeEntities;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace DTR.Core;
+﻿namespace DTR.Core;
 
 public class ColumnarLogModel
 {

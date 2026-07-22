@@ -34,7 +34,7 @@ internal static class WTaxHelper
     public static decimal GetBalance(DeductionPayloadContext context, decimal ee)
     {
         var contributions = GetCurrentMonthContribution(context);
-       return Math.Max(ee - contributions.Sum(x => x.TaxDue), 0);
+        return Math.Max(ee - contributions.Sum(x => x.TaxDue), 0);
     }
     private static List<WTaxContributionModel> GetCurrentMonthContribution(DeductionPayloadContext context)
     {

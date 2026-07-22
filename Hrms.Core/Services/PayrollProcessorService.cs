@@ -1,7 +1,4 @@
-﻿using Hrms.Core.Calculators;
-using Hrms.Core.Calculators.Payloads;
-
-namespace Hrms.Core.Services;
+﻿namespace Hrms.Core.Services;
 
 public class PayrollProcessorService
 {
@@ -11,14 +8,14 @@ public class PayrollProcessorService
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
-    } 
+    }
 
     public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollCalcPayload payload,
         CancellationToken token)
     {
         var payrollLines = new List<PayrollSummaryLine>();
 
-        var dtrs = await _dtrServie.LoadForPayrollAsync(payload,token);
+        var dtrs = await _dtrServie.LoadForPayrollAsync(payload, token);
         if (dtrs == null || !dtrs.Any()) return payrollLines;
 
         var period = BuildPayrollPeriod(payload);
@@ -31,12 +28,12 @@ public class PayrollProcessorService
 
         if (!employees.Any()) return payrollLines;
 
-        var rangePayload = await _payloadComposer.ComposeAsync(payload, employees,token)
+        var rangePayload = await _payloadComposer.ComposeAsync(payload, employees, token)
                           ?? throw new Exception("Unable to load range payload");
 
         foreach (var employee in employees)
         {
-            if (employee == null) continue; 
+            if (employee == null) continue;
             var payrollLine = InitializePayrollLine(payload, employee, batch, period);
             //get dtr
             if (dtrs.TryGetValue(new EmployeeKey(employee.Id), out var empDtr))

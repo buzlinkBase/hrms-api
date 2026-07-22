@@ -18,7 +18,7 @@ public static class CrossDateSplitter
 
         return slices;
     }
-} 
+}
 public class CalculatedDateRange
 {
     public DateTime Start { get; set; }

@@ -37,10 +37,10 @@ public class TaxService : BaseService<TaxTable>
             .ToListAsync(token);
     }
 
-    public async Task<List<TaxTable>> FindAllAsync(DateOnly effectivity,string payrollType, CancellationToken token)
+    public async Task<List<TaxTable>> FindAllAsync(DateOnly effectivity, string payrollType, CancellationToken token)
     {
         return await GetQueryable()
-            .Where(x => x.EffectiveDate == effectivity && x.PayrollType== payrollType)
+            .Where(x => x.EffectiveDate == effectivity && x.PayrollType == payrollType)
             .ToListAsync(token);
     }
 

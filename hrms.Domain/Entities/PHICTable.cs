@@ -29,7 +29,7 @@ public class PHICTable : BaseEntity
 }
 
 
-public class PHICContribution : BaseEntity,IDateFilter
+public class PHICContribution : BaseEntity, IDateFilter
 {
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }

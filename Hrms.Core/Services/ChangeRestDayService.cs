@@ -55,22 +55,22 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
             await _uow.Repository.AddAsync(entity2, token);
         }
     }
-    public async  Task<Dictionary<ResDaykey, List<ChangeRestDay>>> GetChangeRestDays(DateOnly fromDate,
+    public async Task<Dictionary<ResDaykey, List<ChangeRestDay>>> GetChangeRestDays(DateOnly fromDate,
         DateOnly toDate,
-        HashSet<Guid> empIds, 
+        HashSet<Guid> empIds,
         CancellationToken token)
     {
         return await _uow.Repository
-         .Find<ChangeRestDay>(x =>  empIds.Any(xx=>xx == x.EmployeeId) &&
-                x.PayrollDate >= fromDate 
+         .Find<ChangeRestDay>(x => empIds.Any(xx => xx == x.EmployeeId) &&
+                x.PayrollDate >= fromDate
                 && x.PayrollDate <= toDate)
          .GroupBy(x => new ResDaykey(x.EmployeeId, x.PayrollDate))
          .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
          ;
     }
     public List<RestDayRecordResponse> FindList(Guid? payrollGroupId,
-        Guid? employeeId ,
-        Guid? clientId ,
+        Guid? employeeId,
+        Guid? clientId,
         DateOnly fromDate, DateOnly toDate,
         CancellationToken token)
     {
@@ -79,7 +79,7 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
         .Where(x =>
             (payrollGroupId == null || x.Employee.PayrollGroupId == payrollGroupId) &&
             (employeeId == null || x.EmployeeId == employeeId) &&
-            (clientId    == null || x.Employee.ClientId == clientId) &&
+            (clientId == null || x.Employee.ClientId == clientId) &&
             x.PayrollDate >= fromDate && x.PayrollDate <= toDate)
         .ToList()
         .GroupBy(x => new { x.BatchEntryId, x.EmployeeId })

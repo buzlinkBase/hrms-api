@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.Configuration;
 namespace Hrms.Infrastructure;
+
 using Microsoft.EntityFrameworkCore;
 
 public class HrmsContext : DbContext, IDbContext
@@ -25,7 +26,7 @@ public class HrmsContext : DbContext, IDbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        if (optionsBuilder.IsConfigured) return; 
+        if (optionsBuilder.IsConfigured) return;
         var connectionString = _configuration.GetConnectionString("HrmsConnection");
         if (_tenantConnectionInfo.ConnectionString != null)
         {

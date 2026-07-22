@@ -1,4 +1,5 @@
 ﻿namespace Hrms.Core.Policies.DTRPolicies;
+
 internal class RegularWorkDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
     public RegularWorkDayPolicy() { }

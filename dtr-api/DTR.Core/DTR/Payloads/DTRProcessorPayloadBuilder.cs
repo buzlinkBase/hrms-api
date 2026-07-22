@@ -3,6 +3,7 @@
 using Hrms.Domain.Entities;
 
 namespace DTR.Core;
+
 public record GetCurrentAttendancePayload(Dictionary<AttendanceEmpId, List<Attendance>> AllEmployeesAttendances,
     EmployeeDTRRun Employee);
 public class DTRProcessorPayloadBuilder
@@ -64,7 +65,7 @@ public class DTRProcessorPayloadBuilder
         _payload.Data.CurrentDayoffs = currentDayoff;
         return this;
     }
-    public DTRProcessorPayloadBuilder SetDTRContext( DTRContextModel dTRContext)
+    public DTRProcessorPayloadBuilder SetDTRContext(DTRContextModel dTRContext)
     {
         _payload.ContextModel = dTRContext;
         return this;
@@ -115,7 +116,7 @@ public class DTRProcessorPayload
     public ProvidersPayload Provider { get; set; } = new();
     public SpecEvaluationCache SharedSpecCache { get; } = new();
     public TimeRangeLedger Ledger { get; } = new();
-    public DTRContextModel ContextModel { get; set; }=new();
+    public DTRContextModel ContextModel { get; set; } = new();
 
 }
 public class DataPayload

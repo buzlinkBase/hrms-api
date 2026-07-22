@@ -63,8 +63,8 @@ public class ActualUnderTimeHandler : UnderTimeHandler
     protected override TimeRange Process()
     {
         var spec = new IsUndertimeSpec()
-           .And(new IsFixedScheduleSpec()); 
-       
+           .And(new IsFixedScheduleSpec());
+
         var pipeline = new PolicyPipeline()
           .AddPolicy(new UndertimePolicy(spec));
         return pipeline.Execute(Context.CanonicalTimeRange, Context);

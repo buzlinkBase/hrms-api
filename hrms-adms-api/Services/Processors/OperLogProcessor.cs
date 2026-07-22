@@ -1,7 +1,4 @@
-﻿using Hrms.adms.Models.DTO;
-using Hrms.adms.Services;
-
-namespace Hrms.adms.Services.Processors;
+﻿namespace Hrms.adms.Services.Processors;
 
 public class OperLogProcessor : ICDataProcessor
 {
@@ -37,7 +34,7 @@ public class OperLogProcessor : ICDataProcessor
         }
         if (templatesToRegister.Any())
         {
-          await _bioTemplateService.AddRangeTemplate(templatesToRegister, token);
+            await _bioTemplateService.AddRangeTemplate(templatesToRegister, token);
         }
     }
 
@@ -49,7 +46,7 @@ public class OperLogProcessor : ICDataProcessor
         foreach (var part in parts)
         {
             var kv = part.Split('=');
-            if (kv.Length>0 && (kv.Length == 2 || kv[0] == "TMP"))
+            if (kv.Length > 0 && (kv.Length == 2 || kv[0] == "TMP"))
             {
                 data.TryAdd(kv[0].Trim(), kv[1].Trim());
             }

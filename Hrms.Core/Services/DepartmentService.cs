@@ -5,7 +5,7 @@ namespace Hrms.Core.Services;
 
 public class DepartmentService : BaseService<Department>
 {
-    public DepartmentService(IUnitOfWorkService service ) : base(service)
+    public DepartmentService(IUnitOfWorkService service) : base(service)
     {
     }
 

@@ -1,6 +1,6 @@
 ﻿namespace DTR.Core;
 
-public class IsAppliedUnderTimeSpec  : IRuleSpecification
+public class IsAppliedUnderTimeSpec : IRuleSpecification
 {
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
@@ -12,12 +12,11 @@ public class IsAppliedUnderTimeSpec  : IRuleSpecification
 
         var shift = context.Payload.Data.CurrentShift;
 
-        var isEligible =  context.Payload.Provider.UTProvider
+        var isEligible = context.Payload.Provider.UTProvider
             .HasUTApplication(shift.ShiftDate);
 
         context.Payload.SharedSpecCache.Record(key, isEligible);
         return isEligible;
 
-    } 
+    }
 }
- 

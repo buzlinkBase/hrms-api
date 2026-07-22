@@ -1,5 +1,4 @@
-﻿using Hrms.Domain;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

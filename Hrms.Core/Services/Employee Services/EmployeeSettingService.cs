@@ -2,7 +2,7 @@
 
 namespace Hrms.Core.Services;
 
-public class EmployeeSettingService(IUnitOfWorkService uow) 
+public class EmployeeSettingService(IUnitOfWorkService uow)
     : BaseService<EmployeeSetting>(uow)
 {
     public async Task AddAsync(EmployeeSetting model, CancellationToken token)

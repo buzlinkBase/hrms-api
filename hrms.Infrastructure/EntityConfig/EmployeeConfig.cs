@@ -10,9 +10,9 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
     public void Configure(EntityTypeBuilder<Employee> builder)
     {
 
-       // builder.HasIndex(x => x.BioId)
-       //.IsUnique()
-       //.HasFilter("(CASE WHEN BioId = 0 THEN NULL ELSE BioId END)");
+        // builder.HasIndex(x => x.BioId)
+        //.IsUnique()
+        //.HasFilter("(CASE WHEN BioId = 0 THEN NULL ELSE BioId END)");
 
         builder.HasIndex(x => x.FirstName);
         builder.HasIndex(x => x.MiddleName);

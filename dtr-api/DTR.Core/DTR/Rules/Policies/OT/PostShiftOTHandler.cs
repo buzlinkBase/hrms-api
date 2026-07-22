@@ -1,4 +1,5 @@
 namespace DTR.Core;
+
 public class PostShiftOTUnrestrictedHandler : PostShiftOTHandler
 {
     public TimeRange Calculate(TimeRange input, TimeContext context) => Process(input, context);

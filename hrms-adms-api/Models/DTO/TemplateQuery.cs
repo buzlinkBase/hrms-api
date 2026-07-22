@@ -6,6 +6,6 @@ public class TemplateQuery
     public int BioId { get; set; }
     public Guid DepartmentId { get; set; }
     public Guid ClientId { get; set; }
-    public Guid EmployeeId  { get; set; }
+    public Guid EmployeeId { get; set; }
 
 }

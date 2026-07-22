@@ -39,7 +39,7 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
                 x.OTStatus == ApprovalStatus.Approved &&
                 x.OTDate >= from && x.OTDate <= to &&
                 employeeIds.Contains(x.EmployeeId))
-            .GroupBy(a => new { a.EmployeeId, a.OTDate }) 
+            .GroupBy(a => new { a.EmployeeId, a.OTDate })
             .Select(g => new
             {
                 Key = g.Key,

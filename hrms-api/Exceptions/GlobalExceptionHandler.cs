@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+﻿using MessagePack;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Exceptions;
-using MessagePack;
 
 namespace Hrms.Api.Exceptions;
 
@@ -35,11 +35,11 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
 
         //if (env.IsDevelopment())
         //{
-            errorDetail.Extensions.Add("stackTrace", exception.StackTrace);
-            if (exception.InnerException != null)
-            {
-                errorDetail.Extensions.Add("innerException", exception.InnerException.Message);
-            }
+        errorDetail.Extensions.Add("stackTrace", exception.StackTrace);
+        if (exception.InnerException != null)
+        {
+            errorDetail.Extensions.Add("innerException", exception.InnerException.Message);
+        }
         //}
         // 2. Wrap it in your standard ResponseModel
         var response = new ResponseModel<ProblemDetails>

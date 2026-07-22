@@ -11,7 +11,7 @@ public class SectionService : BaseService<Section>
     public async Task AddAsync(Section model, CancellationToken token)
     {
         await CreateAsync(model, token);
-        await  CommitChangesAsync(token);
+        await CommitChangesAsync(token);
 
     }
     public async Task UpdateAsync(Section model, CancellationToken token)
@@ -20,7 +20,7 @@ public class SectionService : BaseService<Section>
         await CommitChangesAsync(token);
 
     }
-  
+
     public async Task<List<Section>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable()

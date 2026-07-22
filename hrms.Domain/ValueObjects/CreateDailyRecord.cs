@@ -1,7 +1,8 @@
 ﻿namespace Hrms.Domain.ValueObjects;
+
 public class CreateDailyRecord
 {
-    public string? WorkType { get; set; }  
+    public string? WorkType { get; set; }
     public string? FullName { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly WorkDate { get; set; }

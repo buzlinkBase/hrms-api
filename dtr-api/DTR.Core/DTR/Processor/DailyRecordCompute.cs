@@ -9,7 +9,7 @@ public class DailyRecordCompute
     }
 
     public ObjectCollection<T> ProcessDailyRecords<T>(IDTRProcessor<T> processor,
-        DateOnly fromDate, DateOnly ToDate,  CancellationToken token, 
+        DateOnly fromDate, DateOnly ToDate, CancellationToken token,
         IncludeNullResponse ignoreNull = IncludeNullResponse.Include,
         bool processOnlyPairedAtt = true) where T : class, new()
     {

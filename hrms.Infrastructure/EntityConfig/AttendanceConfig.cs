@@ -15,7 +15,7 @@ internal class AttendanceConfig : IEntityTypeConfiguration<Attendance>
         builder.HasIndex(e => new { e.LogSource, e.BatchCode })
             .HasDatabaseName("IX_Attendance_LogSource_BatchCode");
 
-        builder.HasIndex(e => new { e.LogSource, e.WorkDateTime }) 
+        builder.HasIndex(e => new { e.LogSource, e.WorkDateTime })
          .HasDatabaseName("IX_Attendance_ls_wt");
 
         builder.HasIndex(e => new { e.BranchId, e.DepartmentId, e.OperationAreaId, e.ClientId })

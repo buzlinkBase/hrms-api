@@ -11,7 +11,8 @@ public class CreateHoliday
     public Guid? AreaId { get; set; }
     public string Status { get; set; }
 }
-public class UpdateHoliday : CreateHoliday {
+public class UpdateHoliday : CreateHoliday
+{
     public Guid Id { get; set; }
 }
 public class HolidayModel : UpdateHoliday

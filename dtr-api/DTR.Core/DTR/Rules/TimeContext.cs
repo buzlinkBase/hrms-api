@@ -2,7 +2,7 @@
 
 public class TimeContext
 {
-    public DTRProcessorPayload Payload  { get; set; }
+    public DTRProcessorPayload Payload { get; set; }
     public TimeRange CanonicalTimeRange { get; set; } //untouch TimeRange 
 }
 

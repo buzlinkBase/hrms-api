@@ -5,7 +5,7 @@ public class PayrollGroup : BaseEntity
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public PayrollFrequency PayrollFrequency { get; set; }
-    public virtual ICollection<CutoffDay>  CutoffDays { get; set; }
+    public virtual ICollection<CutoffDay> CutoffDays { get; set; }
 
 }
 

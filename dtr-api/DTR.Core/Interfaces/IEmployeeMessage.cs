@@ -1,5 +1,5 @@
 ﻿using Hrms.Domain.Entities;
-using Hrms.Domain.Entities.EmployeeEntities; 
+using Hrms.Domain.Entities.EmployeeEntities;
 using Refit;
 namespace DTR.Core.Interfaces;
 

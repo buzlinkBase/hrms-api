@@ -1,4 +1,5 @@
 ﻿namespace DTR.Core;
+
 public class First8HrPolicy : ConditionalPolicyBase
 {
     public First8HrPolicy(SpecFailureBehavior behavior = SpecFailureBehavior.ReturnEmpty)

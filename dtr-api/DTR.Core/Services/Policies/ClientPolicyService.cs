@@ -17,10 +17,10 @@ public class ClientPolicyService
             .Select(x => new ClientPolicyRule()
             {
                 Key = new ClientPolicyKey(x.Key.IdentityId),
-                OvertimeEligibilityRule = SetElegibility(companyRule,x.FirstOrDefault().Value),
-                OvertimeInclusionPolicy = SetExlusion(companyRule,x.FirstOrDefault().Value)
+                OvertimeEligibilityRule = SetElegibility(companyRule, x.FirstOrDefault().Value),
+                OvertimeInclusionPolicy = SetExlusion(companyRule, x.FirstOrDefault().Value)
             })
-            .ToDictionary(x => x.Key, xxx=>xxx)
+            .ToDictionary(x => x.Key, xxx => xxx)
             ;
         return result;
     }
@@ -45,7 +45,7 @@ public class ClientPolicyService
             return value;
         }
         return companyRule.OTInclusionPolicy;
-    } 
+    }
 }
 
 public record struct ClientPolicyKey(Guid ClientId);

@@ -40,7 +40,7 @@ public static class Guard
             throw new GuardException(result.Message);
     }
 
-    public static async Task ModelGuardAsync<T>(Func<T, CancellationToken, Task<EvaluationResult>> validator, T model, CancellationToken token=default)
+    public static async Task ModelGuardAsync<T>(Func<T, CancellationToken, Task<EvaluationResult>> validator, T model, CancellationToken token = default)
             where T : class, IEntity
     {
         if (validator == null) return;

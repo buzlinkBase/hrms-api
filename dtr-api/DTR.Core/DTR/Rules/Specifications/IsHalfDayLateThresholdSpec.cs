@@ -9,9 +9,9 @@ public class IsHalfDayLateThresholdSpec : IRuleSpecification
 
         var cached = context.Payload.SharedSpecCache.GetByKey(key);
         if (cached.Found)
-            return cached.Value; 
+            return cached.Value;
 
-        var  Threshold = context.Payload.Data
+        var Threshold = context.Payload.Data
             .CompanyPolicy
             .HalfDayLateThresholdMinutes;
 

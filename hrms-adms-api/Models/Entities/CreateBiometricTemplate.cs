@@ -2,7 +2,7 @@
 
 public class CreateBiometricTemplate
 {
-    public Guid TenantId  { get; set; }
+    public Guid TenantId { get; set; }
     public int BioId { get; set; }
     public BiometricType BioType { get; set; }
     public int BioIndex { get; set; }

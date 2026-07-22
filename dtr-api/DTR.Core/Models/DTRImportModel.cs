@@ -33,7 +33,7 @@ public class DTRImportModel
     public double RDNDOT_Hours { get; set; }
     public double LH_Hours { get; set; }
     public double LHOT_Hours { get; set; }
-    public double LHND_Hours { get; set; } 
+    public double LHND_Hours { get; set; }
     public double LHNDOT_Hours { get; set; }
     public double SPH_Hours { get; set; }
     public double SPHOT_Hours { get; set; }

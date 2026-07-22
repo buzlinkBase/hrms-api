@@ -12,9 +12,9 @@ public class UndertimeTimePipeline
     public TimeRange Apply(TimeRange cannonicalTimeRange)
     {
         var applied = new AppliedUnderTimeHandler(cannonicalTimeRange, _context);
-        var actual  = new ActualUnderTimeHandler(cannonicalTimeRange, _context);
+        var actual = new ActualUnderTimeHandler(cannonicalTimeRange, _context);
         applied.SetNext(actual);
-        return applied.Handle(); 
+        return applied.Handle();
     }
 }
 

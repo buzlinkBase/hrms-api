@@ -385,7 +385,7 @@ public class SSSFixedPerMonthBasisTest
             payrollFrequency: PayrollFrequency.WEEKLY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
-            dailyRate: 384.61m, 
+            dailyRate: 384.61m,
             grossPay: 15_000
         );
         context.Employee.HireDate = new DateOnly(2025, 12, 16);
@@ -413,10 +413,10 @@ public class SSSFixedPerMonthBasisTest
             dailyRate: 384.61m,
             grossPay: 15_000
         );
-        
+
         context.Employee.HireDate = new DateOnly(2025, 12, 20);
         SSSTestHelpers.SetCutoff(context, 15);
-        SSSTestHelpers.SetCutoff(context, 31,true);
+        SSSTestHelpers.SetCutoff(context, 31, true);
 
         var pipeline = new DeductionPipeline();
         var result = pipeline.Run(context);

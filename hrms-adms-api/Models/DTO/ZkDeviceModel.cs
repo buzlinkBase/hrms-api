@@ -2,7 +2,7 @@
 
 public class ZkDeviceModel
 {
-    public BiometricDevice  DeviceInfo { get; set; } = new();
+    public BiometricDevice DeviceInfo { get; set; } = new();
     public SystemCounters SystemCounters { get; set; } = new();
     public Biometrics Biometrics { get; set; } = new();
     public PhotosAndMedia PhotosAndMedia { get; set; } = new();

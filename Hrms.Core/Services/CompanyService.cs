@@ -2,6 +2,7 @@
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
+
 public class CompanyService : BaseService<Company>
 {
     public CompanyService(IUnitOfWorkService uow) : base(uow)

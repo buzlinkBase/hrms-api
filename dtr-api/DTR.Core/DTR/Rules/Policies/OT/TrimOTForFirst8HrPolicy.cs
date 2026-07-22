@@ -17,7 +17,7 @@ public class TrimOTForFirst8HrPolicy : ConditionalPolicyBase
         {
             var value = cached.Value ?? TimeRange.Empty;
             return value;
-        } 
+        }
 
         // ⛳ Get previously claimed RegularTime
         var regularKey = TimeRangeLedger.CreateKey<RegularHourPolicy>(context);
@@ -54,4 +54,4 @@ public class TrimOTForFirst8HrPolicy : ConditionalPolicyBase
 
         return remainingOT;
     }
-} 
+}

@@ -1,7 +1,6 @@
 using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Domain.Entities;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers;

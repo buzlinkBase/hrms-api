@@ -1,5 +1,4 @@
 ﻿using Hrms.Domain.Entities;
-using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -47,7 +46,7 @@ public class AttendanceService : BaseService<Attendance>
     }
     public async Task<List<AttendanceModel>> GetLog(AttendanceFilterDate filter, LOGSOURCE source = LOGSOURCE.MANUAL)
     {
-        DateTime fromDate =  (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
+        DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
         DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
         Guid? filterEmployeeId = filter?.EmployeeId;
 

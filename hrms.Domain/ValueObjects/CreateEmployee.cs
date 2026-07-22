@@ -1,13 +1,13 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
 using MessagePack;
 
-namespace Hrms.Domain.ValueObjects; 
+namespace Hrms.Domain.ValueObjects;
 
-public record  EmployeeFilter
+public record EmployeeFilter
 {
-    public Guid? EmployeeId  { get; set; }
+    public Guid? EmployeeId { get; set; }
     public Guid? DepartmentId { get; set; }
-    public Guid? PayrollGroupId  { get; set; }
+    public Guid? PayrollGroupId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? OperationAreaId { get; set; }
@@ -352,7 +352,7 @@ public class EmployeeDTRRun
 {
     public int? BioId { get; set; }
     public Guid Id { get; set; }
-    public Guid? BranchId  { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? TimeShiftId { get; set; }
@@ -369,16 +369,16 @@ public class EmployeeDTRRun
 public class EmployeeFilterResponseModel
 {
     public Guid Id { get; set; }
-    public int? BioId  { get; set; }
+    public int? BioId { get; set; }
     public string? Name { get; set; }
-    public Guid? BranchId  { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? DepartmentId { get; set; }
     public Guid? PayrollGroupId { get; set; }
     public string? DepartmentName { get; set; }
     public string? ClientName { get; set; }
-    public string? BranchName  { get; set; }
+    public string? BranchName { get; set; }
     public string? PayrollGroupName { get; set; }
     public string? AreaName { get; set; }
 }

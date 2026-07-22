@@ -19,7 +19,7 @@ public class SSSTable : BaseEntity
 
 }
 
-public class SSSContribution : BaseEntity,IDateFilter
+public class SSSContribution : BaseEntity, IDateFilter
 {
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }

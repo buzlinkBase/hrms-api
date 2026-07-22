@@ -11,7 +11,7 @@ public abstract class OverTimeHandler
         Context = context;
         Input = input;
     }
-    protected virtual bool CanHandle()=>true;
+    protected virtual bool CanHandle() => true;
     protected abstract TimeRange Process();
     public TimeRange Handle()
     {

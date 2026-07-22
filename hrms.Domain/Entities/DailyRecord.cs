@@ -7,7 +7,7 @@ namespace Hrms.Domain.Entities;
 [DisableSoftDelete]
 public class DailyRecord : BaseEntity, IUserField
 {
-    public string? BatchCode { get; set; }  
+    public string? BatchCode { get; set; }
     public string WorkType { get; set; }
     public string? FullName { get; set; }
     public Guid EmployeeId { get; set; }
@@ -17,11 +17,11 @@ public class DailyRecord : BaseEntity, IUserField
     public DateTime ShiftStartTime { get; set; }
     public DateTime ShiftEndTime { get; set; }
     public DateTime? StartTime { get; set; }
-    public DateTime? EndTime { get; set; } 
+    public DateTime? EndTime { get; set; }
 
-    public double LateHours   { get; set; }  
-    public double UTHours { get; set; } 
-    public double OverBreakHours { get; set; } 
+    public double LateHours { get; set; }
+    public double UTHours { get; set; }
+    public double OverBreakHours { get; set; }
     public double LateForOTHours { get; set; }
 
     public double RegularNetHours { get; set; }
@@ -57,7 +57,7 @@ public class DailyRecord : BaseEntity, IUserField
     public double OB { get; set; }
     public int Absent { get; set; }
     public string Note { get; set; } = string.Empty;
-  
+
     public Guid? UserId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? DepartmentId { get; set; }

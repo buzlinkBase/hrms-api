@@ -22,8 +22,8 @@ public class OverBreakPolicy : ConditionalPolicyBase
         var pmbreak = context.Payload.Ledger.GetByTag("PM_BREAK", context).TimeRecords;
         var lunchbreak = context.Payload.Ledger.GetByTag("LUNCH_BREAK", context).TimeRecords;
 
-        double lunchTotalBreak  = shift.LunchBreakOption==BreakMode.PAID_BREAK 
-            ?  context.Payload.Data.CurrentShift.LunchBreakDurationMinutes 
+        double lunchTotalBreak = shift.LunchBreakOption == BreakMode.PAID_BREAK
+            ? context.Payload.Data.CurrentShift.LunchBreakDurationMinutes
             : 0;
         double amTotalBreak = 0;
         double pmTotalBreak = 0;
@@ -42,8 +42,8 @@ public class OverBreakPolicy : ConditionalPolicyBase
         var pmoverBreaks = OverbreakCalculator.ComputeOverbreaks(pmbreak, pmTotalBreak);
         var lunchoverBreaks = OverbreakCalculator.ComputeOverbreaks(lunchbreak, lunchTotalBreak);
 
-        var timeRange = amoverBreaks.ToTimeRange() 
-            + pmoverBreaks.ToTimeRange() 
+        var timeRange = amoverBreaks.ToTimeRange()
+            + pmoverBreaks.ToTimeRange()
             + lunchoverBreaks.ToTimeRange();
 
         context.Payload.Ledger.RecordByTag("overbreak", context, timeRange);

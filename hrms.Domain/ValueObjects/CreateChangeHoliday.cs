@@ -3,7 +3,7 @@ namespace Hrms.Domain.ValueObjects;
 
 public class CreateChangeHoliday
 {
-    public Guid HolidayId  { get; set; }
+    public Guid HolidayId { get; set; }
     public DateOnly PayrollDateFrom { get; set; }
     public DateOnly PayrollDateTo { get; set; }
     public Guid[] EmployeeIds { get; set; }

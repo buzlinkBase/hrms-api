@@ -1,6 +1,4 @@
-﻿using MessagePack;
-
-namespace Hrms.Domain.ValueObjects;
+﻿namespace Hrms.Domain.ValueObjects;
 
 public class GeneralSettingModel
 {

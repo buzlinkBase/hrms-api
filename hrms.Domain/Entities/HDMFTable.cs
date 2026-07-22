@@ -32,7 +32,7 @@ public class HDMFTable : BaseEntity
 
 }
 
-public class HDMFContribution : BaseEntity,IDateFilter
+public class HDMFContribution : BaseEntity, IDateFilter
 {
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }

@@ -69,7 +69,7 @@
             return date >= startOfLastWeek;
         }
 
-       
+
 
         public static double GetTotalDaysDiff(this DateOnly fromDate, DateOnly toDate)
         {

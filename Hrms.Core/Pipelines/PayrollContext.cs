@@ -33,7 +33,7 @@ public class CalculatorPayload : BasePayloadContext
     public List<WTaxModel> TaxTableModel { get; set; } = new();
     public CompanyPolicyRule CompanyPolicy { get; set; } = new();
     public int DaysInMonth => DateTime.DaysInMonth(FromDate.Year, FromDate.Month);
-    public double DaysDiffPayrollPeriod(PayrollContext context) => (context.Payload.ToDate.ToDateTime(TimeOnly.MinValue)- context.Payload.FromDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
+    public double DaysDiffPayrollPeriod(PayrollContext context) => (context.Payload.ToDate.ToDateTime(TimeOnly.MinValue) - context.Payload.FromDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
 
 }
 

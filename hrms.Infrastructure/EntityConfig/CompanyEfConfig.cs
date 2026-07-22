@@ -20,7 +20,7 @@ internal class BranchEfConfig : IEntityTypeConfiguration<Branch>
     {
         builder.Property(e => e.Boundary)
        .HasColumnType("geometry")
-       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326); 
+       .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
 
     }
 }

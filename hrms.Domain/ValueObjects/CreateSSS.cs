@@ -27,7 +27,7 @@ public class SSSContributionModel
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }
-    public DateOnly PayrollDate { get; set; } 
+    public DateOnly PayrollDate { get; set; }
     public decimal EE { get; set; }
     public decimal ER { get; set; }
     public decimal EC { get; set; }

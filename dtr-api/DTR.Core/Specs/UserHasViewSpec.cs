@@ -9,5 +9,5 @@ public class UserHasViewSpec<T> : Specification<T> where T : class, IEntity, new
         _hasView = hasView;
     }
     public override Expression<Func<T, bool>> Criteria =>
-        x =>  _hasView;
+        x => _hasView;
 }

@@ -9,7 +9,7 @@ public class HolidayResolver
         _service = service;
     }
 
-    public async Task<Dictionary<Holidaykey, List<HolidayInfo>>> 
+    public async Task<Dictionary<Holidaykey, List<HolidayInfo>>>
         ResolveAsync(DateOnly from,
         DateOnly dateTo,
      List<EmployeeDTRRun> employees,
