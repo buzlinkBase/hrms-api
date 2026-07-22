@@ -450,72 +450,80 @@ public class CommandsController : ControllerBase
 
 
     [HttpPost("delete-employee")]
-    public async Task<IActionResult> DeleteEmployee([FromQuery] string SN, [FromQuery] string pin)
+    public async Task<IActionResult> DeleteEmployee([FromQuery] string SN, [FromBody] List<DeleteEmployeePayload> payload)
     {
         var tenantId = HttpContext.ParseTenant();
         if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
-        if (string.IsNullOrWhiteSpace(pin)) return BadRequest("Employee PIN is required");
+        if (payload == null || payload.Count == 0) return BadRequest("At least one employee PIN is required");
 
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
-        var id = Guid.CreateVersion7();
+        var devCommands = new List<DeviceCommand>();
 
-        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        foreach (var item in payload)
         {
-            Id = id.ToString("N"),
-            Command = "DELETE_USER",
-            Parameters = new()
+            var id = Guid.CreateVersion7();
+            var syncEmpCmd = new DeviceCommandFormmaterPayload
             {
-                { "employee_code", pin }
-            }
-        };
+                Id = id.ToString("N"),
+                Command = "DELETE_USER",
+                Parameters = new()
+                {
+                    { "employee_code", item.BioId }
+                }
+            };
 
-        var resultCommand = formatter.Format(syncEmpCmd);
-        var devcommand = new DeviceCommand()
-        {
-            Id = id,
-            CommandType = syncEmpCmd.Command,
-            Commands = resultCommand,
-            SN = SN,
-        };
+            var resultCommand = formatter.Format(syncEmpCmd);
+            devCommands.Add(new DeviceCommand()
+            {
+                Id = id,
+                CommandType = syncEmpCmd.Command,
+                Commands = resultCommand,
+                SN = SN,
+            });
+        }
 
-        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        await _service.CreateCommand(devCommands);
         return NoContent();
     }
 
     [HttpPost("delete-fingerprint")]
-    public async Task<IActionResult> DeleteFingerprint([FromQuery] string SN, [FromQuery] string pin, [FromQuery] int? fingerIndex = null)
+    public async Task<IActionResult> DeleteFingerprint([FromQuery] string SN, [FromBody] List<DeleteFingerprintPayload> payload)
     {
         var tenantId = HttpContext.ParseTenant();
         if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
-        if (string.IsNullOrWhiteSpace(pin)) return BadRequest("Employee PIN is required");
+        if (payload == null || payload.Count == 0) return BadRequest("At least one employee PIN is required");
 
         ISystemClockService clockService = new SystemClockService(_configuration);
         var formatter = new ZKTecoCommandFormatter(clockService);
-        var id = Guid.CreateVersion7();
+        var devCommands = new List<DeviceCommand>();
 
-        var syncEmpCmd = new DeviceCommandFormmaterPayload
+        foreach (var item in payload)
         {
-            Id = id.ToString("N"),
-            Command = "DELETE_BIOMETRICS",
-            Parameters = new()
+            var id = Guid.CreateVersion7();
+            var syncEmpCmd = new DeviceCommandFormmaterPayload
             {
-                { "pin", pin },
-                { "biometric_type", "fingerprint" },
-                { "template_index", fingerIndex?.ToString() ?? "all" } // "all" or explicit finger index 0-9
-            }
-        };
+                Id = id.ToString("N"),
+                Command = "DELETE_BIOMETRICS",
+                Parameters = new()
+                {
+                    { "pin", item.BioId },
+                    { "biometric_type", "fingerprint" },
+                    { "template_index", item.FingerIndex?.ToString() ?? "all" } // "all" or explicit finger index 0-9
+                }
+            };
 
-        var resultCommand = formatter.Format(syncEmpCmd);
-        var devcommand = new DeviceCommand()
-        {
-            Id = id,
-            CommandType = syncEmpCmd.Command,
-            Commands = resultCommand,
-            SN = SN,
-        };
+            var resultCommand = formatter.Format(syncEmpCmd);
+            devCommands.Add(new DeviceCommand()
+            {
+                Id = id,
+                CommandType = syncEmpCmd.Command,
+                Commands = resultCommand,
+                SN = SN,
+            });
+        }
 
-        await _service.CreateCommand(new List<DeviceCommand> { devcommand });
+        await _service.CreateCommand(devCommands);
         return NoContent();
     }
 

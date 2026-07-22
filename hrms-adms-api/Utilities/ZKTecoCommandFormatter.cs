@@ -5,7 +5,7 @@ namespace Hrms.adms.Utilities;
 
 public class DeviceCommandFormmaterPayload
 {
-    public required string Id { get; set; }   
+    public required string Id { get; set; }
     public string? Command { get; set; }
     public string? CommandPayload { get; set; }
     public Dictionary<string, object?>? Parameters { get; set; }
@@ -20,7 +20,7 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
         string payload = (command.CommandPayload ?? "").ToString().Trim();
         if (!string.IsNullOrEmpty(payload))
         {
-            string preCommand= payload.StartsWith("C:") ? payload : $"C:{command.Id}:{payload}";
+            string preCommand = payload.StartsWith("C:") ? payload : $"C:{command.Id}:{payload}";
             return preCommand;
         }
 
@@ -40,6 +40,8 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
             "PULL_EMPLOYEES" => FormatEmployeePullCommand(command),
             "PULL_ATTENDANCE" => FormatAttendancePullCommand(command),
             "RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:CLEAR ADMIN",
+            "DELETE_USER" => FormatDelete(command),
+            "DELETE_BIOMETRICS" => FormatDeleteFP(command), 
             //"RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:SET OPTION ClearAdmin=1",
             //"RM_ADMIN_PRIVILEGE" => $"C:{command.Id}:ClearAdmin",
             _ => FormatRawCommand(command)
@@ -166,6 +168,61 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
             _ => throw new ArgumentException("Unsupported biometric sync command type")
         };
     }
+    private string FormatDelete(DeviceCommandFormmaterPayload command)
+    {
+        var parameters = command.Parameters ?? [];
+        string pin = Sanitize(GetParameterFallback(parameters, "pin", "employee_code"));
+        if (string.IsNullOrEmpty(pin))
+        {
+            throw new ArgumentException("Biometric sync command requires a device PIN");
+        }
+
+        var fields = new List<string>
+            {
+                $"PIN={pin}",
+            };
+        return $"C:{command.Id}:DATA DELETE USERINFO " + string.Join("\t", fields);
+    }
+
+    private string FormatDeleteFP(DeviceCommandFormmaterPayload command)
+    {
+        var parameters = command.Parameters ?? [];
+        string pin = Sanitize(GetParameterFallback(parameters, "pin", "employee_code"));
+        if (string.IsNullOrEmpty(pin))
+        {
+            throw new ArgumentException("Biometric sync command requires a device PIN");
+        }
+
+        var fields = new List<string>
+            {
+                $"PIN={pin}",
+            };
+
+        string fingerIndex = Sanitize(parameters.GetValueOrDefault("template_index")?.ToString() ?? "");
+        if (!string.IsNullOrEmpty(fingerIndex) && !fingerIndex.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            fields.Add($"FingerID={fingerIndex}");
+        }
+
+        return $"C:{command.Id}:DATA DELETE templatev10 " + string.Join("\t", fields);
+    }
+
+    private string FormatDeleteFace(DeviceCommandFormmaterPayload command)
+    {
+        var parameters = command.Parameters ?? [];
+        string pin = Sanitize(GetParameterFallback(parameters, "pin", "employee_code"));
+        if (string.IsNullOrEmpty(pin))
+        {
+            throw new ArgumentException("Biometric sync command requires a device PIN");
+        }
+
+        var fields = new List<string>
+            {
+                $"PIN={pin}",
+            };
+        return $"C:{command.Id}:DATA DELETE face " + string.Join("\t", fields);
+    }
+
 
     private string FormatFingerprintCommand(DeviceCommandFormmaterPayload command, string pin, Dictionary<string, object?> parameters)
     {
