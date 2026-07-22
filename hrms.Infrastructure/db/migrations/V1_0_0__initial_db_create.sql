@@ -4,7 +4,6 @@
     CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
 ) CHARACTER SET=utf8mb4;
 
- 
 ALTER DATABASE CHARACTER SET utf8mb4;
 
 CREATE TABLE `AllowanceTypes` (
@@ -702,7 +701,7 @@ CREATE TABLE `Attendances` (
     `ClientId` char(36) COLLATE ascii_general_ci NULL,
     `BranchId` char(36) COLLATE ascii_general_ci NULL,
     `OperationAreaId` char(36) COLLATE ascii_general_ci NULL,
-    `UserId` char(36) COLLATE ascii_general_ci NOT NULL,
+    `UserId` char(36) COLLATE ascii_general_ci NULL,
     `UserName` longtext CHARACTER SET utf8mb4 NOT NULL,
     `Workstate` int NOT NULL,
     `Verifycode` longtext CHARACTER SET utf8mb4 NOT NULL,
@@ -749,48 +748,18 @@ CREATE TABLE `ChangeRestDays` (
 
 CREATE TABLE `DailyTimeRecords` (
     `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+    `BatchCode` longtext CHARACTER SET utf8mb4 NULL,
     `WorkType` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `FullName` longtext CHARACTER SET utf8mb4 NOT NULL,
+    `FullName` longtext CHARACTER SET utf8mb4 NULL,
     `EmployeeId` char(36) COLLATE ascii_general_ci NOT NULL,
-    `empCode` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `BioId` int NOT NULL,
     `WorkDate` date NOT NULL,
     `ShiftName` longtext CHARACTER SET utf8mb4 NOT NULL,
     `ShiftStartTime` datetime(6) NOT NULL,
     `ShiftEndTime` datetime(6) NOT NULL,
     `StartTime` datetime(6) NULL,
     `EndTime` datetime(6) NULL,
-    `LHHolidayTotalDays` double NOT NULL,
-    `SPHolidayTotalDays` double NOT NULL,
-    `OTOnSpecialHolidayDays` double NOT NULL,
-    `OTOnLegalHolidayDays` double NOT NULL,
-    `RegularWorkingDays` double NOT NULL,
-    `RegularNDDays` double NOT NULL,
-    `RegularOTDays` double NOT NULL,
-    `RegularNDOTDays` double NOT NULL,
-    `RestDayDays` double NOT NULL,
-    `RestDayNDDays` double NOT NULL,
-    `RestDayOTDays` double NOT NULL,
-    `RestDayNDODays` double NOT NULL,
-    `OTOnSpecialHolidayMinutes` double NOT NULL,
-    `OTOnLegalHolidayMinutes` double NOT NULL,
-    `LateMinutes` double NOT NULL,
-    `UTMinutes` double NOT NULL,
-    `OverBreakMinutes` double NOT NULL,
-    `OTMinutes` double NOT NULL,
-    `ND` double NOT NULL,
-    `NDOT` double NOT NULL,
-    `SP` double NOT NULL,
-    `LH` double NOT NULL,
-    `RegDayMinutes` double NOT NULL,
-    `RegDayNDMinutes` double NOT NULL,
-    `RegDayOTMinutes` double NOT NULL,
-    `RegDayNDOMinutes` double NOT NULL,
-    `RestDayMinutes` double NOT NULL,
-    `RestDayNDMinutes` double NOT NULL,
-    `RestDayOTMinutes` double NOT NULL,
-    `RestDayNDOMinutes` double NOT NULL,
     `LateHours` double NOT NULL,
+    `UTHours` double NOT NULL,
     `OverBreakHours` double NOT NULL,
     `LateForOTHours` double NOT NULL,
     `RegularNetHours` double NOT NULL,
@@ -817,21 +786,20 @@ CREATE TABLE `DailyTimeRecords` (
     `RestSpecialDayOTHours` double NOT NULL,
     `RestSpecialDayNDHours` double NOT NULL,
     `RestSpecialDayNDOTHours` double NOT NULL,
-    `RawOTHours` double NOT NULL,
-    `LeaveMinutes` double NOT NULL,
+    `LeaveHours` double NOT NULL,
     `OB` double NOT NULL,
     `Absent` int NOT NULL,
     `Note` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `RecordStatus` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `Source` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `UserId` char(36) COLLATE ascii_general_ci NOT NULL,
-    `ClientId` char(36) COLLATE ascii_general_ci NULL,
+    `UserId` char(36) COLLATE ascii_general_ci NULL,
     `BranchId` char(36) COLLATE ascii_general_ci NULL,
-    `PayrollGroupId` char(36) COLLATE ascii_general_ci NULL,
     `DepartmentId` char(36) COLLATE ascii_general_ci NULL,
+    `PayrollGroupId` char(36) COLLATE ascii_general_ci NULL,
+    `ClientId` char(36) COLLATE ascii_general_ci NULL,
+    `AreaId` char(36) COLLATE ascii_general_ci NULL,
     `HolCount` int NOT NULL,
     `SPCount` int NOT NULL,
     `ShiftWorkingHour` double NOT NULL,
+    `Posted` tinyint(1) NOT NULL,
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
@@ -876,7 +844,7 @@ CREATE TABLE `Employees` (
     `MiddleName` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
     `Suffix` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
     `Gender` longtext CHARACTER SET utf8mb4 NOT NULL,
-    `Age` int NOT NULL,
+    `Age` int NULL,
     `MonthlyRate` decimal(65,30) NOT NULL,
     `DailyRate` decimal(65,30) NOT NULL,
     `Cola` decimal(65,30) NOT NULL,
@@ -1177,6 +1145,19 @@ CREATE TABLE `WorkSchedulePlans` (
     CONSTRAINT `FK_WorkSchedulePlans_TimeShifts_TimeShiftId` FOREIGN KEY (`TimeShiftId`) REFERENCES `TimeShifts` (`Id`) ON DELETE CASCADE
 ) CHARACTER SET=utf8mb4;
 
+INSERT INTO `GeneralSettings` (`Id`, `CreatedAt`, `DeletedAt`, `Description`, `IdentityType`, `IdentityTypeId`, `Metadata`, `Status`, `UpdatedAt`, `Value`)
+VALUES ('0123f5e6-d7c8-4234-bcda-6789012345fa', TIMESTAMP '2026-01-01 00:00:00', NULL, 'NightDiffThreshold', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', '0'),
+('1234a5b6-c7d8-4345-cdab-7890123456ab', TIMESTAMP '2026-01-01 00:00:00', NULL, 'AttFillLimit', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'NOLIMIT'),
+('2345b6c7-d8e9-4456-dabc-8901234567bc', TIMESTAMP '2026-01-01 00:00:00', NULL, 'HolidayTimeBasis', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'BasedOnTimeInDayType'),
+('3456c7d8-e9f0-4567-abcd-9012345678cd', TIMESTAMP '2026-01-01 00:00:00', NULL, 'IsHolPlusReg', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'True'),
+('4567d8e9-f012-4678-bcda-0123456789de', TIMESTAMP '2026-01-01 00:00:00', NULL, 'HolidayColumnPresentation', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'AutoCredit'),
+('a2618e39-1a02-4055-989a-7b3bcc61f7b3', TIMESTAMP '2026-01-01 00:00:00', NULL, 'OTEligibility', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'IndependentOfAttendanceIssues'),
+('b1a2c3d4-e5f6-4789-abcd-1234567890ab', TIMESTAMP '2026-01-01 00:00:00', NULL, 'OTInclusion', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'UsePostShiftWork'),
+('c2b3a4d5-f6e7-4890-bcda-2345678901bc', TIMESTAMP '2026-01-01 00:00:00', NULL, 'IsHalfDayLateOn', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'False'),
+('d3c4b5a6-e7f8-4901-cdab-3456789012cd', TIMESTAMP '2026-01-01 00:00:00', NULL, 'HalfDayLateThresholdMinutes', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', '0'),
+('e4d5c6b7-f8e9-4012-dabc-4567890123de', TIMESTAMP '2026-01-01 00:00:00', NULL, 'IsWholeDayLateOn', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', 'False'),
+('f5e6d7c8-9012-4123-abcd-5678901234ef', TIMESTAMP '2026-01-01 00:00:00', NULL, 'WholeDayLateThresholdMinutes', 'Company', NULL, NULL, 'Active', TIMESTAMP '2026-01-01 00:00:00', '0');
+
 CREATE INDEX `IX_Allowances_IncomeTypeId` ON `Allowances` (`IncomeTypeId`);
 
 CREATE INDEX `IX_AssignAssets_EmployeeId` ON `AssignAssets` (`EmployeeId`);
@@ -1298,5 +1279,6 @@ ALTER TABLE `DailyTimeRecords` ADD CONSTRAINT `FK_DailyTimeRecords_Employees_Emp
 ALTER TABLE `Departments` ADD CONSTRAINT `FK_Departments_Employees_HeadId` FOREIGN KEY (`HeadId`) REFERENCES `Employees` (`Id`) ON DELETE RESTRICT;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('20260718042532_V1_0_0__initial_create', '9.0.2');
- 
+VALUES ('20260722232551_initial_create', '9.0.2');
+
+

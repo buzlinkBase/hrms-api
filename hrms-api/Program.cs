@@ -1,9 +1,9 @@
 ﻿using Asp.Versioning.ApiExplorer;
-using DTR.Core.Services;
 using Hrms.adms.Middlewares;
 using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
 using Hrms.Core.Extensions;
+using Hrms.Core.Hubs;
 using Mapster;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -32,6 +32,7 @@ internal class Program
         builder.Services.AddMapster(typeof(MappingProfile).Assembly);
         builder.HrmsConfigRabbitMq();
         builder.RegisterSelfServices();
+        builder.Services.AddSignalR();
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
         builder.Services.AddGeminiAiExtraction(builder.Configuration);

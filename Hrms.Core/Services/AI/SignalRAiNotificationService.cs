@@ -1,3 +1,4 @@
+using Hrms.Core.Hubs;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Hrms.Core.Services.AI;
