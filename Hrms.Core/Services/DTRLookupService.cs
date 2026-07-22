@@ -1,143 +1,99 @@
-﻿using Hrms.Domain.Entities;
+﻿//using Hrms.Domain.Entities;
 
-namespace DTR.Core;
+//namespace DTR.Core;
 
-public class DTRLookupService(IUnitOfWorkService uow) : BaseService<DailyRecord>(uow)
-{
-    public async Task AddRange(List<DailyRecord> models)
-    {
-        //delete by employee and Date
-        var dtrsIds = models.Select(x => x.EmployeeId).Distinct().ToList();
-        var dtrsDate = models.Select(x => x.WorkDate).Distinct().ToList();
-        var dtrBioId = models.Select(x => x.BioId).Distinct().ToList();
-        var dtrempCode = models.Select(x => x.empCode).Distinct().ToList();
+//public class DTRLookupService(IUnitOfWorkService uow) : BaseService<DailyRecord>(uow)
+//{
+//    //public async Task AddRange(List<DailyRecord> models)
+//    //{
+//    //    //delete by employee and Date
+//    //    var dtrsIds = models.Select(x => x.EmployeeId).Distinct().ToList();
+//    //    var dtrsDate = models.Select(x => x.WorkDate).Distinct().ToList();
 
-        _uow.Repository.Remove<DailyRecord>(x =>
-            dtrsIds.Any(xx => xx == x.EmployeeId) &&
-            dtrsDate.Any(xx => xx == x.WorkDate) &&
-            dtrBioId.Any(xx => xx == x.BioId) &&
-            dtrempCode.Any(xx => xx == x.empCode));
+//    //    _uow.Repository.Remove<DailyRecord>(x =>
+//    //        dtrsIds.Any(xx => xx == x.EmployeeId) &&
+//    //        dtrsDate.Any(xx => xx == x.WorkDate));
 
-        //reset Id
-        foreach (var dtr in models)
-        {
-            dtr.Id = Guid.Empty;
-            dtr.RecordStatus = DTRStatus.LOCKED;
-        }
-        await CreateRangeAsync(models);
-    }
+//    //    //reset Id
+//    //    foreach (var dtr in models)
+//    //    {
+//    //        dtr.Id = Guid.Empty;
+//    //    }
+//    //    await CreateRangeAsync(models);
+//    //}
 
-    public List<DailyRecord> LoadDTRRawList(DTRRequestPayload payload)
-    {
-        return FindDTR(payload).ToList();
-    }
-    public List<DailyRecord> LoadDTRSummary(DTRRequestPayload payload)
-    {
-        return DTRSummaryQuery(payload);
-    }
-    public List<DailyRecord> FindTardiness(DTRRequestPayload payload)
-    {
-        var data = DTRSummaryQuery(payload)
-           .Where(x => x.LateHours > 0 || x.LateHours > 0
-           || x.LeaveMinutes > 0 || x.OB > 0)
-           .ToList();
-        return data;
-    }
-    public async Task RemoveRange(List<DailyRecord> models, CancellationToken token)
-    {
-        await RemoveRangeAsync(models.ToList(), token);
-    }
-    private List<DailyRecord> DTRSummaryQuery(DTRRequestPayload payload)
-    {
-        return FindDTR(payload)
-            .Where(x => x.RecordStatus == DTRStatus.LOCKED)
-            .ToList()
-            .GroupBy(x => x.EmployeeId)
-            .Select(x => new DailyRecord()
-            {
-                BioId = x.FirstOrDefault().BioId,
-                DepartmentId = x.FirstOrDefault().DepartmentId,
-                FullName = x.FirstOrDefault().FullName,
-                EmployeeId = x.Key,
-                //hol Day
-                LHHolidayTotalDays = x.Sum(x => x.LHHolidayTotalDays),
-                SPHolidayTotalDays = x.Sum(x => x.SPHolidayTotalDays),
-                //Regular Working Days
-                RegularWorkingDays = x.Sum(x => x.RegularWorkingDays),
-                RegularNDDays = x.Sum(x => x.RegularNDDays),
-                RegularOTDays = x.Sum(x => x.RegularOTDays),
-                RegularNDOTDays = x.Sum(x => x.RegularNDOTDays),
-                //rest Working Days
-                RestDayDays = x.Sum(x => x.RestDayDays),
-                RestDayNDDays = x.Sum(x => x.RestDayNDDays),
-                RestDayOTDays = x.Sum(x => x.RestDayOTDays),
-                RestDayNDODays = x.Sum(x => x.RestDayNDODays),
+//    //public List<DailyRecordModel> LoadDTRRawList(DTRRequestPayload payload)
+//    //{
+//    //    return FindDTR(payload)
+//    //            .Select(x => new DailyRecordModel()
+//    //            {
+//    //                FullName = x.FullName,
+//    //                EmployeeId = x.EmployeeId,
+//    //                LateHours = x.Sum(x => x.LateHours),
+//    //                UTHours = x.Sum(x => x.UTHours),
+//    //                OverBreakHours = x.Sum(x => x.OverBreakHours),
+//    //                LateForOTHours = x.Sum(x => x.LateForOTHours),
 
-                //minutes
-                LateMinutes = x.Sum(x => x.LateMinutes),
-                UTMinutes = x.Sum(x => x.UTMinutes),
-                OverBreakMinutes = x.Sum(x => x.OverBreakMinutes),
-                OTMinutes = x.Sum(x => x.OTMinutes),
-                ND = x.Sum(x => x.ND),
-                NDOT = x.Sum(x => x.NDOT),
-                LH = x.Sum(x => x.LH),
-                SP = x.Sum(x => x.SP),
+//    //                RegularNetHours = x.Sum(x => x.RegularNetHours),
+//    //                RegularOTHours = x.Sum(x => x.RegularOTHours),
+//    //                RegularNDHours = x.Sum(x => x.RegularNDHours),
+//    //                RegularNDOTHours = x.Sum(x => x.RegularNDOTHours),
 
-                RegDayMinutes = x.Sum(x => x.RegDayMinutes),
-                RegDayNDMinutes = x.Sum(x => x.RegDayNDMinutes),
-                RegDayOTMinutes = x.Sum(x => x.RegDayOTMinutes),
-                RegDayNDOMinutes = x.Sum(x => x.RegDayNDOMinutes),
-                //rest
-                RestDayMinutes = x.Sum(x => x.RestDayMinutes),
-                RestDayNDMinutes = x.Sum(x => x.RestDayNDMinutes),
-                RestDayOTMinutes = x.Sum(x => x.RestDayOTMinutes),
-                RestDayNDOMinutes = x.Sum(x => x.RestDayNDOMinutes),
-                LeaveMinutes = x.Sum(x => x.LeaveMinutes),
-                //hours
-                LateHours = x.Sum(x => x.LateHours),
-                UTHours = x.Sum(x => x.UTMinutes) / 60,
-                OverBreakHours = x.Sum(x => x.OverBreakHours),
-                LateForOTHours = x.Sum(x => x.LateForOTHours),
+//    //                RestDayHours = x.Sum(x => x.RestDayHours),
+//    //                RestDayOTHours = x.Sum(x => x.RestDayOTHours),
+//    //                RestDayNDHours = x.Sum(x => x.RestDayNDHours),
+//    //                RestDayNDOTHours = x.Sum(x => x.RestDayNDOTHours),
 
-                RegularNetHours = x.Sum(x => x.RegularNetHours),
-                RegularOTHours = x.Sum(x => x.RegularOTHours),
-                RegularNDHours = x.Sum(x => x.RegularNDHours),
-                RegularNDOTHours = x.Sum(x => x.RegularNDOTHours),
+//    //                LegalHolHours = x.Sum(x => x.LegalHolHours),
+//    //                LegalHolOTHours = x.Sum(x => x.LegalHolOTHours),
+//    //                LegalHolNightDiffHours = x.Sum(x => x.LegalHolNightDiffHours),
+//    //                LegalHolNightDiffOTHours = x.Sum(x => x.LegalHolNightDiffOTHours),
 
-                RestDayHours = x.Sum(x => x.RestDayHours),
-                RestDayOTHours = x.Sum(x => x.RestDayOTHours),
-                RestDayNDHours = x.Sum(x => x.RestDayNDHours),
-                RestDayNDOTHours = x.Sum(x => x.RestDayNDOTHours),
+//    //                SpecialHolHours = x.Sum(x => x.SpecialHolHours),
+//    //                SpecialHolOTHours = x.Sum(x => x.SpecialHolOTHours),
+//    //                SpecialHolNightDiffHours = x.Sum(x => x.SpecialHolNightDiffHours),
+//    //                SpecialHolNightDiffOTHours = x.Sum(x => x.SpecialHolNightDiffOTHours),
 
-                LegalHolHours = x.Sum(x => x.LegalHolHours),
-                LegalHolOTHours = x.Sum(x => x.LegalHolOTHours),
-                LegalHolNightDiffHours = x.Sum(x => x.LegalHolNightDiffHours),
-                LegalHolNightDiffOTHours = x.Sum(x => x.LegalHolNightDiffOTHours),
+//    //                RestLegalDayHours = x.Sum(xx => xx.RestLegalDayHours),
+//    //                RestLegalDayNDHours = x.Sum(xx => xx.RestLegalDayNDHours),
+//    //                RestLegalDayNDOTHours = x.Sum(xx => xx.RestLegalDayNDOTHours),
+//    //                RestLegalDayOTHours = x.Sum(xx => xx.RestLegalDayOTHours),
 
-                SpecialHolHours = x.Sum(x => x.SpecialHolHours),
-                SpecialHolOTHours = x.Sum(x => x.SpecialHolOTHours),
-                SpecialHolNightDiffHours = x.Sum(x => x.SpecialHolNightDiffHours),
-                SpecialHolNightDiffOTHours = x.Sum(x => x.SpecialHolNightDiffOTHours),
-                RawOTHours = x.Sum(x => x.RawOTHours),
-                OB = x.Sum(x => x.OB),
-                Absent = x.Sum(x => x.Absent),
-            })
-            .OrderBy(x => x.FullName)
-            .ToList();
-    }
-    private IQueryable<DailyRecord> FindDTR(DTRRequestPayload payload)
-    {
-        var fromDate = DateOnly.FromDateTime(payload.FromDate);
-        var toDate = DateOnly.FromDateTime(payload.ToDate);
-        return _uow.Repository
-            .FindAll<DailyRecord>()
-            .AsNoTracking()
-            .Where(x =>
-                 (x.WorkDate >= fromDate && x.WorkDate <= toDate) &&
-                 (payload.EmployeeId == null || x.EmployeeId == payload.EmployeeId) &&
-                 (payload.DepartmentId == null || (x.DepartmentId.HasValue ? x.DepartmentId.Value == payload.DepartmentId : x.DepartmentId == payload.DepartmentId)) &&
-                 (payload.PayrollGroupId == null || (x.PayrollGroupId.HasValue ? x.PayrollGroupId.Value == payload.PayrollGroupId : x.PayrollGroupId == payload.PayrollGroupId)) &&
-                 (payload.ClientId == null || (x.ClientId.HasValue ? x.ClientId.Value == payload.ClientId : x.ClientId == payload.ClientId))
-            );
-    }
-}
+//    //                RestSpecialDayHours = x.Sum(xx => xx.RestSpecialDayHours),
+//    //                RestSpecialDayNDHours = x.Sum(xx => xx.RestSpecialDayNDHours),
+//    //                RestSpecialDayNDOTHours = x.Sum(xx => xx.RestSpecialDayNDOTHours),
+//    //                RestSpecialDayOTHours = x.Sum(xx => xx.RestSpecialDayOTHours),
+//    //                ShiftWorkingHour = x.Sum(xx => xx.ShiftWorkingHour),
+
+//    //                BranchId = x.First().BranchId,
+//    //                DepartmentId = x.First().DepartmentId,
+//    //                AreaId = x.First().AreaId,
+//    //                PayrollGroupId = x.First().PayrollGroupId,
+//    //                ClientId = x.First().ClientId,
+//    //                HolCount = x.Sum(xx => xx.HolCount),
+//    //                SPCount = x.Sum(xx => xx.SPCount),
+//    //                LeaveHours = x.Sum(xx => xx.LeaveHours),
+//    //                OB = x.Sum(x => x.OB),
+//    //                Absent = x.Sum(x => x.Absent),
+//    //            })
+//    //        .OrderBy(x => x.FullName)
+//    //        .ToList();
+//    //}
+//    public List<DailyRecordModel> LoadDTRSummary(DTRRequestPayload payload)
+//    {
+//        return DTRSummaryQuery(payload);
+//    }
+
+//    public List<DailyRecordModel> FindTardiness(DTRRequestPayload payload)
+//    {
+//        var data = DTRSummaryQuery(payload)
+//           .Where(x => x.LateHours > 0 || x.LateHours > 0 || x.LeaveHours > 0 || x.OB > 0)
+//           .ToList();
+//        return data;
+//    }
+//    public async Task RemoveRange(List<DailyRecord> models, CancellationToken token)
+//    {
+//        await RemoveRangeAsync(models.ToList(), token);
+//    }
+  
+//}

@@ -203,7 +203,6 @@ public class ZKTecoCommandFormatter(ISystemClockService systemClockService)
         {
             fields.Add($"FingerID={fingerIndex}");
         }
-
         return $"C:{command.Id}:DATA DELETE templatev10 " + string.Join("\t", fields);
     }
 

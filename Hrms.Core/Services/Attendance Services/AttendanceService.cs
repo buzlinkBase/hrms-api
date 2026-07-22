@@ -158,18 +158,6 @@ public class AttendanceService : BaseService<Attendance>
                 (clientId == null || clientId == Guid.Empty || x.ClientId == clientId))
             .ToListAsync(token);
 
-        foreach (var attendance in data)
-        {
-            // Safe check even though we filtered for HasValue
-            if (attendance.EmployeeId.HasValue)
-            {
-                var key = (attendance.EmployeeId.Value, DateOnly.FromDateTime(attendance.WorkDateTime));
-                if (dtrSet.Contains(key))
-                {
-                    attendance.RecordStatus = DTRStatus.LOCKED;
-                }
-            }
-        }
 
         var result = data
             .GroupBy(a => new AttendanceEmpId(a.EmployeeId!.Value))

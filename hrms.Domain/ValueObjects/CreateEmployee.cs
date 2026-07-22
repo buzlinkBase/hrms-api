@@ -43,7 +43,6 @@ public class CreateEmployee
     public string Suffix { get; set; } = string.Empty;
 
     public string Gender { get; set; } = string.Empty;
-    public int Age { get; set; }
 
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
@@ -353,6 +352,7 @@ public class EmployeeDTRRun
 {
     public int? BioId { get; set; }
     public Guid Id { get; set; }
+    public Guid? BranchId  { get; set; }
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? TimeShiftId { get; set; }

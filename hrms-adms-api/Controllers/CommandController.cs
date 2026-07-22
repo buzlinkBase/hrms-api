@@ -487,6 +487,7 @@ public class CommandsController : ControllerBase
         return NoContent();
     }
 
+
     [HttpPost("delete-fingerprint")]
     public async Task<IActionResult> DeleteFingerprint([FromQuery] string SN, [FromBody] List<DeleteFingerprintPayload> payload)
     {

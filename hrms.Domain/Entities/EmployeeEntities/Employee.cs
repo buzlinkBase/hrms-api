@@ -31,7 +31,7 @@ public class Employee : BaseEntity
     public string MiddleName { get; set; } = string.Empty;
     public string Suffix { get; set; } = string.Empty;
     public string Gender { get; set; } = string.Empty;
-    public int Age { get; set; }
+    public int? Age { get; set; }
 
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
