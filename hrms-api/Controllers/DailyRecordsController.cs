@@ -101,6 +101,17 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("incomplete-columnar")]
+    [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
+    public async Task<IActionResult> IncompleteColumnarLog([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
+            ProcessorType.CleanColumnarLog,
+            token,
+            IncludeNullResponse.Include,false);
+        return Ok(result);
+    }
+
 
     [HttpDelete()]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
