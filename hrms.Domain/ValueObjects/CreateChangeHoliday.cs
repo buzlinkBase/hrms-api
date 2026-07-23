@@ -11,7 +11,8 @@ public class CreateChangeHoliday
 
 public class ChangeHolidayModel
 {
-    public Guid BatchId { get; set; }
+    public Guid EmployeeId   { get; set; }
+    public string BatchCode { get; set; }
     public string HolidayName { get; set; }
     public string ClientName { get; set; }
     public string FullName { get; set; }

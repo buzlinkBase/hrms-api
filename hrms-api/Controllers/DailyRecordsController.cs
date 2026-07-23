@@ -34,6 +34,7 @@ public class DailyRecordsController : ControllerBase
         var userId = User.GetRequiredUserId();
         var count = _service.Context.DailyTimeRecords.GroupBy(x => x.BatchCode).Count() + 1;
         var batchCode = $"DTR {rangeFrom.ToString("MMM-dd,yyyy")}-{RangeTo.ToString("MMM-dd,yyyy")} {count.ToString().PadLeft(10, '0')}";
+
         foreach (var item in models)
         {
             item.UserId = userId;

@@ -12,6 +12,11 @@ public record EmployeeFilter
     public Guid? BranchId { get; set; }
     public Guid? OperationAreaId { get; set; }
 }
+public record ChangeRestDayEmployeeFilter: EmployeeFilter
+{
+    public DayName DayName  { get; set; }
+}
+
 
 public class CreateEmployee
 {

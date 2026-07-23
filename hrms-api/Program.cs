@@ -31,8 +31,8 @@ internal class Program
         builder.Services.AddPollyPolicies();
         builder.Services.AddMapster(typeof(MappingProfile).Assembly);
         builder.HrmsConfigRabbitMq();
-        builder.RegisterSelfServices();
         builder.Services.AddSignalR();
+        builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
         builder.Services.AddGeminiAiExtraction(builder.Configuration);

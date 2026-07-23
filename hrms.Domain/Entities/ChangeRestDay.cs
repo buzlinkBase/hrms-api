@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities.EmployeeEntities;
+﻿using BuzlinkRepository;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities;
 
@@ -9,7 +10,6 @@ public class ChangeRestDay : BaseEntity
     public virtual Employee Employee { get; set; }
     public DateOnly PayrollDate { get; set; }
     public ChangeSchedState State { get; set; }
-    public Guid BatchEntryId { get; set; }
-}
-
-
+    //public Guid BatchEntryId { get; set; }
+    public string BatchCode { get; set; }
+} 
