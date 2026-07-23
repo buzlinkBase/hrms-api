@@ -11,9 +11,6 @@
       </Content>
     </ItemGroup>
     <ItemGroup>
-      <None Remove="db\migrations\**\*.sql" />
-    </ItemGroup>
-    <ItemGroup>
         <PackageReference Include="BuzlinkRepository" />
         <PackageReference Include="Evolve" />
 		<PackageReference Include="MassTransit.EntityFrameworkCore" />

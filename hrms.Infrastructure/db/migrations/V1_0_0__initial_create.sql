@@ -4,6 +4,7 @@
     CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
 ) CHARACTER SET=utf8mb4;
 
+
 ALTER DATABASE CHARACTER SET utf8mb4;
 
 CREATE TABLE `AllowanceTypes` (
@@ -1280,3 +1281,5 @@ ALTER TABLE `Departments` ADD CONSTRAINT `FK_Departments_Employees_HeadId` FOREI
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('20260723153850_initial_create', '9.0.2');
+
+
