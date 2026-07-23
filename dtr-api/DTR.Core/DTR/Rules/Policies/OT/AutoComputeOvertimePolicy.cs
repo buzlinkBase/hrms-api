@@ -6,7 +6,8 @@ public class AutoComputeOvertimePolicy : ConditionalPolicyBase
     private readonly PreShiftOTHandler _preShiftHandler;
     private readonly OutsideShiftOverTimeHandler _outsideShiftHandler;
 
-    public AutoComputeOvertimePolicy(IRuleSpecification specification) : base(specification,SpecFailureBehavior.ReturnEmpty) {
+    public AutoComputeOvertimePolicy(IRuleSpecification specification) : base(specification, SpecFailureBehavior.ReturnEmpty)
+    {
         _postShiftHandler = new PostShiftOTHandler();
         _preShiftHandler = new PreShiftOTHandler();
         _outsideShiftHandler = new OutsideShiftOverTimeHandler();
@@ -21,8 +22,8 @@ public class AutoComputeOvertimePolicy : ConditionalPolicyBase
         {
             var value = cached.Value ?? TimeRange.Empty;
             return value;
-        } 
- 
+        }
+
 
         var shift = context.Payload.Data.CurrentShift;
         var timeRange = _postShiftHandler.Handle(input, context);

@@ -21,7 +21,7 @@ public class RegularOTEvaluator : IDutyDayEvaluator
     }
 }
 
-public class NonHolidayEvaluator  : IDutyDayEvaluator
+public class NonHolidayEvaluator : IDutyDayEvaluator
 {
     public TimeRange Evaluate(TimeRange range, TimeContext context)
     {

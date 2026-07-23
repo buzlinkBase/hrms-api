@@ -1,5 +1,4 @@
 using Asp.Versioning;
-using Elastic.Clients.Elasticsearch.Core.TermVectors;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 

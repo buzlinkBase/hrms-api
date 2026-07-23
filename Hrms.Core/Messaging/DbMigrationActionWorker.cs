@@ -34,4 +34,4 @@ public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>
         };
         await _publisher.Publish(payload);
     }
-} 
+}

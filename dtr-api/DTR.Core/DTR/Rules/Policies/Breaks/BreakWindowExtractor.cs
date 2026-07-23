@@ -176,7 +176,7 @@ public class LunchBreakExtractor : IBreakExtractor
 
     public TimeRecordCollection Extract(TimeRecordCollection punches, CurrentShift shift)
     {
-        if (shift.LunchBreakOption != BreakMode.PAID_BREAK ) return new TimeRecordCollection();
+        if (shift.LunchBreakOption != BreakMode.PAID_BREAK) return new TimeRecordCollection();
 
         var breakAllowance = TimeAllowance.LunchPaidBreakCaptureAllowance;
 

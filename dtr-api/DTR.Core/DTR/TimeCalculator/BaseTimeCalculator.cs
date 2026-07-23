@@ -14,7 +14,7 @@ public abstract class BaseTimeCalculator
         if (_payload.Data.Employee == null
             || _payload.Data.CurrentShift == null
             || !_payload.Data.CurrentAttendance.Any()
-            || _payload.Data.CurrentAttendance.Count() < 2 
+            || _payload.Data.CurrentAttendance.Count() < 2
             )
         {
             return false;
@@ -25,7 +25,7 @@ public abstract class BaseTimeCalculator
         if (startAtt == null || endAtt == null || startAtt.WorkDateTime == endAtt.WorkDateTime)
         {
             return false;
-        } 
+        }
         return true;
     }
 

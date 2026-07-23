@@ -1,5 +1,4 @@
-﻿using Hrms.Core.Specs;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 namespace Hrms.Core.Services;
 
 public class PayrollService : BaseService<Payroll>
@@ -19,18 +18,18 @@ public class PayrollService : BaseService<Payroll>
             ;
         return await GetQueryable(spec)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
-            .ToDictionaryAsync(x => x.Key, x => x.ToList(),token);
+            .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
         ;
     }
 
-    public async Task<Payroll?> FineOneAsync(Guid Id,CancellationToken token)
+    public async Task<Payroll?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id,token);
+        return await GetOneAsync(Id, token);
     }
 
-    public async Task Delete(Guid Id,CancellationToken token)
+    public async Task Delete(Guid Id, CancellationToken token)
     {
-        await RemoveAsync(Id,token);
+        await RemoveAsync(Id, token);
     }
 
 }

@@ -30,7 +30,7 @@ public class TimeShiftService : BaseService<TimeShift>
         return _mapper.Map<TimeShiftModel>(model);
     }
 
-    public async Task AddRangeAsync(List<TimeShift> models , CancellationToken token)
+    public async Task AddRangeAsync(List<TimeShift> models, CancellationToken token)
     {
         await CreateRangeAsync(models, token);
     }

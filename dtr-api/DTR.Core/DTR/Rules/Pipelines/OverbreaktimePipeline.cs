@@ -13,15 +13,15 @@ public class OverbreaktimePipeline
     {
 
         var spec = new IsOverbreaktimeSpec();
-            //.And(new IsFixedScheduleSpec());
+        //.And(new IsFixedScheduleSpec());
 
         var overBreakPolicy = new OverBreakPolicy(spec);
-       
+
         var pipeline = new PolicyPipeline()
           .AddPolicy(overBreakPolicy);
 
-        var result=pipeline.Execute(cannonicalTimeRange, _context);
-         
+        var result = pipeline.Execute(cannonicalTimeRange, _context);
+
         return result;
-    } 
+    }
 }

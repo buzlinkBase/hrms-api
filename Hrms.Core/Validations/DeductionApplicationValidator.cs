@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Validations;
@@ -37,7 +36,7 @@ public class DeductionApplicationValidator : AbstractValidator<DeductionApplicat
            .NotEmpty().WithMessage("employee is required")
            .NotNull().WithMessage("employee is required")
            .NotEqual(Guid.Empty).WithMessage("employee is required")
-           .MustAsync(async (x, ct) => await _employeeService.FineOneAsync(x,ct) != null).WithMessage("employee is required")
+           .MustAsync(async (x, ct) => await _employeeService.FineOneAsync(x, ct) != null).WithMessage("employee is required")
            ;
 
     }

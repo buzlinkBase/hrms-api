@@ -87,7 +87,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("char(36)");
 
                     b.Property<string>("UserName")
@@ -178,8 +178,9 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("BatchEntryId")
-                        .HasColumnType("char(36)");
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -221,8 +222,9 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("BatchEntryId")
-                        .HasColumnType("char(36)");
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -484,8 +486,11 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<int>("Absent")
                         .HasColumnType("int");
 
-                    b.Property<int>("BioId")
-                        .HasColumnType("int");
+                    b.Property<Guid?>("AreaId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("BatchCode")
+                        .HasColumnType("longtext");
 
                     b.Property<Guid?>("BranchId")
                         .HasColumnType("char(36)");
@@ -509,17 +514,10 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("FullName")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<int>("HolCount")
                         .HasColumnType("int");
-
-                    b.Property<double>("LH")
-                        .HasColumnType("double");
-
-                    b.Property<double>("LHHolidayTotalDays")
-                        .HasColumnType("double");
 
                     b.Property<double>("LateForOTHours")
                         .HasColumnType("double");
@@ -527,10 +525,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("LateHours")
                         .HasColumnType("double");
 
-                    b.Property<double>("LateMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("LeaveMinutes")
+                    b.Property<double>("LeaveHours")
                         .HasColumnType("double");
 
                     b.Property<double>("LegalHolHours")
@@ -545,12 +540,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("LegalHolOTHours")
                         .HasColumnType("double");
 
-                    b.Property<double>("ND")
-                        .HasColumnType("double");
-
-                    b.Property<double>("NDOT")
-                        .HasColumnType("double");
-
                     b.Property<string>("Note")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -558,56 +547,16 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("OB")
                         .HasColumnType("double");
 
-                    b.Property<double>("OTMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("OTOnLegalHolidayDays")
-                        .HasColumnType("double");
-
-                    b.Property<double>("OTOnLegalHolidayMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("OTOnSpecialHolidayDays")
-                        .HasColumnType("double");
-
-                    b.Property<double>("OTOnSpecialHolidayMinutes")
-                        .HasColumnType("double");
-
                     b.Property<double>("OverBreakHours")
-                        .HasColumnType("double");
-
-                    b.Property<double>("OverBreakMinutes")
                         .HasColumnType("double");
 
                     b.Property<Guid?>("PayrollGroupId")
                         .HasColumnType("char(36)");
 
-                    b.Property<double>("RawOTHours")
-                        .HasColumnType("double");
-
-                    b.Property<string>("RecordStatus")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<double>("RegDayMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RegDayNDMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RegDayNDOMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RegDayOTMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RegularNDDays")
-                        .HasColumnType("double");
+                    b.Property<bool>("Posted")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<double>("RegularNDHours")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RegularNDOTDays")
                         .HasColumnType("double");
 
                     b.Property<double>("RegularNDOTHours")
@@ -616,49 +565,19 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("RegularNetHours")
                         .HasColumnType("double");
 
-                    b.Property<double>("RegularOTDays")
-                        .HasColumnType("double");
-
                     b.Property<double>("RegularOTHours")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RegularWorkingDays")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RestDayDays")
                         .HasColumnType("double");
 
                     b.Property<double>("RestDayHours")
                         .HasColumnType("double");
 
-                    b.Property<double>("RestDayMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RestDayNDDays")
-                        .HasColumnType("double");
-
                     b.Property<double>("RestDayNDHours")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RestDayNDMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RestDayNDODays")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RestDayNDOMinutes")
                         .HasColumnType("double");
 
                     b.Property<double>("RestDayNDOTHours")
                         .HasColumnType("double");
 
-                    b.Property<double>("RestDayOTDays")
-                        .HasColumnType("double");
-
                     b.Property<double>("RestDayOTHours")
-                        .HasColumnType("double");
-
-                    b.Property<double>("RestDayOTMinutes")
                         .HasColumnType("double");
 
                     b.Property<double>("RestLegalDayHours")
@@ -685,14 +604,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("RestSpecialDayOTHours")
                         .HasColumnType("double");
 
-                    b.Property<double>("SP")
-                        .HasColumnType("double");
-
                     b.Property<int>("SPCount")
                         .HasColumnType("int");
-
-                    b.Property<double>("SPHolidayTotalDays")
-                        .HasColumnType("double");
 
                     b.Property<DateTime>("ShiftEndTime")
                         .HasColumnType("datetime(6)");
@@ -706,10 +619,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<double>("ShiftWorkingHour")
                         .HasColumnType("double");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.Property<double>("SpecialHolHours")
                         .HasColumnType("double");
@@ -730,23 +639,19 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<double>("UTMinutes")
+                    b.Property<double>("UTHours")
                         .HasColumnType("double");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("char(36)");
 
                     b.Property<DateOnly>("WorkDate")
                         .HasColumnType("date");
 
                     b.Property<string>("WorkType")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("empCode")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -1186,7 +1091,7 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("Age")
+                    b.Property<int?>("Age")
                         .HasColumnType("int");
 
                     b.Property<Guid?>("AreaId")
@@ -1814,100 +1719,111 @@ namespace Hrms.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("a2618e39-1a02-4055-989a-7b3bcc61f7b3"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "OTEligibility",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "IndependentOfAttendanceIssues"
                         },
                         new
                         {
                             Id = new Guid("b1a2c3d4-e5f6-4789-abcd-1234567890ab"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "OTInclusion",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "UsePostShiftWork"
                         },
                         new
                         {
                             Id = new Guid("c2b3a4d5-f6e7-4890-bcda-2345678901bc"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "IsHalfDayLateOn",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "False"
                         },
                         new
                         {
                             Id = new Guid("d3c4b5a6-e7f8-4901-cdab-3456789012cd"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "HalfDayLateThresholdMinutes",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "0"
                         },
                         new
                         {
                             Id = new Guid("e4d5c6b7-f8e9-4012-dabc-4567890123de"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "IsWholeDayLateOn",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "False"
                         },
                         new
                         {
                             Id = new Guid("f5e6d7c8-9012-4123-abcd-5678901234ef"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "WholeDayLateThresholdMinutes",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "0"
                         },
                         new
                         {
                             Id = new Guid("0123f5e6-d7c8-4234-bcda-6789012345fa"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "NightDiffThreshold",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "0"
                         },
                         new
                         {
                             Id = new Guid("1234a5b6-c7d8-4345-cdab-7890123456ab"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "AttFillLimit",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "NOLIMIT"
                         },
                         new
                         {
                             Id = new Guid("2345b6c7-d8e9-4456-dabc-8901234567bc"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "HolidayTimeBasis",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "BasedOnTimeInDayType"
                         },
                         new
                         {
                             Id = new Guid("3456c7d8-e9f0-4567-abcd-9012345678cd"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "IsHolPlusReg",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "True"
                         },
                         new
                         {
                             Id = new Guid("4567d8e9-f012-4678-bcda-0123456789de"),
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "HolidayColumnPresentation",
                             IdentityType = "Company",
                             Status = "Active",
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "AutoCredit"
                         });
                 });

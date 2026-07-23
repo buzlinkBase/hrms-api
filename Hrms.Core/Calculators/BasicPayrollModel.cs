@@ -1,6 +1,4 @@
-﻿using Hrms.Core.Policies.DeductionPolicies;
-
-namespace Hrms.Core.Calculators;
+﻿namespace Hrms.Core.Calculators;
 
 public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext>
 {

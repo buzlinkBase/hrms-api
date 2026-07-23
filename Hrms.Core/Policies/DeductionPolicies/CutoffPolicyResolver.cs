@@ -1,4 +1,5 @@
 ﻿namespace Hrms.Core.Policies.DeductionPolicies;
+
 public class CutoffPolicyResolver : ICutoffPolicyResolver
 {
     public bool IsFirstCutoff(DeductionPayloadContext context)

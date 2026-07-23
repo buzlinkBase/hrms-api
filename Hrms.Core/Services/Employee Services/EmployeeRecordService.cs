@@ -16,7 +16,7 @@ public class EmployeeRecordService : BaseService<EmployeeRecord>
     {
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
-    } 
+    }
     public async Task<List<EmployeeRecord>> FindAllAsync(Guid empId, CancellationToken token)
     {
         return await GetQueryable()

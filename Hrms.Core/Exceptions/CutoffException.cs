@@ -1,4 +1,5 @@
 ﻿namespace Hrms.Core;
+
 public class CutoffMismatchException : Exception
 {
     public CutoffMismatchException(string message) : base(message) { }

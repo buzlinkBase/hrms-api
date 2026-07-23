@@ -5,7 +5,7 @@ namespace Hrms.Core.Services;
 
 public class BranchService : BaseService<Branch>
 {
-    public BranchService(IUnitOfWorkService service ) : base(service)
+    public BranchService(IUnitOfWorkService service) : base(service)
     {
     }
 

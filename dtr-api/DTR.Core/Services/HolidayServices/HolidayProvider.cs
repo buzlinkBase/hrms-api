@@ -79,7 +79,7 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
         return holidaySlices;
     }
 }
-public  abstract class HolidayProviderBase
+public abstract class HolidayProviderBase
 {
     protected readonly Dictionary<Holidaykey, List<HolidayInfo>> _holidays;
     public HolidayProviderBase(Dictionary<Holidaykey, List<HolidayInfo>> holidays)

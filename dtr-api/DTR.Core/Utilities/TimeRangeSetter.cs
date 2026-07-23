@@ -1,6 +1,7 @@
 ﻿using Hrms.Domain.Entities;
 
 namespace DTR.Core;
+
 public class TimeRangeSetter
 {
     public static TimeRecordCollection SetTimeRangeCollection(TimeRecord range)

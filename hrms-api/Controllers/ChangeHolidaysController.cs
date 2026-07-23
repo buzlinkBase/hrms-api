@@ -19,45 +19,37 @@ namespace Hrms.Api.Controllers
             _mapper = mapper;
         }
 
-        [HttpGet]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-        public async Task<IActionResult> Get([FromQuery] ChangeHolidayQueryPayload payload, CancellationToken token)
-        {
-            var data = await _service.LoadAllAsync(payload, token);
-            return Ok(data);
-        }
-
-        //[HttpGet("{id}")]
-        //public async Task<IActionResult> Get(Guid id)
-        //{
-        //    var data = await _service.FineOneAsync(id);
-        //    return Ok(_mapper.Map<HolidaysModel>(data));
-        //}
-
         [HttpPost]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<string>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateChangeHoliday payload, CancellationToken token)
         {
             await _service.AddAsync(payload, token);
             return Ok("success");
         }
 
-        //[HttpPut("{id}")]
-        //public async Task<IActionResult> Put(Guid id, [FromBody] UpdateHoliday payload)
-        //{
-        //    var data = _mapper.Map<Holiday>(payload);
-        //    data.Id = id;
-        //    await _service.UpdateAsync(data);
-        //    await _service.CommitChangesAsync();
-        //    return Ok(_mapper.Map<HolidaysModel>(data));
-        //}
-
-        [HttpDelete("{id}")]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken token)
+        [HttpGet]
+        [ProducesResponseType(typeof(ResponseModel<List<ChangeHolidayModel>>), 200)]
+        public async Task<IActionResult> Get([FromQuery] ChangeHolidayQueryPayload payload, CancellationToken token)
         {
-            await _service.DeleteAsync(id, token);
+            var data = await _service.LoadAllAsync(payload, token);
+            return Ok(data);
+        }
+
+        [HttpDelete]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> DeleteEmp([FromQuery] Guid employeeId, [FromQuery] string BatchCode, CancellationToken token)
+        {
+            await _service.DeleteEmployee(employeeId, BatchCode, token);
             return Ok();
         }
+
+        [HttpDelete("batch")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> DeleteBatch([FromQuery] string BatchCode, CancellationToken token)
+        {
+            await _service.DeleteAsync(BatchCode, token);
+            return Ok();
+        }
+
     }
 }

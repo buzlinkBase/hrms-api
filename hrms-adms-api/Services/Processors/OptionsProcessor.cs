@@ -1,5 +1,6 @@
 ﻿using Hrms.adms.Models.DTO;
 namespace Hrms.adms.Services.Processors;
+
 public class OptionsProcessor : ICDataProcessor
 {
     private readonly ILogger<OptionsProcessor> _logger;

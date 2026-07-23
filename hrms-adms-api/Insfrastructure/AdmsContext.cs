@@ -20,7 +20,7 @@ public class AdmsContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         //modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
-        modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId); 
+        modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();

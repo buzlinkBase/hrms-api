@@ -1,38 +1,42 @@
-﻿
-
-
-using Hrms.Domain.Entities;
-
+﻿using Hrms.Domain.Entities;
 namespace Hrms.Core.Services;
 
 public class ChangeRestDayService : BaseService<ChangeRestDay>
 {
     public ChangeRestDayService(IUnitOfWorkService uow) : base(uow) { }
 
-    public async Task SaveChange(ChangeOffModel changeOffs, CancellationToken token)
+    public async Task AddChangeOff(ChangeOffModel changeOffs, CancellationToken token)
     {
         var Ids = changeOffs.EmployeeIds;
         if (!Ids.Any()) return;
 
-        var batches = GetQueryable()
+        var batches = await GetQueryable()
             .Where(x => Ids.Any(xx => xx == x.EmployeeId)
                 && x.PayrollDate == changeOffs.PayrolLDateFrom)
-            .Select(x => x.BatchEntryId)
-            .ToList();
+            .Select(x => x.BatchCode)
+            .Distinct()
+            .ToListAsync(token);
 
-        var existing = GetQueryable()
-           .Where(x => batches.Any(xx => xx == x.BatchEntryId)
+        var existing = await GetQueryable()
+           .Where(x => batches.Any(xx => xx == x.BatchCode)
             && Ids.Contains(x.EmployeeId))
-           .ToList();
+           .ToListAsync(token);
 
         await RemoveRangeAsync(existing, token);
-        await SaveChangesAsync(token);
         await AddNewDayOffAsync(changeOffs, token);
+        await SaveChangesAsync(token);
         await CommitChangesAsync(token);
+
     }
+
     private async Task AddNewDayOffAsync(ChangeOffModel changeOff, CancellationToken token)
     {
-        var batchId = Guid.NewGuid();
+        var yr = DateTime.UtcNow.Year;
+        var count = Context.ChangeRestDays
+            .Where(x => x.PayrollDate.Year == yr)
+            .GroupBy(x => x.BatchCode).Count() + 1;
+        var batchCode = $"COFF{changeOff.PayrolLDateFrom.ToString("MMMddyyyy")}{changeOff.PayrolLDateTo.ToString("MMMddyyyy")}{count.ToString().PadLeft(5, '0')}";
+        var models = new List<ChangeRestDay>();
         foreach (var emp in changeOff.EmployeeIds)
         {
             var entity1 = new ChangeRestDay()
@@ -41,7 +45,7 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
                 State = ChangeSchedState.OVERRIDEN,
                 PayrollDate = changeOff.PayrolLDateFrom,
                 EmployeeId = emp,
-                BatchEntryId = batchId,
+                BatchCode = batchCode,
             };
             var entity2 = new ChangeRestDay()
             {
@@ -49,55 +53,71 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
                 State = ChangeSchedState.REPLACEMENT,
                 PayrollDate = changeOff.PayrolLDateTo,
                 EmployeeId = emp,
-                BatchEntryId = batchId,
+                BatchCode = batchCode,
             };
-            await _uow.Repository.AddAsync(entity1, token);
-            await _uow.Repository.AddAsync(entity2, token);
+            models.Add(entity1);
+            models.Add(entity2);
         }
+        await _uow.Repository.AddRangeAsync(models);
     }
-    public async  Task<Dictionary<ResDaykey, List<ChangeRestDay>>> GetChangeRestDays(DateOnly fromDate,
+    public async Task<Dictionary<ResDaykey, List<ChangeRestDay>>> GetChangeRestDays(DateOnly fromDate,
         DateOnly toDate,
-        HashSet<Guid> empIds, 
+        HashSet<Guid> empIds,
         CancellationToken token)
     {
         return await _uow.Repository
-         .Find<ChangeRestDay>(x =>  empIds.Any(xx=>xx == x.EmployeeId) &&
-                x.PayrollDate >= fromDate 
+         .Find<ChangeRestDay>(x => empIds.Any(xx => xx == x.EmployeeId) &&
+                x.PayrollDate >= fromDate
                 && x.PayrollDate <= toDate)
          .GroupBy(x => new ResDaykey(x.EmployeeId, x.PayrollDate))
          .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
          ;
     }
-    public List<RestDayRecordResponse> FindList(Guid? payrollGroupId,
-        Guid? employeeId ,
-        Guid? clientId ,
-        DateOnly fromDate, DateOnly toDate,
-        CancellationToken token)
+    public async Task<List<RestDayRecordResponse>> FindList(RestDayListFilter query, CancellationToken token)
     {
-        //flatten
-        return GetQueryable()
-        .Where(x =>
-            (payrollGroupId == null || x.Employee.PayrollGroupId == payrollGroupId) &&
-            (employeeId == null || x.EmployeeId == employeeId) &&
-            (clientId    == null || x.Employee.ClientId == clientId) &&
-            x.PayrollDate >= fromDate && x.PayrollDate <= toDate)
-        .ToList()
-        .GroupBy(x => new { x.BatchEntryId, x.EmployeeId })
-        .Select(g =>
-        {
-            var ordered = g.OrderBy(x => x.PayrollDate).ToList();
-            return new RestDayRecordResponse
+        var records = await GetQueryable()
+            .Include(x => x.Employee) 
+            .Where(x =>
+                (!query.EmployeeId.HasValue || x.EmployeeId == query.EmployeeId) &&
+                (!query.FromDate.HasValue || x.PayrollDate >= query.FromDate) &&
+                (!query.ToDate.HasValue || x.PayrollDate <= query.ToDate))
+            .ToListAsync(token);
+
+        return records
+            .GroupBy(x => new { x.BatchCode, x.EmployeeId })
+            .Select(g =>
             {
-                BatchId = g.Key.BatchEntryId,
-                FullName = ordered.First().Employee.FullName(),
-                FromDate = ordered.First().PayrollDate,
-                ToDate = ordered.Last().PayrollDate
-            };
-        })
-        .OrderBy(x => x.FromDate)
-        .ToList();
+                var minDate = g.Min(x => x.PayrollDate);
+                var maxDate = g.Max(x => x.PayrollDate);
+                var firstRecord = g.First();
+
+                return new RestDayRecordResponse
+                {
+                    EmployeeId = g.Key.EmployeeId,
+                    BatchCode = g.Key.BatchCode,
+                    FullName = firstRecord.Employee?.FullName() ?? "Unknown",
+                    FromDate = minDate,
+                    ToDate = maxDate
+                };
+            })
+            .OrderBy(x => x.FromDate)
+            .ToList();
     }
 
+    public async Task DeleteEmployee (Guid employeeId, string batchCode, CancellationToken token)
+    {
+        await Context.ChangeRestDays.Where(x => x.BatchCode == batchCode && x.EmployeeId == employeeId)
+             .ExecuteDeleteAsync(token);
+        await SaveChangesAsync(token);
+        await CommitChangesAsync(token);
+    }
+    public async Task DeleteBatch(string batchCode, CancellationToken token)
+    {
+        await Context.ChangeRestDays.Where(x => x.BatchCode == batchCode)
+             .ExecuteDeleteAsync(token);
+        await SaveChangesAsync(token);
+        await CommitChangesAsync(token);
+    }
 }
 
 public readonly record struct ResDaykey(Guid EmpId, DateOnly RestDay);
@@ -112,8 +132,16 @@ public class ChangeOffModel
 
 public class RestDayRecordResponse
 {
-    public Guid BatchId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public string BatchCode { get; set; }
     public string FullName { get; set; }
     public DateOnly FromDate { get; set; }
     public DateOnly ToDate { get; set; }
+}
+
+public class RestDayListFilter
+{
+    public DateOnly? FromDate { get; set; }
+    public DateOnly? ToDate { get; set; }
+    public Guid? EmployeeId { get; set; }
 }

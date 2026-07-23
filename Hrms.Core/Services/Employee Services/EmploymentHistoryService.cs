@@ -17,7 +17,7 @@ public class EmploymentHistoryService : BaseService<EmploymentHistory>
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
-   
+
     public async Task<List<EmploymentHistory>> FindAllAsync(Guid empId
         , CancellationToken token)
     {

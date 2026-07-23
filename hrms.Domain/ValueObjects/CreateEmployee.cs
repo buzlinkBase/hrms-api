@@ -1,17 +1,22 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
 using MessagePack;
 
-namespace Hrms.Domain.ValueObjects; 
+namespace Hrms.Domain.ValueObjects;
 
-public record  EmployeeFilter
+public record EmployeeFilter
 {
-    public Guid? EmployeeId  { get; set; }
+    public Guid? EmployeeId { get; set; }
     public Guid? DepartmentId { get; set; }
-    public Guid? PayrollGroupId  { get; set; }
+    public Guid? PayrollGroupId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? OperationAreaId { get; set; }
 }
+public record ChangeRestDayEmployeeFilter: EmployeeFilter
+{
+    public DayName DayName  { get; set; }
+}
+
 
 public class CreateEmployee
 {
@@ -43,7 +48,6 @@ public class CreateEmployee
     public string Suffix { get; set; } = string.Empty;
 
     public string Gender { get; set; } = string.Empty;
-    public int Age { get; set; }
 
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
@@ -353,6 +357,7 @@ public class EmployeeDTRRun
 {
     public int? BioId { get; set; }
     public Guid Id { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? TimeShiftId { get; set; }
@@ -369,16 +374,16 @@ public class EmployeeDTRRun
 public class EmployeeFilterResponseModel
 {
     public Guid Id { get; set; }
-    public int? BioId  { get; set; }
+    public int? BioId { get; set; }
     public string? Name { get; set; }
-    public Guid? BranchId  { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? DepartmentId { get; set; }
     public Guid? PayrollGroupId { get; set; }
     public string? DepartmentName { get; set; }
     public string? ClientName { get; set; }
-    public string? BranchName  { get; set; }
+    public string? BranchName { get; set; }
     public string? PayrollGroupName { get; set; }
     public string? AreaName { get; set; }
 }

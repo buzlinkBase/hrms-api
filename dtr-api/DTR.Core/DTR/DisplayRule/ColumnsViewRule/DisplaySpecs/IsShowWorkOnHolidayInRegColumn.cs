@@ -1,4 +1,4 @@
-﻿ 
+﻿
 namespace DTR.Core;
 
 internal class IsShowWorkOnHolidayInRegColumn : IColumnDisplaySpec

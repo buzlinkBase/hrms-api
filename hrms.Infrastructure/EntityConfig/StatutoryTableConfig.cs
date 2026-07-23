@@ -8,91 +8,91 @@ internal class SSSTableConfig : IEntityTypeConfiguration<SSSTable>
 {
     public void Configure(EntityTypeBuilder<SSSTable> builder)
     {
-      //  builder.HasData(
-      //new SSSTable
-      //{
-      //    Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-      //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-      //    EffectiveDate = new DateOnly(2025, 1, 1),
-      //    RangeFrom = 0,
-      //    RangeTo = 4_999,
-      //    MSC = 5_000,
-      //    EE = 750,   // Employee share (15% of MSC split)
-      //    ER = 875,   // Employer share
-      //    EC = 10     // EC (fixed)
-      //},
-      //new SSSTable
-      //{
-      //    Id = Guid.Parse("11111111-1111-1111-1111-111111111112"),
-      //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-      //    EffectiveDate = new DateOnly(2025, 1, 1),
-      //    RangeFrom = 5_000,
-      //    RangeTo = 9_999,
-      //    MSC = 10_000,
-      //    EE = 1_500,
-      //    ER = 1_750,
-      //    EC = 10
-      //},
-      //new SSSTable
-      //{
-      //    Id = Guid.Parse("11111111-1111-1111-1111-111111111113"),
-      //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-      //    EffectiveDate = new DateOnly(2025, 1, 1),
-      //    RangeFrom = 10_000,
-      //    RangeTo = 14_999,
-      //    MSC = 15_000,
-      //    EE = 2_250,
-      //    ER = 2_625,
-      //    EC = 10
-      //},
-      //new SSSTable
-      //{
-      //    Id = Guid.Parse("11111111-1111-1111-1111-111111111114"),
-      //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-      //    EffectiveDate = new DateOnly(2025, 1, 1),
-      //    RangeFrom = 15_000,
-      //    RangeTo = 19_999,
-      //    MSC = 20_000,
-      //    EE = 3_000,
-      //    ER = 3_500,
-      //    EC = 10
-      //},
-      //new SSSTable
-      //{
-      //    Id = Guid.Parse("11111111-1111-1111-1111-111111111115"),
-      //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-      //    EffectiveDate = new DateOnly(2025, 1, 1),
-      //    RangeFrom = 20_000,
-      //    RangeTo = 24_999,
-      //    MSC = 25_000,
-      //    EE = 3_750,
-      //    ER = 4_375,
-      //    EC = 10
-      //},
-      //new SSSTable
-      //{
-      //    Id = Guid.Parse("11111111-1111-1111-1111-111111111116"),
-      //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-      //    EffectiveDate = new DateOnly(2025, 1, 1),
-      //    RangeFrom = 25_000,
-      //    RangeTo = 29_999,
-      //    MSC = 30_000,
-      //    EE = 4_500,
-      //    ER = 5_250,
-      //    EC = 10
-      //},
-      //new SSSTable
-      //{
-      //    Id = Guid.Parse("11111111-1111-1111-1111-111111111117"),
-      //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
-      //    EffectiveDate = new DateOnly(2025, 1, 1),
-      //    RangeFrom = 30_000,
-      //    RangeTo = 9_999_999,
-      //    MSC = 35_000,
-      //    EE = 5_250,
-      //    ER = 6_125,
-      //    EC = 10
-      //});
+        //  builder.HasData(
+        //new SSSTable
+        //{
+        //    Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EffectiveDate = new DateOnly(2025, 1, 1),
+        //    RangeFrom = 0,
+        //    RangeTo = 4_999,
+        //    MSC = 5_000,
+        //    EE = 750,   // Employee share (15% of MSC split)
+        //    ER = 875,   // Employer share
+        //    EC = 10     // EC (fixed)
+        //},
+        //new SSSTable
+        //{
+        //    Id = Guid.Parse("11111111-1111-1111-1111-111111111112"),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EffectiveDate = new DateOnly(2025, 1, 1),
+        //    RangeFrom = 5_000,
+        //    RangeTo = 9_999,
+        //    MSC = 10_000,
+        //    EE = 1_500,
+        //    ER = 1_750,
+        //    EC = 10
+        //},
+        //new SSSTable
+        //{
+        //    Id = Guid.Parse("11111111-1111-1111-1111-111111111113"),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EffectiveDate = new DateOnly(2025, 1, 1),
+        //    RangeFrom = 10_000,
+        //    RangeTo = 14_999,
+        //    MSC = 15_000,
+        //    EE = 2_250,
+        //    ER = 2_625,
+        //    EC = 10
+        //},
+        //new SSSTable
+        //{
+        //    Id = Guid.Parse("11111111-1111-1111-1111-111111111114"),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EffectiveDate = new DateOnly(2025, 1, 1),
+        //    RangeFrom = 15_000,
+        //    RangeTo = 19_999,
+        //    MSC = 20_000,
+        //    EE = 3_000,
+        //    ER = 3_500,
+        //    EC = 10
+        //},
+        //new SSSTable
+        //{
+        //    Id = Guid.Parse("11111111-1111-1111-1111-111111111115"),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EffectiveDate = new DateOnly(2025, 1, 1),
+        //    RangeFrom = 20_000,
+        //    RangeTo = 24_999,
+        //    MSC = 25_000,
+        //    EE = 3_750,
+        //    ER = 4_375,
+        //    EC = 10
+        //},
+        //new SSSTable
+        //{
+        //    Id = Guid.Parse("11111111-1111-1111-1111-111111111116"),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EffectiveDate = new DateOnly(2025, 1, 1),
+        //    RangeFrom = 25_000,
+        //    RangeTo = 29_999,
+        //    MSC = 30_000,
+        //    EE = 4_500,
+        //    ER = 5_250,
+        //    EC = 10
+        //},
+        //new SSSTable
+        //{
+        //    Id = Guid.Parse("11111111-1111-1111-1111-111111111117"),
+        //    TenantId = Guid.Parse("C1B8AAAF-6BFF-4F68-97C7-626F16EA9197"),
+        //    EffectiveDate = new DateOnly(2025, 1, 1),
+        //    RangeFrom = 30_000,
+        //    RangeTo = 9_999_999,
+        //    MSC = 35_000,
+        //    EE = 5_250,
+        //    ER = 6_125,
+        //    EC = 10
+        //});
     }
 }
 internal class PHICTableConfig : IEntityTypeConfiguration<PHICTable>

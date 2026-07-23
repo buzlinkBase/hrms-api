@@ -76,13 +76,13 @@ public class AppSettingValueResolver
         return defaultValue;
     }
 
-    public T ResolveObject<T>(string input, T defaultValue = default!) where T:class,new()
+    public T ResolveObject<T>(string input, T defaultValue = default!) where T : class, new()
     {
-        if (string.IsNullOrWhiteSpace(input) )
+        if (string.IsNullOrWhiteSpace(input))
             return defaultValue;
         try
         {
-            return ObjectSerializer.Deserialize<T>(input); 
+            return ObjectSerializer.Deserialize<T>(input);
         }
         catch
         {

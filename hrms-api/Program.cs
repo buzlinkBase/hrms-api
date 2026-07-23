@@ -3,6 +3,7 @@ using Hrms.adms.Middlewares;
 using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
 using Hrms.Core.Extensions;
+using Hrms.Core.Hubs;
 using Mapster;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -26,13 +27,15 @@ internal class Program
         });
         var config = new TypeAdapterConfig();
         config.Default.NameMatchingStrategy(NameMatchingStrategy.Flexible);
-        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();  
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
         builder.Services.AddPollyPolicies();
         builder.Services.AddMapster(typeof(MappingProfile).Assembly);
         builder.HrmsConfigRabbitMq();
+        builder.Services.AddSignalR();
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
+        builder.Services.AddGeminiAiExtraction(builder.Configuration);
         builder.Services.AddDataProtection()
         .PersistKeysToFileSystem(new DirectoryInfo(@"/app/dp-keys"));
 
@@ -62,7 +65,7 @@ internal class Program
                               $"HRMS API {description.ApiVersion}");
             }
             options.RoutePrefix = "swagger";
-        }); 
+        });
         app.UseSerilogRequestLogging();
         app.UseRouting();
         app.UseCors("AllowAll");
@@ -73,6 +76,7 @@ internal class Program
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
         app.MapControllers();
+        app.MapHub<NotificationHub>(NotificationHub.Route);
         app.Run();
     }
 }

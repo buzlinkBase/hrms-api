@@ -47,7 +47,7 @@ public class NightDiffChecker
 public class NightDiffCalculator
 {
     public static TimeRange Calculate(TimeRecordCollection timeRecords)
-    { 
+    {
         if (timeRecords == null || timeRecords.Count == 0)
             return new TimeRange();
 
@@ -75,7 +75,7 @@ public class NightDiffCalculator
     public static TimeRange Calculate(TimeRange range)
     {
         if (range.IsEmpty()) return TimeRange.Empty;
-        var finalRange= Calculate(range.TimeRecords);
+        var finalRange = Calculate(range.TimeRecords);
         return finalRange;
     }
     public static TimeRange Calculate(DateTime startTime, DateTime endTime)

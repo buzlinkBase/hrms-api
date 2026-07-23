@@ -6,7 +6,7 @@ public class LeaveApplicationServiceProvider
 {
     private readonly Dictionary<Leavekey, List<LeaveApplication>> _leaveApplications;
     private readonly EmployeeDTRRun _employee;
-    public LeaveApplicationServiceProvider(Dictionary<Leavekey, List<LeaveApplication>> leaveApplocations, 
+    public LeaveApplicationServiceProvider(Dictionary<Leavekey, List<LeaveApplication>> leaveApplocations,
         EmployeeDTRRun currentEmployee)
     {
         _leaveApplications = leaveApplocations;

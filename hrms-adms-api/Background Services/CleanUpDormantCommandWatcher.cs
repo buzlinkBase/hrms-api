@@ -30,7 +30,7 @@ public class CleanUpDormantCommandWatcher : BackgroundService
                         }
                         await service.CommitChangesAsync();
                     }
-                } 
+                }
             }
             catch (Exception ex)
             {

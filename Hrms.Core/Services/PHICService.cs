@@ -1,7 +1,6 @@
 ﻿
 using Hrms.Domain.Entities;
 using Mapster;
-using static Org.BouncyCastle.Math.EC.ECCurve;
 
 namespace Hrms.Core.Services;
 
@@ -30,7 +29,7 @@ public class PHICService : BaseService<PHICTable>
         await CommitChangesAsync(token);
     }
 
- 
+
     public async Task<List<DateOnly>> Versions(DateOnly effectivity)
     {
         return await GetQueryable()
@@ -68,7 +67,7 @@ public class PHICService : BaseService<PHICTable>
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
-        await CommitChangesAsync(token); 
+        await CommitChangesAsync(token);
     }
     public async Task DeleteAllAsync(CancellationToken token)
     {

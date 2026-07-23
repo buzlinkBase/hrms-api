@@ -1,6 +1,4 @@
-﻿using BuzlinkRepository;
-
-namespace Hrms.Domain.Entities.EmployeeEntities;
+﻿namespace Hrms.Domain.Entities.EmployeeEntities;
 
 public class RestDay : BaseEntity
 {

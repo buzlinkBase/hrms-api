@@ -1,15 +1,11 @@
-﻿using Hrms.Domain.Entities;
-using Hrms.Domain.Entities.EmployeeEntities;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace DTR.Core;
+﻿namespace DTR.Core;
 
 public class ColumnarLogModel
 {
     public Guid EmployeeId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? PayrollGroupId { get; set; }
-    public Guid? DepartmentId  { get; set; }
+    public Guid? DepartmentId { get; set; }
     public string EmpNo { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
@@ -68,20 +64,18 @@ public class AttInfo
     public static AttInfo Set(Guid Id, DateTime workTime) => new AttInfo(Id, workTime);
 }
 
-public class DTRDetailModel 
+public class DTRDetailModel
 {
     public string FullName { get; set; } = string.Empty;
     public Guid EmployeeId { get; set; }
-    public int? BioId { get; set; }
-    public int? DepartmentId { get; set; }
-    public int? PayrollGroupId { get; set; }
-    public int? ClientId { get; set; }
-    public string AttStatus { get; set; } = string.Empty; // Type depends on 'recordState' (string or Enum)
-    public string RecordStatus { get; set; } = string.Empty; // Type depends on 'state' (string or Enum)
+    public Guid? BranchId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public Guid? PayrollGroupId { get; set; }
+    public Guid? ClientId { get; set; }
+    public Guid? AreaId { get; set; }
     public string WorkType { get; set; } = string.Empty;
-    public WorkType WorkTypeEnum { get; set; } 
-    public int Absent { get; set; } 
-    public int OB { get; set; }
+    public WorkType WorkTypeEnum { get; set; }
+    public int Absent { get; set; }
     public int HolCount { get; set; }
     public int SPCount { get; set; }
 
@@ -95,45 +89,45 @@ public class DTRDetailModel
     public DateTime? EndTime { get; set; }
 
     // --- Totals in Days ---
-    public double LHHolidayTotalDays { get; set; }
-    public double SPHolidayTotalDays { get; set; }
-    public double RegularWorkingDays { get; set; }
-    public double RegularNDDays { get; set; }
-    public double RegularOTDays { get; set; }
-    public double RegularNDOTDays { get; set; }
-    public double RestDayDays { get; set; }
-    public double RestDayNDDays { get; set; }
-    public double RestDayOTDays { get; set; }
-    public double RestDayNDODays { get; set; }
+    //public double LHHolidayTotalDays { get; set; }
+    //public double SPHolidayTotalDays { get; set; }
+    //public double RegularWorkingDays { get; set; }
+    //public double RegularNDDays { get; set; }
+    //public double RegularOTDays { get; set; }
+    //public double RegularNDOTDays { get; set; }
+    //public double RestDayDays { get; set; }
+    //public double RestDayNDDays { get; set; }
+    //public double RestDayOTDays { get; set; }
+    //public double RestDayNDODays { get; set; }
 
     // --- Totals in Minutes ---
-    public double LateMinutes { get; set; }
-    public double UTMinutes { get; set; }
-    public double OverBreakMinutes { get; set; }
-    public double OTMinutes { get; set; }
-    public double ND { get; set; }
-    public double NDOT { get; set; }
-    public double LH { get; set; }
-    public double SP { get; set; }
-    public double LeaveMinutes { get; set; }
+    public double Late { get; set; }
+    public double UT { get; set; }
+    public double OverBreak { get; set; }
+    //public double OTMinutes { get; set; }
+    //public double ND { get; set; }
+    //public double NDOT { get; set; }
+    //public double LH { get; set; }
+    //public double SP { get; set; }
+    public double LeaveHours { get; set; }
+    public double OBHours { get; set; }
 
     // Holiday & Night Diff Minutes
-    public double LegalHolOTMinutes { get; set; }
-    public double LegalHolNightDiffMinutes { get; set; }
-    public double LegalHolNightDiffOTMinutes { get; set; }
-    public double SpecialHolOTMinutes { get; set; }
-    public double SpecialHolNightDiffMinutes { get; set; }
-    public double SpecialHolNightDiffOTMinutes { get; set; }
-
+    //public double LegalHolOTMinutes { get; set; }
+    //public double LegalHolNightDiffMinutes { get; set; }
+    //public double LegalHolNightDiffOTMinutes { get; set; }
+    //public double SpecialHolOTMinutes { get; set; }
+    //public double SpecialHolNightDiffMinutes { get; set; }
+    //public double SpecialHolNightDiffOTMinutes { get; set; }
     // Regular & Rest Day Minutes
-    public double RegDayMinutes { get; set; }
-    public double RegDayNDMinutes { get; set; }
-    public double RegDayOTMinutes { get; set; }
-    public double RegDayNDOMinutes { get; set; }
-    public double RestDayMinutes { get; set; }
-    public double RestDayNDMinutes { get; set; }
-    public double RestDayOTMinutes { get; set; }
-    public double RestDayNDOMinutes { get; set; }
+    //public double RegDayMinutes { get; set; }
+    //public double RegDayNDMinutes { get; set; }
+    //public double RegDayOTMinutes { get; set; }
+    //public double RegDayNDOMinutes { get; set; }
+    //public double RestDayMinutes { get; set; }
+    //public double RestDayNDMinutes { get; set; }
+    //public double RestDayOTMinutes { get; set; }
+    //public double RestDayNDOMinutes { get; set; }
 
     // --- Totals in Hours ---
     public double LateHours { get; set; }

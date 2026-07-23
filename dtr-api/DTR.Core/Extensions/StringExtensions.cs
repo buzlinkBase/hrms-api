@@ -34,7 +34,7 @@ public static class StringExtensions
         return full_name;
     }
 
-    public static string TrimString (this string str, int length)
+    public static string TrimString(this string str, int length)
     {
         if (string.IsNullOrEmpty(str)) return string.Empty;
         return str.Substring(0, Math.Min(str.Length, length));

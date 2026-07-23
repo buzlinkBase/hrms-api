@@ -1,6 +1,7 @@
 ﻿namespace DTR.Core;
 
-public interface ILateDeductionHandler {
+public interface ILateDeductionHandler
+{
     bool CanHandle(TimeRange lateSlice, TimeContext context);
     TimeRange Apply(TimeRange regTime, TimeRange lateSlice, TimeContext context);
 }

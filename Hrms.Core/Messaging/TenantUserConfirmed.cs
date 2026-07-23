@@ -5,7 +5,7 @@ public class TenantUserConfirmed : IConsumer<TenantCreatedPayload>
 {
     public TenantUserConfirmed()
     {
-    } 
+    }
 
     public async Task Consume(ConsumeContext<TenantCreatedPayload> context)
     {

@@ -2,7 +2,7 @@
 
 namespace Hrms.Domain.Entities;
 
- 
+
 public class Branch : BaseEntity
 {
     public string Code { get; set; } = string.Empty;
@@ -12,7 +12,7 @@ public class Branch : BaseEntity
     public string? Contact { get; set; }
     public string? ManagerName { get; set; }
     public string Email { get; set; } = string.Empty;
-    public Polygon? Boundary  { get; set; }
-    
+    public Polygon? Boundary { get; set; }
+
 }
 

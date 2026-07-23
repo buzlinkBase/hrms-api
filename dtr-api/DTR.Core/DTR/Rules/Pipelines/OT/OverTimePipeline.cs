@@ -9,14 +9,14 @@ public class OverTimePipeline
     }
     public TimeRange Apply(TimeRange cannonicalTimeRange)
     {
-        
+
         var ledger = _context.Payload.Ledger;
         var key = TimeRangeLedger.CreateKey("FinalOT", _context);
         var cached = _context.Payload.Ledger.GetByKey(key);
         if (cached.Found)
         {
             return cached.Value ?? TimeRange.Empty;
-        } 
+        }
 
         //check if rendered 8hr
         if (IsRequire8HourWork())

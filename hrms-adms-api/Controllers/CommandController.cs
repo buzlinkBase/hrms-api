@@ -1,13 +1,10 @@
 ﻿using Asp.Versioning;
-using DocumentFormat.OpenXml.Office2010.Excel;
 using Hrms.adms.Extensions;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
 using Hrms.adms.Utilities;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.SqlServer.Types;
 using System.Text;
 
 namespace Hrms.adms.Controllers;
@@ -487,6 +484,7 @@ public class CommandsController : ControllerBase
         return NoContent();
     }
 
+
     [HttpPost("delete-fingerprint")]
     public async Task<IActionResult> DeleteFingerprint([FromQuery] string SN, [FromBody] List<DeleteFingerprintPayload> payload)
     {
@@ -553,7 +551,7 @@ public class CommandsController : ControllerBase
             SN = sn,
         };
         await _service.CreateCommand(new List<DeviceCommand> { devcommand });
-        return NoContent(); 
+        return NoContent();
     }
 
     [HttpDelete()]

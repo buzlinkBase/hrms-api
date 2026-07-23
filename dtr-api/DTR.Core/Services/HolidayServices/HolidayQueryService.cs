@@ -1,4 +1,5 @@
 ﻿namespace DTR.Core;
+
 public class HolidayQueryService
 {
     private readonly HolidayService _holidayService;
@@ -6,7 +7,7 @@ public class HolidayQueryService
     public HolidayQueryService(HolidayService holidayService,
         ChangeHolidayService changeHolidayService)
     {
-        
+
         _holidayService = holidayService;
         _changeHolidayService = changeHolidayService;
     }

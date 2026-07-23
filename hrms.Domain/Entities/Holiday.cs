@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Hrms.Domain.Entities;
+﻿namespace Hrms.Domain.Entities;
 
 public class Holiday : BaseEntity
 {

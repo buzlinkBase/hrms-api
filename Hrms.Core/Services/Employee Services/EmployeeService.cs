@@ -1,7 +1,6 @@
 ﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
-using NPOI.SS.Formula.Functions;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
@@ -78,18 +77,31 @@ public class EmployeeService : BaseService<Employee>
         {
             model.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
         }
+        CalculateAge(model);
         var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
         model.BranchId = branch?.Id;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
 
+    private void CalculateAge(Employee model)
+    {
+        if (!model.DOB.HasValue) return;
+        var today = DateTime.Today;
+        if (model.DOB.Value > today) throw new ArgumentException("Date of birth cannot be in the future.");
+        int age = today.Year - model.DOB.Value.Year;
+        // Adjust if birthday hasn't occurred yet this year
+        if (model.DOB.Value.Date > today.AddYears(-age)) age--;
+        model.Age = age;
+    }
+
+
     public async Task AddOrUpdateRange(List<Employee> models, CancellationToken token = default)
     {
         if (models == null || models.Count == 0) return;
         var newemps = models.Where(x => x.Id == Guid.Empty).ToList();
         var old = models.Where(x => x.Id != Guid.Empty).ToList();
-        await ModifyRangeAsync(old, token); 
+        await ModifyRangeAsync(old, token);
         await CreateRangeAsync(newemps, token);
         //var empBios = GetQueryable().Select(x => x.BioId).ToList();
         //var existingBioIds = new HashSet<int>(empBios);
@@ -115,7 +127,7 @@ public class EmployeeService : BaseService<Employee>
         {
             model.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
         }
-
+        CalculateAge(model);
         var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
         model.BranchId = branch?.Id;
         await ModifyAsync(model, token);
@@ -222,16 +234,19 @@ public class EmployeeService : BaseService<Employee>
         return result;
     }
 
-    public async Task<List<EmployeeFilterResponseModel>> Filter(EmployeeFilter filter, CancellationToken token)
+    public async Task<List<EmployeeFilterResponseModel>> Filter(ChangeRestDayEmployeeFilter filter, CancellationToken token)
     {
         var result = await GetQueryable(x =>
+            x.RestDays.Any(xx => xx.DayName == filter.DayName) &&
             (filter.BranchId == null || x.BranchId == filter.BranchId.Value) &&
+            (filter.EmployeeId == null || x.Id == filter.EmployeeId.Value) && 
             (filter.DepartmentId == null || x.DepartmentId == filter.DepartmentId.Value) &&
             (filter.ClientId == null || x.ClientId == filter.ClientId.Value) &&
             (filter.PayrollGroupId == null || x.PayrollGroupId == filter.PayrollGroupId.Value) &&
             (filter.OperationAreaId == null || x.AreaId == filter.OperationAreaId.Value))
             .ProjectToType<EmployeeFilterResponseModel>()
             .ToListAsync(token);
+
         return result;
     }
 

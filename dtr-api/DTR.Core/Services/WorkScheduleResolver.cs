@@ -3,10 +3,10 @@ using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
-public class WorkScheduleResolver 
+public class WorkScheduleResolver
 {
     private readonly WorkSchedulePlanService _changeSchedService;
-    private readonly TimeShiftService _tsService; 
+    private readonly TimeShiftService _tsService;
     public WorkScheduleResolver(
         WorkSchedulePlanService service,
         TimeShiftService timeShiftService)
@@ -24,7 +24,7 @@ public class WorkScheduleResolver
             return shifCollection;
         }
         var allShifts = await _tsService.FindAllAsync(token);
-        var employeesActiveShifts = await _changeSchedService.GetAllCustomShiftsAync(fromDate, toDate,token);
+        var employeesActiveShifts = await _changeSchedService.GetAllCustomShiftsAync(fromDate, toDate, token);
 
         var schedShift = new OverrideSchedule(employeesActiveShifts, allShifts);
         schedShift.SetNextHandler(new FallbackSchedule(allShifts));

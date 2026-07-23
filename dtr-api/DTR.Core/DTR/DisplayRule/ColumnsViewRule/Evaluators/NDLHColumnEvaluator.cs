@@ -14,7 +14,7 @@ internal class NDLHColumnEvaluator : IColumnEvaluator
         var holiday = context.PipeLineResult.LegalHoliday;
         var IsND = NightDiffChecker.IsDutyNightDiff(context.TimeContext.Payload.Data.CurrentShift.StartTime, context.TimeContext.Payload.Data.CurrentShift.StartTime);
         var topup = context.TimeContext.Payload.Ledger.GetByTag("RegularTimeTopUp", context.TimeContext);
-        
+
         if (new IsHolidaySpec(HolidayType.LEGAL).Not().IsSatisfiedBy(context.TimeContext.CanonicalTimeRange, context.TimeContext))
         {
             return TimeRange.Empty;

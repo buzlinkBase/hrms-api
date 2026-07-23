@@ -10,10 +10,9 @@
 	<ItemGroup>
 	  <Compile Remove="Messaging\**" />
 	  <EmbeddedResource Remove="Messaging\**" />
-	  <None Remove="Messaging\**" />
-	</ItemGroup>
-
-	<ItemGroup>
+	  <None Remove="Messaging\**" /> 
+	</ItemGroup> 
+	<ItemGroup> 
 		<PackageReference Include="Polly" />
 		<PackageReference Include="MessagePack" />
 		<PackageReference Include="Refit.HttpClientFactory" />
@@ -50,6 +49,7 @@
 		<PackageReference Include="Serilog.Sinks.Console" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Serilog.Sinks.Seq" />
+	
 	</ItemGroup>
 
 	<ItemGroup>

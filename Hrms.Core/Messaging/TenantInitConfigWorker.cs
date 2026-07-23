@@ -31,5 +31,5 @@ public class TenantInitConfigWorker : IConsumer<TenantSetInitData>
         _tenantProvider.SetTenantId(message.TenantId);
         await _accountInitService.Create(context.CancellationToken);
 
-    } 
+    }
 }

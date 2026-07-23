@@ -9,7 +9,7 @@ public class HDMFContributionService : BaseService<HDMFContribution>
     private readonly IMapper _mapper;
     private readonly TypeAdapterConfig _config;
 
-    public HDMFContributionService(IUnitOfWorkService uow, 
+    public HDMFContributionService(IUnitOfWorkService uow,
         IMapper mapper,
         TypeAdapterConfig config) : base(uow)
     {
@@ -18,11 +18,11 @@ public class HDMFContributionService : BaseService<HDMFContribution>
     }
     public async Task AddAsync(HDMFContribution model, CancellationToken token)
     {
-        await CreateAsync(model,token);
+        await CreateAsync(model, token);
     }
     public async Task UpdateAsync(HDMFContribution model, CancellationToken token)
     {
-        await ModifyAsync(model,token);
+        await ModifyAsync(model, token);
     }
     public async Task AddOrUpdateAsync(HDMFContribution model, CancellationToken token)
     {
@@ -38,7 +38,7 @@ public class HDMFContributionService : BaseService<HDMFContribution>
                 (x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year))
             .ProjectToType<HDMFContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
-            .ToDictionaryAsync(x => x.Key, x => x.ToList(),token)
+            .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
             ;
     }
 }

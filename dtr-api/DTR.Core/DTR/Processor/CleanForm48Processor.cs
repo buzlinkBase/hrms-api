@@ -6,7 +6,7 @@ public class CleanForm48Processor : IDTRProcessor<Form48ResultModel>
 {
     public Form48ResultModel? Process(DTRProcessorPayload payload)
     {
-        var calculator  = RegularTimeCalculatorFactory.Create(payload);
+        var calculator = RegularTimeCalculatorFactory.Create(payload);
         var cannonicalTimeRange = calculator.Calculate();
         return MapResultsToDailyRecord(payload, cannonicalTimeRange);
     }
@@ -54,7 +54,7 @@ public class Form48Builder
         var dtr = new Form48ResultModel
         {
             BioId = emp?.BioId ?? 0,
-            FullName =  emp.FullName(),
+            FullName = emp.FullName(),
             EmployeeId = emp?.Id ?? Guid.Empty,
             empCode = emp?.BioId.ToString() ?? "",
             WorkDate = data.CurrentDate,

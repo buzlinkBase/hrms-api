@@ -181,16 +181,16 @@ public enum WorkType
     UnpaidLeaveDuty,
 }
 
-public enum DTRStatus
-{
-    OPEN,
-    LOCKED
-}
-public enum DTRSOURCE
-{
-    MANUAL,
-    SYSTEMCALC,
-}
+//public enum DTRStatus
+//{
+//    OPEN,
+//    LOCKED
+//}
+//public enum DTRSOURCE
+//{
+//    MANUAL,
+//    SYSTEMCALC,
+//}
 
 public enum PayType
 {

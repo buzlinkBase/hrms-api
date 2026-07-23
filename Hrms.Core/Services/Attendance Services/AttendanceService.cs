@@ -1,5 +1,4 @@
 ﻿using Hrms.Domain.Entities;
-using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -47,7 +46,7 @@ public class AttendanceService : BaseService<Attendance>
     }
     public async Task<List<AttendanceModel>> GetLog(AttendanceFilterDate filter, LOGSOURCE source = LOGSOURCE.MANUAL)
     {
-        DateTime fromDate =  (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
+        DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
         DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
         Guid? filterEmployeeId = filter?.EmployeeId;
 
@@ -158,18 +157,6 @@ public class AttendanceService : BaseService<Attendance>
                 (clientId == null || clientId == Guid.Empty || x.ClientId == clientId))
             .ToListAsync(token);
 
-        foreach (var attendance in data)
-        {
-            // Safe check even though we filtered for HasValue
-            if (attendance.EmployeeId.HasValue)
-            {
-                var key = (attendance.EmployeeId.Value, DateOnly.FromDateTime(attendance.WorkDateTime));
-                if (dtrSet.Contains(key))
-                {
-                    attendance.RecordStatus = DTRStatus.LOCKED;
-                }
-            }
-        }
 
         var result = data
             .GroupBy(a => new AttendanceEmpId(a.EmployeeId!.Value))

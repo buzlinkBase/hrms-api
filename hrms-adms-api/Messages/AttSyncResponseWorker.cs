@@ -2,7 +2,7 @@
 
 namespace Hrms.adms.Messages;
 
-public class AttSyncResponseWorker : IConsumer<BatchAttConfirmation> 
+public class AttSyncResponseWorker : IConsumer<BatchAttConfirmation>
 {
     private readonly AttendanceService _service;
     public AttSyncResponseWorker(AttendanceService service)

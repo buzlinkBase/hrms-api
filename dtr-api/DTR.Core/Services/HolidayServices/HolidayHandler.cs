@@ -97,12 +97,12 @@ public class OverrideHolidayHandler : HolidayHandler
         {
             EmployeeId = x.EmployeeId,
             HolType = x.Holiday.HolType,
-            AreaId= x.Holiday.AreaId,
+            AreaId = x.Holiday.AreaId,
             PayrollDate = x.PayrollDate,
             State = ChangeSchedState.REPLACEMENT,
             WorkType = x.Holiday.WorkType,
-            HolidayId=x.HolidayId,
-            IsPaid=x.Holiday.IsPaid,
+            HolidayId = x.HolidayId,
+            IsPaid = x.Holiday.IsPaid,
         }).ToList();
 
         _holidayCache[key] = result;
@@ -173,8 +173,8 @@ public class FallBackHolidayHandler : HolidayHandler
                 PayrollDate = x.HolDate,
                 State = ChangeSchedState.DEFAULT,
                 WorkType = x.WorkType,
-                HolidayId=x.Id,
-                IsPaid=x.IsPaid,
+                HolidayId = x.Id,
+                IsPaid = x.IsPaid,
             })
             .ToList();
 

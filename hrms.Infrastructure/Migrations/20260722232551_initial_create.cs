@@ -5,10 +5,12 @@ using NetTopologySuite.Geometries;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace Hrms.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class V1_0_0__initial_create : Migration
+    public partial class initial_create : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -1152,7 +1154,7 @@ namespace Hrms.Infrastructure.Migrations
                     ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     OperationAreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     UserName = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Workstate = table.Column<int>(type: "int", nullable: false),
@@ -1234,14 +1236,13 @@ namespace Hrms.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    BatchCode = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     WorkType = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    FullName = table.Column<string>(type: "longtext", nullable: false)
+                    FullName = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    empCode = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    BioId = table.Column<int>(type: "int", nullable: false),
                     WorkDate = table.Column<DateOnly>(type: "date", nullable: false),
                     ShiftName = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -1249,37 +1250,8 @@ namespace Hrms.Infrastructure.Migrations
                     ShiftEndTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    LHHolidayTotalDays = table.Column<double>(type: "double", nullable: false),
-                    SPHolidayTotalDays = table.Column<double>(type: "double", nullable: false),
-                    OTOnSpecialHolidayDays = table.Column<double>(type: "double", nullable: false),
-                    OTOnLegalHolidayDays = table.Column<double>(type: "double", nullable: false),
-                    RegularWorkingDays = table.Column<double>(type: "double", nullable: false),
-                    RegularNDDays = table.Column<double>(type: "double", nullable: false),
-                    RegularOTDays = table.Column<double>(type: "double", nullable: false),
-                    RegularNDOTDays = table.Column<double>(type: "double", nullable: false),
-                    RestDayDays = table.Column<double>(type: "double", nullable: false),
-                    RestDayNDDays = table.Column<double>(type: "double", nullable: false),
-                    RestDayOTDays = table.Column<double>(type: "double", nullable: false),
-                    RestDayNDODays = table.Column<double>(type: "double", nullable: false),
-                    OTOnSpecialHolidayMinutes = table.Column<double>(type: "double", nullable: false),
-                    OTOnLegalHolidayMinutes = table.Column<double>(type: "double", nullable: false),
-                    LateMinutes = table.Column<double>(type: "double", nullable: false),
-                    UTMinutes = table.Column<double>(type: "double", nullable: false),
-                    OverBreakMinutes = table.Column<double>(type: "double", nullable: false),
-                    OTMinutes = table.Column<double>(type: "double", nullable: false),
-                    ND = table.Column<double>(type: "double", nullable: false),
-                    NDOT = table.Column<double>(type: "double", nullable: false),
-                    SP = table.Column<double>(type: "double", nullable: false),
-                    LH = table.Column<double>(type: "double", nullable: false),
-                    RegDayMinutes = table.Column<double>(type: "double", nullable: false),
-                    RegDayNDMinutes = table.Column<double>(type: "double", nullable: false),
-                    RegDayOTMinutes = table.Column<double>(type: "double", nullable: false),
-                    RegDayNDOMinutes = table.Column<double>(type: "double", nullable: false),
-                    RestDayMinutes = table.Column<double>(type: "double", nullable: false),
-                    RestDayNDMinutes = table.Column<double>(type: "double", nullable: false),
-                    RestDayOTMinutes = table.Column<double>(type: "double", nullable: false),
-                    RestDayNDOMinutes = table.Column<double>(type: "double", nullable: false),
                     LateHours = table.Column<double>(type: "double", nullable: false),
+                    UTHours = table.Column<double>(type: "double", nullable: false),
                     OverBreakHours = table.Column<double>(type: "double", nullable: false),
                     LateForOTHours = table.Column<double>(type: "double", nullable: false),
                     RegularNetHours = table.Column<double>(type: "double", nullable: false),
@@ -1306,24 +1278,21 @@ namespace Hrms.Infrastructure.Migrations
                     RestSpecialDayOTHours = table.Column<double>(type: "double", nullable: false),
                     RestSpecialDayNDHours = table.Column<double>(type: "double", nullable: false),
                     RestSpecialDayNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    RawOTHours = table.Column<double>(type: "double", nullable: false),
-                    LeaveMinutes = table.Column<double>(type: "double", nullable: false),
+                    LeaveHours = table.Column<double>(type: "double", nullable: false),
                     OB = table.Column<double>(type: "double", nullable: false),
                     Absent = table.Column<int>(type: "int", nullable: false),
                     Note = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    RecordStatus = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Source = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    PayrollGroupId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    PayrollGroupId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     HolCount = table.Column<int>(type: "int", nullable: false),
                     SPCount = table.Column<int>(type: "int", nullable: false),
                     ShiftWorkingHour = table.Column<double>(type: "double", nullable: false),
+                    Posted = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -1395,7 +1364,7 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Gender = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Age = table.Column<int>(type: "int", nullable: false),
+                    Age = table.Column<int>(type: "int", nullable: true),
                     MonthlyRate = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     DailyRate = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     Cola = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
@@ -1994,6 +1963,24 @@ namespace Hrms.Infrastructure.Migrations
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.InsertData(
+                table: "GeneralSettings",
+                columns: new[] { "Id", "CreatedAt", "DeletedAt", "Description", "IdentityType", "IdentityTypeId", "Metadata", "Status", "UpdatedAt", "Value" },
+                values: new object[,]
+                {
+                    { new Guid("0123f5e6-d7c8-4234-bcda-6789012345fa"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "NightDiffThreshold", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" },
+                    { new Guid("1234a5b6-c7d8-4345-cdab-7890123456ab"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "AttFillLimit", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "NOLIMIT" },
+                    { new Guid("2345b6c7-d8e9-4456-dabc-8901234567bc"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HolidayTimeBasis", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "BasedOnTimeInDayType" },
+                    { new Guid("3456c7d8-e9f0-4567-abcd-9012345678cd"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsHolPlusReg", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "True" },
+                    { new Guid("4567d8e9-f012-4678-bcda-0123456789de"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HolidayColumnPresentation", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "AutoCredit" },
+                    { new Guid("a2618e39-1a02-4055-989a-7b3bcc61f7b3"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "OTEligibility", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "IndependentOfAttendanceIssues" },
+                    { new Guid("b1a2c3d4-e5f6-4789-abcd-1234567890ab"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "OTInclusion", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "UsePostShiftWork" },
+                    { new Guid("c2b3a4d5-f6e7-4890-bcda-2345678901bc"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsHalfDayLateOn", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "False" },
+                    { new Guid("d3c4b5a6-e7f8-4901-cdab-3456789012cd"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HalfDayLateThresholdMinutes", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" },
+                    { new Guid("e4d5c6b7-f8e9-4012-dabc-4567890123de"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsWholeDayLateOn", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "False" },
+                    { new Guid("f5e6d7c8-9012-4123-abcd-5678901234ef"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "WholeDayLateThresholdMinutes", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" }
+                });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Allowances_IncomeTypeId",

@@ -70,7 +70,7 @@ public class HDMFService : BaseService<HDMFTable>
             .ProjectToType<HDMFModel>(_config)
             .ToListAsync(token);
 
-    } 
+    }
 
     public async Task<HDMFTable?> FineOneAsync(Guid Id, CancellationToken token)
     {

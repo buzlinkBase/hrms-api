@@ -1,6 +1,6 @@
 ﻿using Hrms.Domain.Entities;
 
-namespace DTR.Core; 
+namespace DTR.Core;
 
 public class DTRContextBuilder
 {

@@ -1,7 +1,6 @@
 ﻿
 using MassTransit;
 using Microsoft.Extensions.Hosting;
-using Onepunch.Common.Lib;
 
 namespace MigrationHrns;
 

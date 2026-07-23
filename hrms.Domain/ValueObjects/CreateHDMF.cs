@@ -27,7 +27,7 @@ public class HDMFContributionModel
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }
-    public DateOnly PayrollDate  { get; set; }
+    public DateOnly PayrollDate { get; set; }
     public decimal EmployeeShare { get; set; }
     public decimal EmployerShare { get; set; }
     public decimal TotalContribution { get; set; }

@@ -16,7 +16,7 @@ namespace Hrms.Api.Controllers
         private readonly BranchService _service;
         private readonly IMapper _mapper;
 
-        public BranchesController(BranchService service, 
+        public BranchesController(BranchService service,
             BranchService branchService,
             IMapper mapper)
         {

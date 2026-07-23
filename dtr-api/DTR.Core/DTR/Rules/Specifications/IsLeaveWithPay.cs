@@ -11,6 +11,6 @@ public class IsLeaveWithPay : IRuleSpecification
     {
         //check if employee is on leave with pay
         var currentLeave = context.Payload.Provider.LeaveProvider.GetLeave(_curDate);
-        return currentLeave != null && currentLeave.PayType==PayType.WithPay;
+        return currentLeave != null && currentLeave.PayType == PayType.WithPay;
     }
 }

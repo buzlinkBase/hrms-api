@@ -6,7 +6,7 @@ namespace Hrms.Domain.Entities;
 public class TaxTable : BaseEntity
 {
     public DateOnly EffectiveDate { get; set; }
-    public string PayrollType  { get; set; } = PayrollFrequency.SEMI_MONTHLY.ToString();
+    public string PayrollType { get; set; } = PayrollFrequency.SEMI_MONTHLY.ToString();
     public decimal RangeFrom { get; set; }
     public decimal RangeTo { get; set; }
     public decimal PercentageInAmountOf { get; set; }//bracket minimum
@@ -14,7 +14,7 @@ public class TaxTable : BaseEntity
     public decimal AddOnPercentage { get; set; }
 
 }
-public class WTaxContribution : BaseEntity,IDateFilter
+public class WTaxContribution : BaseEntity, IDateFilter
 {
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }

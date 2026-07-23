@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection; 
- 
+﻿using Microsoft.Extensions.DependencyInjection;
+
 namespace DTR.Core;
+
 public static class LibDTRServicesRegistrations
 {
     public static void RegisterDTRCoreServices(this IServiceCollection services)

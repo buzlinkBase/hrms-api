@@ -2,7 +2,6 @@
 using Asp.Versioning;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
-using Grpc.Core;
 using Hrms.Api.Filters;
 using Hrms.Api.Providers;
 using Hrms.Core.Interfaces;
@@ -13,8 +12,6 @@ using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.DbServices;
@@ -25,8 +22,6 @@ using StackExchange.Redis;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Hrms.Api.Extensions;
 
@@ -242,7 +237,7 @@ public static class ServiceRegistrationsExt
                      {
                          Message = errorDetail.Detail,
                          Status = (int)HttpStatusCode.Unauthorized,
-                        Data=errorDetail
+                         Data = errorDetail
                      };
                      await context.Response.WriteAsJsonAsync(response);
                  },
@@ -266,7 +261,7 @@ public static class ServiceRegistrationsExt
                          Message = errorDetail.Detail,
                          Status = (int)HttpStatusCode.Unauthorized,
                          Data = errorDetail
-                     }; 
+                     };
 
                      await context.Response.WriteAsJsonAsync(response);
                  }

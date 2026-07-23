@@ -2,11 +2,6 @@
 using Polly.CircuitBreaker;
 using Polly.Retry;
 using Serilog;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DTR.Core;
 

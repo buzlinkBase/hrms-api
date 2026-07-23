@@ -35,7 +35,7 @@ internal class ExtracLogsToRows
                 EmployeeId = payload.Data.Employee.Id,
                 WorkDate = payrollDate,
                 ShiftName = _payload.Data.CurrentShift.ShiftName,
-                Department = _payload.Data.Employee?. DepartmentName  ?? "",
+                Department = _payload.Data.Employee?.DepartmentName ?? "",
                 ShiftStart = _payload.Data.CurrentShift.StartTime,
                 ShiftEnd = _payload.Data.CurrentShift.EndTime,
                 BreakOut = _payload.Data.CurrentShift.LunchStartTime,

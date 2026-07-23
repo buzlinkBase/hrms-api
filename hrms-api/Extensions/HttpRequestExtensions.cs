@@ -2,6 +2,7 @@
 using System.Security.Claims;
 
 namespace Hrms.Api.Extensions;
+
 public static class HttpRequestExtensions
 {
     public static string? GetHeader(this HttpRequest request, string key)

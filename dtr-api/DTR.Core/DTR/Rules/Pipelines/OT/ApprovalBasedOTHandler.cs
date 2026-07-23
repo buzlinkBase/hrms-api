@@ -3,7 +3,7 @@
 public class ApprovalBasedOTHandler : OverTimeHandler
 {
     private IRuleSpecification spec;
-    public ApprovalBasedOTHandler(TimeRange input, TimeContext context) : base(input,context)
+    public ApprovalBasedOTHandler(TimeRange input, TimeContext context) : base(input, context)
     {
     }
     protected override bool CanHandle()
@@ -15,9 +15,9 @@ public class ApprovalBasedOTHandler : OverTimeHandler
     protected override TimeRange Process()
     {
         var pipeline = new PolicyPipeline()
-             .AddPolicy(new AppliedOvertimePolicy(spec)) 
+             .AddPolicy(new AppliedOvertimePolicy(spec))
              ;
-        return pipeline.Execute(Input, Context);    
+        return pipeline.Execute(Input, Context);
     }
 }
 

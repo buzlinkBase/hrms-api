@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-using Serilog; // Assuming you are using Serilog based on Log.Logger
 
 namespace Hrms.adms.Extensions;
 

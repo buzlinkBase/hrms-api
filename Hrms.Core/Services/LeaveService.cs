@@ -17,7 +17,7 @@ public class LeaveService : BaseService<Leave>
         await ModifyAsync(model, token);
         await CommitChangesAsync(token);
     }
- 
+
     public async Task<List<Leave>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable().ToListAsync(token);

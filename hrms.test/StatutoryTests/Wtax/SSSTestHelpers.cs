@@ -18,10 +18,10 @@ public class WTaxTestHelpers : StatutoryTestContextBase
   )
     {
         var context = CreateContext(fromDate, toDate, salaryType, payrollFrequency, computationBasis, monthlyRate, dailyRate, grossPay);
-        context.Employee.TaxRate = new  CreateTaxRate
+        context.Employee.TaxRate = new CreateTaxRate
         {
             ComputationType = computationBasis,
-            EE = 100 
+            EE = 100
         };
         return context;
     }
@@ -35,7 +35,7 @@ public class WTaxTestHelpers : StatutoryTestContextBase
         }
         contributions.Add(new WTaxContributionModel
         {
-             TaxDue  = taxDue
+            TaxDue = taxDue
         });
     }
 }

@@ -1,6 +1,4 @@
-﻿using Hrms.adms.Services;
-
-namespace Hrms.adms.Services.Processors;
+﻿namespace Hrms.adms.Services.Processors;
 
 public interface ICDataProcessor
 {

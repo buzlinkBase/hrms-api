@@ -86,13 +86,13 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     public async Task<LeaveApplicationModel?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return _mapper.Map<LeaveApplicationModel>(await GetOneAsync(Id, token));
-    } 
-    public async Task Delete(Guid Id,CancellationToken token)
+    }
+    public async Task Delete(Guid Id, CancellationToken token)
     {
-        await RemoveAsync(Id,token);
+        await RemoveAsync(Id, token);
     }
 
-    public async Task<Dictionary<Leavekey, List<LeaveApplication>>> 
+    public async Task<Dictionary<Leavekey, List<LeaveApplication>>>
         FindByDateRangeAsync(DateOnly fromDate,
         DateOnly toDate,
         HashSet<Guid> employeeIds,

@@ -6,6 +6,7 @@
 		<RootNamespace>Hrms.Core</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="Google.GenAI" />
 		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="ClosedXML" />
 		<PackageReference Include="Refit.HttpClientFactory" />

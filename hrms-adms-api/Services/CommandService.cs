@@ -1,4 +1,5 @@
 ﻿namespace Hrms.adms.Services;
+
 public class CommandService : BaseService<DeviceCommand>
 {
     private readonly DeviceService _service;
@@ -56,7 +57,7 @@ public class CommandService : BaseService<DeviceCommand>
     }
     public async Task DeleteAsync(Guid Id)
     {
-        await GetQueryable(x => x.Id == Id )
+        await GetQueryable(x => x.Id == Id)
              .ExecuteDeleteAsync();
     }
 }

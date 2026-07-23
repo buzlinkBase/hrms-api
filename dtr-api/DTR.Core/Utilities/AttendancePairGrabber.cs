@@ -51,7 +51,7 @@ public class AttendancePairGrabber
     private static double CalculateWorkHours(DateTime start, DateTime end)
     {
         if (end < start) return 0;
-        return TimeRangeCalculator.GetTotalMinutes( start, end);
+        return TimeRangeCalculator.GetTotalMinutes(start, end);
     }
 
 }

@@ -4,4 +4,4 @@ namespace Hrms.Domain.ValueObjects;
 
 [GeneratedMessagePackResolver]
 [System.Runtime.CompilerServices.SkipLocalsInit]
-public partial class OneMessagePackResolver { } 
+public partial class OneMessagePackResolver { }

@@ -1,10 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace Hrms.Domain.Entities.EmployeeEntities;
+﻿namespace Hrms.Domain.Entities.EmployeeEntities;
 
 public class Employee : BaseEntity
 {
-    public int? BioId { get; set; } 
+    public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
     public Guid PayrollGroupId { get; set; }
@@ -31,7 +29,7 @@ public class Employee : BaseEntity
     public string MiddleName { get; set; } = string.Empty;
     public string Suffix { get; set; } = string.Empty;
     public string Gender { get; set; } = string.Empty;
-    public int Age { get; set; }
+    public int? Age { get; set; }
 
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
