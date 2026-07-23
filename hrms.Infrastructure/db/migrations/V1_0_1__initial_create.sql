@@ -719,7 +719,7 @@ CREATE TABLE `Attendances` (
 
 CREATE TABLE `ChangeHolidays` (
     `Id` char(36) COLLATE ascii_general_ci NOT NULL,
-    `BatchEntryId` char(36) COLLATE ascii_general_ci NOT NULL,
+    `BatchCode` longtext CHARACTER SET utf8mb4 NOT NULL,
     `HolidayId` char(36) COLLATE ascii_general_ci NOT NULL,
     `EmployeeId` char(36) COLLATE ascii_general_ci NOT NULL,
     `PayrollDate` date NOT NULL,
@@ -738,7 +738,7 @@ CREATE TABLE `ChangeRestDays` (
     `EmployeeId` char(36) COLLATE ascii_general_ci NOT NULL,
     `PayrollDate` date NOT NULL,
     `State` int NOT NULL,
-    `BatchEntryId` char(36) COLLATE ascii_general_ci NOT NULL,
+    `BatchCode` longtext CHARACTER SET utf8mb4 NOT NULL,
     `CreatedAt` datetime(6) NOT NULL,
     `UpdatedAt` datetime(6) NULL,
     `DeletedAt` datetime(6) NULL,
@@ -1279,6 +1279,4 @@ ALTER TABLE `DailyTimeRecords` ADD CONSTRAINT `FK_DailyTimeRecords_Employees_Emp
 ALTER TABLE `Departments` ADD CONSTRAINT `FK_Departments_Employees_HeadId` FOREIGN KEY (`HeadId`) REFERENCES `Employees` (`Id`) ON DELETE RESTRICT;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('20260722232551_initial_create', '9.0.2');
-
-
+VALUES ('20260723153850_initial_create', '9.0.2');
