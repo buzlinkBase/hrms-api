@@ -1,10 +1,10 @@
 ﻿namespace Hrms.Core.Services.AI;
 
-public class TestCaller 
+public class TestCaller
 {
     public TestCaller()
     {
-         //new TestUsage().Process(new AIContext());
+        //new TestUsage().Process(new AIContext());
     }
 }
 
@@ -16,7 +16,7 @@ public interface IDocumentProcessor
     /// </summary>
     Task Process(IDocumentPayload payload, string jobId, CancellationToken cancellationToken);
     Task Revert(IDocumentPayload payload, string jobId, CancellationToken cancellationToken);
-} 
+}
 
 public class TestUsage
 {
@@ -26,7 +26,7 @@ public class TestUsage
 
     public TestUsage(StreamLoader streamLoader,
         IAiExtractionService aiExtractionService,
-        IAiNotificationService aiNotificationService )
+        IAiNotificationService aiNotificationService)
     {
         _streamLoader = streamLoader;
         _aiExtractionService = aiExtractionService;
@@ -35,8 +35,8 @@ public class TestUsage
 
     public async Task Process(IDocumentPayload payload, string jobId, CancellationToken cancellationToken)
     {
-        if (payload is not AIContext context  ) return;
- 
+        if (payload is not AIContext context) return;
+
         var group = AiGroups.ForJob(jobId);
         try
         {
@@ -61,7 +61,7 @@ public class TestUsage
                 // Silently skip if AI parsing fails
                 await _aiNotificationService.NotifyGroupAsync(group, AiProcessingNotification.Failed(jobId, result.ErrorMessage), cancellationToken);
                 return;
-            }  
+            }
         }
         catch (OperationCanceledException)
         {
@@ -72,16 +72,16 @@ public class TestUsage
         }
     }
 }
-public class AiExtractedInfoModelMain 
+public class AiExtractedInfoModelMain
 {
     [AiDescription("The description")]
-    public string Description  { get; set; }
+    public string Description { get; set; }
 
     [AiDescription("The individual  lines info")]
     public List<AiExtractedInfoModelDetail> Lines { get; set; }
 }
 
-public class AiExtractedInfoModelDetail 
+public class AiExtractedInfoModelDetail
 {
     [AiDescription("The item code")]
     public string ItemCode { get; set; }

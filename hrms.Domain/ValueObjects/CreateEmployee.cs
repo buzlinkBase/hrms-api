@@ -12,9 +12,9 @@ public record EmployeeFilter
     public Guid? BranchId { get; set; }
     public Guid? OperationAreaId { get; set; }
 }
-public record ChangeRestDayEmployeeFilter: EmployeeFilter
+public record ChangeRestDayEmployeeFilter : EmployeeFilter
 {
-    public DayName DayName  { get; set; }
+    public DayName DayName { get; set; }
 }
 
 

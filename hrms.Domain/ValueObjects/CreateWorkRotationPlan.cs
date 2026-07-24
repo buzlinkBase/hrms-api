@@ -1,26 +1,33 @@
-﻿using MessagePack;
+﻿namespace Hrms.Domain.ValueObjects;
 
-namespace Hrms.Domain.ValueObjects;
-
-[MessagePackObject]
-public partial class CreateWorkRotationPlan
+public class CreateWorkRotationPlan
 {
-    [Key(0)] public DateOnly PayrollDate { get; set; }
-    [Key(1)] public Guid EmployeeId { get; set; }
-    [Key(2)] public Guid TimeShiftId { get; set; }
+    public DateOnly PayrollDate { get; set; }
+    public Guid EmployeeId { get; set; }
+    public Guid TimeShiftId { get; set; }
 }
 
-[MessagePackObject]
-public partial class UpdateWorkSchedulePlan : CreateWorkRotationPlan
+public class CreateWorkRotationPlanBatch
 {
-    [IgnoreMember]
+    public List<Guid> EmployeeIds { get; set; }
+    public List<DateOnly> PayrollDates { get; set; }
+    public Guid TimeShiftId { get; set; }
+}
+
+public class UpdateWorkSchedulePlan : CreateWorkRotationPlan
+{
     public Guid Id { get; set; }
-    [IgnoreMember]
-    public string Status { get; set; }
 }
 
-[MessagePackObject]
-public partial class WorkSchedulePlanModel : UpdateWorkSchedulePlan
+public class WorkSchedulePlanModel
 {
+    public Guid Id { get; set; }
+    public Guid TimeShiftId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public DateOnly PayrollDate { get; set; }
+    public string? BatchCode { get; set; }
+    public string? FullName { get; set; }
+    public string? ShiftName { get; set; }
 }
 
+public record WorkRotationPlanFilter(DateOnly FromDate, DateOnly ToDate, Guid? EmployeeId);

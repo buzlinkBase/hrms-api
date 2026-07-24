@@ -75,36 +75,36 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
     }
     public async Task<List<RestDayRecordResponse>> FindList(RestDayListFilter query, CancellationToken token)
     {
-        var records = await GetQueryable()
-            .Include(x => x.Employee) 
+        DateTime? fromDateTime = query.FromDate?.ToDateTime(TimeOnly.MinValue);
+        DateTime? toDateTime = query.ToDate?.ToDateTime(TimeOnly.MaxValue);
+
+        return await GetQueryable()
+            .AsNoTracking()
             .Where(x =>
                 (!query.EmployeeId.HasValue || x.EmployeeId == query.EmployeeId) &&
-                (!query.FromDate.HasValue || x.PayrollDate >= query.FromDate) &&
-                (!query.ToDate.HasValue || x.PayrollDate <= query.ToDate))
-            .ToListAsync(token);
-
-        return records
-            .GroupBy(x => new { x.BatchCode, x.EmployeeId })
-            .Select(g =>
+                (!fromDateTime.HasValue || x.CreatedAt >= fromDateTime.Value) &&
+                (!toDateTime.HasValue || x.CreatedAt <= toDateTime.Value))
+            .GroupBy(x => new
             {
-                var minDate = g.Min(x => x.PayrollDate);
-                var maxDate = g.Max(x => x.PayrollDate);
-                var firstRecord = g.First();
-
-                return new RestDayRecordResponse
-                {
-                    EmployeeId = g.Key.EmployeeId,
-                    BatchCode = g.Key.BatchCode,
-                    FullName = firstRecord.Employee?.FullName() ?? "Unknown",
-                    FromDate = minDate,
-                    ToDate = maxDate
-                };
+                x.BatchCode,
+                x.EmployeeId,
+                x.Employee.FirstName,
+                x.Employee.LastName
+            })
+            .Select(g => new RestDayRecordResponse
+            {
+                EmployeeId = g.Key.EmployeeId,
+                BatchCode = g.Key.BatchCode,
+                // Construct string directly inside SQL projection
+                FullName = $"{g.Key.FirstName} {g.Key.LastName}".Trim(),
+                FromDate = g.Min(x => x.PayrollDate),
+                ToDate = g.Max(x => x.PayrollDate)
             })
             .OrderBy(x => x.FromDate)
-            .ToList();
+            .ToListAsync(token);
     }
 
-    public async Task DeleteEmployee (Guid employeeId, string batchCode, CancellationToken token)
+    public async Task DeleteEmployee(Guid employeeId, string batchCode, CancellationToken token)
     {
         await Context.ChangeRestDays.Where(x => x.BatchCode == batchCode && x.EmployeeId == employeeId)
              .ExecuteDeleteAsync(token);

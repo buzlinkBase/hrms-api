@@ -239,7 +239,7 @@ public class EmployeeService : BaseService<Employee>
         var result = await GetQueryable(x =>
             x.RestDays.Any(xx => xx.DayName == filter.DayName) &&
             (filter.BranchId == null || x.BranchId == filter.BranchId.Value) &&
-            (filter.EmployeeId == null || x.Id == filter.EmployeeId.Value) && 
+            (filter.EmployeeId == null || x.Id == filter.EmployeeId.Value) &&
             (filter.DepartmentId == null || x.DepartmentId == filter.DepartmentId.Value) &&
             (filter.ClientId == null || x.ClientId == filter.ClientId.Value) &&
             (filter.PayrollGroupId == null || x.PayrollGroupId == filter.PayrollGroupId.Value) &&

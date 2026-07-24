@@ -109,7 +109,7 @@ public class DailyRecordsController : ControllerBase
         var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
             ProcessorType.CleanColumnarLog,
             token,
-            IncludeNullResponse.Include,false);
+            IncludeNullResponse.Include, false);
         return Ok(result);
     }
 

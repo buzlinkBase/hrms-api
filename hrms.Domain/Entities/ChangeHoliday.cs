@@ -4,7 +4,7 @@ namespace Hrms.Domain.Entities;
 
 public class ChangeHoliday : BaseEntity
 {
-    public string BatchCode  { get; set; }
+    public string BatchCode { get; set; }
     public Guid HolidayId { get; set; }
     public virtual Holiday Holiday { get; set; }
     public Guid EmployeeId { get; set; }

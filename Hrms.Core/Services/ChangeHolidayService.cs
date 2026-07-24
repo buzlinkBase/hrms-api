@@ -21,6 +21,7 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
 
         var batches = GetQueryable()
             .Where(x => Ids.Contains(x.EmployeeId)
+                 && x.PayrollDate == holidayModel.PayrollDateFrom
                  && x.HolidayId == holidayModel.HolidayId)
             .Select(x => x.BatchCode)
             .Distinct()
@@ -38,12 +39,16 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
 
     public async Task<List<ChangeHolidayModel>> LoadAllAsync(ChangeHolidayQueryPayload payload, CancellationToken token)
     {
+        DateTime fromDateTime = payload.FromDate.ToDateTime(TimeOnly.MinValue);
+        DateTime toDateTime = payload.ToDate.ToDateTime(TimeOnly.MaxValue);
+
         var records = await GetQueryable()
+            .AsNoTracking()
             .Include(x => x.Employee).ThenInclude(e => e.Client)
             .Include(x => x.Holiday)
             .Where(x =>
                 (!payload.EmployeeId.HasValue || x.EmployeeId == payload.EmployeeId) &&
-                x.PayrollDate >= payload.FromDate && x.PayrollDate <= payload.ToDate)
+                x.CreatedAt >= fromDateTime && x.CreatedAt <= toDateTime)
             .ToListAsync(token);
 
         return records
@@ -55,9 +60,10 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
                 {
                     EmployeeId = g.Key.EmployeeId,
                     BatchCode = g.Key.BatchCode,
-                    FullName = firstItem.Employee?.FullName(),
-                    HolidayName = firstItem.Holiday?.Description,
+                    FullName = firstItem.Employee.FullName(),
+                    HolidayName = firstItem.Holiday.Description,
                     ClientName = firstItem.Employee?.Client?.Name,
+                    Area = firstItem.Employee?.Area?.Name,
                     FromDate = g.Min(x => x.PayrollDate),
                     ToDate = g.Max(x => x.PayrollDate)
                 };

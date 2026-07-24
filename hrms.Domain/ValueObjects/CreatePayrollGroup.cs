@@ -39,6 +39,6 @@ public class UpdatePayrollGroup : CreatePayrollGroup
 {
     public Guid Id { get; set; }
 }
-public class PayrollGroupModel  : UpdatePayrollGroup
+public class PayrollGroupModel : UpdatePayrollGroup
 {
 }

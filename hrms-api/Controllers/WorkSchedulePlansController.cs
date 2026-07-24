@@ -21,64 +21,82 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-    public async Task<IActionResult> Get(CancellationToken token)
+    [ProducesResponseType(typeof(ResponseModel<List<WorkSchedulePlanModel>>), 200)]
+    public async Task<IActionResult> Get([FromQuery] WorkRotationPlanFilter filter, CancellationToken token)
     {
-        var data = await _service.FindAllAsync(token);
+        var data = await _service.FindAllAsync(filter, token);
         return Ok(data);
     }
 
-    [HttpGet("range")]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-    public async Task<IActionResult> Get([FromQuery] DateRequestPayload payload, CancellationToken token)
-    {
-        var data = await _service.FindRange(payload, token);
-        return Ok(data);
-    }
-
-    [HttpGet("{id}")]
-    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
-    public async Task<IActionResult> Get(Guid id, CancellationToken token)
-    {
-        var data = await _service.FineOneAsync(id, token);
-        return Ok(_mapper.Map<WorkSchedulePlanModel>(data));
-    }
-
-    [HttpPost]
-    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
-    public async Task<IActionResult> Post([FromBody] CreateWorkRotationPlan payload, CancellationToken token)
-    {
-        var data = _mapper.Map<WorkSchedulePlan>(payload);
-        await _service.AddAsync(data, token);
-        var respModel = _mapper.Map<WorkSchedulePlanModel>(data);
-        return Ok(respModel);
-    }
+    //[HttpGet("range")]
+    //[ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    //public async Task<IActionResult> Get([FromQuery] DateRequestPayload payload, CancellationToken token)
+    //{
+    //    var data = await _service.FindRange(payload, token);
+    //    return Ok(data);
+    //}
+    //[HttpGet("{id}")]
+    //[ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
+    //public async Task<IActionResult> Get(Guid id, CancellationToken token)
+    //{
+    //    var data = await _service.FineOneAsync(id, token);
+    //    return Ok(_mapper.Map<WorkSchedulePlanModel>(data));
+    //}
+    //[HttpPost]
+    //[ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
+    //public async Task<IActionResult> Post([FromBody] CreateWorkRotationPlan payload, CancellationToken token)
+    //{
+    //    var data = _mapper.Map<WorkSchedulePlan>(payload);
+    //    await _service.AddAsync(data, token);
+    //    var respModel = _mapper.Map<WorkSchedulePlanModel>(data);
+    //    return Ok(respModel);
+    //}
 
     [HttpPost("batch")]
     [ProducesResponseType(typeof(ResponseModel<List<WorkSchedulePlanModel>>), 200)]
-    public async Task<IActionResult> PostBatch([FromBody] List<CreateWorkRotationPlan> payload, CancellationToken token)
+    public async Task<IActionResult> PostBatch([FromBody] CreateWorkRotationPlanBatch payload, CancellationToken token)
     {
-        var data = _mapper.Map<List<WorkSchedulePlan>>(payload);
+        var data = new List<WorkSchedulePlan>();
+        foreach (var employeeId in payload.EmployeeIds)
+        {
+            foreach (var payrollDate in payload.PayrollDates)
+            {
+                data.Add(new WorkSchedulePlan
+                {
+                    EmployeeId = employeeId,
+                    PayrollDate = payrollDate,
+                    TimeShiftId = payload.TimeShiftId,
+                });
+            }
+        }
         await _service.AddRange(data, token);
         var respModel = _mapper.Map<List<WorkSchedulePlanModel>>(data);
         return Ok(respModel);
     }
 
-    [HttpPut("{id}")]
-    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
-    public async Task<IActionResult> Put(Guid id, [FromBody] UpdateWorkSchedulePlan payload, CancellationToken token)
-    {
-        var data = _mapper.Map<WorkSchedulePlan>(payload);
-        data.Id = id;
-        await _service.UpdateAsync(data, token);
-        return Ok(_mapper.Map<WorkSchedulePlanModel>(data));
-    }
+    //[HttpPut("{id}")]
+    //[ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
+    //public async Task<IActionResult> Put(Guid id, [FromBody] UpdateWorkSchedulePlan payload, CancellationToken token)
+    //{
+    //    var data = _mapper.Map<WorkSchedulePlan>(payload);
+    //    data.Id = id;
+    //    await _service.UpdateAsync(data, token);
+    //    return Ok(_mapper.Map<WorkSchedulePlanModel>(data));
+    //}
 
     [HttpDelete("{id}")]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken token)
     {
         await _service.DeleteAsync(id, token);
-        return Ok();
+        return Ok("Success");
+    }
+
+    [HttpDelete("batch")]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    public async Task<IActionResult> DeleteBatch([FromQuery] string batchCode, CancellationToken token)
+    {
+        await _service.DeleteBatchAsync(batchCode, token);
+        return Ok("Success");
     }
 }

@@ -106,15 +106,19 @@ public enum ComputationBasis
 
 public enum EmploymentStatus
 {
-    Probationary,
-    Regular,
-    Contractual,
-    ProjectBased,
-    Seasonal,
-    Casual,
+    Regular = 1,
     PartTime,
-    Term,
-    Internship
+    Probationary,
+    Contract,
+    Temporary,
+    Casual,
+    Intern,
+    OnLeave,
+    Suspended,
+    Terminated,
+    Resigned,
+    Retired,
+    Deceased
 }
 
 [Flags]
