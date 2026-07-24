@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Hrms.adms.Migrations
 {
     [DbContext(typeof(AdmsContext))]
-    [Migration("20260712020325_description")]
-    partial class description
+    [Migration("20260724005400_initial_create")]
+    partial class initial_create
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -184,6 +184,10 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("SN")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("State")
                         .IsRequired()
                         .HasColumnType("longtext");
 

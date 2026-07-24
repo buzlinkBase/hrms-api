@@ -17,6 +17,7 @@ public class CutoffModel
     /// Optional label for audit clarity (e.g., "First Cutoff", "Second Cutoff").
     /// </summary>
     public string Label { get; set; } = string.Empty;
+    public Guid Id { get; set; }
 }
 
 
@@ -38,7 +39,6 @@ public class UpdatePayrollGroup : CreatePayrollGroup
 {
     public Guid Id { get; set; }
 }
-
-public class PayrollGroupModel : UpdatePayrollGroup
+public class PayrollGroupModel  : UpdatePayrollGroup
 {
 }
