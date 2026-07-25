@@ -66,8 +66,8 @@ public class AttendanceService : BaseService<Attendance>
                     ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
                     : "",
             })
-            .OrderByDescending(x => x.Batch)
-            .ThenBy(x => x.Name)
+            .OrderByDescending(x => x.Name)
+            .ThenBy(x => x.WorkDateTime)
             .ToListAsync();
     }
 

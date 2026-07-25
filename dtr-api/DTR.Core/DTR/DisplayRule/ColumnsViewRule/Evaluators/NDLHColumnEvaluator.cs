@@ -28,7 +28,7 @@ internal class NDLHColumnEvaluator : IColumnEvaluator
                 worktime = worktime.TimeRecords.Exclude(topup.TimeRecords)
                     .ToTimeRange();
             }
-            return NDthresholdWrapper.Evaluate(NightDiffCalculator.Calculate(worktime), context.TimeContext);
+            return NDthresholdWrapper.Evaluate(NightDiffCalculator.Calculate(worktime), context);
         }
         else
         {
@@ -38,7 +38,7 @@ internal class NDLHColumnEvaluator : IColumnEvaluator
                 nd = nd.TimeRecords.Exclude(topup.TimeRecords)
                      .ToTimeRange();
             }
-            return NDthresholdWrapper.Evaluate(nd, context.TimeContext);
+            return NDthresholdWrapper.Evaluate(nd, context);
         }
     }
 }

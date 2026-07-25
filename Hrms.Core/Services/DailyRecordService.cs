@@ -76,48 +76,28 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         return expression;
     }
+ 
 
-    public async Task<PaginatedResult<List<DailyRecordModel>>> GetAllPaginatedResult(DTRQueryPayload payload, PaginationPayload pageInfo, CancellationToken token)
+    public async Task<List<DTRDetailModel>> DTRSummaryQuery(string BatchCode, CancellationToken token)
     {
-        var expression = GetQueryExpression(payload);
-        var query = GetQueryable(expression);
-        var dataQuery = await PaginatedQuerable(query, pageInfo.Page, pageInfo.Limit).ToListAsync(token);
-        var data = _mapper.Map<List<DailyRecordModel>>(dataQuery);
-        return new PaginatedResult<List<DailyRecordModel>>
-        {
-            Data = data,
-            MetaData = new PaginationMetaData(await query.CountAsync(), pageInfo.Page, pageInfo.Limit)
-        };
-    }
-
-    public async Task<List<DailyRecordModel>> DTRSummaryQuery(string BatchCode, CancellationToken token)
-    {
-        //var fromDate = DateOnly.FromDateTime(payload.FromDate);
-        //var toDate = DateOnly.FromDateTime(payload.ToDate);
+ 
         var dtr = _uow.Repository
             .FindAll<DailyRecord>()
             .AsNoTracking()
             .Where(x => x.BatchCode == BatchCode)
              ;
-        //.Where(x =>
-        //     //(x.WorkDate >= fromDate && x.WorkDate <= toDate) &&
-        //     (payload.EmployeeId == null || x.EmployeeId == payload.EmployeeId) &&
-        //     (payload.DepartmentId == null || (x.DepartmentId.HasValue ? x.DepartmentId.Value == payload.DepartmentId : x.DepartmentId == payload.DepartmentId)) &&
-        //     (payload.PayrollGroupId == null || (x.PayrollGroupId.HasValue ? x.PayrollGroupId.Value == payload.PayrollGroupId : x.PayrollGroupId == payload.PayrollGroupId)) &&
-        //     (payload.ClientId == null || (x.ClientId.HasValue ? x.ClientId.Value == payload.ClientId : x.ClientId == payload.ClientId))
-        //);
-
+ 
         return await dtr
             .Where(x => x.Posted)
             .GroupBy(x => x.EmployeeId)
-            .Select(x => new DailyRecordModel()
+            .Select(x => new DTRDetailModel()
             {
-                FullName = x.First().FullName,
+                FullName = x.First().FullName, 
                 EmployeeId = x.Key,
-                LateHours = x.Sum(x => x.LateHours),
-                UTHours = x.Sum(x => x.UTHours),
-                OverBreakHours = x.Sum(x => x.OverBreakHours),
-                LateForOTHours = x.Sum(x => x.LateForOTHours),
+                LateMinutes = x.Sum(x => x.LateMinutes),
+                UTMinutes = x.Sum(x => x.UTMinutes),
+                OverMinutes = x.Sum(x => x.OverMinutes),
+                LateForOTMinutes = x.Sum(x => x.LateForOTMinutes),
 
                 RegularNetHours = x.Sum(x => x.RegularNetHours),
                 RegularOTHours = x.Sum(x => x.RegularOTHours),
@@ -158,8 +138,8 @@ public class DailyRecordService : BaseService<DailyRecord>
                 HolCount = x.Sum(xx => xx.HolCount),
                 SPCount = x.Sum(xx => xx.SPCount),
                 LeaveHours = x.Sum(xx => xx.LeaveHours),
-                OB = x.Sum(x => x.OB),
-                Absent = x.Sum(x => x.Absent),
+                OBHours = x.Sum(x => x.OBHours),
+                AbsentCount = x.Sum(x => x.AbsentCount),
             })
             .OrderBy(x => x.FullName)
             .ToListAsync(token);

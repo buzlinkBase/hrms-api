@@ -27,7 +27,7 @@
 
         public static decimal GetHourlyRate(PayrollContext context)
         {
-            return context.Employee.DailyRate / context.DailyRecord.ShiftWorkingHour;
+            return context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
             //if (context.Employee.SalaryType == SalaryType.MONTHLY_FIXED)
             //{
             //    var monthly = context.Employee.MonthlyRate;

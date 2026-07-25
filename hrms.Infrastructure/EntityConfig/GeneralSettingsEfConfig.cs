@@ -107,7 +107,7 @@ internal class GeneralSettingsEfConfig : IEntityTypeConfiguration<GeneralSetting
                 Id = Guid.Parse("3456C7D8-E9F0-4567-ABCD-9012345678CD"),
                 IdentityType = "Company",
                 Description = SettingKey.IsHolPlusReg.ToString(),
-                Value = true.ToString(),
+                Value = false.ToString(),
                 Status = "Active",
                 CreatedAt = seedDate,
                 UpdatedAt = seedDate
@@ -117,7 +117,7 @@ internal class GeneralSettingsEfConfig : IEntityTypeConfiguration<GeneralSetting
                 Id = Guid.Parse("4567D8E9-F012-4678-BCDA-0123456789DE"),
                 IdentityType = "Company",
                 Description = SettingKey.HolidayColumnPresentation.ToString(),
-                Value = HolidayCreditMode.AutoCredit.ToString(),
+                Value = HolidayCreditMode.NoCredit.ToString(),
                 Status = "Active",
                 CreatedAt = seedDate,
                 UpdatedAt = seedDate

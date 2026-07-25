@@ -10,7 +10,7 @@ public class SpecialHolidayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
     {
         var premiumRate = SpecialHolRateSolver.ResolvePremiumRate(context);
         var dailyRate = context.Employee.DailyRate;
-        var totalDay = (decimal)context.DailyRecord.SpecialHolHours / context.DailyRecord.ShiftWorkingHour;
+        var totalDay = (decimal)context.DailyRecord.SpecialHolHours / (decimal)context.DailyRecord.ShiftWorkingHour;
         line.Value += totalDay * dailyRate * premiumRate;
         return line;
     }

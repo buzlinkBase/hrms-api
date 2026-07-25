@@ -9,7 +9,7 @@ internal class RestDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
             premiumRate = RATE_DEFAULT.RESTDAY_DUTY;
         }
         var dailyRate = context.Employee.DailyRate;
-        var hourlyRate = dailyRate / context.DailyRecord.ShiftWorkingHour;
+        var hourlyRate = dailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
         var restDayHours = (decimal)context.DailyRecord.RestDayHours;
 
         //for fixed emp just get the premium pay

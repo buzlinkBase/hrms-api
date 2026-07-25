@@ -26,31 +26,27 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(ResponseModel<List<DailyRecordModel>>), 200)]
-    public async Task<IActionResult> Post([FromQuery] DateOnly rangeFrom, [FromQuery] DateOnly RangeTo,
-        [FromBody] List<CreateDailyRecord> model, CancellationToken token)
+    [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
+    public async Task<IActionResult> Post([FromBody] List<DTRDetailModel> model, CancellationToken token)
     {
+        var rangeFrom = model.Min(x => x.WorkDate);
+        var RangeTo = model.Max(x => x.WorkDate);
+        var ts = DateTime.UtcNow.ToString("MMddyy_HHmmss");
+        //var rnd = Guid.CreateVersion7().ToString("N").ToString().Substring(1, 5);
         var models = _mapper.Map<List<DailyRecord>>(model);
         var userId = User.GetRequiredUserId();
         var count = _service.Context.DailyTimeRecords.GroupBy(x => x.BatchCode).Count() + 1;
-        var batchCode = $"DTR {rangeFrom.ToString("MMM-dd,yyyy")}-{RangeTo.ToString("MMM-dd,yyyy")} {count.ToString().PadLeft(10, '0')}";
-
+        var batchCode = $"DTR{rangeFrom.ToString("MMMddyyyy")}{RangeTo.ToString("MMMddyyyy")}-{ts}-{count.ToString().PadLeft(5, '0')}";
         foreach (var item in models)
         {
             item.UserId = userId;
             item.BatchCode = batchCode;
         }
         await _service.AddRangeAsync(models, token);
-        var respModel = _mapper.Map<List<DailyRecordModel>>(models);
+        var respModel = _mapper.Map<List<DTRDetailModel>>(models);
         return Ok(respModel);
     }
 
-    //[HttpPost("load-summary")]
-    //[ProducesResponseType(typeof(ResponseModel<object>), 200)]
-    //public async Task<IActionResult> Load([FromBody] DTRQueryPayload payload, [FromQuery] PaginationPayload pageInfo, CancellationToken token)
-    //{
-    //    return Ok(await _service.GetAllPaginatedResult(payload, pageInfo, token));
-    //}
     [HttpPost("load-summary")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Summary([FromQuery] string batchCode, CancellationToken token)
@@ -113,12 +109,11 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
-
     [HttpDelete()]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     public async Task<IActionResult> Delete([FromQuery] DateRangePayload payload, CancellationToken token)
     {
         await _service.DeleteAsync(payload, token);
-        return Ok();
+        return Ok("Success");
     }
 }

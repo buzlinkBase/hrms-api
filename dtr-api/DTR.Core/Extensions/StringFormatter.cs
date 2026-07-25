@@ -45,7 +45,6 @@ public static class StringHelpers
             result.Append(current);
             prev = current;
         }
-
         var final = result.ToString();
         _cache[input] = final;
         return final;

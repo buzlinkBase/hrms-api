@@ -12,7 +12,7 @@ public class RegularHolidayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
         var dailyRate = RateHelper.GetDailyRate(context);
         var hourlyRate = RateHelper.GetHourlyRate(context);
         var workedHours = (decimal)context.DailyRecord.LegalHolHours;
-        var shiftHours = context.DailyRecord.ShiftWorkingHour;
+        var shiftHours = (decimal)context.DailyRecord.ShiftWorkingHour;
         var holidayCredit = GetHolidayCreditDays(context);
 
         bool IsElible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);

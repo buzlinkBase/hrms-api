@@ -7,6 +7,7 @@ internal class SPColumEvaluator : IColumnEvaluator
     }
     public TimeRange ApplyRules(DisplayContext context)
     {
+        if (context.TimeContext.IsRestDay()) return TimeRange.Empty;
         return context.PipeLineResult.SpecialHoliday;
     }
 }

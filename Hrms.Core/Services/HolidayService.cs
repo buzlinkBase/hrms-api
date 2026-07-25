@@ -124,7 +124,7 @@ public class HolidayService : BaseService<Holiday>
     }
 }
 
-public readonly record struct Holidaykey(Guid EmpId, DateOnly PayrollId);
+public readonly record struct Holidaykey(Guid EmpId, DateOnly PayrollDate);
 public record HolidayResult(Guid Id,
     string Description,
     Guid? AreaId,

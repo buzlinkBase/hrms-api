@@ -19,4 +19,8 @@ internal static class CommonExtensions
         var holiday = new IsHolidaySpec(HolidayType.SPECIAL);
         return holiday.IsSatisfiedBy(context.CanonicalTimeRange, context);
     }
+    internal static bool IsRestDay(this TimeContext context)
+    {
+        return RestDayChecker.IsRestDay(context.Payload);
+    }
 }

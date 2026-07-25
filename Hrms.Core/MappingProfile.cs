@@ -26,10 +26,8 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateSalaryAdjustment, SalaryAdjustment>();
         config.NewConfig<SalaryAdjustment, SalaryAdjustmentModel>();
 
-        config.NewConfig<CreateDailyRecord, DailyRecord>();
-        config.NewConfig<UpdateDailyRecord, DailyRecord>();
-        config.NewConfig<DailyRecord, DailyRecordModel>();
-        config.NewConfig<DailyRecord, DailyRecordRunModel>();
+        config.NewConfig<DTRDetailModel, DailyRecord>().TwoWays();
+        config.NewConfig<DailyRecord, DailyRecordRunModel>();//for payroll pipeline
 
         config.NewConfig<CreateEmployeeSetting, EmployeeSetting>();
         config.NewConfig<UpdateEmployeeSetting, EmployeeSetting>();

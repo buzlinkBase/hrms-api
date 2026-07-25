@@ -11,8 +11,7 @@ public class IsRestDaySpec : IRuleSpecification
         if (cached.Found)
             return cached.Value;
 
-        var isRestDay = RestDayChecker
-            .IsRestDay(context.Payload);
+        var isRestDay = RestDayChecker.IsRestDay(context.Payload);
         payload.SharedSpecCache.Record(key, isRestDay);
         return isRestDay;
     }

@@ -6,7 +6,7 @@ public class UndertimePolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
     {
         var workHour = 8.0m;
         var hr = (decimal)context.DailyRecord.UTMinutes / workHour;
-        var hrRate = context.Employee.DailyRate / context.DailyRecord.ShiftWorkingHour;
+        var hrRate = context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
         line.UTInfo = new UnderTimeInfo
         {
             PayrollDate = context.PayrollDate,

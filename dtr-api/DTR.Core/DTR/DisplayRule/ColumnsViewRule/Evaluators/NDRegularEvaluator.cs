@@ -26,7 +26,7 @@ internal class NDRegularEvaluator : IColumnEvaluator
 
         return NonHoldEval
                 .Evaluate(NDthresholdWrapper
-                    .Evaluate(nd, context.TimeContext), context.TimeContext)
+                    .Evaluate(nd, context), context)
                 ;
     }
 }

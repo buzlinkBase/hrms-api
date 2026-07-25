@@ -29,6 +29,8 @@ public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
             Overbreak = new OverbreaktimePipeline(context).Apply(cannonicalTimeRange),
             Leave = TimeRange.Empty
         };
+
+        var workType = WorkTypeResolver.Resolve(context);
         var displayContext = new DisplayContext
         {
             TimeContext = context,
@@ -37,7 +39,6 @@ public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
 
         var evaluated = DTRDetailColumnDisplayProcessor.DisplayRule(displayContext);
         var nightDiffResult = DTRDetailColumnDisplayProcessor.ComputeNightDiff(evaluated, displayContext);
-        var workType = WorkTypeResolver.Resolve(context);
 
         return DailyRecordBuilder.Build(context, pipelineResult,
             evaluated,
@@ -55,6 +56,7 @@ public class DailyRecordBuilder
         WorkType workType
         )
     {
+        var currentAtt = context.Payload.Data.CurrentAttendance.FirstOrDefault();
         var emp = context.Payload.Data.Employee;
         var dtr = new DTRDetailModel
         {
@@ -63,6 +65,7 @@ public class DailyRecordBuilder
             SPCount = pipeline.Plus8.GetMetaData<int>("SPHolidayCount"),
             FullName = emp.FullName(),
             EmployeeId = emp.Id,
+
             WorkDate = context.Payload.Data.CurrentDate,
             ShiftName = context.Payload.Data.CurrentShift.ShiftName,
             ShiftStartTime = context.Payload.Data.CurrentShift.StartTime,
@@ -71,13 +74,14 @@ public class DailyRecordBuilder
             EndTime = context.CanonicalTimeRange.TimeRecords.MaxBy(x => x.EndTime)?.EndTime,
             WorkType = StringHelpers.AddSpacesBeforeCaps(workType.ToString()).Trim(),
             WorkTypeEnum = workType,
-            Late = pipeline.Late.TotalMinutes.ToHour(),
-            UT = pipeline.UT.TotalMinutes.ToHour(),
-            OverBreak = pipeline.Overbreak.TotalMinutes.ToHour(),
-            //hours
-            LateHours = pipeline.Late.TotalMinutes.ToHour(),
-            OverBreakHours = pipeline.Overbreak.TotalMinutes.ToHour(),
-            LateForOTHours = 0,
+
+            LateMinutes = pipeline.Late.TotalMinutes,
+            UTMinutes = pipeline.UT.TotalMinutes,
+            OverMinutes = pipeline.Overbreak.TotalMinutes,
+            LateForOTMinutes = 0,
+            OBHours = 0,
+            LeaveHours = 0,
+            AbsentCount = workType == WorkType.Absent ? 1 : 0,
 
             RegularNetHours = evaluated.RegWork.TotalMinutes.ToHour(),
             RegularOTHours = evaluated.RegOT.TotalMinutes.ToHour(),
@@ -91,32 +95,29 @@ public class DailyRecordBuilder
 
             LegalHolHours = evaluated.LegalHoliday.TotalMinutes.ToHour(),
             LegalHolOTHours = evaluated.LHOT.TotalMinutes.ToHour(),
-            LegalHolNightDiffHours = NightDiff.LH.TotalMinutes.ToHour(),
-            LegalHolNightDiffOTHours = NightDiff.LHOT.TotalMinutes.ToHour(),
+            LegalHolNightDiffHours = NightDiff.Legal.TotalMinutes.ToHour(),
+            LegalHolNightDiffOTHours = NightDiff.LegalOT.TotalMinutes.ToHour(),
 
             SpecialHolHours = evaluated.SPHoliday.TotalMinutes.ToHour(),
             SpecialHolOTHours = evaluated.SPOT.TotalMinutes.ToHour(),
-            SpecialHolNightDiffHours = NightDiff.SP.TotalMinutes.ToHour(),
-            SpecialHolNightDiffOTHours = NightDiff.SPOT.TotalMinutes.ToHour(),
+            SpecialHolNightDiffHours = NightDiff.Special.TotalMinutes.ToHour(),
+            SpecialHolNightDiffOTHours = NightDiff.SpecialOT.TotalMinutes.ToHour(),
 
-            RestLegalDayHours = (evaluated.RestWork + evaluated.LegalHoliday).TotalMinutes.ToHour(),
-            RestLegalDayOTHours = (evaluated.RestOT + evaluated.LHOT).TotalMinutes.ToHour(),
-            RestLegalDayNDHours = (NightDiff.Rest + NightDiff.LH).TotalMinutes.ToHour(),
-            RestLegalDayNDOTHours = (NightDiff.RestOT + NightDiff.LHOT).TotalMinutes.ToHour(),
+            RestLegalDayHours = evaluated.RestLegal.TotalMinutes.ToHour(),
+            RestLegalDayOTHours = evaluated.RestLegalOT.TotalMinutes.ToHour(),
+            RestLegalDayNDHours = NightDiff.RestLegal.TotalMinutes.ToHour(),
+            RestLegalDayNDOTHours = NightDiff.RestLegalOT.TotalMinutes.ToHour(),
 
-            RestSpecialDayHours = (evaluated.RestWork + evaluated.SPHoliday).TotalMinutes.ToHour(),
-            RestSpecialDayOTHours = (evaluated.RestOT + evaluated.SPOT).TotalMinutes.ToHour(),
-            RestSpecialDayNDHours = (NightDiff.Rest + NightDiff.SP).TotalMinutes.ToHour(),
-            RestSpecialDayNDOTHours = (NightDiff.RestOT + NightDiff.SPOT).TotalMinutes.ToHour(),
+            RestSpecialDayHours = evaluated.RestSpecial.TotalMinutes.ToHour(),
+            RestSpecialDayOTHours = evaluated.RestSpecialOT.TotalMinutes.ToHour(),
+            RestSpecialDayNDHours = NightDiff.RestSpecial.TotalMinutes.ToHour(),
+            RestSpecialDayNDOTHours = NightDiff.RestSpecialOT.TotalMinutes.ToHour(),
 
-            OBHours = 0,
-            LeaveHours = 0,
-            ClientId = emp.ClientId,
-            DepartmentId = emp.DepartmentId,
-            PayrollGroupId = emp.PayrollGroupId,
-            AreaId = emp.AreaId,
-            BranchId = emp.BranchId,
-            Absent = workType == WorkType.Absent ? 1 : 0,
+            ClientId = currentAtt?.ClientId ?? emp?.ClientId,
+            DepartmentId = currentAtt?.DepartmentId ?? emp?.DepartmentId,
+            PayrollGroupId = emp?.PayrollGroupId,
+            AreaId = currentAtt?.OperationAreaId ?? emp?.AreaId,
+            BranchId = currentAtt?.BranchId ?? emp?.BranchId,
         };
         return dtr;
     }

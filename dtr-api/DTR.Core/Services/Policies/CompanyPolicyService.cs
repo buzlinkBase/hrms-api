@@ -111,20 +111,20 @@ public class CompanyPolicyService
     }
     private void SetIsHolidayAddedInHolidayColumn(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
     {
-        policy.IsHolPlusReg = true;
+        policy.IsHolPlusReg = false;
         if (data.TryGetValue(SettingKey.IsHolPlusReg.ToString(), out GeneralSettingModel? IsHolPlusReg))
         {
-            var settingvalue = GeneralSettingsUtil.ParseBool(IsHolPlusReg.Value, true);
+            var settingvalue = GeneralSettingsUtil.ParseBool(IsHolPlusReg.Value, false);
             policy.IsHolPlusReg = settingvalue;
         }
     }
 
     private void SetHolidayColumnPresentation(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
     {
-        policy.HolidayColumnPresentation = HolidayCreditMode.AutoCredit;
+        policy.HolidayColumnPresentation = HolidayCreditMode.NoCredit;
         if (data.TryGetValue(SettingKey.HolidayColumnPresentation.ToString(), out GeneralSettingModel? hol))
         {
-            var settingvalue = GeneralSettingsUtil.ParseEnum(hol.Value, HolidayCreditMode.AutoCredit);
+            var settingvalue = GeneralSettingsUtil.ParseEnum(hol.Value, HolidayCreditMode.NoCredit);
             policy.HolidayColumnPresentation = settingvalue;
         }
     }

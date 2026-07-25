@@ -1,25 +1,30 @@
-﻿namespace Hrms.Domain.ValueObjects;
+﻿
+namespace Hrms.Domain.ValueObjects;
 
 public class DailyRecordRunModel
 {
-    public string WorkType { get; set; } = "REGULAR WORK DAY";
-    public string FullName { get; set; } = string.Empty;
+    public Guid? Id { get; set; }
+    public string? BatchCode { get; set; }
+    public string WorkType { get; set; }
+    public string? FullName { get; set; }
     public Guid EmployeeId { get; set; }
-    public string empCode { get; set; } = string.Empty;
-    public int BioId { get; set; } = 0;
-    public EmployeeModelPayrollRun Employee { get; set; }
+    public virtual EmployeeModelPayrollRun Employee { get; set; }
     public DateOnly WorkDate { get; set; }
-    //minutes regardless if off or not
-    public double LateMinutes { get; set; } = 0;
-    public double UTMinutes { get; set; } = 0;
-    public double OverBreakMinutes { get; set; } = 0;
-    ///  
+    public string ShiftName { get; set; } = string.Empty;
+    public DateTime ShiftStartTime { get; set; }
+    public DateTime ShiftEndTime { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
 
-    //hours
-    public double LateHours { get; set; }
-    //public double UTHours { get; set; }
-    public double OverBreakHours { get; set; }
-    public double LateForOTHours { get; set; }
+    public double LateMinutes { get; set; }
+    public double UTMinutes { get; set; }
+    public double OverMinutes { get; set; }
+    public double LateForOTMinutes { get; set; }
+    public double OBHours { get; set; }
+    public int AbsentCount { get; set; }
+    public int HolCount { get; set; } = 0;
+    public int SPCount { get; set; } = 0;
+    public double LeaveHours { get; set; }
 
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }
@@ -50,14 +55,15 @@ public class DailyRecordRunModel
     public double RestSpecialDayOTHours { get; set; }
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
-    public double LeaveMinutes { get; set; }
-    public double OB { get; set; }
-    public int Absent { get; set; }
-    public Guid UserId { get; set; }
-    public Guid? ClientId { get; set; }
-    public Guid? PayrollGroupId { get; set; }
+
+    public string Note { get; set; } = string.Empty;
+
+    public Guid? UserId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid? DepartmentId { get; set; }
-    public int HolCount { get; set; } = 0;
-    public int SPCount { get; set; } = 0;
-    public decimal ShiftWorkingHour { get; set; } = 8;
+    public Guid? PayrollGroupId { get; set; }
+    public Guid? ClientId { get; set; }
+    public Guid? AreaId { get; set; }
+    public double ShiftWorkingHour { get; set; }
+    public bool Posted { get; set; }
 }

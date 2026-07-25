@@ -4,8 +4,8 @@ public class LatePolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        var hr = (decimal)context.DailyRecord.LateHours;
-        var hrRate = context.Employee.DailyRate / context.DailyRecord.ShiftWorkingHour;
+        var hr = (decimal)context.DailyRecord.LateMinutes;
+        var hrRate = context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
         line.LateInfo = new LateInfo
         {
             PayrollDate = context.PayrollDate,
