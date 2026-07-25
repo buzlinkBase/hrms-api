@@ -1,7 +1,8 @@
-﻿using Hrms.Domain.Entities;
+﻿using System.Linq.Expressions;
+using DocumentFormat.OpenXml.Office2010.ExcelAc;
+using Hrms.Domain.Entities;
 using Mapster;
 using Microsoft.Extensions.Logging;
-using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
 
@@ -25,12 +26,10 @@ public class DailyRecordService : BaseService<DailyRecord>
         await Uow.SaveChangesAsync(token);
         await CommitChangesAsync(token);
     }
-
-    public async Task DeleteAsync(DateRangePayload payload, CancellationToken token)
+    public async Task DeleteAsync(string batchCode, CancellationToken token)
     {
         await ExecuteDeleteAsync(x =>
-        x.WorkDate >= payload.FromDate
-        && x.WorkDate <= payload.ToDate, token);
+        x.BatchCode == batchCode, token);
         await CommitChangesAsync(token);
     }
     public async Task DeleteAsync(DateRangePayload payload, List<Guid> employeeIds,
@@ -76,28 +75,40 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         return expression;
     }
- 
 
-    public async Task<List<DTRDetailModel>> DTRSummaryQuery(string BatchCode, CancellationToken token)
+    public async Task<List<BatchesModel>> GetBatches(DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
- 
+        return await Context.DailyTimeRecords
+            .Where(x => x.WorkDate >= fromDate && x.WorkDate <= toDate && x.BatchCode != null)
+            .Select(x => new BatchesModel
+            {
+                Code = x.BatchCode
+            })
+            .Distinct()
+            .ToListAsync(token)
+            ;
+    }
+
+    public async Task<List<DTRSummaryModel>> DTRSummaryQuery(string BatchCode, CancellationToken token)
+    {
+
         var dtr = _uow.Repository
             .FindAll<DailyRecord>()
             .AsNoTracking()
             .Where(x => x.BatchCode == BatchCode)
              ;
- 
+
         return await dtr
-            .Where(x => x.Posted)
-            .GroupBy(x => x.EmployeeId)
-            .Select(x => new DTRDetailModel()
+            //.Where(x => x.Posted)
+            .GroupBy(x => new { x.EmployeeId, x.BatchCode })
+            .Select(x => new DTRSummaryModel()
             {
-                FullName = x.First().FullName, 
-                EmployeeId = x.Key,
-                LateMinutes = x.Sum(x => x.LateMinutes),
-                UTMinutes = x.Sum(x => x.UTMinutes),
-                OverMinutes = x.Sum(x => x.OverMinutes),
-                LateForOTMinutes = x.Sum(x => x.LateForOTMinutes),
+                FullName = x.First().FullName,
+                EmployeeId = x.Key.EmployeeId,
+                BatchCode = x.Key.BatchCode,
+                UTHours = x.Sum(x => x.UTMinutes / 60),
+                OverHours = x.Sum(x => x.OverMinutes / 60),
+                LateHours = x.Sum(x => x.LateForOTMinutes / 60),
 
                 RegularNetHours = x.Sum(x => x.RegularNetHours),
                 RegularOTHours = x.Sum(x => x.RegularOTHours),
@@ -128,20 +139,74 @@ public class DailyRecordService : BaseService<DailyRecord>
                 RestSpecialDayNDHours = x.Sum(xx => xx.RestSpecialDayNDHours),
                 RestSpecialDayNDOTHours = x.Sum(xx => xx.RestSpecialDayNDOTHours),
                 RestSpecialDayOTHours = x.Sum(xx => xx.RestSpecialDayOTHours),
-                ShiftWorkingHour = x.Sum(xx => xx.ShiftWorkingHour),
-
-                BranchId = x.First().BranchId,
-                DepartmentId = x.First().DepartmentId,
-                AreaId = x.First().AreaId,
-                PayrollGroupId = x.First().PayrollGroupId,
-                ClientId = x.First().ClientId,
-                HolCount = x.Sum(xx => xx.HolCount),
-                SPCount = x.Sum(xx => xx.SPCount),
-                LeaveHours = x.Sum(xx => xx.LeaveHours),
-                OBHours = x.Sum(x => x.OBHours),
                 AbsentCount = x.Sum(x => x.AbsentCount),
             })
             .OrderBy(x => x.FullName)
             .ToListAsync(token);
     }
+    public async Task<List<DTRDetailModel>> DTRDetailQuery(string batchCode, CancellationToken token)
+    {
+        return await _uow.Repository
+             .FindAll<DailyRecord>()
+             .AsNoTracking()
+             .Where(x => x.BatchCode == batchCode)
+             .Select(x => new DTRDetailModel
+             {
+                 Id = x.Id,
+                 ShiftWorkingHour = x.ShiftWorkingHour,
+                 HolCount = x.HolCount,
+                 SPCount = x.SPCount,
+                 FullName = x.FullName,
+                 EmployeeId = x.EmployeeId,
+                 WorkDate = x.WorkDate,
+                 ShiftName = x.ShiftName,
+                 ShiftStartTime = x.ShiftStartTime,
+                 ShiftEndTime = x.ShiftEndTime,
+                 StartTime = x.StartTime,
+                 EndTime = x.EndTime,
+                 WorkType = x.WorkType,
+                 WorkTypeEnum = x.WorkTypeEnum,
+                 LateMinutes = x.LateMinutes,
+                 UTMinutes = x.UTMinutes,
+                 OverMinutes = x.OverMinutes,
+                 LateForOTMinutes = 0,
+                 OBHours = 0,
+                 LeaveHours = 0,
+                 AbsentCount = x.AbsentCount,
+
+                 RegularNetHours = x.RegularNetHours,
+                 RegularOTHours = x.RegularOTHours,
+                 RegularNDHours = x.RegularNDHours,
+                 RegularNDOTHours = x.RegularNDOTHours,
+
+                 RestDayHours = x.RestDayHours,
+                 RestDayOTHours = x.RestDayOTHours,
+                 RestDayNDHours = x.RestDayNDHours,
+                 RestDayNDOTHours = x.RestDayNDOTHours,
+
+                 LegalHolHours = x.LegalHolHours,
+                 LegalHolOTHours = x.LegalHolOTHours,
+                 LegalHolNightDiffHours = x.LegalHolNightDiffHours,
+                 LegalHolNightDiffOTHours = x.LegalHolNightDiffOTHours,
+
+                 SpecialHolHours = x.SpecialHolHours,
+                 SpecialHolOTHours = x.SpecialHolOTHours,
+                 SpecialHolNightDiffHours = x.SpecialHolNightDiffHours,
+                 SpecialHolNightDiffOTHours = x.SpecialHolNightDiffOTHours,
+
+                 RestLegalDayHours = x.RestLegalDayHours,
+                 RestLegalDayOTHours = x.RestLegalDayOTHours,
+                 RestLegalDayNDHours = x.RestLegalDayNDHours,
+                 RestLegalDayNDOTHours = x.RestLegalDayNDOTHours,
+
+                 RestSpecialDayHours = x.RestSpecialDayHours,
+                 RestSpecialDayOTHours = x.RestSpecialDayOTHours,
+                 RestSpecialDayNDHours = x.RestSpecialDayNDHours,
+                 RestSpecialDayNDOTHours = x.RestSpecialDayNDOTHours,
+             })
+             .OrderBy(x => x.Id)
+             .ThenBy(x => x.WorkDate)
+             .ToListAsync(token);
+    }
+
 }

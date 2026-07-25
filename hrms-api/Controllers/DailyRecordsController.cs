@@ -31,12 +31,13 @@ public class DailyRecordsController : ControllerBase
     {
         var rangeFrom = model.Min(x => x.WorkDate);
         var RangeTo = model.Max(x => x.WorkDate);
-        var ts = DateTime.UtcNow.ToString("MMddyy_HHmmss");
+        var localTime = DateTime.UtcNow.AddHours(8);
+        var ts = localTime.ToString("MMddyyHHmm");
         //var rnd = Guid.CreateVersion7().ToString("N").ToString().Substring(1, 5);
         var models = _mapper.Map<List<DailyRecord>>(model);
         var userId = User.GetRequiredUserId();
         var count = _service.Context.DailyTimeRecords.GroupBy(x => x.BatchCode).Count() + 1;
-        var batchCode = $"DTR{rangeFrom.ToString("MMMddyyyy")}{RangeTo.ToString("MMMddyyyy")}-{ts}-{count.ToString().PadLeft(5, '0')}";
+        var batchCode = $"DTR{rangeFrom.ToString("MMMdd")}{RangeTo.ToString("MMMddyyyy")}-{ts}-{count.ToString().PadLeft(5, '0')}";
         foreach (var item in models)
         {
             item.UserId = userId;
@@ -48,11 +49,31 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpPost("load-summary")]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    [ProducesResponseType(typeof(ResponseModel<List<DTRSummaryModel>>), 200)]
     public async Task<IActionResult> Summary([FromQuery] string batchCode, CancellationToken token)
     {
-        return Ok(await _service.DTRSummaryQuery(batchCode, token));
+        var result = await _service.DTRSummaryQuery(batchCode, token);
+        return Ok(result);
     }
+
+    [HttpPost("load-detail")]
+    [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
+    public async Task<IActionResult> Details ([FromQuery] string batchCode, CancellationToken token)
+    {
+        var result = await _service.DTRDetailQuery(batchCode, token);
+        return Ok(result);
+    }
+
+    [HttpGet("batch-codes")]
+    [ProducesResponseType(typeof(ResponseModel<List<BatchesModel>>), 200)]
+    public async Task<IActionResult> GetCodes(CancellationToken token)
+    {
+        var fromDate = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-1));
+        var toDate = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));
+        var result = await _service.GetBatches(fromDate, toDate, token);
+        return Ok(result);
+    }
+
 
     [HttpGet("columnar-raw")]
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
@@ -111,9 +132,9 @@ public class DailyRecordsController : ControllerBase
 
     [HttpDelete()]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
-    public async Task<IActionResult> Delete([FromQuery] DateRangePayload payload, CancellationToken token)
+    public async Task<IActionResult> DeleteBatch([FromQuery] string batchCode , CancellationToken token)
     {
-        await _service.DeleteAsync(payload, token);
+        await _service.DeleteAsync(batchCode, token);
         return Ok("Success");
     }
 }
