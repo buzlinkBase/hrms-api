@@ -204,7 +204,7 @@ public class DailyRecordService : BaseService<DailyRecord>
                  RestSpecialDayNDHours = x.RestSpecialDayNDHours,
                  RestSpecialDayNDOTHours = x.RestSpecialDayNDOTHours,
              })
-             .OrderBy(x => x.Id)
+             .OrderBy(x => x.FullName)
              .ThenBy(x => x.WorkDate)
              .ToListAsync(token);
     }
