@@ -22,8 +22,10 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
     public async Task Consume(ConsumeContext<AttendancePayloadWrapper> context)
     {
         var messages = context.Message.AttLogs;
+
         var atts = await new AttEmployeeSetter(_uow)
             .ParseAttLogs(messages, LOGSOURCE.SYNC);
+
         await _attService.AddRangeAsync(atts);
         if (await _attService.CommitChangesAsync(context.CancellationToken))
         {
@@ -45,9 +47,20 @@ public class AttEmployeeSetter
 
     public async Task<List<Attendance>> ParseAttLogs(List<CreateAttendancePayload> messages, LOGSOURCE logSource)
     {
+        var bioIds = messages
+          .Select(x => x.BioId)
+          .Distinct()
+          .ToList();
+
+        if (bioIds.Count == 0)  return new List<Attendance>();
+
         var employees = await _service.Context.Employees
-             .Where(x => x.BioId > 0)
-             .ToDictionaryAsync(x => x.BioId!.Value, x => x);
+        .Where(x => x.BioId.HasValue && bioIds.Contains(x.BioId.Value))
+        .GroupBy(x => x.BioId!.Value)
+        .ToDictionaryAsync(
+            g => g.Key,
+            g => g.First() 
+        );
 
         var atts = new List<Attendance>();
         foreach (var att in messages)
@@ -67,7 +80,7 @@ public class AttEmployeeSetter
                 IP = att.IPAddress,
                 Boundary = att.Coordinates,
                 LogSource = logSource,
-                EditRemarks = employee == null ? "Unregistered Employee" : ""
+                EditRemarks = employee == null ? "Unregistered Employee Bio Id" : ""
             };
             atts.Add(attendance);
         }

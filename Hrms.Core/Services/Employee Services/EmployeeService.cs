@@ -145,6 +145,12 @@ public class EmployeeService : BaseService<Employee>
     //    return GetQueryable(x => x.BioId == bioId).FirstOrDefault();
     //}
 
+    public async Task<Employee?> FindOne(Guid id, CancellationToken token)
+    {
+        var data = await Context.Employees.FindAsync(id, token);
+        return data;
+    }
+
     public async Task<List<Employee>> FindByIds(List<Guid> Ids, CancellationToken token)
     {
         if (Ids == null || Ids.Count == 0)

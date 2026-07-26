@@ -106,7 +106,7 @@ public static class GrossTestHelpers
             {
                 WorkDate = pydate,
             },
-            WorkType = WorkType.RegularHolidayDuty
+            WorkType = WorkType.LegalHolidayDuty
         };
     }
 }

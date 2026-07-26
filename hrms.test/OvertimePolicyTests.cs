@@ -42,7 +42,7 @@ namespace hrms.test
         [Fact]
         public void ShouldComputeOT_WhenLegalHolOTHoursSet()
         {
-            var context = OvertimeTestHelpers.CreatePayrollContext(WorkType.RegularHolidayDuty, 1000);
+            var context = OvertimeTestHelpers.CreatePayrollContext(WorkType.LegalHolidayDuty, 1000);
             context.DailyRecord = new DailyRecordRunModel { LegalHolOTHours = 2 };
             var pipe = new OvertimePipeline();
             var result = pipe.Run(context);
@@ -90,7 +90,7 @@ namespace hrms.test
         [Fact]
         public void ShouldComputeOT_WhenSpecialHolidayDutyNWSet()
         {
-            var context = OvertimeTestHelpers.CreatePayrollContext(WorkType.SpecialHolidayDutyNW, 1000);
+            var context = OvertimeTestHelpers.CreatePayrollContext(WorkType.SpecialHolidayDuty, 1000);
             context.DailyRecord = new DailyRecordRunModel { SpecialHolOTHours = 2 };
             var pipe = new OvertimePipeline();
             var result = pipe.Run(context);

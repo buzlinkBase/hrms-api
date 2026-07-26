@@ -1,6 +1,4 @@
-﻿using DTR.Core.DTR.DisplayRule.ColumnsViewRule.Evaluators;
-
-namespace DTR.Core;
+﻿namespace DTR.Core;
 
 internal static class CommonExtensions
 {

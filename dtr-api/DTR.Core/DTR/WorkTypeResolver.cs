@@ -53,7 +53,8 @@ public static class WorkTypeResolver
             return WorkType.SpecialNonWorkingHoliday;
 
         if (isSpecialWorking)
-            return WorkType.SpecialWorkingHoliday;
+            return WorkType.Absent;//return WorkType.SpecialWorkingHoliday;
+
 
         return WorkType.Absent;
     }

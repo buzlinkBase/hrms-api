@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services;
 
@@ -7,10 +8,15 @@ public class AttendanceService : BaseService<Attendance>
     public AttendanceService(IUnitOfWorkService uow) : base(uow)
     {
     }
-    public async Task AddOrUpdateAsync(Attendance model, CancellationToken token)
+
+    public async Task Update(UpdateAttendance model, CancellationToken token)
     {
-        await CreateAsync(model, token);
+        await Context.Attendances
+            .Where(x => x.Id == model.Id)
+            .ExecuteUpdateAsync(x => x.SetProperty(xx => xx.WorkDateTime, model.WorkTime), token)
+            ;
     }
+
     public async Task AddRangeAsync(List<Attendance> attendances, CancellationToken token = default)
     {
         if (attendances == null || !attendances.Any())
@@ -38,12 +44,12 @@ public class AttendanceService : BaseService<Attendance>
             //attendance.UserId = _currentUser.Id;
         }
         await CreateRangeAsync(attendances, token);
-
     }
     public async Task AddRange(List<Attendance> models, CancellationToken token)
     {
         await CreateRangeAsync(models, token);
     }
+
     public async Task<List<AttendanceModel>> GetLog(AttendanceFilterDate filter, LOGSOURCE source = LOGSOURCE.MANUAL)
     {
         DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
@@ -58,15 +64,68 @@ public class AttendanceService : BaseService<Attendance>
             .Select(x => new AttendanceModel
             {
                 Id = x.Id,
+                BioId = x.BioId,
                 Batch = x.BatchCode,
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
                 LogSource = x.LogSource.ToString(),
+                Area = x.OperationArea != null ? x.OperationArea.Name : null,
+                Branch = x.Branch != null ? x.Branch.Name : null,
+                Client = x.Client != null ? x.Client.Name : null,
                 Name = x.Employee != null
                     ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
                     : "",
             })
             .OrderByDescending(x => x.Name)
+            .ThenBy(x => x.WorkDateTime)
+            .ToListAsync();
+    }
+
+    public async Task<Attendance?> FindOne(Guid attId, CancellationToken token)
+    {
+        return await Context.Attendances.FindAsync(attId, token);
+    }
+    public async Task Tag(Attendance attendance, Employee employee, CancellationToken token)
+    {
+        await Context.Attendances
+         .Where(x => x.BioId.HasValue && x.BioId == employee.BioId)
+         .ExecuteUpdateAsync(s => s
+             .SetProperty(e => e.EmployeeId, employee.Id)
+             .SetProperty(e => e.ClientId, e => e.ClientId ?? employee.ClientId)
+             .SetProperty(e => e.BranchId, e => e.BranchId ?? employee.BranchId)
+             .SetProperty(e => e.ClientId, e => e.ClientId ?? employee.ClientId)
+             .SetProperty(e => e.OperationAreaId, e => e.OperationAreaId ?? employee.AreaId)
+             .SetProperty(e => e.DepartmentId, e => e.DepartmentId ?? employee.DepartmentId),
+             cancellationToken: token);
+
+        await CommitChangesAsync(token);
+
+    }
+    public async Task<List<AttendanceModel>> GetUnregistered(UnRegisteredAttendance filter, LOGSOURCE source = LOGSOURCE.MANUAL)
+    {
+        DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
+        DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
+
+        return await Uow.Context.Attendances
+            .Where(x => x.WorkDateTime >= fromDate &&
+                            x.WorkDateTime < toDate &&
+                            x.EmployeeId == null)
+            .Select(x => new AttendanceModel
+            {
+                Id = x.Id,
+                BioId = x.BioId,
+                Batch = x.BatchCode,
+                EmployeeId = x.EmployeeId,
+                WorkDateTime = x.WorkDateTime,
+                LogSource = x.LogSource.ToString(),
+                Area = x.OperationArea != null ? x.OperationArea.Name : null,
+                Branch = x.Branch != null ? x.Branch.Name : null,
+                Client = x.Client != null ? x.Client.Name : null,
+                Name = x.Employee != null
+                    ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
+                    : "",
+            })
+            .OrderByDescending(x => x.BioId)
             .ThenBy(x => x.WorkDateTime)
             .ToListAsync();
     }
@@ -94,10 +153,14 @@ public class AttendanceService : BaseService<Attendance>
             .Select(x => new AttendanceModel
             {
                 Id = x.Id,
+                BioId = x.BioId,
                 Batch = x.BatchCode,
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
                 LogSource = x.LogSource.ToString(),
+                Area = x.OperationArea != null ? x.OperationArea.Name : null,
+                Branch = x.Branch != null ? x.Branch.Name : null,
+                Client = x.Client != null ? x.Client.Name : null,
                 Name = x.Employee != null
                     ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
                     : "",

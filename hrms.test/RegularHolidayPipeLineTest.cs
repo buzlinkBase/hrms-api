@@ -14,7 +14,7 @@ public class RegularHolidayPipeLineTest
         var pipe = new RegularHolidayPipeLine();
         var result = pipe.Run(context);
         Assert.Equal(2000, result.Value); // 1 day × 1000 × 2.0
-        Assert.Equal(WorkType.RegularHolidayDuty, context.WorkType);
+        Assert.Equal(WorkType.LegalHolidayDuty, context.WorkType);
     }
 
 
@@ -64,7 +64,7 @@ public class RegularHolidayPipeLineTest
     {
         var context = RegularHolidayTestHelpers.CreatePayrollContextWithRegularHoliday(dailyRate: 1000, regularHolidayHours: 8);
         context.DailyRecord.HolCount = 0;
-        context.WorkType = WorkType.RegularHoliday;
+        context.WorkType = WorkType.LegalHoliday;
         var pipe = new RegularHolidayPipeLine();
         var result = pipe.Run(context);
         Assert.Equal(1000, result.Value);
@@ -85,7 +85,7 @@ public class RegularHolidayPipeLineTest
             regularHolidayHours: 0
         );
         context.DailyRecord.HolCount = 0;//not eligible
-        context.WorkType = WorkType.RegularHoliday;
+        context.WorkType = WorkType.LegalHoliday;
         var pipeline = new RegularHolidayPipeLine();
         var expected = 0;
         var result = pipeline.Run(context);
@@ -99,7 +99,7 @@ public class RegularHolidayPipeLineTest
             regularHolidayHours: 8
         );
         context.DailyRecord.HolCount = 0;//not eligible
-        context.WorkType = WorkType.RegularHoliday;
+        context.WorkType = WorkType.LegalHoliday;
         var pipeline = new RegularHolidayPipeLine();
         var expected = 1000;
         var result = pipeline.Run(context);
@@ -168,7 +168,7 @@ public static class RegularHolidayTestHelpers
                 LegalHolHours = regularHolidayHours,
                 HolCount = 1,
             },
-            WorkType = WorkType.RegularHolidayDuty
+            WorkType = WorkType.LegalHolidayDuty
         };
     }
 }

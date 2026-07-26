@@ -1,4 +1,7 @@
-﻿using Hrms.Domain.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
@@ -7,53 +10,35 @@ public abstract class HolidayHandler
     protected readonly List<HolidayModel> Holidays;
     protected readonly Dictionary<Holidaykey, List<ChangeHoliday>> Changes;
     protected HolidayHandler NextHandler { get; set; }
+
     protected HolidayHandler(List<HolidayModel> holidays, Dictionary<Holidaykey, List<ChangeHoliday>> changes)
     {
-        Holidays = holidays;
-        Changes = changes;
+        Holidays = holidays ?? new();
+        Changes = changes ?? new();
     }
 
-    public void SetNextHandler(HolidayHandler handler)
-    {
-        NextHandler = handler;
-    }
-    protected abstract bool IsApplicable(EmployeeDTRRun employee, DateOnly payrollDate);
+    public void SetNextHandler(HolidayHandler handler) => NextHandler = handler;
+
     public List<HolidayInfo> Handle(EmployeeDTRRun employee, DateOnly payrollDate)
     {
-        if (IsApplicable(employee, payrollDate))
+        var result = GetCurrentHoliday(employee, payrollDate);
+        if (result != null && result.Count > 0)
         {
-            return GetCurrentHoliday(employee, payrollDate);
+            return result;
         }
-        else if (NextHandler != null)
-        {
-            return NextHandler.Handle(employee, payrollDate);
-        }
-        return [];
+
+        return NextHandler?.Handle(employee, payrollDate) ?? new List<HolidayInfo>();
     }
+
     protected abstract List<HolidayInfo> GetCurrentHoliday(EmployeeDTRRun employee, DateOnly payrollDate);
 }
 
 public class OverrideHolidayHandler : HolidayHandler
 {
-    // Caches resolved overrides per employee/payroll date key
-    private readonly Dictionary<Holidaykey, List<HolidayInfo>> _holidayCache;
+    private readonly Dictionary<Holidaykey, List<HolidayInfo>> _holidayCache = new();
 
     public OverrideHolidayHandler(List<HolidayModel> holidays, Dictionary<Holidaykey, List<ChangeHoliday>> changes)
-        : base(holidays, changes)
-    {
-        _holidayCache = new Dictionary<Holidaykey, List<HolidayInfo>>();
-    }
-
-    protected override bool IsApplicable(EmployeeDTRRun employee, DateOnly payrollDate)
-    {
-        var key = new Holidaykey(employee.Id, payrollDate);
-
-        if (_holidayCache.ContainsKey(key))
-            return _holidayCache[key].Any();
-
-        RunCheck(employee, payrollDate);
-        return _holidayCache[key].Any();
-    }
+        : base(holidays, changes) { }
 
     protected override List<HolidayInfo> GetCurrentHoliday(EmployeeDTRRun employee, DateOnly payrollDate)
     {
@@ -62,115 +47,74 @@ public class OverrideHolidayHandler : HolidayHandler
         if (_holidayCache.TryGetValue(key, out var cached))
             return cached;
 
-        RunCheck(employee, payrollDate);
-        return _holidayCache[key];
-    }
+        var result = new List<HolidayInfo>();
 
-    private void RunCheck(EmployeeDTRRun employee, DateOnly payrollDate)
-    {
-        var key = new Holidaykey(employee.Id, payrollDate);
-
-        var replacementEntries = Changes?
-            .Where(kvp => kvp.Value.Any(x => x.State == ChangeSchedState.REPLACEMENT))
-            .ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value
-                    .Where(x => x.State == ChangeSchedState.REPLACEMENT)
-                    .ToList()
-            );
-
-        if (replacementEntries == null || !replacementEntries.TryGetValue(key, out var replacements) || !Holidays.Any())
+        // Directly query the dictionary for O(1) lookup
+        if (Changes.TryGetValue(key, out var keyChanges) && Holidays.Count > 0)
         {
-            _holidayCache[key] = new List<HolidayInfo>();
-            return;
+            var trackedHolidayIds = Holidays.Select(h => h.Id).ToHashSet();
+
+            result = keyChanges
+                .Where(x => x.State == ChangeSchedState.REPLACEMENT && trackedHolidayIds.Contains(x.HolidayId))
+                .Select(x => new HolidayInfo
+                {
+                    EmployeeId = x.EmployeeId,
+                    HolType = x.Holiday.HolType,
+                    AreaId = x.Holiday.AreaId,
+                    PayrollDate = x.PayrollDate,
+                    State = ChangeSchedState.REPLACEMENT,
+                    WorkType = x.Holiday.WorkType,
+                    HolidayId = x.HolidayId,
+                    IsPaid = x.Holiday.IsPaid,
+                })
+                .ToList();
         }
-        // Filter only those replacements that apply to tracked holidays
-        var trackedHolidayIds = Holidays.Select(h => h.Id).ToHashSet();
-
-        var matchedReplacements = replacements
-            .Where(x => x.EmployeeId == employee.Id &&
-                        x.PayrollDate == payrollDate &&
-                        trackedHolidayIds.Contains(x.HolidayId))
-            .ToList();
-
-        var result = matchedReplacements.Select(x => new HolidayInfo
-        {
-            EmployeeId = x.EmployeeId,
-            HolType = x.Holiday.HolType,
-            AreaId = x.Holiday.AreaId,
-            PayrollDate = x.PayrollDate,
-            State = ChangeSchedState.REPLACEMENT,
-            WorkType = x.Holiday.WorkType,
-            HolidayId = x.HolidayId,
-            IsPaid = x.Holiday.IsPaid,
-        }).ToList();
 
         _holidayCache[key] = result;
+        return result;
     }
 }
+
 public class FallBackHolidayHandler : HolidayHandler
 {
-    private readonly Dictionary<Holidaykey, List<HolidayInfo>> _holidayCache;
+    private readonly Dictionary<Holidaykey, List<HolidayInfo>> _holidayCache = new();
+
     public FallBackHolidayHandler(List<HolidayModel> holidays, Dictionary<Holidaykey, List<ChangeHoliday>> changes)
-        : base(holidays, changes)
-    {
-        _holidayCache = new Dictionary<Holidaykey, List<HolidayInfo>>();
-    }
-
-    protected override bool IsApplicable(EmployeeDTRRun employee, DateOnly payrollDate)
-    {
-        var key = new Holidaykey(employee.Id, payrollDate);
-        if (_holidayCache.ContainsKey(key))
-            return _holidayCache[key].Any();
-
-        RunCheck(employee, payrollDate);
-        return _holidayCache[key].Any();
-    }
+        : base(holidays, changes) { }
 
     protected override List<HolidayInfo> GetCurrentHoliday(EmployeeDTRRun employee, DateOnly payrollDate)
     {
         var key = new Holidaykey(employee.Id, payrollDate);
-        if (_holidayCache.TryGetValue(key, out var result))
-            return result;
 
-        RunCheck(employee, payrollDate);
-        return _holidayCache[key];
-    }
+        if (_holidayCache.TryGetValue(key, out var cached))
+            return cached;
 
-    private void RunCheck(EmployeeDTRRun employee, DateOnly payrollDate)
-    {
-        var key = new Holidaykey(employee.Id, payrollDate);
-
-        var overridden = Changes?
-            .Where(kvp => kvp.Value.Any(x => x.State == ChangeSchedState.OVERRIDEN))
-            .ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value.Where(x => x.State == ChangeSchedState.OVERRIDEN).ToList()
-            );
-
-        if (overridden == null || !Holidays.Any())
+        // Filter holidays relevant ONLY to the current payroll date
+        var dateHolidays = Holidays.Where(h => h.HolDate == payrollDate).ToList();
+        if (dateHolidays.Count == 0)
         {
             _holidayCache[key] = new List<HolidayInfo>();
-            return;
+            return _holidayCache[key];
         }
 
-        var overriddenIds = overridden.Values
-            .SelectMany(x => x)
-            .Where(xx => xx.EmployeeId == employee.Id && xx.PayrollDate == payrollDate)
-            .Select(xx => xx.HolidayId)
-            .ToHashSet();
+        // Check if overridden for this employee and date
+        var overriddenIds = new HashSet<Guid>();
+        if (Changes.TryGetValue(key, out var keyChanges))
+        {
+            overriddenIds = keyChanges
+                .Where(x => x.State == ChangeSchedState.OVERRIDEN)
+                .Select(x => x.HolidayId)
+                .ToHashSet();
+        }
 
-        var unoverriddenHolidays = Holidays
-            .Where(x => !overriddenIds.Contains(x.Id))
-            .ToList();
-
-        var result = unoverriddenHolidays
+        var result = dateHolidays
+            .Where(h => !overriddenIds.Contains(h.Id))
             .Select(x => new HolidayInfo
             {
                 EmployeeId = employee.Id,
                 HolType = x.HolType,
                 AreaId = x.AreaId,
-                PayrollDate = x.HolDate,
+                PayrollDate = payrollDate,
                 State = ChangeSchedState.DEFAULT,
                 WorkType = x.WorkType,
                 HolidayId = x.Id,
@@ -179,5 +123,6 @@ public class FallBackHolidayHandler : HolidayHandler
             .ToList();
 
         _holidayCache[key] = result;
+        return result;
     }
 }

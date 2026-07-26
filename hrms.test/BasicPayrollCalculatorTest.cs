@@ -35,7 +35,7 @@ public class BasicPayrollCalculatorTest
         context.DailyRecord.RegularNetHours = 8;
         context.DailyRecord.RegularOTHours = 3;
         context.DailyRecord.RegularOTHours = 2;
-        context.WorkType = WorkType.RegularHoliday;
+        context.WorkType = WorkType.LegalHolidayDuty;
         var result = calculator.Calculate(context);
         var expected = 1000m;
         Assert.Equal(expected, result.Basic);
@@ -63,7 +63,7 @@ public class BasicPayrollCalculatorTest
         var calculator = new BasicPayrollCalculator();
         var context = LeaveTestHelpers.CreatePayrollContextWithLeave(true, LeaveDayType.WholeDay, 1000);
         context.DailyRecord.RegularNetHours = 0;
-        context.WorkType = WorkType.RegularHoliday;
+        context.WorkType = WorkType.LegalHolidayDuty;
         context.Employee.Settings.IsEligibleForHolidayPay = true;
         var result = calculator.Calculate(context);
         var expected = 0m;
@@ -121,7 +121,7 @@ public static class BasicTestHelpers
             {
                 WorkDate = pydate,
             },
-            WorkType = WorkType.RegularHolidayDuty
+            WorkType = WorkType.LegalHolidayDuty
         };
     }
 

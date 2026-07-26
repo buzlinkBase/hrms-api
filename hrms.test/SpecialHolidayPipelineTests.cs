@@ -28,7 +28,7 @@ public class SpecialHolidayPipelineTests
             dailyRate: 1_000m,
             specialHolidayHours: 8
         );
-        context.WorkType = WorkType.SpecialHolidayDutyNW;
+        context.WorkType = WorkType.SpecialHolidayDuty;
         var pipeline = new SpecialHolidayPipeline();
         var expected = 1_300m;
         var result = pipeline.Run(context);
@@ -50,7 +50,6 @@ public class SpecialHolidayPipelineTests
     //negative scenario
     [Theory]
     [InlineData(4, WorkType.SpecialHolidayDuty, 500)]
-    [InlineData(4, WorkType.SpecialHolidayDutyNW, 650)]
     [InlineData(4, WorkType.RestDaySpecialHolidayDuty, 750)]
     public void Run_ShouldApplySpecialHolidayPolicy_WhenhalfDayWorked(int wrkHrs, WorkType workType, decimal expected)
     {
@@ -72,7 +71,7 @@ public class SpecialHolidayPipelineTests
             dailyRate: 1000,
             specialHolidayHours: 0
         );
-        context.WorkType = WorkType.SpecialHoliday;
+        context.WorkType = WorkType.SpecialHolidayDuty;
         var pipeline = new SpecialHolidayPipeline();
 
         var result = pipeline.Run(context);

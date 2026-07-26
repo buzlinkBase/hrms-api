@@ -72,6 +72,7 @@ public class AttendanceController : ControllerBase
 
         return Ok("Success");
     }
+
     [HttpPost("manual-entry")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -135,6 +136,49 @@ public class AttendanceController : ControllerBase
             await _attendanceService.CommitChangesAsync(ct);
         }
         return Ok("success");
+    }
+
+    [HttpGet("tag")]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Unregistered([FromQuery] TagEmployeeRequest payload, CancellationToken ct)
+    {
+        if (payload == null) throw new Exception("Payload cannot be empty.");
+        var emp = await _employeeService.FindOne(payload.EmployeeId, ct);
+        if (emp == null) throw new Exception("record not found");
+        var att = await _attendanceService.FindOne(payload.AttId, ct);
+        if (att == null) throw new Exception("record not found");
+
+        if (emp.BioId!=att.BioId)
+        {
+            throw new Exception("Bio Id in employee does not match to the attendance bioId");
+        }
+        await _attendanceService.Tag( att,emp, ct); 
+        return Ok("success");
+    }
+
+    [HttpPut()]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateAtt([FromBody] UpdateAttendance payload, CancellationToken ct)
+    {
+        if (payload == null)
+        {
+            return BadRequest("Payload cannot be empty.");
+        }
+        await _attendanceService.Update(payload, ct);
+        await _attendanceService.CommitChangesAsync(ct);
+        return Ok("success");
+    }
+
+    [HttpGet("unregistered")]
+    [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Unregistered([FromQuery] UnRegisteredAttendance filter, CancellationToken ct)
+    {
+        var result = await _attendanceService
+            .GetUnregistered(filter);
+        return Ok(result);
     }
 
     [HttpGet("generate")]
