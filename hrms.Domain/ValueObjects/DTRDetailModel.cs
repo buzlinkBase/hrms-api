@@ -54,8 +54,8 @@ public class DTRDetailModel
     public double RestSpecialDayOTHours { get; set; }
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
-    public string Note { get; set; } = string.Empty;
 
+    public string Note { get; set; } = string.Empty;
     public Guid? UserId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? DepartmentId { get; set; }

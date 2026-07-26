@@ -40,7 +40,7 @@ internal class OvertimePolicy : PayrollPolicyBase<BasicPipelineData, PayrollCont
 
         // Regular Holiday OT
         _handlers.Add(new OvertimeHandler(
-            WorkType.RegularHolidayDuty,
+            WorkType.LegalHolidayDuty,
             r => (decimal)r.LegalHolOTHours,
             (ctx, hr) =>
             {
@@ -77,7 +77,7 @@ internal class OvertimePolicy : PayrollPolicyBase<BasicPipelineData, PayrollCont
 
         // Special Holiday OT (Non-Working)
         _handlers.Add(new OvertimeHandler(
-            WorkType.SpecialHolidayDutyNW,
+            WorkType.SpecialNonWorkingHoliday,
             r => (decimal)r.SpecialHolOTHours,
             (ctx, hr) =>
             {

@@ -1,16 +1,19 @@
-﻿namespace DTR.Core;
+﻿using DTR.Core.DTR.DisplayRule.ColumnsViewRule.Evaluators;
 
-internal class NDLHColumnEvaluator : IColumnEvaluator
+namespace DTR.Core.DTR.DisplayRule.ColumnsViewRule.DisplayRules;
+
+internal class LegalNightDiffRule : IColumnDisplayRule
 {
     private readonly EvaluatedColumnResult _evaluated;
-    public NDLHColumnEvaluator(EvaluatedColumnResult evaluated)
+    public LegalNightDiffRule(EvaluatedColumnResult evaluated)
     {
         _evaluated = evaluated;
     }
+
     public TimeRange ApplyRules(DisplayContext context)
     {
+        var nightDiffEvaluator = DutyTypeMapFactory.Create[DayType.NIGHT_DIFF];
 
-        var NDthresholdWrapper = DutyTypeMapFactory.Create[DayType.NIGHT_DIFF];
         var holiday = context.PipeLineResult.LegalHoliday;
         var IsND = NightDiffChecker.IsDutyNightDiff(context.TimeContext.Payload.Data.CurrentShift.StartTime, context.TimeContext.Payload.Data.CurrentShift.StartTime);
         var topup = context.TimeContext.Payload.Ledger.GetByTag("RegularTimeTopUp", context.TimeContext);
@@ -28,17 +31,18 @@ internal class NDLHColumnEvaluator : IColumnEvaluator
                 worktime = worktime.TimeRecords.Exclude(topup.TimeRecords)
                     .ToTimeRange();
             }
-            return NDthresholdWrapper.Evaluate(NightDiffCalculator.Calculate(worktime), context);
+            var nightDiff = NightDiffCalculator.Calculate(worktime);
+            return nightDiffEvaluator.Evaluate(nightDiff, context);
         }
         else
         {
-            var nd = NightDiffCalculator.Calculate(_evaluated.LegalHoliday);
+            var nightDiff = NightDiffCalculator.Calculate(_evaluated.LegalHoliday);
             if (!IsND)
             {
-                nd = nd.TimeRecords.Exclude(topup.TimeRecords)
+                nightDiff = nightDiff.TimeRecords.Exclude(topup.TimeRecords)
                      .ToTimeRange();
             }
-            return NDthresholdWrapper.Evaluate(nd, context);
+            return nightDiffEvaluator.Evaluate(nightDiff, context);
         }
     }
 }

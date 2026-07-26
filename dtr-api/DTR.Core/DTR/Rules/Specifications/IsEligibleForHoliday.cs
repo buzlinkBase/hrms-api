@@ -126,13 +126,9 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
             for (var date = payload.Data.CurrentDate.AddDays(1); date <= latestDate; date = date.AddDays(1))
             {
                 var record = ProcessLineAsync(date, context).GetAwaiter().GetResult();
-                if (record is null)
-                    continue;
-
+                if (record is null) continue;  
                 var verdict = ClassifyDay(record, context, lookingForward: true);
-                if (verdict == DayVerdict.Inconclusive)
-                    continue;
-
+                if (verdict == DayVerdict.Inconclusive) continue;
                 return verdict == DayVerdict.Qualifies;
             }
             return false;
@@ -166,24 +162,19 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
         var minWorkingHours = context.Payload.Data.CurrentShift.MinimumWorkingMinutes.ToHour();
         var workHours = record.TotalHours;
 
-        if (workHours == 0 && record.WorkTypeEnum is WorkType.SpecialNonWorking or WorkType.Skipped or WorkType.RestDay)
+        if (workHours == 0 && record.WorkTypeEnum is WorkType.SpecialNonWorkingHoliday or WorkType.Skipped or WorkType.RestDay)
             return DayVerdict.Inconclusive;
 
-        if (lookingForward && record.WorkTypeEnum == WorkType.RegularHoliday)
+        if (lookingForward && record.WorkTypeEnum == WorkType.LegalHoliday)
             return DayVerdict.Inconclusive;
-
-        if (record.HolCount > 0 ||
-            record.WorkTypeEnum is WorkType.PaidLeaveOnLegalHoliday
-            or WorkType.PaidLeaveOnSpecialHoliday
-            or WorkType.PaidLeave
-            or WorkType.PaidLeaveDuty
-            )
-            return DayVerdict.Qualifies;
 
         if (record.WorkTypeEnum == WorkType.RestDayDuty && minWorkingHours > workHours)
             return DayVerdict.Inconclusive;
 
-        if (record.WorkTypeEnum == WorkType.SpecialNonWorking)
+        if (record.HolCount > 0 || record.WorkTypeEnum is WorkType.PaidLeave)
+            return DayVerdict.Qualifies;
+
+        if (record.WorkTypeEnum == WorkType.SpecialNonWorkingHoliday)
             return DayVerdict.Inconclusive;
 
         return workHours > 0 && workHours >= minWorkingHours

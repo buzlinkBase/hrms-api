@@ -1,100 +1,80 @@
-﻿namespace DTR.Core;
+﻿using DTR.Core.DTR.DisplayRule.ColumnsViewRule.DisplayRules;
+using DTR.Core.DTR.DisplayRule.ColumnsViewRule.Evaluators;
+
+namespace DTR.Core;
 
 public static class DTRDetailColumnDisplayProcessor
 {
     public static NightDiffEvaluationResult ComputeNightDiff(EvaluatedColumnResult evaluated, DisplayContext dContext)
     {
-        var context = dContext.TimeContext;
-        var NightDiffThresholdEvaluator = DutyTypeMapFactory.Create[DayType.NIGHT_DIFF];
-        //var NonHoldEval = DutyTypeMapFactory.Create[DayType.NONHOLIDAY];
-        var IsND = NightDiffChecker.IsDutyNightDiff(context.Payload.Data.CurrentShift.StartTime, context.Payload.Data.CurrentShift.StartTime);
-        TimeRange worktime = context.Payload.Ledger.GetByTag("work_time", context);
-        if (!IsND)
-        {
-            //exclude topup if not ND
-            var topup = context.Payload.Ledger.GetByTag("RegularTimeTopUp", context);
-            worktime = worktime
-              .TimeRecords.Exclude(topup.TimeRecords)
-              .ToTimeRange()
-              ;
-        }
-        var NDLH = new ColumnEvaluatorHandler(new NDLHColumnEvaluator(evaluated)).Handle(dContext);
-        var NDREGULAR = new ColumnEvaluatorHandler(new NDRegularEvaluator(evaluated)).Handle(dContext);
-
+        var nightDiffThresholdEvaluator = DutyTypeMapFactory.Create[DayType.NIGHT_DIFF];
+        var ndlh = new ColumnDisplayEvaluator(new LegalNightDiffRule(evaluated)).Handle(dContext);
+        var ndRegular = new ColumnDisplayEvaluator(new RegularNightdiffRule(evaluated)).Handle(dContext);
+        TimeRange EvalND(TimeRange range) => nightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(range), dContext);
         return new NightDiffEvaluationResult
         {
-            //ND = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(worktime), context),
-            //NDOT = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.OverTime), context),
-            Regular = !evaluated.RegWork.IsEmpty() ? NDREGULAR : TimeRange.Empty,
-            Rest = !evaluated.RestWork.IsEmpty() ? NDREGULAR : TimeRange.Empty,
-            RegOT = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.RegOT), dContext),
-            RestOT = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.RestOT), dContext),
-            Legal = NDLH,
-            Special = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.SPHoliday), dContext),
-            LegalOT = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.LHOT), dContext),
-            SpecialOT = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.SPOT), dContext),
-
-            RestLegal = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.RestLegal), dContext),
-            RestLegalOT = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.RestLegalOT), dContext),
-            RestSpecial = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.RestSpecial), dContext),
-            RestSpecialOT = NightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(evaluated.RestSpecialOT), dContext),
+            Regular = !evaluated.RegWork.IsEmpty() ? ndRegular : TimeRange.Empty,
+            Rest = !evaluated.RestWork.IsEmpty() ? ndRegular : TimeRange.Empty,
+            RegOT = EvalND(evaluated.RegOT),
+            RestOT = EvalND(evaluated.RestOT),
+            Legal = ndlh,
+            Special = EvalND(evaluated.SPHoliday),
+            LegalOT = EvalND(evaluated.LHOT),
+            SpecialOT = EvalND(evaluated.SPOT),
+            RestLegal = EvalND(evaluated.RestLegal),
+            RestLegalOT = EvalND(evaluated.RestLegalOT),
+            RestSpecial = EvalND(evaluated.RestSpecial),
+            RestSpecialOT = EvalND(evaluated.RestSpecialOT)
         };
     }
 
     public static EvaluatedColumnResult DisplayRule(DisplayContext displayContext)
     {
-        var context = displayContext.TimeContext;
-        var payload = context.Payload;
+        var evaluators = DutyTypeMapFactory.Create;
+        var OtProvider = HolidayOTFactory.Create(displayContext.TimeContext, displayContext.PipeLineResult.OT);
+        // Context-based calculations
+        var regTimeRange = new ColumnDisplayEvaluator(new HolidayToRegularRule()).Handle(displayContext);
+        var holidaTimeRange = new ColumnDisplayEvaluator(new HolidayPlusAutoTimeCreditRule()).Handle(displayContext);
+        var spHolidayDisplay = new ColumnDisplayEvaluator(new SpecialHolidayDisplayRule()).Handle(displayContext);
+        var overTime = displayContext.PipeLineResult.OT;
 
-        var regDayEvaluator = DutyTypeMapFactory.Create[DayType.REGULAR];
-        var restDayEvaluator = DutyTypeMapFactory.Create[DayType.RESTDAY];
-        var otEvaluator = DutyTypeMapFactory.Create[DayType.REGRESTOVERTIME];
-        var legalHolOTEvaluator = DutyTypeMapFactory.Create[DayType.LEGAL_HOLIDAY_OVERTIME];
-        var specialHolOTEvaluator = DutyTypeMapFactory.Create[DayType.SPECIAL_HOLIDAY_OVERTIME];
-        var restLegalEvaluator = DutyTypeMapFactory.Create[DayType.RESTLEGAL];
-        var restSpecialEvaluator = DutyTypeMapFactory.Create[DayType.RESTSPECIAL];
-        var restHolOtEvaluator = DutyTypeMapFactory.Create[DayType.REST_HOL_OT];
+        // Regular & Rest Work
+        var regularWork = evaluators[DayType.REGULAR].Evaluate(regTimeRange, displayContext);
+        var restWork = evaluators[DayType.RESTDAY].Evaluate(regTimeRange, displayContext);
 
-        var provider = HolidayOTFactory.Create(context, displayContext.PipeLineResult.OT);
-        var regularDisplay = new ColumnEvaluatorHandler(new RegularColumnStrategy()).Handle(displayContext);
-        var holidayDisplay = new ColumnEvaluatorHandler(new LHColumnEvaluator()).Handle(displayContext);
-        var spHolidayDisplay = new ColumnEvaluatorHandler(new SPColumEvaluator()).Handle(displayContext);
-        var OverTime = new ColumnEvaluatorHandler(new OTColumnEvaluator()).Handle(displayContext);
+        // Overtime
+        var regOT = CompositeDutyEvaluators.RegularOvertime.Evaluate(overTime, displayContext);
+        var restOT = CompositeDutyEvaluators.RestOvertime.Evaluate(overTime, displayContext);
 
-        var regularWork = regDayEvaluator.Evaluate(regularDisplay, displayContext);
-        var restWork = restDayEvaluator.Evaluate(regularDisplay, displayContext);
+        // Holidays
+        var legalOT = OtProvider.Calculate(HolidayType.LEGAL);
+        var specialOT = OtProvider.Calculate(HolidayType.SPECIAL);
+        var legalOTResult = evaluators[DayType.LEGAL_HOLIDAY_OVERTIME].Evaluate(legalOT, displayContext);
+        var specialOTResult = evaluators[DayType.SPECIAL_HOLIDAY_OVERTIME].Evaluate(specialOT, displayContext);
 
-        var regOT = otEvaluator.Evaluate(regDayEvaluator.Evaluate(OverTime, displayContext), displayContext);
-        var restOT = otEvaluator.Evaluate(restDayEvaluator.Evaluate(OverTime, displayContext), displayContext);
+        // Rest Day + Holiday Overtime
+        var restLegalOT = CompositeDutyEvaluators.RestLegalOvertime.Evaluate(legalOT, displayContext);
+        var restSpecialOT = CompositeDutyEvaluators.RestSpecialOvertime.Evaluate(specialOT, displayContext);
 
-        var legalOT = provider.Calculate(HolidayType.LEGAL);
-        var SpecialOT = provider.Calculate(HolidayType.SPECIAL);
-
-        var legalOTResult = legalHolOTEvaluator.Evaluate(legalOT, displayContext);
-        var SpecialOTResult = specialHolOTEvaluator.Evaluate(SpecialOT, displayContext);
-
-        var RestLegalOT = restHolOtEvaluator.Evaluate(restLegalEvaluator.Evaluate(legalOT, displayContext), displayContext);
-        var RestSpecialOT = restHolOtEvaluator.Evaluate(restSpecialEvaluator.Evaluate(SpecialOT, displayContext), displayContext);
-
-        var evaluated = new EvaluatedColumnResult
+        return new EvaluatedColumnResult
         {
             RegWork = regularWork,
             RestWork = restWork,
-            OverTime = OverTime,
-            LegalHoliday = holidayDisplay,
+            OverTime = overTime,
+            LegalHoliday = holidaTimeRange,
             SPHoliday = spHolidayDisplay,
             RegOT = regOT,
             RestOT = restOT,
             LHOT = legalOTResult,
-            SPOT = SpecialOTResult,
-            RestLegal = restLegalEvaluator.Evaluate(displayContext.PipeLineResult.LegalHoliday, displayContext),
-            RestLegalOT = RestLegalOT,
-            RestSpecial = restSpecialEvaluator.Evaluate(displayContext.PipeLineResult.SpecialHoliday, displayContext),
-            RestSpecialOT = RestSpecialOT,
+            SPOT = specialOTResult,
+            RestLegal = evaluators[DayType.RESTLEGAL].Evaluate(displayContext.PipeLineResult.LegalHoliday, displayContext),
+            RestLegalOT = restLegalOT,
+            RestSpecial = evaluators[DayType.RESTSPECIAL].Evaluate(displayContext.PipeLineResult.SpecialHoliday, displayContext),
+            RestSpecialOT = restSpecialOT
         };
-        return evaluated;
     }
 }
+
 public class EvaluatedColumnResult
 {
     public TimeRange RegWork { get; set; } = TimeRange.Empty;

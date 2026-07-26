@@ -101,6 +101,9 @@ public class CurrentRangeDTRPayloadService
         }
         else
         {
+            if (payload.BranchId.HasValue)
+                query = query.Where(x => x.BranchId == payload.BranchId);
+
             if (payload.ClientId.HasValue)
                 query = query.Where(x => x.ClientId == payload.ClientId);
 
@@ -109,6 +112,9 @@ public class CurrentRangeDTRPayloadService
 
             if (payload.DepartmentId.HasValue)
                 query = query.Where(x => x.DepartmentId == payload.DepartmentId);
+
+            if (payload.OperationAreaId.HasValue)
+                query = query.Where(x => x.AreaId == payload.OperationAreaId);
         }
 
         return await query.Select(x => new EmployeeDTRRun

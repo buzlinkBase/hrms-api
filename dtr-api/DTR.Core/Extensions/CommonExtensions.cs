@@ -1,4 +1,6 @@
-﻿namespace DTR.Core;
+﻿using DTR.Core.DTR.DisplayRule.ColumnsViewRule.Evaluators;
+
+namespace DTR.Core;
 
 internal static class CommonExtensions
 {
@@ -19,8 +21,36 @@ internal static class CommonExtensions
         var holiday = new IsHolidaySpec(HolidayType.SPECIAL);
         return holiday.IsSatisfiedBy(context.CanonicalTimeRange, context);
     }
+    internal static bool IsSpecialWorking(this TimeContext context)
+    {
+        var cached = context.Payload.SharedSpecCache.GetByTag(nameof(IsSpecialWorking), context);
+        if (cached.Found)
+            return cached.Value;
+
+        var result = GetCurrentSpecialHoliday(context)?.WorkType == HolidayWorkType.Working;
+        context.Payload.SharedSpecCache.RecordTag(nameof(IsSpecialWorking), context, result);
+        return result;
+    }
+    internal static bool IsSpecialNonWorking(this TimeContext context)
+    {
+        var cached = context.Payload.SharedSpecCache.GetByTag(nameof(IsSpecialNonWorking), context);
+        if (cached.Found)
+            return cached.Value;
+
+        var result = GetCurrentSpecialHoliday(context)?.WorkType == HolidayWorkType.NonWorking;
+        context.Payload.SharedSpecCache.RecordTag(nameof(IsSpecialNonWorking), context, result);
+        return result; 
+    }
+
+    private static HolidayInfo? GetCurrentSpecialHoliday(TimeContext context)
+    {
+        return context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
+            HolidayType.SPECIAL,
+            context.Payload.Data.Employee,
+            context.Payload.Data.CurrentShift);
+    }
     internal static bool IsRestDay(this TimeContext context)
     {
-        return RestDayChecker.IsRestDay(context.Payload);
+        return new IsRestDaySpec().IsSatisfiedBy(TimeRange.Empty, context);
     }
 }

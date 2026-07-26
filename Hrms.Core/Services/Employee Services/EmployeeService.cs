@@ -234,10 +234,10 @@ public class EmployeeService : BaseService<Employee>
         return result;
     }
 
-    public async Task<List<EmployeeFilterResponseModel>> Filter(ChangeRestDayEmployeeFilter filter, CancellationToken token)
+    public async Task<List<EmployeeFilterResponseModel>> Filter(EmployeeFilter filter, CancellationToken token)
     {
         var result = await GetQueryable(x =>
-            x.RestDays.Any(xx => xx.DayName == filter.DayName) &&
+            (filter.DayName == null || x.RestDays.Any(xx => xx.DayName == filter.DayName)) &&
             (filter.BranchId == null || x.BranchId == filter.BranchId.Value) &&
             (filter.EmployeeId == null || x.Id == filter.EmployeeId.Value) &&
             (filter.DepartmentId == null || x.DepartmentId == filter.DepartmentId.Value) &&

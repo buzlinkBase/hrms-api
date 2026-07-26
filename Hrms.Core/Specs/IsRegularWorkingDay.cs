@@ -7,25 +7,25 @@ internal class IsAbsent : IPayrollSpec<PayrollContext>
         return context.WorkType == WorkType.Absent;
     }
 }
-internal class IsSpecialNonWorking : IPayrollSpec<PayrollContext>
-{
-    public bool IsSatisfiedBy(PayrollContext context)
-    {
-        return context.WorkType == WorkType.SpecialNonWorking;
-    }
-}
+//internal class IsSpecialNonWorking : IPayrollSpec<PayrollContext>
+//{
+//    public bool IsSatisfiedBy(PayrollContext context)
+//    {
+//        return context.WorkType == WorkType.SpecialNonWorking;
+//    }
+//}
 internal class IsSpecialNonWorkingDuty : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
     {
-        return context.WorkType == WorkType.SpecialHolidayDutyNW;
+        return context.WorkType == WorkType.SpecialHolidayDuty;
     }
 }
 internal class IsRegularHoliday : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
     {
-        return context.WorkType == WorkType.RegularHoliday;
+        return context.WorkType == WorkType.RestDayLegalHoliday;
     }
 }
 internal class IsLeave : IPayrollSpec<PayrollContext>
@@ -52,13 +52,13 @@ internal class IsWholeDayLeave : IPayrollSpec<PayrollContext>
 
     }
 }
-internal class IsPaidLeaveOnLegalHoliday : IPayrollSpec<PayrollContext>
-{
-    public bool IsSatisfiedBy(PayrollContext context)
-    {
-        return context.WorkType == WorkType.PaidLeaveOnLegalHoliday;
-    }
-}
+//internal class IsPaidLeaveOnLegalHoliday : IPayrollSpec<PayrollContext>
+//{
+//    public bool IsSatisfiedBy(PayrollContext context)
+//    {
+//        return context.WorkType == WorkType.PaidLeaveOnLegalHoliday;
+//    }
+//}
 internal class IsRestDay : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
@@ -77,16 +77,16 @@ internal class IsRegularHolidayDuty : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
     {
-        return context.WorkType == WorkType.RegularHolidayDuty;
+        return context.WorkType == WorkType.LegalHolidayDuty;
     }
 }
-internal class IsSpecialHoliday : IPayrollSpec<PayrollContext>
-{
-    public bool IsSatisfiedBy(PayrollContext context)
-    {
-        return context.WorkType == WorkType.SpecialHoliday;
-    }
-}
+//internal class IsSpecialHoliday : IPayrollSpec<PayrollContext>
+//{
+//    public bool IsSatisfiedBy(PayrollContext context)
+//    {
+//        return context.WorkType == WorkType.SpecialHoliday;
+//    }
+//}
 internal class IsSpecialHolidayDuty : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
@@ -94,20 +94,20 @@ internal class IsSpecialHolidayDuty : IPayrollSpec<PayrollContext>
         return context.WorkType == WorkType.SpecialHolidayDuty;
     }
 }
-internal class IsSpecialHolidayDutyNW : IPayrollSpec<PayrollContext>
-{
-    public bool IsSatisfiedBy(PayrollContext context)
-    {
-        return context.WorkType == WorkType.SpecialHolidayDutyNW;
-    }
-}
-internal class IsRestDayDuty : IPayrollSpec<PayrollContext>
-{
-    public bool IsSatisfiedBy(PayrollContext context)
-    {
-        return context.WorkType == WorkType.RestDayDuty;
-    }
-}
+//internal class IsSpecialHolidayDutyNW : IPayrollSpec<PayrollContext>
+//{
+//    public bool IsSatisfiedBy(PayrollContext context)
+//    {
+//        return context.WorkType == WorkType.SpecialHolidayDutyNW;
+//    }
+//}
+//internal class IsRestDayDuty : IPayrollSpec<PayrollContext>
+//{
+//    public bool IsSatisfiedBy(PayrollContext context)
+//    {
+//        return context.WorkType == WorkType.RestDayDuty;
+//    }
+//}
 internal class IsRestDayLegalHolidayDuty : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
@@ -115,13 +115,13 @@ internal class IsRestDayLegalHolidayDuty : IPayrollSpec<PayrollContext>
         return context.WorkType == WorkType.RestDayLegalHolidayDuty;
     }
 }
-internal class IsPaidLeaveOnSpecialHoliday : IPayrollSpec<PayrollContext>
-{
-    public bool IsSatisfiedBy(PayrollContext context)
-    {
-        return context.WorkType == WorkType.PaidLeaveOnSpecialHoliday;
-    }
-}
+//internal class IsPaidLeaveOnSpecialHoliday : IPayrollSpec<PayrollContext>
+//{
+//    public bool IsSatisfiedBy(PayrollContext context)
+//    {
+//        return context.WorkType == WorkType.PaidLeaveOnSpecialHoliday;
+//    }
+//}
 internal class IsRestDaySpecialHolidayDuty : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)

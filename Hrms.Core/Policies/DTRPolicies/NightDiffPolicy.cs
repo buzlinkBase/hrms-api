@@ -37,7 +37,7 @@
 
             // Regular Holiday ND (100% + 10% premium)
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.RegularHolidayDuty,
+                WorkType.LegalHolidayDuty,
                 r => (decimal)r.LegalHolNightDiffHours,
                 (ctx, hr) =>
                 {
@@ -77,7 +77,7 @@
 
             // Special Holiday ND (Non-Working) (30% + 10% premium)
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.SpecialHolidayDutyNW,
+                WorkType.SpecialHolidayDuty,
                 r => (decimal)r.SpecialHolNightDiffHours,
                 (ctx, hr) =>
                 {
@@ -132,7 +132,7 @@
 
             // Regular Holiday OT + ND (100% + 25% + 10% premium)
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.RegularHolidayDuty,
+                WorkType.LegalHolidayDuty,
                 r => (decimal)r.LegalHolNightDiffOTHours,
                 (ctx, hr) =>
                 {
@@ -176,7 +176,7 @@
 
             // Special Holiday OT + ND (Non-Working) (30% + 25% + 10% premium)
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.SpecialHolidayDutyNW,
+                WorkType.SpecialHolidayDuty,
                 r => (decimal)r.SpecialHolNightDiffOTHours,
                 (ctx, hr) =>
                 {
@@ -230,7 +230,7 @@
 
             // Regular Holiday ND
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.RegularHolidayDuty,
+                WorkType.LegalHolidayDuty,
                 r => (decimal)r.LegalHolNightDiffHours,
                 (ctx, hr) =>
                 {
@@ -267,7 +267,7 @@
 
             // Special Holiday ND (Non-Working)
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.SpecialHolidayDutyNW,
+                WorkType.SpecialHolidayDuty,
                 r => (decimal)r.SpecialHolNightDiffHours,
                 (ctx, hr) =>
                 {
@@ -318,7 +318,7 @@
 
             // Regular Holiday OT + ND
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.RegularHolidayDuty,
+                WorkType.LegalHolidayDuty,
                 r => (decimal)r.LegalHolNightDiffOTHours,
                 (ctx, hr) =>
                 {
@@ -358,7 +358,7 @@
 
             // Special Holiday OT + ND (Non-Working)
             _handlers.Add(new NightDiffTimeHandler(
-                WorkType.SpecialHolidayDutyNW,
+                WorkType.SpecialHolidayDuty,
                 r => (decimal)r.SpecialHolNightDiffOTHours,
                 (ctx, hr) =>
                 {

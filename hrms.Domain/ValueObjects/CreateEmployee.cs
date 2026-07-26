@@ -11,13 +11,9 @@ public record EmployeeFilter
     public Guid? ClientId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? OperationAreaId { get; set; }
-}
-public record ChangeRestDayEmployeeFilter : EmployeeFilter
-{
-    public DayName DayName { get; set; }
-}
+    public DayName? DayName { get; set; }
 
-
+}
 public class CreateEmployee
 {
     public int? BioId { get; set; }

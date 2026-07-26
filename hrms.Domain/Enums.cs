@@ -148,7 +148,7 @@ public enum DayType
 {
     RESTDAY,
     REGULAR,
-    REGRESTOVERTIME,
+    REGULAR_OT,
     LEGAL_HOLIDAY_OVERTIME,
     SPECIAL_HOLIDAY_OVERTIME,
     NIGHT_DIFF,
@@ -166,39 +166,38 @@ public enum DayType
 
 public enum WorkType
 {
-    RegularWorkDay,
-    RestDay,
-    RestDayDuty,
-    RegularHoliday,
-    RegularHolidayDuty,
-    PaidLeaveOnLegalHoliday,
-    SpecialHoliday,
-    SpecialHolidayDutyNW,
-    SpecialHolidayDuty,
-    RestDayLegalHolidayDuty,
-    RestDaySpecialHolidayDuty,
-    PaidLeaveOnSpecialHoliday,
-    SpecialNonWorking,
-    PaidLeave,
-    UnpaidLeave,
-    Absent,
-    Incomplete,
-    Skipped,
-    PaidLeaveDuty,
-    UnpaidLeaveDuty,
+    // 1. Regular Day Columns
+    RegularWorkDay,             // Normal scheduled working day (Worked)
+    SpecialWorkingHoliday,      // Special Working Holiday (Treated as regular day @ 100%)
+
+    // 2. Rest Day Columns
+    RestDay,                    // Scheduled Rest Day (Unworked)
+    RestDayDuty,                // Worked on Scheduled Rest Day
+
+    // 3. Legal Holiday Columns
+    LegalHoliday,               // Unworked Legal/Regular Holiday
+    LegalHolidayDuty,           // Worked on Legal/Regular Holiday
+
+    // 4. Special Holiday Columns (Non-Working)
+    SpecialNonWorkingHoliday,   // Unworked Special Non-Working Holiday
+    SpecialHolidayDuty,         // Worked on Special Non-Working Holiday
+
+    // 5. Rest + Legal Day Columns
+    RestDayLegalHoliday,        // Unworked Legal Holiday that falls on Rest Day
+    RestDayLegalHolidayDuty,    // Worked on Legal Holiday that falls on Rest Day
+
+    // 6. Rest + Special Day Columns
+    RestDaySpecialHoliday,      // Unworked Special Non-Working Holiday that falls on Rest Day
+    RestDaySpecialHolidayDuty,  // Worked on Special Non-Working Holiday that falls on Rest Day
+
+    // 7. Leaves, Attendance & System States
+    PaidLeave,                  // Approved Leave with Pay
+    UnpaidLeave,                // Approved Leave without Pay
+    Absent,                     // Unauthorized Absence / No Show
+    Incomplete,                 // Missing Clock In / Clock Out
+    Skipped                     // Day skipped by processor
 }
-
-//public enum DTRStatus
-//{
-//    OPEN,
-//    LOCKED
-//}
-//public enum DTRSOURCE
-//{
-//    MANUAL,
-//    SYSTEMCALC,
-//}
-
+ 
 public enum PayType
 {
     WithPay,

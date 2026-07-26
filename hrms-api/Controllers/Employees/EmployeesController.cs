@@ -124,10 +124,10 @@ namespace Hrms.Api.Controllers
         [HttpGet("filter")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeFilterResponseModel>>), 200)]
         [ProducesResponseType(400)]
-        public async Task<IActionResult> GetManualEntry([FromQuery] ChangeRestDayEmployeeFilter filter, CancellationToken ct)
+        public async Task<IActionResult> GetManualEntry([FromQuery] EmployeeFilter filter, CancellationToken ct)
         {
             var result = await _service.Filter(filter, ct);
             return Ok(result);
-        }
+        } 
     }
 }

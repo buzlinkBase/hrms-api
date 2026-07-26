@@ -5,7 +5,6 @@ public class IsRestDaySpec : IRuleSpecification
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
         var payload = context.Payload;
-
         var key = this.CreateSpecCacheKey(context);
         var cached = context.Payload.SharedSpecCache.GetByKey(key);
         if (cached.Found)

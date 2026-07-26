@@ -1,8 +1,10 @@
-﻿namespace DTR.Core;
+﻿using DTR.Core.DTR.DisplayRule.ColumnsViewRule.Evaluators;
 
-internal class LHColumnEvaluator : IColumnEvaluator
+namespace DTR.Core.DTR.DisplayRule.ColumnsViewRule.DisplayRules;
+
+internal class HolidayPlusAutoTimeCreditRule : IColumnDisplayRule
 {
-    public LHColumnEvaluator()
+    public HolidayPlusAutoTimeCreditRule()
     {
     }
     public TimeRange ApplyRules(DisplayContext context)

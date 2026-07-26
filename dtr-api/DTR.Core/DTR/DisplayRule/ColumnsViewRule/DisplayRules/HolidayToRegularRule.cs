@@ -1,8 +1,10 @@
-﻿namespace DTR.Core;
+﻿using DTR.Core.DTR.DisplayRule.ColumnsViewRule.Evaluators;
 
-internal class RegularColumnStrategy : IColumnEvaluator
+namespace DTR.Core.DTR.DisplayRule.ColumnsViewRule.DisplayRules;
+
+internal class HolidayToRegularRule : IColumnDisplayRule
 {
-    public RegularColumnStrategy()
+    public HolidayToRegularRule()
     {
     }
 
@@ -10,12 +12,14 @@ internal class RegularColumnStrategy : IColumnEvaluator
     {
         var regular = context.PipeLineResult.Regular;
         var holiday = context.PipeLineResult.LegalHoliday;
-        //On holidays regular here is either 0 or non_holiday_workTime
-        //if ActualWorkHours is selected
         var IsHolPlusReg= new IsShowWorkOnHolidayInRegColumn().IsSatisfiedBy(context);
         if (IsHolPlusReg)
         {
             return regular + holiday;
+        }
+        if (context.TimeContext.IsSpecialWorking())
+        {
+            return context.PipeLineResult.SpecialHoliday;
         }
         return regular;
     }
