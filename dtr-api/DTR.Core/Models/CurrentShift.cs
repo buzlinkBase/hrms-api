@@ -2,6 +2,7 @@
 
 public class CurrentShift
 {
+    public Guid? Id { get; set; }
     public string ShiftName { get; set; } = string.Empty;
     public TimeShiftType ShiftType { get; set; }
     public DateOnly ShiftDate { get; set; }

@@ -5,9 +5,10 @@ public class DTRDetailModel
 {
     public Guid? Id { get; set; }
     public string? BatchCode { get; set; }
-    public string WorkType { get; set; }
+    public string WorkType { get; set; } = string.Empty;
     public WorkType WorkTypeEnum { get; set; }
     public string? FullName { get; set; }
+    public Guid? ShiftId  { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly WorkDate { get; set; }
     public string ShiftName { get; set; } = string.Empty;
@@ -120,4 +121,18 @@ public class DTRSummaryModel
 public class BatchesModel
 {
     public string? Code { get; set; }
+}
+
+public class TardinessReportModel
+{
+    public DateOnly WorkDate { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string? FullName { get; set; }
+    public string? Department { get; set; }
+    public DateTime ScheduledIn { get; set; }
+    public DateTime? ActualIn { get; set; }
+    public double GracePeriodMinutes { get; set; }
+    public double TardinessMinutes { get; set; }
+    public double DeductibleMinutes { get; set; }
+    public bool IsWithinGracePeriod => TardinessMinutes > 0 && DeductibleMinutes == 0;
 }

@@ -65,6 +65,7 @@ public class DailyRecordBuilder
             SPCount = pipeline.Plus8.GetMetaData<int>("SPHolidayCount"),
             FullName = emp.FullName(),
             EmployeeId = emp.Id,
+            ShiftId = context.Payload.Data.CurrentShift.Id,
 
             WorkDate = context.Payload.Data.CurrentDate,
             ShiftName = context.Payload.Data.CurrentShift.ShiftName,
@@ -119,6 +120,8 @@ public class DailyRecordBuilder
             AreaId = currentAtt?.OperationAreaId ?? emp?.AreaId,
             BranchId = currentAtt?.BranchId ?? emp?.BranchId,
         };
+
         return dtr;
+
     }
 }

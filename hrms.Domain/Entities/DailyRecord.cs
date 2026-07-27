@@ -8,11 +8,12 @@ namespace Hrms.Domain.Entities;
 public class DailyRecord : BaseEntity, IUserField
 {
     public string? BatchCode { get; set; }
-    public string WorkType { get; set; }
+    public string WorkType { get; set; } = string.Empty;
     public WorkType WorkTypeEnum { get; set; }
     public string? FullName { get; set; }
+    public Guid? ShiftId { get; set; }
     public Guid EmployeeId { get; set; }
-    public  virtual Employee Employee { get; set; }
+    public virtual Employee? Employee { get; set; }
     public DateOnly WorkDate { get; set; }
     public string ShiftName { get; set; } = string.Empty;
     public DateTime ShiftStartTime { get; set; }

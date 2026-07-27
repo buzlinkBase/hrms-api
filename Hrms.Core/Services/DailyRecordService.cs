@@ -144,6 +144,46 @@ public class DailyRecordService : BaseService<DailyRecord>
             .OrderBy(x => x.FullName)
             .ToListAsync(token);
     }
+    public async Task<List<TardinessReportModel>> TardinessReportQuery(DTRRequestPayload payload, CancellationToken token)
+    {
+        var fromDate = DateOnly.FromDateTime(payload.FromDate);
+        var toDate = DateOnly.FromDateTime(payload.ToDate);
+
+        var query =
+            from record in _uow.Repository.FindAll<DailyRecord>().AsNoTracking()
+            where record.WorkDate >= fromDate && record.WorkDate <= toDate
+                && (record.LateMinutes > 0 || record.UTMinutes > 0)
+                && (payload.DepartmentId == null || record.DepartmentId == payload.DepartmentId.Value)
+                && (payload.BranchId == null || record.BranchId == payload.BranchId.Value)
+                && (payload.OperationAreaId == null || record.AreaId == payload.OperationAreaId.Value)
+                && (payload.ClientId == null || record.ClientId == payload.ClientId.Value)
+                && (payload.EmployeeId == null || record.EmployeeId == payload.EmployeeId.Value)
+            join shift in Context.TimeShifts.AsNoTracking()
+                on record.ShiftId equals shift.Id into shiftJoin
+            from shift in shiftJoin.DefaultIfEmpty()
+            select new TardinessReportModel
+            {
+                WorkDate = record.WorkDate,
+                EmployeeNo = record.Employee != null ? record.Employee.EmployeeNo : string.Empty,
+                FullName = record.FullName,
+                Department = record.Employee != null && record.Employee.Department != null
+                    ? record.Employee.Department.Name
+                    : null,
+                ScheduledIn = record.ShiftStartTime,
+                ActualIn = record.StartTime,
+                GracePeriodMinutes = shift != null ? shift.GracePeriodMinutes : 0,
+                TardinessMinutes = record.LateMinutes + record.UTMinutes,
+                DeductibleMinutes = record.LateMinutes > (shift != null ? shift.GracePeriodMinutes : 0)
+                    ? record.LateMinutes + record.UTMinutes
+                    : 0
+            };
+
+        return await query
+            .OrderBy(x => x.WorkDate)
+            .ThenBy(x => x.FullName)
+            .ToListAsync(token);
+    }
+
     public async Task<List<DTRDetailModel>> DTRDetailQuery(string batchCode, CancellationToken token)
     {
         return await _uow.Repository

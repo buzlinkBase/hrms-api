@@ -96,6 +96,7 @@ public class OverrideSchedule : WorkScheduleHandler
 
         return new CurrentShift
         {
+            Id = shift.Id,
             ShiftName = shift.ShiftName,
             //Employee = employee,
             ShiftDate = result.PayrollDate,
@@ -159,6 +160,7 @@ public class FallbackSchedule : WorkScheduleHandler
     {
         return new TimeShiftModel
         {
+            Id = null,
             ShiftName = "Open Shift",
             StartTime = new TimeSpan(0, 0, 0),
             EndTime = new TimeSpan(1, 0, 0, 0),
@@ -190,6 +192,7 @@ public class FallbackSchedule : WorkScheduleHandler
 
         return new CurrentShift
         {
+            Id = shift.Id,
             ShiftName = shift.ShiftName,
             //Employee = employee,
             ShiftDate = date,

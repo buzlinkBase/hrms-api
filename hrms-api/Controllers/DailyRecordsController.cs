@@ -74,6 +74,13 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("tardiness-report")]
+    [ProducesResponseType(typeof(ResponseModel<List<TardinessReportModel>>), 200)]
+    public async Task<IActionResult> TardinessReport([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _service.TardinessReportQuery(payload, token);
+        return Ok(result);
+    }
 
     [HttpGet("columnar-raw")]
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
