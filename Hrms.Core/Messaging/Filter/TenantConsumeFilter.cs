@@ -33,8 +33,11 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
         _tenantProvider.SetTenantId(tid);
         _connectionInfo.TenantId = tid;
 
-        // 2. Short-circuit if this is a creation event (no DB exists yet)
-        if (context.Message is TenantCreationRequest)
+        // 2. Short-circuit if this is a creation event (no DB exists yet). TenantCreatedPayload
+        // specifically is Flow C's "tenant exists, HRIS hasn't provisioned its DB yet" signal —
+        // TenantCreatedWorker/ITenantProvisioner is responsible for setting the connection
+        // string itself once the DB is created, so resolving one here would always fail.
+        if (context.Message is TenantCreationCompleted)
         {
             await next.Send(context);
             return;

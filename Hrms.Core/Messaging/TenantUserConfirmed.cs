@@ -1,13 +1,13 @@
 ﻿using MassTransit;
 namespace OnePunch.Auth.Core.Messaging;
 
-public class TenantUserConfirmed : IConsumer<TenantCreatedPayload>
+public class TenantUserConfirmed : IConsumer<TenantCreationCompleted>
 {
     public TenantUserConfirmed()
     {
     }
 
-    public async Task Consume(ConsumeContext<TenantCreatedPayload> context)
+    public async Task Consume(ConsumeContext<TenantCreationCompleted> context)
     {
         var message = context.Message;
         //init configs

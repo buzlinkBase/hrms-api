@@ -17,8 +17,8 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
 
         var configuration = new ConfigurationBuilder()
             .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: false)
-            //.AddJsonFile("appsettings.Development.json", optional: true)
+            //.AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
         var connectionString = configuration.GetConnectionString("HrmsConnection");
@@ -29,6 +29,6 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
         var optionsBuilder = new DbContextOptionsBuilder<HrmsContext>();
         var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
         optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
-        return new HrmsContext(optionsBuilder.Options, null, null);
+        return new HrmsContext(optionsBuilder.Options, null, null, null);
     }
 }

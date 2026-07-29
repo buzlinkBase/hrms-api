@@ -13,14 +13,17 @@ using Microsoft.EntityFrameworkCore;
 public class HrmsContext : DbContext, IDbContext
 {
     private readonly TenantConnectionStringInfo _tenantConnectionInfo;
+    private readonly ITenantProvider _tenantProvider;
     private readonly IConfiguration _configuration;
 
     public HrmsContext(
          DbContextOptions<HrmsContext> options,
          TenantConnectionStringInfo tenantConnectionInfo,
+         ITenantProvider tenantProvider,
          IConfiguration configuration) : base(options)
     {
         _tenantConnectionInfo = tenantConnectionInfo;
+        _tenantProvider = tenantProvider;
         _configuration = configuration;
     }
 
@@ -37,7 +40,7 @@ public class HrmsContext : DbContext, IDbContext
             var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
             optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
             optionsBuilder.UseLazyLoadingProxies(true);
-            optionsBuilder.AddInterceptors(new SoftDeleteInterceptor());
+            optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(),new ApplyTenantInterceptor(_tenantProvider));
             optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
         }
     }
@@ -54,7 +57,7 @@ public class HrmsContext : DbContext, IDbContext
         //        idProperty.SetValueGeneratorFactory((_, __) => new Version7GuidValueGenerator());
         //    }
         //}
-        modelBuilder.UseDateFilter();
+        modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();

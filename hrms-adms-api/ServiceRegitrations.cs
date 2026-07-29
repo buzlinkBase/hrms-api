@@ -9,8 +9,10 @@ using MessagePack.AspNetCoreMvcFormatter;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.IdentityModel.Tokens;
 using Onepunch.Common.Lib.DbServices;
+using Onepunch.Common.Lib.Security;
 using Polly;
 using Refit;
 using System.Net;
@@ -120,6 +122,7 @@ public static class ServiceRegistrations
             options.UseMySql(connectionString, serverVersion);
             var tp = sp.GetRequiredService<ITenantProvider>();
             options.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(tp));
+            options.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
 
         });
 
@@ -168,13 +171,15 @@ public static class ServiceRegistrations
             var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
             options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
         });
-        var signingKey = builder.Configuration["JwtSettings:SigningKey"];
-        if (string.IsNullOrWhiteSpace(signingKey))
+        // Flow J: validate independently via Auth's JWKS endpoint rather than a shared secret.
+        // AllowLegacyHmacValidation keeps the old shared-secret path alive as a fallback during
+        // the platform's HMAC->RSA/JWKS migration window.
+        builder.Services.AddHttpClient<JwksClient>(client =>
         {
-            throw new InvalidOperationException(
-                "JWT SigningKey is not configured. Please set 'JwtSettings:SigningKey' in appsettings.json or environment variables."
-            );
-        }
+            var authUrl = builder.Configuration["ApiServices:AuthService"] ?? "";
+            client.BaseAddress = new Uri(authUrl);
+        });
+
         builder.Services.AddAuthorizationBuilder()
          .SetFallbackPolicy(new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
@@ -250,9 +255,27 @@ public static class ServiceRegistrations
                  ValidateAudience = true,
                  ValidAudience = "Onepunch.AuthService",
                  ValidateLifetime = true,
-                 ValidateIssuerSigningKey = true,
-                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey))
+                 ValidateIssuerSigningKey = true
              };
          });
+
+        // Resolve JwksClient lazily from the real (post-Build) app container instead of a
+        // throwaway one built eagerly here.
+        builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<JwksClient>((options, jwksClient) =>
+            {
+                var legacySigningKey = builder.Configuration["JwtSettings:SigningKey"];
+                var allowLegacyHmac = builder.Configuration.GetValue<bool?>("JwtSettings:AllowLegacyHmacValidation") ?? true;
+
+                options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
+                {
+                    var keys = jwksClient.ResolveSigningKey(token, securityToken, kid, validationParameters).ToList();
+                    if (allowLegacyHmac && !string.IsNullOrEmpty(legacySigningKey))
+                    {
+                        keys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacySigningKey)));
+                    }
+                    return keys;
+                };
+            });
     }
 }

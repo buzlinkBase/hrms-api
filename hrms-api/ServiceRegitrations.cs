@@ -16,6 +16,7 @@ using Microsoft.IdentityModel.Tokens;
 using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.DbServices;
 using Onepunch.Common.Lib.Interfaces;
+using Onepunch.Common.Lib.Security;
 using Polly;
 using Refit;
 using StackExchange.Redis;
@@ -190,13 +191,16 @@ public static class ServiceRegistrationsExt
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
         builder.Services.AddSwaggerGen();
-        var signingKey = builder.Configuration["JwtSettings:SigningKey"];
-        if (string.IsNullOrWhiteSpace(signingKey))
+        // Flow J: HRIS validates JWTs independently via Auth's JWKS endpoint rather than a
+        // shared secret — it never queries Auth's Redis cache or asks Account Service to
+        // authorize on its behalf. AllowLegacyHmacValidation keeps the old shared-secret path
+        // alive as a fallback during the platform's HMAC->RSA/JWKS migration window.
+        builder.Services.AddHttpClient<JwksClient>(client =>
         {
-            throw new InvalidOperationException(
-                "JWT SigningKey is not configured. Please set 'JwtSettings:SigningKey' in appsettings.json or environment variables."
-            );
-        }
+            var authUrl = builder.Configuration["ApiServices:AuthService"] ?? "";
+            client.BaseAddress = new Uri(authUrl);
+        });
+
         builder.Services.AddAuthorizationBuilder()
          .SetFallbackPolicy(new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
@@ -211,6 +215,22 @@ public static class ServiceRegistrationsExt
          {
              options.Events = new JwtBearerEvents
              {
+                 // SignalR's JS client sends the token as ?access_token= on the query string for
+                 // the negotiate/WebSocket handshake, not as an Authorization header — without
+                 // this, NotificationHub connections 401 before ever reaching the hub (it has no
+                 // [Authorize] of its own, but the RequireAuthenticatedUser() fallback policy
+                 // registered above still applies to it).
+                 OnMessageReceived = context =>
+                 {
+                     var accessToken = context.Request.Query["access_token"];
+                     if (!string.IsNullOrEmpty(accessToken) &&
+                         context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                     {
+                         context.Token = accessToken;
+                     }
+                     return Task.CompletedTask;
+                 },
+
                  OnAuthenticationFailed = context =>
                  {
                      Console.WriteLine("Auth failed: " + context.Exception.Message);
@@ -273,10 +293,28 @@ public static class ServiceRegistrationsExt
                  ValidateAudience = true,
                  ValidAudience = "Onepunch.AuthService",
                  ValidateLifetime = true,
-                 ValidateIssuerSigningKey = true,
-                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey))
+                 ValidateIssuerSigningKey = true
              };
          });
+
+        // Resolve JwksClient lazily from the real (post-Build) app container instead of a
+        // throwaway one built eagerly here.
+        builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<JwksClient>((options, jwksClient) =>
+            {
+                var legacySigningKey = builder.Configuration["JwtSettings:SigningKey"];
+                var allowLegacyHmac = builder.Configuration.GetValue<bool?>("JwtSettings:AllowLegacyHmacValidation") ?? true;
+
+                options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
+                {
+                    var keys = jwksClient.ResolveSigningKey(token, securityToken, kid, validationParameters).ToList();
+                    if (allowLegacyHmac && !string.IsNullOrEmpty(legacySigningKey))
+                    {
+                        keys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacySigningKey)));
+                    }
+                    return keys;
+                };
+            });
     }
 }
 

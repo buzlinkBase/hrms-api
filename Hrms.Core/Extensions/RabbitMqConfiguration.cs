@@ -17,7 +17,8 @@ public static class RabbitMqConfiguration
         builder.Services.AddMassTransit(x =>
         {
             x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
-            x.AddConsumer<TenantCreatedWorker, TenantCreatedDefinition>();
+            x.AddConsumer<TenantCreationCompletedWorker, TenantCreatedDefinition>();
+            x.AddConsumer<AccountLinkedWorker, AccountLinkedDefinition>();
             x.AddConsumer<TenantInitConfigWorker, TenantInitDataWorkerDefination>();
             x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
@@ -54,11 +55,18 @@ public class AttendanceConsumerDefinition : ConsumerDefinition<CreateAttendanceW
         EndpointName = "hrms-attendance-created-que";
     }
 }
-public class TenantCreatedDefinition : ConsumerDefinition<TenantCreatedWorker>
+public class TenantCreatedDefinition : ConsumerDefinition<TenantCreationCompletedWorker>
 {
     public TenantCreatedDefinition()
     {
         EndpointName = "hrms-tenant-created-que";
+    }
+}
+public class AccountLinkedDefinition : ConsumerDefinition<AccountLinkedWorker>
+{
+    public AccountLinkedDefinition()
+    {
+        EndpointName = "hrms-account-linked-que";
     }
 }
 public class DbMigrationActionWorkerDefinition : ConsumerDefinition<DbMigrationActionWorker>
