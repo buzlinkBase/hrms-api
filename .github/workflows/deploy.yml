@@ -48,18 +48,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # --- UPDATED: Build and push migration console app ---
-      - name: Build and push migration-service
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: Dockerfile
-          target: migration-service
-          push: true
-          tags: jhoncee2018/hrms-migration:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: SSH into Droplet and deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -71,15 +59,6 @@ jobs:
             cd hrms-api/
             echo "Updating images..."
             docker compose pull
-
-            echo "Running database migrations..."
-            # --- Injected Environment Configurations for .NET 9 App Settings ---
-            SYSTEM_NAME="HRIS" \
-            ConnectionStrings__TenantStoreConnection="${{ secrets.TENANT_DB_CONNECTION_STRING }}" \
-            # RabbitMqSettings__Uri="${{ secrets.RABBITMQ_URI }}" \
-            # Serilog__WriteTo__2__Args__serverUrl="${{ vars.SEQ_SERVER_URL }}" \
-            # Serilog__WriteTo__2__Args__apiKey="${{ secrets.SEQ_API_KEY }}" \
-            docker compose run --rm migration-service
 
             echo "Restarting services..."
             # --force-recreate ensures it uses the newly pulled image
