@@ -18,7 +18,6 @@ public class AccountInitService : BaseService<Company>
         SetDefaultRates();
         //set default branch
         //set default department
-        await CommitChangesAsync(token);
     }
 
     private void SetDefaultLeaves()

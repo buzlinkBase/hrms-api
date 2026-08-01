@@ -30,6 +30,6 @@ public class TenantInitConfigWorker : IConsumer<TenantSetInitData>
         _tenantConnectionInfo.ConnectionString = message.ConnectionString;
         _tenantProvider.SetTenantId(message.TenantId);
         await _accountInitService.Create(context.CancellationToken);
-
+        await _accountInitService.CommitChangesAsync(context.CancellationToken);
     }
 }

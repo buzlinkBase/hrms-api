@@ -1,4 +1,5 @@
 ﻿using MassTransit;
+using Microsoft.Extensions.Configuration;
 using Onepunch.Common.Lib.Cache;
 
 namespace Hrms.Core.Messaging.Filter;
@@ -9,16 +10,19 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
     private readonly ICacheService _cacheService;
     private readonly ITenantProvider _tenantProvider;
     private readonly TenantConnectionStringInfo _connectionInfo;
+    private readonly IConfiguration _configuration;
     private readonly IConnectionClient _connectionClient;
     public TenantConsumeFilter(
         ICacheService cacheService,
         ITenantProvider tenantProvider,
         TenantConnectionStringInfo connectionInfo,
+        IConfiguration configuration,
         IConnectionClient connectionClient)
     {
         _cacheService = cacheService;
         _tenantProvider = tenantProvider;
         _connectionInfo = connectionInfo;
+        _configuration = configuration;
         _connectionClient = connectionClient;
     }
 
@@ -33,31 +37,43 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
         _tenantProvider.SetTenantId(tid);
         _connectionInfo.TenantId = tid;
 
-        // 2. Short-circuit if this is a creation event (no DB exists yet)
-        if (context.Message is TenantCreationRequest)
+        // 2. Short-circuit if this is a creation event (no DB exists yet). TenantCreatedPayload
+        // specifically is Flow C's "tenant exists, HRIS hasn't provisioned its DB yet" signal —
+        // TenantCreatedWorker/ITenantProvisioner is responsible for setting the connection
+        // string itself once the DB is created, so resolving one here would always fail.
+        if (context.Message is TenantCreationCompleted)
         {
             await next.Send(context);
             return;
         }
 
-        // 3. Resolve Connection String
-        var key = $"connection:{tid}";
-        var cachedConnectionString = await _cacheService.GetAsync<string>(key);
-        if (!string.IsNullOrWhiteSpace(cachedConnectionString))
+        var useDedicated = _configuration.GetValue<bool?>("Hris:DedicatedDatabase") ?? false;
+        if (!useDedicated)
         {
-            _connectionInfo.ConnectionString = cachedConnectionString;
+            var connectionString = _configuration.GetConnectionString("") ?? "";
+            _connectionInfo.ConnectionString = connectionString;
         }
         else
         {
-            var response = await _connectionClient.FindConnectionAsync(tid, "hrms");
-            if (response?.Data != null && response.Data.Success)
+            // 3. Resolve Connection String
+            var key = $"connection:{tid}";
+            var cachedConnectionString = await _cacheService.GetAsync<string>(key);
+            if (!string.IsNullOrWhiteSpace(cachedConnectionString))
             {
-                _connectionInfo.ConnectionString = response.Data.ConnectionString;
-                await _cacheService.SetAsync(key, _connectionInfo.ConnectionString, TimeSpan.FromDays(7));
+                _connectionInfo.ConnectionString = cachedConnectionString;
             }
             else
             {
-                throw new Exception($"Operational DB for Tenant {tid} not found.");
+                var response = await _connectionClient.FindConnectionAsync(tid, "hrms");
+                if (response?.Data != null && response.Data.Success)
+                {
+                    _connectionInfo.ConnectionString = response.Data.ConnectionString;
+                    await _cacheService.SetAsync(key, _connectionInfo.ConnectionString, TimeSpan.FromDays(7));
+                }
+                else
+                {
+                    throw new Exception($"Operational DB for Tenant {tid} not found.");
+                }
             }
         }
         await next.Send(context);

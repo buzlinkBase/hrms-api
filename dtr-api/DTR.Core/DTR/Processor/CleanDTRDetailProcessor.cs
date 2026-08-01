@@ -2,6 +2,7 @@
 
 public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
 {
+
     public DTRDetailModel? Process(DTRProcessorPayload payload)
     {
         var calculator = RegularTimeCalculatorFactory.Create(payload);
@@ -84,33 +85,33 @@ public class DailyRecordBuilder
             LeaveHours = 0,
             AbsentCount = workType == WorkType.Absent ? 1 : 0,
 
-            RegularNetHours = evaluated.RegWork.TotalMinutes.ToHour(),
-            RegularOTHours = evaluated.RegOT.TotalMinutes.ToHour(),
+            RegularNetHours = (evaluated.RegWork.TotalMinutes - NightDiff.Regular.TotalMinutes).ToHour(),
+            RegularOTHours = (evaluated.RegOT.TotalMinutes - NightDiff.RegOT.TotalMinutes).ToHour(),
             RegularNDHours = NightDiff.Regular.TotalMinutes.ToHour(),
             RegularNDOTHours = NightDiff.RegOT.TotalMinutes.ToHour(),
 
-            RestDayHours = evaluated.RestWork.TotalMinutes.ToHour(),
-            RestDayOTHours = evaluated.RestOT.TotalMinutes.ToHour(),
+            RestDayHours = (evaluated.RestWork.TotalMinutes - NightDiff.Rest.TotalMinutes).ToHour(),
+            RestDayOTHours = (evaluated.RestOT.TotalMinutes - NightDiff.RestOT.TotalMinutes).ToHour(),
             RestDayNDHours = NightDiff.Rest.TotalMinutes.ToHour(),
             RestDayNDOTHours = NightDiff.RestOT.TotalMinutes.ToHour(),
 
-            LegalHolHours = evaluated.LegalHoliday.TotalMinutes.ToHour(),
-            LegalHolOTHours = evaluated.LHOT.TotalMinutes.ToHour(),
+            LegalHolHours = (evaluated.LegalHoliday.TotalMinutes - NightDiff.Legal.TotalMinutes).ToHour(),
+            LegalHolOTHours = (evaluated.LHOT.TotalMinutes - NightDiff.LegalOT.TotalMinutes).ToHour(),
             LegalHolNightDiffHours = NightDiff.Legal.TotalMinutes.ToHour(),
             LegalHolNightDiffOTHours = NightDiff.LegalOT.TotalMinutes.ToHour(),
 
-            SpecialHolHours = evaluated.SPHoliday.TotalMinutes.ToHour(),
-            SpecialHolOTHours = evaluated.SPOT.TotalMinutes.ToHour(),
+            SpecialHolHours = (evaluated.SPHoliday.TotalMinutes - NightDiff.Special.TotalMinutes).ToHour(),
+            SpecialHolOTHours = (evaluated.SPOT.TotalMinutes - NightDiff.SpecialOT.TotalMinutes).ToHour(),
             SpecialHolNightDiffHours = NightDiff.Special.TotalMinutes.ToHour(),
             SpecialHolNightDiffOTHours = NightDiff.SpecialOT.TotalMinutes.ToHour(),
 
-            RestLegalDayHours = evaluated.RestLegal.TotalMinutes.ToHour(),
-            RestLegalDayOTHours = evaluated.RestLegalOT.TotalMinutes.ToHour(),
+            RestLegalDayHours = (evaluated.RestLegal.TotalMinutes - NightDiff.RestLegal.TotalMinutes).ToHour(),
+            RestLegalDayOTHours = (evaluated.RestLegalOT.TotalMinutes - NightDiff.RestLegalOT.TotalMinutes).ToHour(),
             RestLegalDayNDHours = NightDiff.RestLegal.TotalMinutes.ToHour(),
             RestLegalDayNDOTHours = NightDiff.RestLegalOT.TotalMinutes.ToHour(),
 
-            RestSpecialDayHours = evaluated.RestSpecial.TotalMinutes.ToHour(),
-            RestSpecialDayOTHours = evaluated.RestSpecialOT.TotalMinutes.ToHour(),
+            RestSpecialDayHours = (evaluated.RestSpecial.TotalMinutes - NightDiff.RestSpecial.TotalMinutes).ToHour(),
+            RestSpecialDayOTHours = (evaluated.RestSpecialOT.TotalMinutes - NightDiff.RestSpecialOT.TotalMinutes).ToHour(),
             RestSpecialDayNDHours = NightDiff.RestSpecial.TotalMinutes.ToHour(),
             RestSpecialDayNDOTHours = NightDiff.RestSpecialOT.TotalMinutes.ToHour(),
 

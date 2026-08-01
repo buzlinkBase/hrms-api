@@ -1,8 +1,8 @@
 namespace Hrms.adms.Messages;
 
-public class TenantCreatedWorker(IConnectionClient connectionClient, IMigrationService migrationService) : IConsumer<TenantCreationRequest>
+public class TenantCreatedWorker(IConnectionClient connectionClient, IMigrationService migrationService) : IConsumer<TenantCreationCompleted>
 {
-    public async Task Consume(ConsumeContext<TenantCreationRequest> context)
+    public async Task Consume(ConsumeContext<TenantCreationCompleted> context)
     {
         //var msg = context.Message;
         //var response = await connectionClient.FindConnectionAsync(msg.TenantId, "adms");
@@ -15,6 +15,5 @@ public class TenantCreatedWorker(IConnectionClient connectionClient, IMigrationS
 
         //migrationService.Migrate(response.Data.ConnectionString);
         //Log.Information("TenantCreatedWorker: migrations applied for tenant {TenantId}", msg.TenantId);
-
     }
 }

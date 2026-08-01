@@ -14,6 +14,8 @@ public static class LibServicesRegistrations
         AddLibraryAssemblyDependencies(services, "DTR.Core");
         services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
         services.AddScoped<IMigrationService, EvolveMigrationService>();
+        services.AddScoped<Messaging.InstanceProvisioner>();
+        services.AddScoped<Messaging.DedicatedProvisioner>();
     }
 
     public static void AddLibraryAssemblyDependencies(IServiceCollection services, string assemblyName)

@@ -33,5 +33,7 @@ public class DbMigrationActionWorker : IConsumer<MigrateTenantDb>
             TenantId = message.TenantId,
         };
         await _publisher.Publish(payload);
+
+
     }
 }

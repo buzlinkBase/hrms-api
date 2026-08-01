@@ -3,10 +3,10 @@ using BuzlinkRepository;
 
 namespace Hrms.Domain.Entities;
 
-public abstract class BaseEntity : EntityBase
+public abstract class BaseEntity : EntityBase, IEntityTenant
 {
-    //public Guid TenantId { get; set; }
     public string Status { get; set; } = "Active";
+    public Guid TenantId { get; set; }
 }
 
 public interface IPostedFilter
