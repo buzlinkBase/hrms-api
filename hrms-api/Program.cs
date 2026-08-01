@@ -1,5 +1,5 @@
 ﻿using Asp.Versioning.ApiExplorer;
-using Hrms.adms.Middlewares;
+using Hrms.Api.Middlewares;
 using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
 using Hrms.Core.Extensions;

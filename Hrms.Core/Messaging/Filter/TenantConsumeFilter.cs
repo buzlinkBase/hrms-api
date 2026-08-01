@@ -1,4 +1,5 @@
 ﻿using MassTransit;
+using Microsoft.Extensions.Configuration;
 using Onepunch.Common.Lib.Cache;
 
 namespace Hrms.Core.Messaging.Filter;
@@ -9,16 +10,19 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
     private readonly ICacheService _cacheService;
     private readonly ITenantProvider _tenantProvider;
     private readonly TenantConnectionStringInfo _connectionInfo;
+    private readonly IConfiguration _configuration;
     private readonly IConnectionClient _connectionClient;
     public TenantConsumeFilter(
         ICacheService cacheService,
         ITenantProvider tenantProvider,
         TenantConnectionStringInfo connectionInfo,
+        IConfiguration configuration,
         IConnectionClient connectionClient)
     {
         _cacheService = cacheService;
         _tenantProvider = tenantProvider;
         _connectionInfo = connectionInfo;
+        _configuration = configuration;
         _connectionClient = connectionClient;
     }
 
@@ -43,24 +47,33 @@ public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>>
             return;
         }
 
-        // 3. Resolve Connection String
-        var key = $"connection:{tid}";
-        var cachedConnectionString = await _cacheService.GetAsync<string>(key);
-        if (!string.IsNullOrWhiteSpace(cachedConnectionString))
+        var useDedicated = _configuration.GetValue<bool?>("Hris:DedicatedDatabase") ?? false;
+        if (!useDedicated)
         {
-            _connectionInfo.ConnectionString = cachedConnectionString;
+            var connectionString = _configuration.GetConnectionString("") ?? "";
+            _connectionInfo.ConnectionString = connectionString;
         }
         else
         {
-            var response = await _connectionClient.FindConnectionAsync(tid, "hrms");
-            if (response?.Data != null && response.Data.Success)
+            // 3. Resolve Connection String
+            var key = $"connection:{tid}";
+            var cachedConnectionString = await _cacheService.GetAsync<string>(key);
+            if (!string.IsNullOrWhiteSpace(cachedConnectionString))
             {
-                _connectionInfo.ConnectionString = response.Data.ConnectionString;
-                await _cacheService.SetAsync(key, _connectionInfo.ConnectionString, TimeSpan.FromDays(7));
+                _connectionInfo.ConnectionString = cachedConnectionString;
             }
             else
             {
-                throw new Exception($"Operational DB for Tenant {tid} not found.");
+                var response = await _connectionClient.FindConnectionAsync(tid, "hrms");
+                if (response?.Data != null && response.Data.Success)
+                {
+                    _connectionInfo.ConnectionString = response.Data.ConnectionString;
+                    await _cacheService.SetAsync(key, _connectionInfo.ConnectionString, TimeSpan.FromDays(7));
+                }
+                else
+                {
+                    throw new Exception($"Operational DB for Tenant {tid} not found.");
+                }
             }
         }
         await next.Send(context);

@@ -23,5 +23,6 @@ public class AccountLinkedWorker : IConsumer<UserJoinToTenantPayload>
         //    "AccountLinkedWorker: user {UserId} linked to tenant {TenantId} ({TenantName}) with roles {Roles} — awaiting HR onboarding",
         //    message.UserId, message.TenantId, message.TenantName, string.Join(", ", message.Roles));
         return Task.CompletedTask;
+
     }
 }

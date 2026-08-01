@@ -5,6 +5,34 @@ using Serilog;
 
 namespace Hrms.Core.Messaging;
 
+public class TenantCreationCompletedWorker : IConsumer<TenantCreationCompleted>
+{
+    private readonly IConfiguration _configuration;
+    private readonly InstanceProvisioner _instanceProvisioner;
+    private readonly DedicatedProvisioner _dedicatedProvisioner;
+
+    public TenantCreationCompletedWorker(
+        IConfiguration configuration,
+        InstanceProvisioner instanceProvisioner,
+        DedicatedProvisioner dedicatedProvisioner)
+    {
+        _configuration = configuration;
+        _instanceProvisioner = instanceProvisioner;
+        _dedicatedProvisioner = dedicatedProvisioner;
+    }
+
+    public Task Consume(ConsumeContext<TenantCreationCompleted> context)
+    {
+        var useDedicated = _configuration.GetValue<bool?>("Hris:DedicatedDatabase") ?? false;
+        ITenantProvisioner provisioner = useDedicated 
+            ? _dedicatedProvisioner 
+            : _instanceProvisioner;
+
+        return provisioner.ProvisionAsync(context);
+    }
+}
+
+
 public interface ITenantProvisioner
 {
     Task ProvisionAsync(ConsumeContext<TenantCreationCompleted> context);
@@ -20,23 +48,28 @@ public class InstanceProvisioner : ITenantProvisioner
     private readonly IMigrationService _migrationService;
     private readonly TenantConnectionStringInfo _tenantInfo;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IUnitOfWorkService _uow;
 
     public InstanceProvisioner(
         IConfiguration configuration,
         IMigrationService migrationService,
         TenantConnectionStringInfo tenantInfo,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        IUnitOfWorkService uow
+        )
     {
         _configuration = configuration;
         _migrationService = migrationService;
         _tenantInfo = tenantInfo;
         _tenantProvider = tenantProvider;
+        _uow = uow;
     }
 
     public async Task ProvisionAsync(ConsumeContext<TenantCreationCompleted> context)
     {
         var message = context.Message;
-        string connectionString = _configuration.GetConnectionString("HrmsConnection") ?? string.Empty;
+        string connectionString = _configuration
+            .GetConnectionString("HrmsConnection") ?? string.Empty;
 
         // Configure scoped tenant context directly
         _tenantInfo.TenantId = message.TenantId;
@@ -44,8 +77,7 @@ public class InstanceProvisioner : ITenantProvisioner
         _tenantProvider.SetTenantId(message.TenantId);
 
         // Execute migrations on shared DB
-        _migrationService.Migrate(connectionString);
-
+        //_migrationService.Migrate(connectionString);
         // Publish completion event (Flow C: consumed by Auth's HrDbCreatedWorker to push the
         // "tenant-added" SignalR notification back to the waiting client)
         await context.Publish(new HrisOrgProvisionedPayload
@@ -53,9 +85,11 @@ public class InstanceProvisioner : ITenantProvisioner
             TenantId = message.TenantId,
             HrisOrgId = message.TenantId.ToString(),
             DatabaseName = "shared",
-            Status = "Active",
+            Status = "Active", 
             ProvisionedAtUtc = DateTime.UtcNow
         }, context.CancellationToken);
+
+        await _uow.CommitChangesAsync("", context.CancellationToken);
     }
 }
 
@@ -142,7 +176,7 @@ public class DedicatedProvisioner : ITenantProvisioner
                 DatabaseName = dbName,
                 Status = "Active",
                 ProvisionedAtUtc = DateTime.UtcNow
-            }, context.CancellationToken);
+            }, context.CancellationToken); 
         }
         catch (Exception ex)
         {
@@ -156,26 +190,4 @@ public class DedicatedProvisioner : ITenantProvisioner
 // Flow C entry point: consumes TenantCreationCompleted and delegates to whichever
 // provisioning strategy is configured (Hris:DedicatedDatabase, default true).
 // -------------------------------------------------------------
-public class TenantCreationCompletedWorker : IConsumer<TenantCreationCompleted>
-{
-    private readonly IConfiguration _configuration;
-    private readonly InstanceProvisioner _instanceProvisioner;
-    private readonly DedicatedProvisioner _dedicatedProvisioner;
 
-    public TenantCreationCompletedWorker(
-        IConfiguration configuration,
-        InstanceProvisioner instanceProvisioner,
-        DedicatedProvisioner dedicatedProvisioner)
-    {
-        _configuration = configuration;
-        _instanceProvisioner = instanceProvisioner;
-        _dedicatedProvisioner = dedicatedProvisioner;
-    }
-
-    public Task Consume(ConsumeContext<TenantCreationCompleted> context)
-    {
-        var useDedicated = _configuration.GetValue<bool?>("Hris:DedicatedDatabase") ?? false;
-        ITenantProvisioner provisioner = useDedicated ? _dedicatedProvisioner : _instanceProvisioner;
-        return provisioner.ProvisionAsync(context);
-    }
-}

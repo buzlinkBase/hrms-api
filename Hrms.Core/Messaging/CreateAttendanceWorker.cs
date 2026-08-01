@@ -22,18 +22,15 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
     public async Task Consume(ConsumeContext<AttendancePayloadWrapper> context)
     {
         var messages = context.Message.AttLogs;
-
         var atts = await new AttEmployeeSetter(_uow)
             .ParseAttLogs(messages, LOGSOURCE.SYNC);
-
         await _attService.AddRangeAsync(atts);
-        if (await _attService.CommitChangesAsync(context.CancellationToken))
+        await _publish.Publish(new BatchAttConfirmation
         {
-            await _publish.Publish(new BatchAttConfirmation
-            {
-                BatchId = messages[0].BatchId,
-            });
-        }
+            BatchId = messages[0].BatchId,
+        });
+        await _attService.CommitChangesAsync(context.CancellationToken);
+
     }
 }
 
