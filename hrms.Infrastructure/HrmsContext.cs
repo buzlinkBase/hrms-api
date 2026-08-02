@@ -16,7 +16,6 @@ public class HrmsContext : DbContext, IDbContext
     private readonly ITenantProvider _tenantProvider;
     private readonly IConfiguration _configuration;
 
-
     public HrmsContext(
          DbContextOptions<HrmsContext> options,
          TenantConnectionStringInfo tenantConnectionInfo,
@@ -42,16 +41,17 @@ public class HrmsContext : DbContext, IDbContext
         optionsBuilder.UseLazyLoadingProxies(true);
         optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(_tenantProvider));
         optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
+
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
+        modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
-        modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
+        modelBuilder.UseTenantAndDateFilter(_tenantProvider?.TenantId ?? Guid.Empty);
     }
 
     #region "dbsets" 
