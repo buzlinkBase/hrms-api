@@ -72,6 +72,7 @@ public class Employee : BaseEntity
     public virtual Client? Client { get; set; }
     public virtual Branch? Branch { get; set; }
     public virtual Department? Department { get; set; }
+    public Department? HeadedDepartment { get; set; }
     public virtual Position? Position { get; set; }
     public virtual CostCenters? Area { get; set; }
     public virtual ICollection<RestDay> RestDays { get; set; }

@@ -30,6 +30,12 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
                 v => v.ToString(),
                 v => (JobLevelOption)Enum.Parse(typeof(JobLevelOption), v)
             );
+
+        builder
+            .HasOne(e => e.Department)
+            .WithMany(d => d.Employees) // Links to the collection in Department
+            .HasForeignKey(e => e.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 public class SSSRateConfig : IEntityTypeConfiguration<SSSRate>

@@ -16,6 +16,7 @@ public class HrmsContext : DbContext, IDbContext
     private readonly ITenantProvider _tenantProvider;
     private readonly IConfiguration _configuration;
 
+
     public HrmsContext(
          DbContextOptions<HrmsContext> options,
          TenantConnectionStringInfo tenantConnectionInfo,
@@ -31,32 +32,21 @@ public class HrmsContext : DbContext, IDbContext
     {
         if (optionsBuilder.IsConfigured) return;
         var connectionString = _configuration.GetConnectionString("HrmsConnection");
-        if (_tenantConnectionInfo.ConnectionString != null)
+        if (_tenantConnectionInfo != null && _tenantConnectionInfo.ConnectionString != null)
         {
             connectionString = _tenantConnectionInfo.ConnectionString;
         }
-        if (!string.IsNullOrEmpty(connectionString))
-        {
-            var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
-            optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
-            optionsBuilder.UseLazyLoadingProxies(true);
-            optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(),new ApplyTenantInterceptor(_tenantProvider));
-            optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
-        }
+
+        var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
+        optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
+        optionsBuilder.UseLazyLoadingProxies(true);
+        optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(_tenantProvider));
+        optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        //generate sortable GUID
-        //foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        //{
-        //    var idProperty = entityType.FindProperty("Id");
-        //    if (idProperty != null && idProperty.ClrType == typeof(Guid))
-        //    {
-        //        idProperty.SetValueGeneratorFactory((_, __) => new Version7GuidValueGenerator());
-        //    }
-        //}
         modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
