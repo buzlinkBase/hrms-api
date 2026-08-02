@@ -198,7 +198,7 @@ public static class ServiceRegistrationsExt
         builder.Services.AddHttpClient<JwksClient>(client =>
         {
             var authUrl = builder.Configuration["ApiServices:AuthService"] ?? "";
-            client.BaseAddress = new Uri(authUrl);
+            client.BaseAddress = new Uri(authUrl.TrimEnd('/') + "/");
         });
 
         builder.Services.AddAuthorizationBuilder()
