@@ -1,4 +1,4 @@
-﻿namespace Hrms.Domain.ValueObjects;
+namespace Hrms.Domain.ValueObjects;
 
 public class CreateLeaveApplication
 {
@@ -6,18 +6,20 @@ public class CreateLeaveApplication
     public Guid EmployeeId { get; set; }
     public DateOnly LeaveDateFrom { get; set; }
     public DateOnly LeaveDateTo { get; set; }
-    public DayType LeaveType { get; set; }
-    public PayType PayType { get; set; }
-    public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.ForApproval;
+    public LeaveDayType DayType { get; set; } = LeaveDayType.WholeDay;
+    public string? ApplicationRemarks { get; set; }
 }
 
 public class UpdateLeaveApplication : CreateLeaveApplication
 {
     public Guid Id { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; }
 }
 
 public class LeaveApplicationModel : UpdateLeaveApplication
 {
+    public int? ReviewedBy { get; set; }
+    public DateTime? ReviewedOn { get; set; }
 }
 
 public class LeaveApplicationPyRun

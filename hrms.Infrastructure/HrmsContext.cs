@@ -93,6 +93,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<WorkSchedulePlan> WorkSchedulePlans { get; set; }
     public DbSet<OverTimeApplication> OTApplications { get; set; }
     public DbSet<UnderTimeApplication> UTApplications { get; set; }
+    public DbSet<TravelOrderApplication> TravelOrderApplications { get; set; }
 
     public DbSet<OtherIncomeType> AllowanceTypes { get; set; }
     public DbSet<ProratedAllowanceForSSS> ProratedAllowances { get; set; }

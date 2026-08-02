@@ -4,8 +4,8 @@ namespace Hrms.Domain.Entities;
 
 public class Leave : BaseEntity
 {
-    public string? Category { get; set; } // e.g. Statutory, Company
     public string Code { get; set; } = string.Empty; // e.g. "MAT"
+    public string? Category { get; set; } // e.g. Statutory, Company
     public string Description { get; set; } = string.Empty; // e.g. "Maternity Leave" 
     public double Credits { get; set; } // default entitlement 
     public PaySource PaySource { get; set; }
