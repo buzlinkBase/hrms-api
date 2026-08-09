@@ -15,8 +15,13 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         _mapper = mapper;
     }
 
-    public async Task<LeaveApplicationModel?> AddAsync(CreateLeaveApplication payload,
-        CancellationToken token)
+    protected override Task<EvaluationResult> CreateValidatorAsync(LeaveApplication model, CancellationToken token = default)
+    {
+        Guard.ThrowIfNull(model, nameof(LeaveApplication));
+        return base.CreateValidatorAsync(model, token);
+    }
+
+    public async Task<LeaveApplicationModel?> AddAsync(CreateLeaveApplication payload, CancellationToken token)
     {
         var model = _mapper.Map<LeaveApplication>(payload);
         if (model == null) return null;
@@ -25,6 +30,15 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         await CommitChangesAsync(token);
         return _mapper.Map<LeaveApplicationModel>(model);
     }
+
+    public async Task<LeaveApplicationModel?> AddAsync(LeaveApplication model,
+        CancellationToken token)
+    {
+        await CreateAsync(model, token);
+        await AddDetailAsync(model, token);
+        return _mapper.Map<LeaveApplicationModel>(model);
+    }
+
     private async Task AddDetailAsync(LeaveApplication model, CancellationToken token)
     {
         DateTime start = model.LeaveDateFrom.ToDateTime(TimeOnly.MinValue);
@@ -40,14 +54,14 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             };
             _uow.Repository.Add(lad);
         }
-
         await Task.CompletedTask;
-
     }
-    public async Task UpdateAsync(LeaveApplication model, CancellationToken token)
+    public async Task UpdateAsync(UpdateLeaveApplication payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
-        await AddDetailAsync(model, token);
+        var existing = await Context.leaveApplications.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
+        await AddDetailAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
@@ -77,11 +91,12 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             .ToListAsync(token);
     }
 
-    public Task<List<LeaveApplicationModel>> FindAllAsync(CancellationToken token)
+    public Task<List<LeaveApplicationModel>> FindAllAsync(CancellationToken token, DateOnly? from = null, DateOnly? to = null)
     {
-        return GetQueryable()
-           .ProjectToType<LeaveApplicationModel>(_config)
-           .ToListAsync(token);
+        var query = GetQueryable();
+        if (from.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) >= from.Value);
+        if (to.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= to.Value);
+        return query.ProjectToType<LeaveApplicationModel>(_config).ToListAsync(token);
     }
     public async Task<LeaveApplicationModel?> FineOneAsync(Guid Id, CancellationToken token)
     {

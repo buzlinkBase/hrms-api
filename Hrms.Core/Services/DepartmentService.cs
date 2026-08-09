@@ -1,5 +1,6 @@
 ﻿using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -34,9 +35,11 @@ public class DepartmentService : BaseService<Department>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(Department model, CancellationToken token)
+    public async Task UpdateAsync(UpdateDepartment payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Departments.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
     public async Task AddOrUpdateAsync(Department model, CancellationToken token)

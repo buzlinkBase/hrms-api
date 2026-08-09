@@ -18,14 +18,14 @@ namespace Hrms.Api.Controllers
         public OvertimeApplicationsController(OvertimeApplicationService service, IMapper mapper)
         {
             _service = service;
-            _mapper = mapper;
+            _mapper = mapper; 
         }
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<OvertimeApplicationModel>>), 200)]
-        public async Task<IActionResult> Get(CancellationToken token)
+        public async Task<IActionResult> Get([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken token)
         {
-            var data = await _service.FindAllAsync(token);
+            var data = await _service.FindAllAsync(token, from, to);
             return Ok(_mapper.Map<List<OvertimeApplicationModel>>(data));
         }
 
@@ -47,14 +47,26 @@ namespace Hrms.Api.Controllers
             return Ok(respModel);
         }
 
+        [HttpPost("batch")]
+        [ProducesResponseType(typeof(ResponseModel<List<OvertimeApplicationModel>>), 200)]
+        public async Task<IActionResult> PostBatch([FromBody] List<CreateOverTimeApplication> payload, CancellationToken token)
+        {
+            var entities = _mapper.Map<List<OverTimeApplication>>(payload);
+            foreach (var entity in entities)
+            {
+                entity.OTStatus = ApprovalStatus.Approved;
+                await _service.AddAsync(entity, token);
+            }
+            return Ok(_mapper.Map<List<OvertimeApplicationModel>>(entities));
+        }
+
         [HttpPut("{id}")]
         [ProducesResponseType(typeof(ResponseModel<OvertimeApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateOvertimeApplication payload, CancellationToken token)
         {
-            var data = _mapper.Map<OverTimeApplication>(payload);
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<OvertimeApplicationModel>(data));
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<OvertimeApplicationModel>(payload));
         }
 
         [HttpDelete("{id}")]

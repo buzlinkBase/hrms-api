@@ -25,27 +25,10 @@ public class HrmsContext : DbContext, IDbContext
         _tenantConnectionInfo = tenantConnectionInfo;
         _tenantProvider = tenantProvider;
         _configuration = configuration;
-    }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        if (optionsBuilder.IsConfigured) return;
-        var connectionString = _configuration.GetConnectionString("HrmsConnection");
-        if (_tenantConnectionInfo != null && _tenantConnectionInfo.ConnectionString != null)
-        {
-            connectionString = _tenantConnectionInfo.ConnectionString;
-        }
-
-        var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
-        optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
-        optionsBuilder.UseLazyLoadingProxies(true);
-        optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(_tenantProvider));
-        optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
-
-    }
+    }  
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
+    { 
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
         modelBuilder.AddInboxStateEntity();
@@ -121,17 +104,5 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<ThirteenthMonthLedger> ThirteenthMonthLedgers { get; set; }
     public DbSet<GeneralSetting> GeneralSettings { get; set; }
     public DbSet<ChangeRestDay> ChangeRestDays { get; set; }
-
-
-
     #endregion
-}
-
-public class Version7GuidValueGenerator : ValueGenerator<Guid>
-{
-    public override bool GeneratesTemporaryValues => false;
-    public override Guid Next(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
-    {
-        return Guid.CreateVersion7();
-    }
-}
+} 

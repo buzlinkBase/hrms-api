@@ -6,6 +6,7 @@ public class CreateLeaveApplication
     public Guid EmployeeId { get; set; }
     public DateOnly LeaveDateFrom { get; set; }
     public DateOnly LeaveDateTo { get; set; }
+    public PayType PayType { get; set; } = PayType.WithPay;//TODO payment should be based on actual credits 
     public LeaveDayType DayType { get; set; } = LeaveDayType.WholeDay;
     public string? ApplicationRemarks { get; set; }
 }

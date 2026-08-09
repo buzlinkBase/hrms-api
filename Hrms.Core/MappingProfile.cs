@@ -45,8 +45,8 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateEmployee, Employee>()
             .Map(
                 dest => dest.HireDate,
-                src => src.HireDate.HasValue && src.HireDate.Value != DateTime.MinValue
-                    ? DateOnly.FromDateTime(src.HireDate.Value)
+                src => src.HireDate.HasValue && src.HireDate.Value != DateOnly.MinValue
+                    ? src.HireDate.Value
                     : DateOnly.FromDateTime(DateTime.UtcNow)
             )
             .AfterMapping((src, dest) => ApplyEmployeeReferenceFixes(dest));
@@ -145,24 +145,9 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateOvertimeApplication, OverTimeApplication>();
         config.NewConfig<OverTimeApplication, OvertimeApplicationModel>();
 
-        config.NewConfig<CreateTravelOrderApplication, TravelOrderApplication>()
-            .Map(dest => dest.StartDate, src => src.StartDate.ToDateTime(TimeOnly.MinValue))
-            .Map(dest => dest.EndDate, src => src.EndDate.ToDateTime(TimeOnly.MinValue))
-            .Ignore(dest => dest.ApplicationDate)
-            .Ignore(dest => dest.Days);
-
-        config.NewConfig<UpdateTravelOrderApplication, TravelOrderApplication>()
-            .Map(dest => dest.StartDate, src => src.StartDate.ToDateTime(TimeOnly.MinValue))
-            .Map(dest => dest.EndDate, src => src.EndDate.ToDateTime(TimeOnly.MinValue))
-            .Map(dest => dest.Status, src => src.ApprovalStatus)
-            .Ignore(dest => dest.ApplicationDate)
-            .Ignore(dest => dest.Days);
-
-        config.NewConfig<TravelOrderApplication, TravelOrderApplicationModel>()
-            .Map(dest => dest.StartDate, src => DateOnly.FromDateTime(src.StartDate))
-            .Map(dest => dest.EndDate, src => DateOnly.FromDateTime(src.EndDate))
-            .Map(dest => dest.ApplicationDate, src => DateOnly.FromDateTime(src.ApplicationDate))
-            .Map(dest => dest.ApprovalStatus, src => src.Status);
+        config.NewConfig<CreateTravelOrderApplication, TravelOrderApplication>();
+        config.NewConfig<UpdateTravelOrderApplication, TravelOrderApplication>();
+        config.NewConfig<TravelOrderApplication, TravelOrderApplicationModel>();
 
         config.NewConfig<CreateUnderTimeApplication, UnderTimeApplication>();
         config.NewConfig<UpdateUnderTimeApplication, UnderTimeApplication>()

@@ -57,7 +57,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateHoliday payload, CancellationToken token)
         {
-            payload.Id = id;
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
             return Ok(await _service.UpdateAsync(payload, token));
         }
 

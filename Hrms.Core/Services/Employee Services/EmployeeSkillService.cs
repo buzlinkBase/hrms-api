@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -13,10 +14,12 @@ public class EmployeeSkillService : BaseService<Skill>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(Skill model,
+    public async Task UpdateAsync(UpdateSkill payload,
         CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Skills.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

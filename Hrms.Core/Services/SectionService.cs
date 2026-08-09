@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -14,9 +15,11 @@ public class SectionService : BaseService<Section>
         await CommitChangesAsync(token);
 
     }
-    public async Task UpdateAsync(Section model, CancellationToken token)
+    public async Task UpdateAsync(UpdateSection payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Sections.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
 
     }

@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -22,27 +23,28 @@ public class PayrollGroupService : BaseService<PayrollGroup>
         {
             return new EvaluationResult("Payroll model status is required");
         }
-        switch (model.PayrollFrequency)
-        {
-            case PayrollFrequency.DAILY:
-                if (model.CutoffDays.Any())
-                    return new EvaluationResult("Daily payroll should not have cutoff days.");
-                break;
-            case PayrollFrequency.WEEKLY:
-                if (model.CutoffDays.Count != 1)
-                    return new EvaluationResult("Weekly payroll must have exactly one cutoff day.");
-                break;
 
-            case PayrollFrequency.SEMI_MONTHLY:
-                if (model.CutoffDays.Count != 2)
-                    return new EvaluationResult("Semi-monthly payroll must have two cutoff days.");
-                break;
+        //switch (model.PayrollFrequency)
+        //{
+        //    case PayrollFrequency.DAILY:
+        //        if (model.CutoffDays.Any())
+        //            return new EvaluationResult("Daily payroll should not have cutoff days.");
+        //        break;
+        //    case PayrollFrequency.WEEKLY:
+        //        if (model.CutoffDays.Count != 1)
+        //            return new EvaluationResult("Weekly payroll must have exactly one cutoff day.");
+        //        break;
 
-            case PayrollFrequency.MONTHLY:
-                if (model.CutoffDays.Count != 1)
-                    return new EvaluationResult("Monthly payroll must have one cutoff day.");
-                break;
-        }
+        //    case PayrollFrequency.SEMI_MONTHLY:
+        //        if (model.CutoffDays.Count != 2)
+        //            return new EvaluationResult("Semi-monthly payroll must have two cutoff days.");
+        //        break;
+
+        //    case PayrollFrequency.MONTHLY:
+        //        if (model.CutoffDays.Count != 1)
+        //            return new EvaluationResult("Monthly payroll must have one cutoff day.");
+        //        break;
+        //}
         return await base.CreateValidatorAsync(model, token);
     }
 
@@ -51,9 +53,13 @@ public class PayrollGroupService : BaseService<PayrollGroup>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(PayrollGroup model, CancellationToken token)
+    public async Task UpdateAsync(UpdatePayrollGroup payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.PayrollGroups
+            .Include(x => x.CutoffDays)
+            .FirstOrDefaultAsync(x => x.Id == payload.Id, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
 
     }

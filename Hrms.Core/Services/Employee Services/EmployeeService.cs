@@ -73,20 +73,20 @@ public class EmployeeService : BaseService<Employee>
 
     public async Task AddAsync(Employee model, CancellationToken token)
     {
+        CalculateAge(model);
         if (model.HireDate == DateOnly.MinValue)
         {
             model.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
         }
-        CalculateAge(model);
         var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
         model.BranchId = branch?.Id;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
 
-    private void CalculateAge(Employee model)
+    private void CalculateAge(Employee? model)
     {
-        if (!model.DOB.HasValue) return;
+        if (model == null || !model.DOB.HasValue) return;
         var today = DateTime.Today;
         if (model.DOB.Value > today) throw new ArgumentException("Date of birth cannot be in the future.");
         int age = today.Year - model.DOB.Value.Year;
@@ -121,22 +121,42 @@ public class EmployeeService : BaseService<Employee>
         //}
     }
 
-    public async Task UpdateAsync(Employee model, CancellationToken token)
+    public async Task UpdateAsync(UpdateEmployee payload, CancellationToken token)
     {
-        if (model.HireDate == DateOnly.MinValue)
-        {
-            model.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
-        }
-        CalculateAge(model);
-        var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
-        model.BranchId = branch?.Id;
-        await ModifyAsync(model, token);
-        await _uow.SaveChangesAsync(token);
+        var existing = await Context.Employees
+            //.Include(x => x.RestDays)
+            //.Include(x => x.Settings)
+            //.Include(x => x.SSSRate)
+            //.Include(x => x.PHICRate)
+            //.Include(x => x.HDMFRate)
+            //.Include(x => x.TaxRate)
+            .FirstOrDefaultAsync(x => x.Id == payload.Id, token);
 
-        var incomingDayNames = model.RestDays.Select(rd => rd.DayName).ToHashSet();
+        if (existing == null)
+        {
+            throw new Exception("Record not found");
+        }
+        existing.RestDays.Clear();
+        payload.Adapt(existing);
+        CalculateAge(existing);
+        foreach (var res in existing.RestDays)
+        {
+            res.Id = Guid.Empty;
+        }
+        if (existing.HireDate == DateOnly.MinValue || payload.HireDate == null)
+        {
+            existing.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        }
+
+        var branch = _uow.Repository.FindOne<Branch>(existing.BranchId ?? Guid.Empty);
+        existing.BranchId = branch?.Id;
+        await ModifyAsync(existing, token);
+        await _uow.SaveChangesAsync(token);
+        var incomingDayNames = payload.RestDays.Select(rd => rd.DayName).ToHashSet();
         await _uow.Context.RestDays
-            .Where(x => x.EmployeeId == model.Id && !incomingDayNames.Contains(x.DayName))
+            .Where(x => x.EmployeeId == payload.Id && !incomingDayNames.Contains(x.DayName))
             .ExecuteDeleteAsync(token);
+
         await CommitChangesAsync(token);
     }
 

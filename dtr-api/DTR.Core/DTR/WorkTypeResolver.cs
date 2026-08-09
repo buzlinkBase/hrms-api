@@ -28,6 +28,7 @@ public static class WorkTypeResolver
             return WorkType.Incomplete;
 
         var leave = context.Payload.Data.CurrentLeave;
+        var travel = context.Payload.Data.CurrentTravel;
         var isRestDay = new IsRestDaySpec().IsSatisfiedBy(context.CanonicalTimeRange, context);
         var isLegalHoliday = context.IsLegalHoliday();
         var isSpecialWorking = context.IsSpecialWorking();
@@ -55,8 +56,11 @@ public static class WorkTypeResolver
         if (isSpecialWorking)
             return WorkType.Absent;//return WorkType.SpecialWorkingHoliday;
 
+        if (travel != null)
+            return ResolveTravelWorkType(travel, isRestDay);
 
         return WorkType.Absent;
+
     }
 
     /// <summary>
@@ -112,5 +116,16 @@ public static class WorkTypeResolver
         return leave.PayType == PayType.WithPay
             ? WorkType.PaidLeave
             : WorkType.UnpaidLeave;
+    }
+
+    private static WorkType ResolveTravelWorkType(TravelOrderApplication travel, bool isRestDay)
+    {
+        if (isRestDay && travel != null)
+            return WorkType.RestDayTravel;
+
+        if (isRestDay)
+            return WorkType.RestDay;
+
+        return WorkType.Travel;
     }
 }

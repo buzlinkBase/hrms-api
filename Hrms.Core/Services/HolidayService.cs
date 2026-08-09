@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -20,12 +21,12 @@ public class HolidayService : BaseService<Holiday>
     }
     public async Task<HolidayModel> UpdateAsync(UpdateHoliday model, CancellationToken token)
     {
-        var holiday = _mapper.Map<Holiday>(model);
-        holiday.HolYear = model.HolDate.Year;
-        holiday.Id = model.Id;
-        await ModifyAsync(holiday, token);
+        var existing = await Context.Holidays.FindAsync(new object[] { model.Id }, token);
+        model.Adapt(existing);
+        existing.HolYear = model.HolDate.Year;
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
-        return _mapper.Map<HolidayModel>(holiday);
+        return _mapper.Map<HolidayModel>(existing);
     }
 
     public async Task<List<HolidayResult>> FindAllAsync(int year, CancellationToken token)

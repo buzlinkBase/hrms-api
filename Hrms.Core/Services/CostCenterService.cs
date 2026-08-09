@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -12,9 +13,11 @@ public class CostCenterService : BaseService<CostCenters>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(CostCenters model, CancellationToken token)
+    public async Task UpdateAsync(UpdateCostCenter payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Areas.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
 
     }

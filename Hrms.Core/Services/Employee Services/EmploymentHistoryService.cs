@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -12,9 +13,11 @@ public class EmploymentHistoryService : BaseService<EmploymentHistory>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(EmploymentHistory model, CancellationToken token)
+    public async Task UpdateAsync(UpdateEmploymentHistory payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Employments.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

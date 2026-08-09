@@ -4,8 +4,10 @@ public class CreateOverTimeApplication
 {
     public Guid EmployeeId { get; set; }
     public DateOnly OTDate { get; set; }
-    public DateTime StartTime { get; set; }
-    public DateTime EndTime { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
+    public double ManualOTMinutes { get; set; }
+    public bool IsManualEntry { get; set; }
     public string Remarks { get; set; } = string.Empty;
 }
 
@@ -16,10 +18,10 @@ public class UpdateOvertimeApplication : CreateOverTimeApplication
 }
 
 public class OvertimeApplicationModel : UpdateOvertimeApplication
-{
-    public double OTMinutes { get; set; }
+{ 
     public double OTBeforeOverride { get; set; }
     public bool FlexiEndTime { get; set; }
     public bool PaidByNetDutyTime { get; set; }
     public double OverTimeThreshold { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

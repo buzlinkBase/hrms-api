@@ -22,10 +22,15 @@ public class SSSService : BaseService<SSSTable>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(SSSTable model, CancellationToken token)
+    public async Task UpdateAsync(UpdateSSS payload, CancellationToken token)
     {
-        model.TotalContibution = model.ER + model.ER + model.EC;
-        await ModifyAsync(model, token);
+        var existing = await Context.GovSSSes.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        if (existing != null)
+        {
+            existing.TotalContibution = existing.ER + existing.ER + existing.EC;
+        }
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

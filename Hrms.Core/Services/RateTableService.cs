@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -13,9 +14,12 @@ public class RateTableService : BaseService<RateTable>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(RateTable model, CancellationToken token)
+    public async Task UpdateAsync(UpdateRateTable payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.PremiumRates.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        existing.Description = payload.Type.ToString();
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
     public Task<List<RateTable>> FindAllAsync(CancellationToken token)

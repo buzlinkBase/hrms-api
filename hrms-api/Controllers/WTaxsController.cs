@@ -53,10 +53,9 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<WTaxModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateWax payload, CancellationToken token)
         {
-            var data = _mapper.Map<TaxTable>(payload);
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<WTaxModel>(data));
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<WTaxModel>(payload));
         }
 
         [HttpDelete("{id}")]

@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -12,14 +13,19 @@ public class UnderTimeApplicationService : BaseService<UnderTimeApplication>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(UnderTimeApplication model, CancellationToken token)
+    public async Task UpdateAsync(UpdateUnderTimeApplication payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.UTApplications.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
-    public async Task<List<UnderTimeApplication>> FindAllAsync(CancellationToken token)
+    public async Task<List<UnderTimeApplication>> FindAllAsync(CancellationToken token, DateOnly? from = null, DateOnly? to = null)
     {
-        return await GetQueryable().ToListAsync(token);
+        var query = GetQueryable();
+        if (from.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) >= from.Value);
+        if (to.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= to.Value);
+        return await query.ToListAsync(token);
     }
     public async Task<UnderTimeApplication?> FineOneAsync(Guid Id, CancellationToken token)
     {

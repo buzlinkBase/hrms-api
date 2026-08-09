@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -12,9 +13,11 @@ public class DeductionTypeService : BaseService<DeductionType>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(DeductionType model, CancellationToken token)
+    public async Task UpdateAsync(UpdateDeductionType payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.DeductionTypes.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
 
     }

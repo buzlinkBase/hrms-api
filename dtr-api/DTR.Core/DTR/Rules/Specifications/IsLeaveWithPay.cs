@@ -10,7 +10,7 @@ public class IsLeaveWithPay : IRuleSpecification
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
         //check if employee is on leave with pay
-        var currentLeave = context.Payload.Provider.LeaveProvider.GetLeave(_curDate);
+        var currentLeave = context.Payload.Provider.LeaveProvider.GetApplication(_curDate);
         return currentLeave != null && currentLeave.PayType == PayType.WithPay;
     }
 }

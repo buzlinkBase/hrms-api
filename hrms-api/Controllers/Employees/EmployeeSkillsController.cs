@@ -51,10 +51,9 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<SkillModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateSkill payload, CancellationToken token)
         {
-            var data = _mapper.Map<Skill>(payload);
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<SkillModel>(data));
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<SkillModel>(payload));
         }
 
         [HttpDelete("{id}")]

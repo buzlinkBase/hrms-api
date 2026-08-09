@@ -38,11 +38,12 @@ public class TimeShiftService : BaseService<TimeShift>
     public async Task<TimeShiftModel> UpdateAsync(Guid id, UpdateTimeShift payload,
         CancellationToken token)
     {
-        var model = _mapper.Map<TimeShift>(payload);
-        model.Id = id;
-        await ModifyAsync(model, token);
+        var effectiveId = (payload.Id ?? Guid.Empty) == Guid.Empty ? id : payload.Id.Value;
+        var existing = await Context.TimeShifts.FindAsync(new object[] { effectiveId }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
-        return _mapper.Map<TimeShiftModel>(model);
+        return _mapper.Map<TimeShiftModel>(existing);
     }
 
     public async Task<List<TimeShiftModel>> FindAllAsync(CancellationToken token)

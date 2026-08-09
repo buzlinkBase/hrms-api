@@ -23,6 +23,11 @@ public class DTRProcessorPayloadBuilder
         _payload.Data.CurrentLeave = leave;
         return this;
     }
+    public DTRProcessorPayloadBuilder SetCurrentTravel (TravelOrderApplication?  travel)
+    {
+        _payload.Data.CurrentTravel = travel;
+        return this;
+    }
 
 
     public DTRProcessorPayloadBuilder SetCurrentDate(DateOnly currentDate)
@@ -87,9 +92,14 @@ public class DTRProcessorPayloadBuilder
         _payload.Provider.HolidayProvider = holidayProvider;
         return this;
     }
-    public DTRProcessorPayloadBuilder SetLeaveProvider(LeaveApplicationServiceProvider leaveApplicationServiceProvider)
+    public DTRProcessorPayloadBuilder SetLeaveProvider(LeaveApplicationProvider leaveApplicationServiceProvider)
     {
         _payload.Provider.LeaveProvider = leaveApplicationServiceProvider;
+        return this;
+    }
+    public DTRProcessorPayloadBuilder SetTravelProvider(TravelApplicationProvider travelOrderApplication)
+    {
+        _payload.Provider.TravelProvider = travelOrderApplication;
         return this;
     }
 
@@ -130,6 +140,7 @@ public class DataPayload
     public EmployeePolicyRule EmployeePolicy { get; set; }
     public Dictionary<ResDaykey, CurrentRestDay> CurrentDayoffs { get; set; }
     public LeaveApplication? CurrentLeave { get; set; }
+    public TravelOrderApplication? CurrentTravel { get; set; }
 }
 public class ProvidersPayload
 {
@@ -138,7 +149,8 @@ public class ProvidersPayload
     public OverTimeServiceProvider OTProvider { get; set; }
     public UnderTimeServiceProvider UTProvider { get; set; }
     public HolidayProviderBase HolidayProvider { get; set; }
-    public LeaveApplicationServiceProvider LeaveProvider { get; set; }
+    public LeaveApplicationProvider LeaveProvider { get; set; }
+    public TravelApplicationProvider TravelProvider { get; set; }
     public ClientPolicyProvider ClientPolicyProvider { get; set; }
     public DTRContextModel DtrContextModel { get; set; }
 }

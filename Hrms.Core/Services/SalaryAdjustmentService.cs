@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -13,9 +14,11 @@ public class SalaryAdjustmentService : BaseService<SalaryAdjustment>
         await CommitChangesAsync(token);
 
     }
-    public async Task UpdateAsync(SalaryAdjustment model, CancellationToken token)
+    public async Task UpdateAsync(UpdateSalaryAdjustment payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Set<SalaryAdjustment>().FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

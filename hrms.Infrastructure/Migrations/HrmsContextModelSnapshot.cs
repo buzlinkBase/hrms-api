@@ -2602,20 +2602,17 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
-                    b.Property<DateTime>("EndTime")
+                    b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<bool>("FlexiEndTime")
+                    b.Property<bool>("IsManualEntry")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<double>("OTBeforeOverride")
+                    b.Property<double>("ManualOTMinutes")
                         .HasColumnType("double");
 
                     b.Property<DateOnly>("OTDate")
                         .HasColumnType("date");
-
-                    b.Property<double>("OTMinutes")
-                        .HasColumnType("double");
 
                     b.Property<int>("OTStatus")
                         .HasColumnType("int");
@@ -2623,14 +2620,11 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("OverTimeThreshold")
                         .HasColumnType("double");
 
-                    b.Property<bool>("PaidByNetDutyTime")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<string>("Remarks")
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<DateTime>("StartTime")
+                    b.Property<DateTime?>("StartTime")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Status")
@@ -3431,9 +3425,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("Days")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
@@ -3444,8 +3435,14 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
-                    b.Property<DateTime>("EndDate")
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsManualEntry")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Purpose")
                         .IsRequired()
@@ -3455,7 +3452,10 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<DateTime>("StartDate")
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("StartTime")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Status")
@@ -3465,8 +3465,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("char(36)");
 
-                    b.Property<int>("TravelDayType")
-                        .HasColumnType("int");
+                    b.Property<double>("TotalMinutes")
+                        .HasColumnType("double");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");

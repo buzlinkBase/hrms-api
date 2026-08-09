@@ -62,10 +62,8 @@ public class TenantDatabaseMiddleware
             await context.Response.WriteAsync("Unable to retrieve connection.");
             return;
         }
-
         connectionInfo.ConnectionString = data.ConnectionString;
         await cacheService.SetAsync(key, data.ConnectionString, TimeSpan.FromMinutes(30));
-
         await _next(context);
     }
 }

@@ -1,12 +1,16 @@
 ﻿using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class BranchService : BaseService<Branch>
 {
-    public BranchService(IUnitOfWorkService service) : base(service)
+    private readonly IMapper _mapper;
+    public BranchService(IUnitOfWorkService service,
+        IMapper mapper) : base(service)
     {
+        _mapper = mapper;
     }
 
     protected override async Task<EvaluationResult> CreateValidatorAsync(Branch model, CancellationToken token)
@@ -35,9 +39,11 @@ public class BranchService : BaseService<Branch>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(Branch model, CancellationToken token)
+    public async Task UpdateAsync(UpdateBranch payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Branches.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing, _mapper.Config);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
     public async Task AddOrUpdateAsync(Branch model, CancellationToken token)

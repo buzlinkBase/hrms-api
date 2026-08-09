@@ -43,6 +43,11 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<PayrollGroupModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreatePayrollGroup payload, CancellationToken token)
         {
+            if (payload == null) return BadRequest("Invalid payload");
+            if (payload.CutoffDays != null && payload.CutoffDays.Any())
+            {
+                payload.CutoffDays.Clear();
+            }
             var data = _mapper.Map<PayrollGroup>(payload);
             await _service.AddAsync(data, token);
             var respModel = _mapper.Map<PayrollGroupModel>(data);
@@ -53,10 +58,14 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<PayrollGroupModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdatePayrollGroup payload, CancellationToken token)
         {
-            var data = _mapper.Map<PayrollGroup>(payload);
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<PayrollGroupModel>(data));
+            if (payload == null) return BadRequest("Invalid payload"); 
+            if (payload.CutoffDays != null && payload.CutoffDays.Any())
+            {
+                payload.CutoffDays.Clear();
+            }
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<PayrollGroupModel>(payload));
         }
 
         [HttpDelete("{id}")]

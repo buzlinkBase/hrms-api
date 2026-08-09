@@ -30,7 +30,7 @@ public class CreateEmployee
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; }
-    public DateTime? HireDate { get; set; }
+    public DateOnly? HireDate { get; set; }
     public DateTime? ContractStart { get; set; }
     public DateTime? ContractEnd { get; set; }
 

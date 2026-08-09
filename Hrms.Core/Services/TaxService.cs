@@ -22,10 +22,15 @@ public class TaxService : BaseService<TaxTable>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(TaxTable model, CancellationToken token)
+    public async Task UpdateAsync(UpdateWax payload, CancellationToken token)
     {
-        model.PercentageInAmountOf = model.RangeFrom;
-        await ModifyAsync(model, token);
+        var existing = await Context.GovTaxes.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        if (existing != null)
+        {
+            existing.PercentageInAmountOf = existing.RangeFrom;
+        }
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

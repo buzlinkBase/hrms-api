@@ -124,4 +124,5 @@ public class PipeLineResult
     public TimeRange UT { get; set; } = TimeRange.Empty;
     public TimeRange Overbreak { get; set; } = TimeRange.Empty;
     public TimeRange Leave { get; set; } = TimeRange.Empty;
+    public TimeRange Travel  { get; set; } = TimeRange.Empty;
 }

@@ -10,6 +10,7 @@ public class CurrentRangeDTRPayloadService
     private readonly EmployeeService _employeeService;
     private readonly AttendanceService _attendanceService;
     private readonly LeaveApplicationService _leaveApplicationService;
+    private readonly TravelOrderApplicationService _travelService;
     private readonly OvertimeApplicationService _otService;
     private readonly UnderTimeApplicationService _utService;
     private readonly GeneralSettingService _generalSettingService;
@@ -20,6 +21,7 @@ public class CurrentRangeDTRPayloadService
         EmployeeService employeeService,
         AttendanceService attendanceService,
         LeaveApplicationService leaveApplicationService,
+        TravelOrderApplicationService travelService,
         OvertimeApplicationService otService,
         UnderTimeApplicationService utService,
         GeneralSettingService generalSettingService,
@@ -30,15 +32,14 @@ public class CurrentRangeDTRPayloadService
         _employeeService = employeeService;
         _attendanceService = attendanceService;
         _leaveApplicationService = leaveApplicationService;
+        _travelService = travelService;
         _otService = otService;
         _utService = utService;
         _generalSettingService = generalSettingService;
         _holidayResolver = holidayResolver;
     }
 
-    public async Task<DTRContextModel> SetPayload(bool canprocess,
-        DTRRequestPayload payload, bool removeDoublePunch = true,
-        CancellationToken token = default)
+    public async Task<DTRContextModel> SetPayload(bool canprocess, DTRRequestPayload payload, bool removeDoublePunch = true, CancellationToken token = default)
     {
         var (fromDate, toDate) = GetDateRange(payload);
         var cleanAttendance = await LoadCleanAttendance(canprocess, payload, removeDoublePunch, token);
@@ -46,6 +47,7 @@ public class CurrentRangeDTRPayloadService
         var employeeIds = new HashSet<Guid>(employees.Select(e => e.Id));
         var clientIds = ExtractClientIds(employees);
         var shiftsTask = await _workScheduleResolver.Resolve(fromDate, toDate, employees, token);
+        var travelsTask = await _travelService.FindByDateRangeAsync(fromDate, toDate, employeeIds, token);
         var leavesTask = await _leaveApplicationService.FindByDateRangeAsync(fromDate, toDate, employeeIds, token);
         var holidaysTask = await _holidayResolver.ResolveAsync(fromDate, toDate, employees, token);
         var overtimeTask = await _otService.FindByDateRangeAsync(fromDate, toDate, employeeIds, token);
@@ -61,6 +63,7 @@ public class CurrentRangeDTRPayloadService
             .WithEmployees(employees)
             .WithShifts(shiftsTask)
             .WithLeaves(leavesTask)
+            .WithTravels(travelsTask)
             .WithHolidays(holidaysTask)
             .WithDayOffs(dayOffsTask)
             .WithOverTimeApplications(overtimeTask)

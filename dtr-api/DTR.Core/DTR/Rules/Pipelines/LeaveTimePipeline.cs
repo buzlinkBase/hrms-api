@@ -1,18 +1,23 @@
 ﻿namespace DTR.Core;
 
-public class LeaveTimePipeline : IConditionalPolicy
+public class LeaveTimePipeline
 {
-    public TimeRange Apply(TimeRange input, TimeContext context)
+    private readonly TimeContext _context;
+    public LeaveTimePipeline(TimeContext context)
     {
-        //var leave = context.Payload.Data.LeaveApplicationForDate;
-        //if (leave == null) return TimeRange.Empty;
-
-        //var slice = new TimeRangeCollection
-        //{
-        //    new TimeRecord(leave.StartTime, leave.EndTime, "LEAVE")
-        //};
-
-        //return new TimeRange(slice.TotalMinutes(), slice);
+        _context = context;
+    }
+    public TimeRange Apply(TimeRange input)
+    {
+        if (_context.Payload.Data.CurrentLeave == null) return TimeRange.Empty;
+        if (_context.Payload.Data.CurrentLeave.DayType == LeaveDayType.WholeDay)
+        {
+            return new TimeRange(_context.Payload.Data.CurrentShift.MaxWorkingMinutes);
+        }
+        if (_context.Payload.Data.CurrentLeave.DayType == LeaveDayType.HalfDay)
+        {
+            return new TimeRange(_context.Payload.Data.CurrentShift.MaxWorkingMinutes / 2);
+        }
         return TimeRange.Empty;
     }
 }

@@ -26,9 +26,10 @@ public class UndertimePolicy : ConditionalPolicyBase
 
         var finalReg = ledger.GetByTag("work_time", context);
         var finalLate = ledger.GetByTag("late", context);
+        var travelTime = ledger.GetByTag("travel", context);
 
         var maxMinutes = shift.MaxWorkingMinutes;
-        var utMinutes = Math.Max(0, maxMinutes - finalReg.TotalMinutes - finalLate.TotalMinutes);
+        var utMinutes = Math.Max(0, maxMinutes - travelTime.TotalMinutes - finalReg.TotalMinutes - finalLate.TotalMinutes);
 
         var result = utMinutes > 0 ? new TimeRange(utMinutes) : TimeRange.Empty;
         ledger.Record(ledgerKey, result);

@@ -23,12 +23,13 @@ public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
             Regular = new NonHolidayDutyTimePipeline(context).Apply(cannonicalTimeRange),
             LegalHoliday = new HolidayDutyTimePipeline(context, HolidayType.LEGAL).Apply(cannonicalTimeRange),
             SpecialHoliday = new HolidayDutyTimePipeline(context, HolidayType.SPECIAL).Apply(cannonicalTimeRange),
+            Leave = new LeaveTimePipeline(context).Apply(cannonicalTimeRange),
+            Travel = new TravelPipeline(context).Apply(cannonicalTimeRange),
             Plus8 = new HolidayPlus8TimePipeline(context).Apply(cannonicalTimeRange),
             OT = new OverTimePipeline(context).Apply(cannonicalTimeRange),
             Late = new LateTimePipeline(context).Apply(cannonicalTimeRange),
             UT = new UndertimeTimePipeline(context).Apply(cannonicalTimeRange),
             Overbreak = new OverbreaktimePipeline(context).Apply(cannonicalTimeRange),
-            Leave = TimeRange.Empty
         };
 
         var workType = WorkTypeResolver.Resolve(context);
@@ -54,8 +55,7 @@ public class DailyRecordBuilder
         PipeLineResult pipeline,
         EvaluatedColumnResult evaluated,
         NightDiffEvaluationResult NightDiff,
-        WorkType workType
-        )
+        WorkType workType)
     {
         var currentAtt = context.Payload.Data.CurrentAttendance.FirstOrDefault();
         var emp = context.Payload.Data.Employee;
@@ -81,7 +81,7 @@ public class DailyRecordBuilder
             UTMinutes = pipeline.UT.TotalMinutes,
             OverMinutes = pipeline.Overbreak.TotalMinutes,
             LateForOTMinutes = 0,
-            OBHours = 0,
+            OBHours = pipeline.Travel.TotalMinutes.ToHour(),
             LeaveHours = 0,
             AbsentCount = workType == WorkType.Absent ? 1 : 0,
 

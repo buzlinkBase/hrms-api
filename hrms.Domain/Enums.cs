@@ -195,6 +195,8 @@ public enum WorkType
     UnpaidLeave,                // Approved Leave without Pay
     Absent,                     // Unauthorized Absence / No Show
     Incomplete,                 // Missing Clock In / Clock Out
+    Travel,
+    RestDayTravel, 
     Skipped                     // Day skipped by processor
 }
  
@@ -209,11 +211,11 @@ public enum LeaveDayType
     WholeDay,
     HalfDay
 }
-public enum TravelDayType
-{
-    WholeDay,
-    HalfDay
-}
+//public enum TravelDayType
+//{
+//    WholeDay,
+//    HalfDay
+//}
 
 public enum LeaveReset
 {

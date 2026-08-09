@@ -52,10 +52,9 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<OtherIncomeModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateOtherIncome payload, CancellationToken token)
         {
-            var data = _mapper.Map<OtherIncome>(payload);
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<OtherIncomeModel>(data));
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<OtherIncomeModel>(payload));
         }
 
         [HttpDelete("{id}")]

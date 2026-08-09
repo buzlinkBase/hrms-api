@@ -39,6 +39,11 @@ public class DTRContextBuilder
         _context.Leaves = leaves;
         return this;
     }
+    public DTRContextBuilder WithTravels (Dictionary<TravelKey, List<TravelOrderApplication>>  travels )
+    {
+        _context.Travels = travels;
+        return this;
+    }
 
     public DTRContextBuilder WithHolidays(Dictionary<Holidaykey, List<HolidayInfo>> holidays)
     {
@@ -87,6 +92,7 @@ public class DTRContextModel
     public List<EmployeeDTRRun> Employees { get; set; }
     public Dictionary<CurrentTimeShiftKey, CurrentShift> AllShifts { get; set; }
     public Dictionary<Leavekey, List<LeaveApplication>> Leaves { get; set; }
+    public Dictionary<TravelKey, List<TravelOrderApplication>> Travels  { get; set; }
     public Dictionary<Holidaykey, List<HolidayInfo>> Holidays { get; set; }
     public Dictionary<ResDaykey, CurrentRestDay> DayOffs { get; set; }
     public CompanyPolicyRule CompanyPolicy { get; set; }

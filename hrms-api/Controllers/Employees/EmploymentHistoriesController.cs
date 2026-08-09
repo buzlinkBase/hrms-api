@@ -51,10 +51,9 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<EmploymentHistoryModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmploymentHistory payload, CancellationToken token)
         {
-            var data = _mapper.Map<EmploymentHistory>(payload);
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<EmploymentHistoryModel>(data));
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<EmploymentHistoryModel>(payload));
         }
 
         [HttpDelete("{id}")]

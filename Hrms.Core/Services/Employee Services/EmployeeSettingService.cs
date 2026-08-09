@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -11,9 +12,11 @@ public class EmployeeSettingService(IUnitOfWorkService uow)
         await CommitChangesAsync(token);
     }
 
-    public async Task UpdateAsync(EmployeeSetting model, CancellationToken token)
+    public async Task UpdateAsync(UpdateEmployeeSetting payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.EmployeeSettings.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
 
     }

@@ -24,8 +24,10 @@ public class CurrentDayDTRPayload
             ? AttendancePairGrabber.GetPairs(currentAtt)
             : currentAtt;
 
-        var leaveProvider = new LeaveApplicationServiceProvider(context.Leaves, curEmployee);
-        var currentLeave = leaveProvider.GetLeave(currentDate);
+        var leaveProvider = new LeaveApplicationProvider(context.Leaves, curEmployee);
+        var travelProvider = new TravelApplicationProvider(context.Travels, curEmployee);
+        var currentLeave = leaveProvider.GetApplication(currentDate);
+        var currentTravel = travelProvider.GetApplication(currentDate);
 
         var payload = new DTRProcessorPayloadBuilder()
             .SetEmployee(curEmployee)
@@ -35,7 +37,9 @@ public class CurrentDayDTRPayload
             .SetAttendanceProvider(attendanceProvider)
             .SetCurrentAtt(attendance)
             .SetLeaveProvider(leaveProvider)
+            .SetTravelProvider(travelProvider)
             .SetCurrentLeave(currentLeave)
+            .SetCurrentTravel(currentTravel)
             .SetOTProvider(new OverTimeServiceProvider(context.OverTimeApplications, curEmployee))
             .SetUTProvider(new UnderTimeServiceProvider(context.UnderTimeApplications, curEmployee))
             .SetHolidayProvider(HolidayProviderFactory.Create(curEmployee, context.Holidays))

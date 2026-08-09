@@ -64,9 +64,11 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
         await CommitChangesAsync(token);
     }
 
-    public async Task UpdateAsync(WorkSchedulePlan model, CancellationToken token)
+    public async Task UpdateAsync(UpdateWorkSchedulePlan payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.WorkSchedulePlans.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

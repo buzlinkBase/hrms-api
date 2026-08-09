@@ -23,9 +23,9 @@ namespace Hrms.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<UnderTimeApplicationModel>>), 200)]
-        public async Task<IActionResult> Get(CancellationToken token)
+        public async Task<IActionResult> Get([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken token)
         {
-            var data = await _service.FindAllAsync(token);
+            var data = await _service.FindAllAsync(token, from, to);
             return Ok(_mapper.Map<List<UnderTimeApplicationModel>>(data));
         }
 
@@ -46,14 +46,28 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<UnderTimeApplicationModel>(data));
         }
 
+        [HttpPost("batch")]
+        [ProducesResponseType(typeof(ResponseModel<List<UnderTimeApplicationModel>>), 200)]
+        public async Task<IActionResult> PostBatch([FromBody] List<CreateUnderTimeApplication> payload, CancellationToken token)
+        {
+            var results = new List<UnderTimeApplicationModel>();
+            foreach (var item in payload)
+            {
+                var data = _mapper.Map<UnderTimeApplication>(item);
+                data.OTStatus = ApprovalStatus.Approved;
+                await _service.AddAsync(data, token);
+                results.Add(_mapper.Map<UnderTimeApplicationModel>(data));
+            }
+            return Ok(results);
+        }
+
         [HttpPut("{id}")]
         [ProducesResponseType(typeof(ResponseModel<UnderTimeApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateUnderTimeApplication payload, CancellationToken token)
         {
-            var data = _mapper.Map<UnderTimeApplication>(payload);
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<UnderTimeApplicationModel>(data));
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<UnderTimeApplicationModel>(payload));
         }
 
         [HttpDelete("{id}")]

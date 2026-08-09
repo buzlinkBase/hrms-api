@@ -12,6 +12,8 @@ using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.DbServices;
@@ -149,7 +151,22 @@ public static class ServiceRegistrationsExt
         {
             builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
         }
-        builder.Services.AddDbContext<HrmsContext>();
+        builder.Services.AddDbContext<HrmsContext>((provider, optionsBuilder) =>
+        {
+            if (optionsBuilder.IsConfigured) return;
+            var _tenantConnectionInfo = provider.GetRequiredService<TenantConnectionStringInfo>();
+            var _tenantProvider = provider.GetRequiredService<ITenantProvider>();
+            var connectionString = builder.Configuration.GetConnectionString("HrmsConnection");
+            if (_tenantConnectionInfo != null && !string.IsNullOrWhiteSpace(_tenantConnectionInfo.ConnectionString))
+            {
+                connectionString = _tenantConnectionInfo.ConnectionString;
+            }
+            var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
+            optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
+            optionsBuilder.UseLazyLoadingProxies(true);
+            optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(_tenantProvider));
+            optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
+        });
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>

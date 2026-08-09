@@ -22,10 +22,15 @@ public class PHICService : BaseService<PHICTable>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(PHICTable model, CancellationToken token)
+    public async Task UpdateAsync(UpdatePHIC payload, CancellationToken token)
     {
-        model.TotalContribution = model.EmployeeShare + model.EmployerShare;
-        await ModifyAsync(model, token);
+        var existing = await Context.GovPHICs.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        if (existing != null)
+        {
+            existing.TotalContribution = existing.EmployeeShare + existing.EmployerShare;
+        }
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

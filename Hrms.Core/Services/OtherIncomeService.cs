@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -13,19 +14,21 @@ public class OtherIncomeService : BaseService<OtherIncome>
         await CommitChangesAsync(token);
     }
 
-    public async Task UpdateAsync(OtherIncome model, CancellationToken token)
+    public async Task UpdateAsync(UpdateOtherIncome payload, CancellationToken token)
     {
-        var oldRecord = await GetOneAsync(model.Id, token);
-        await ModifyAsync(model, token);
-        await UpdateIsTaxableAsync(oldRecord!, model, token);
+        var existing = await Context.Allowances.FindAsync(new object[] { payload.Id }, token);
+        var wasTaxable = existing!.IsTaxable;
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
+        await UpdateIsTaxableAsync(wasTaxable, existing, token);
         await CommitChangesAsync(token);
     }
 
-    private async Task UpdateIsTaxableAsync(OtherIncome oldRecord,
+    private async Task UpdateIsTaxableAsync(bool wasTaxable,
         OtherIncome newRecord,
         CancellationToken token)
     {
-        if (oldRecord != null && oldRecord!.IsTaxable != newRecord.IsTaxable)
+        if (wasTaxable != newRecord.IsTaxable)
         {
             await _uow.Context.OtherIncomeApplications
              .Where(x => x.IncomeId == newRecord.Id)

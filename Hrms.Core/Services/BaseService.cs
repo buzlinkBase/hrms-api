@@ -75,7 +75,7 @@ public abstract class BaseService<T> where T : class, IEntity
         await Guard.ModelGuardAsync<T>(CreateValidatorAsync, model, token);
         await _uow.Repository.AddAsync(model, token);
     }
-    protected async Task ModifyAsync(T model, CancellationToken token = default)
+    protected async Task ModifyAsync(T? model, CancellationToken token = default)
     {
         if (model is null) return;
         await Guard.ModelGuardAsync<T>(CreateValidatorAsync, model, token);

@@ -3,25 +3,27 @@ namespace Hrms.Domain.ValueObjects;
 public class CreateTravelOrderApplication
 {
     public Guid EmployeeId { get; set; }
-    public DateOnly StartDate { get; set; }
-    public DateOnly EndDate { get; set; }
-    public TravelDayType TravelDayType { get; set; } = TravelDayType.WholeDay;
+    public DateTime ApplicationDate { get; set; }
+    public DateOnly StartDate { get; set; }//covered Date from 
+    public DateOnly EndDate { get; set; } //covered Date from 
+    public bool IsManualEntry { get; set; }
+    public double TotalMinutes { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
     public string Destination { get; set; } = string.Empty;
     public string Classification { get; set; } = string.Empty;
     public string Purpose { get; set; } = string.Empty;
-    public double Cost { get; set; }
+    public double Cost { get; set; } = 0;
     public string? ApplicationRemarks { get; set; }
+
 }
 
 public class UpdateTravelOrderApplication : CreateTravelOrderApplication
 {
     public Guid Id { get; set; }
-    public string ApprovalStatus { get; set; } = "ForApproval";
 }
 
 public class TravelOrderApplicationModel : UpdateTravelOrderApplication
 {
-    public int Days { get; set; }
-    public DateOnly ApplicationDate { get; set; }
-    public string? Reference { get; set; }
+    public string ApprovalStatus { get; set; } = "ForApproval";
 }

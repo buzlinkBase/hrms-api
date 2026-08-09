@@ -36,6 +36,8 @@ public class DTRDetailModel
     public double RestDayNDHours { get; set; }
     public double RestDayNDOTHours { get; set; }
 
+ 
+
     public double LegalHolHours { get; set; }
     public double LegalHolOTHours { get; set; }
     public double LegalHolNightDiffHours { get; set; }
@@ -44,7 +46,7 @@ public class DTRDetailModel
     public double SpecialHolHours { get; set; }
     public double SpecialHolOTHours { get; set; }
     public double SpecialHolNightDiffHours { get; set; }
-    public double SpecialHolNightDiffOTHours { get; set; }
+    public double SpecialHolNightDiffOTHours { get; set; } 
 
     public double RestLegalDayHours { get; set; }
     public double RestLegalDayOTHours { get; set; }
@@ -55,6 +57,20 @@ public class DTRDetailModel
     public double RestSpecialDayOTHours { get; set; }
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
+
+    //public double SpecialWorkDayHours { get; set; }
+    //public double SpecialWorkDayOTHours { get; set; }
+    //public double SpecialWorkDayNDHours { get; set; }
+    //public double SpecialWorkDayNDOTHours { get; set; }
+    //public double  DoubleLegalHours { get; set; }
+    //public double  DoubleLegalOTHours { get; set; }
+    //public double  DoubleLegalNDHours { get; set; }
+    //public double  DoubleLegalNDOTHours { get; set; }
+    //public double RestDoubleLegalHours { get; set; }
+    //public double RestDoubleLegalOTHours { get; set; }
+    //public double RestDoubleLegalNDHours { get; set; }
+    //public double RestDoubleLegalNDOTHours { get; set; }  
+
 
     public string Note { get; set; } = string.Empty;
     public Guid? UserId { get; set; }

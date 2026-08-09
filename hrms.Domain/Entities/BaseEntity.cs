@@ -1,12 +1,21 @@
 ﻿
 using BuzlinkRepository;
+using Mapster;
 
 namespace Hrms.Domain.Entities;
 
-public abstract class BaseEntity : EntityBase, IEntityTenant
+public abstract class BaseEntity : EntityBase, IEntityTenant, ITimeStamp
 {
     public string Status { get; set; } = "Active";
+
+    [AdaptIgnore]
     public Guid TenantId { get; set; }
+    [AdaptIgnore]
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    [AdaptIgnore]
+    public DateTime? DeletedAt { get; set; }
+
 }
 
 public interface IPostedFilter

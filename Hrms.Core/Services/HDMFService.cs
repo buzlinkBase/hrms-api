@@ -21,10 +21,15 @@ public class HDMFService : BaseService<HDMFTable>
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(HDMFTable model, CancellationToken token)
+    public async Task UpdateAsync(UpdateHDMF payload, CancellationToken token)
     {
-        model.TotalContribution = model.EmployeeShare + model.EmployerShare;
-        await ModifyAsync(model, token);
+        var existing = await Context.GovHDMFs.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        if (existing != null)
+        {
+            existing.TotalContribution = existing.EmployeeShare + existing.EmployerShare;
+        }
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 

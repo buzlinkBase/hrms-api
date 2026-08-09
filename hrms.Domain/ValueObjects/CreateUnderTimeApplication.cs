@@ -14,4 +14,7 @@ public class UpdateUnderTimeApplication : CreateUnderTimeApplication
     public ApprovalStatus ApprovalStatus { get; set; }
 }
 
-public class UnderTimeApplicationModel : UpdateUnderTimeApplication { }
+public class UnderTimeApplicationModel : UpdateUnderTimeApplication
+{
+    public DateTime CreatedAt { get; set; }
+}

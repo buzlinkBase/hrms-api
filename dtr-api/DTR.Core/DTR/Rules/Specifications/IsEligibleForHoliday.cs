@@ -126,7 +126,7 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
             for (var date = payload.Data.CurrentDate.AddDays(1); date <= latestDate; date = date.AddDays(1))
             {
                 var record = ProcessLineAsync(date, context).GetAwaiter().GetResult();
-                if (record is null) continue;  
+                if (record is null) continue;
                 var verdict = ClassifyDay(record, context, lookingForward: true);
                 if (verdict == DayVerdict.Inconclusive) continue;
                 return verdict == DayVerdict.Qualifies;
@@ -168,8 +168,11 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
         if (lookingForward && record.WorkTypeEnum == WorkType.LegalHoliday)
             return DayVerdict.Inconclusive;
 
+        if (record.WorkTypeEnum == WorkType.Travel || record.WorkTypeEnum == WorkType.RestDayTravel)
+            return DayVerdict.Qualifies;
+
         if (record.WorkTypeEnum == WorkType.RestDayDuty && minWorkingHours > workHours)
-            return DayVerdict.Inconclusive;
+            return DayVerdict.Qualifies;
 
         if (record.HolCount > 0 || record.WorkTypeEnum is WorkType.PaidLeave)
             return DayVerdict.Qualifies;

@@ -1,4 +1,5 @@
 using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -9,21 +10,36 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
     public async Task AddAsync(TravelOrderApplication model, CancellationToken token)
     {
         model.ApplicationDate = DateTime.UtcNow;
-        model.Days = ComputeDays(model.StartDate, model.EndDate);
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
 
-    public async Task UpdateAsync(TravelOrderApplication model, CancellationToken token)
+    public async Task UpdateAsync(UpdateTravelOrderApplication payload, CancellationToken token)
     {
-        model.Days = ComputeDays(model.StartDate, model.EndDate);
-        await ModifyAsync(model, token);
+        var existing = await Context.TravelOrderApplications.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
-    public async Task<List<TravelOrderApplication>> FindAllAsync(CancellationToken token)
+    public async Task<List<TravelOrderApplication>> FindAllAsync(CancellationToken token, DateOnly? from = null, DateOnly? to = null)
     {
-        return await GetQueryable().ToListAsync(token);
+        var query = GetQueryable();
+        if (from.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) >= from.Value);
+        if (to.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= to.Value);
+        return await query.ToListAsync(token);
+    }
+
+    public async Task<Dictionary<TravelKey, List<TravelOrderApplication>>> FindByDateRangeAsync(DateOnly fromDate, DateOnly toDate, HashSet<Guid> employeeIds, CancellationToken token)
+    {
+        var data = await _uow.Repository
+                .Find<TravelOrderApplication>(x => x.StartDate >= fromDate
+                    && x.EndDate <= toDate
+                    && employeeIds.Contains(x.EmployeeId))
+                 .GroupBy(a => new TravelKey(a.EmployeeId))
+                 .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.StartDate).ToList(), token);
+        ;
+        return data;
     }
 
     public async Task<TravelOrderApplication?> FineOneAsync(Guid id, CancellationToken token)
@@ -36,10 +52,5 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         await RemoveAsync(id, token);
         await CommitChangesAsync(token);
     }
-
-    private static int ComputeDays(DateTime start, DateTime end)
-    {
-        var days = (end.Date - start.Date).Days + 1;
-        return days < 1 ? 1 : days;
-    }
 }
+public readonly record struct TravelKey(Guid EmpId);

@@ -55,7 +55,8 @@ public class RestLegalEvaluator : IDutyDayEvaluator
     {
         if (context.TimeContext.IsRestDay() && context.TimeContext.IsLegalHoliday())
         {
-            return range;
+            var Plus8 = context.PipeLineResult.Plus8;
+            return new TimeRange(Plus8.TotalMinutes + range.TotalMinutes, range.TimeRecords);
         }
         return TimeRange.Empty;
     }
@@ -156,7 +157,13 @@ public class SequentialDutyDayEvaluator : IDutyDayEvaluator
         _second = second;
     }
     public TimeRange Evaluate(TimeRange range, DisplayContext context)
-        => _second.Evaluate(_first.Evaluate(range, context), context);
+	{
+        if (!_first.Evaluate(range, context).IsEmpty())
+        {
+           return _second.Evaluate(range, context);
+        }
+        return TimeRange.Empty;
+    } 
 }
 // Named, reusable two-step compositions used by DTRDetailColumnDisplayProcessor.
 public static class CompositeDutyEvaluators

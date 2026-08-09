@@ -52,11 +52,9 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateRateTable payload, CancellationToken token)
         {
-            var data = _mapper.Map<RateTable>(payload);
-            data.Description = payload.Type.ToString();
-            data.Id = id;
-            await _service.UpdateAsync(data, token);
-            return Ok(_mapper.Map<RateTableModel>(data));
+            payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<RateTableModel>(payload));
         }
 
         [HttpDelete("{id}")]

@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Mapster;
 
 namespace Hrms.Core.Services;
 
@@ -14,9 +15,11 @@ public class PositionService : BaseService<Position>
         await CommitChangesAsync(token);
 
     }
-    public async Task UpdateAsync(Position model, CancellationToken token)
+    public async Task UpdateAsync(UpdatePosition payload, CancellationToken token)
     {
-        await ModifyAsync(model, token);
+        var existing = await Context.Positions.FindAsync(new object[] { payload.Id }, token);
+        payload.Adapt(existing);
+        await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
