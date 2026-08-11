@@ -41,7 +41,7 @@ public class TravelPolicy : ConditionalPolicyBase
 
         //cap to timeshift
         var capped = timeBlock.CapAndCrop(context.Payload.Data.CurrentShift);
-        var rangeResult = capped.TimeRecords.Intersect(workHours.TimeRecords);
-        return rangeResult.ToTimeRange();
+        var rangeResult = capped.TimeRecords.Intersect(workHours.TimeRecords).ToTimeRange();
+        return rangeResult;
     }
 }

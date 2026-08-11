@@ -1,6 +1,7 @@
 ﻿
 
 using Hrms.Domain.Entities;
+using NPOI.SS.Formula.Functions;
 
 namespace DTR.Core;
 
@@ -14,7 +15,7 @@ public class CurrentDayDTRPayload
     {
         var shiftProvider = CreateShiftProvider(context, curEmployee, currentDate);
 
-        var currentShift = shiftProvider.GetCurrentShift(); 
+        var currentShift = shiftProvider.GetCurrentShift();
         //capture attendance
         var attendanceProvider = CreateAttendanceProvider(context, curEmployee, shiftProvider);
         var currentAtt = attendanceProvider.CurrentShiftAttendance();
@@ -29,6 +30,7 @@ public class CurrentDayDTRPayload
 
         //load travel attendance
         attendance.AddRange(SetTravelAttendance(currentTravel, curEmployee));
+        attendance = attendance.OrderByDescending(p => p.WorkDateTime).ToList();
 
         var payload = new DTRProcessorPayloadBuilder()
             .SetEmployee(curEmployee)
@@ -50,6 +52,7 @@ public class CurrentDayDTRPayload
             .SetDayOff(context.DayOffs)
             .SetDTRContext(context)
             .Build();
+
         payload.Provider.DtrContextModel = context;
         return payload;
 
@@ -59,9 +62,9 @@ public class CurrentDayDTRPayload
         EmployeeDTRRun curEmployee)
     {
         var atts = new List<Attendance>();
-        if ( currentTravel != null &&
+        if (currentTravel != null &&
             !currentTravel.IsManualEntry &&
-             currentTravel.StartTime.HasValue && 
+             currentTravel.StartTime.HasValue &&
              currentTravel.EndTime.HasValue)
         {
             atts.Add(
