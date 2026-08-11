@@ -30,7 +30,7 @@ public class CurrentDayDTRPayload
 
         //load travel attendance
         attendance.AddRange(SetTravelAttendance(currentTravel, curEmployee));
-        attendance = attendance.OrderByDescending(p => p.WorkDateTime).ToList();
+        attendance = attendance.OrderBy(p => p.WorkDateTime).ToList();
 
         var payload = new DTRProcessorPayloadBuilder()
             .SetEmployee(curEmployee)
