@@ -14,7 +14,8 @@ public class OverTimeApplication : BaseEntity
     public bool IsManualEntry { get; set; }
     public double OverTimeThreshold { get; set; } = 0;
     public string Remarks { get; set; } = string.Empty;
-    public ApprovalStatus OTStatus { get; set; }
+
+    public ApprovalStatus ApprovalStatus { get; set; }
 
 }
 

@@ -42,7 +42,7 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
       CancellationToken token)
     {
         var results = await GetQueryable(x =>
-                x.OTStatus == ApprovalStatus.Approved &&
+                x.ApprovalStatus == ApprovalStatus.Approved &&
                 x.OTDate >= from && x.OTDate <= to &&
                 employeeIds.Contains(x.EmployeeId))
             .GroupBy(a => new { a.EmployeeId, a.OTDate })

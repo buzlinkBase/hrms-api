@@ -115,6 +115,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     {
         var data = await _uow.Repository
                 .Find<LeaveApplication>(x => x.LeaveDateFrom >= fromDate
+                    && x.ApprovalStatus == ApprovalStatus.Approved
                     && x.LeaveDateTo <= toDate
                     && employeeIds.Contains(x.EmployeeId))
                  .GroupBy(a => new Leavekey(a.EmployeeId))

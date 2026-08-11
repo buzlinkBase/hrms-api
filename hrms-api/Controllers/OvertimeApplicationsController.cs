@@ -54,7 +54,7 @@ namespace Hrms.Api.Controllers
             var entities = _mapper.Map<List<OverTimeApplication>>(payload);
             foreach (var entity in entities)
             {
-                entity.OTStatus = ApprovalStatus.Approved;
+                entity.ApprovalStatus = ApprovalStatus.Approved;
                 await _service.AddAsync(entity, token);
             }
             return Ok(_mapper.Map<List<OvertimeApplicationModel>>(entities));

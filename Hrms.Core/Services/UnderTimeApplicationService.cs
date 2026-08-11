@@ -42,7 +42,7 @@ public class UnderTimeApplicationService : BaseService<UnderTimeApplication>
         CancellationToken token)
     {
         Dictionary<UTKey, UnderTimeApplication?> data = await _uow.Repository
-                 .Find<UnderTimeApplication>(x => x.OTStatus == ApprovalStatus.Approved &&
+                 .Find<UnderTimeApplication>(x => x.ApprovalStatus == ApprovalStatus.Approved &&
                  (x.PayrollDate >= from &&
                  x.PayrollDate <= to) &&
                  employeeIds.Contains(x.EmployeeId))

@@ -150,10 +150,8 @@ public class MappingProfile : IRegister
         config.NewConfig<TravelOrderApplication, TravelOrderApplicationModel>();
 
         config.NewConfig<CreateUnderTimeApplication, UnderTimeApplication>();
-        config.NewConfig<UpdateUnderTimeApplication, UnderTimeApplication>()
-            .Map(dest => dest.OTStatus, src => src.ApprovalStatus);
-        config.NewConfig<UnderTimeApplication, UnderTimeApplicationModel>()
-            .Map(dest => dest.ApprovalStatus, src => src.OTStatus);
+        config.NewConfig<UpdateUnderTimeApplication, UnderTimeApplication>();
+        config.NewConfig<UnderTimeApplication, UnderTimeApplicationModel>();
 
         // Income & Deductions
         config.NewConfig<CreateOtherIncome, OtherIncome>();

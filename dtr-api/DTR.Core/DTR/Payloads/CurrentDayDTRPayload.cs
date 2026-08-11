@@ -1,5 +1,7 @@
 ﻿
 
+using Hrms.Domain.Entities;
+
 namespace DTR.Core;
 
 public class CurrentDayDTRPayload
@@ -12,11 +14,7 @@ public class CurrentDayDTRPayload
     {
         var shiftProvider = CreateShiftProvider(context, curEmployee, currentDate);
 
-        var currentShift = shiftProvider.GetCurrentShift();
-        if (currentShift!.ShiftType == TimeShiftType.SPLIT)
-        {
-
-        }
+        var currentShift = shiftProvider.GetCurrentShift(); 
         //capture attendance
         var attendanceProvider = CreateAttendanceProvider(context, curEmployee, shiftProvider);
         var currentAtt = attendanceProvider.CurrentShiftAttendance();
@@ -28,6 +26,9 @@ public class CurrentDayDTRPayload
         var travelProvider = new TravelApplicationProvider(context.Travels, curEmployee);
         var currentLeave = leaveProvider.GetApplication(currentDate);
         var currentTravel = travelProvider.GetApplication(currentDate);
+
+        //load travel attendance
+        attendance.AddRange(SetTravelAttendance(currentTravel, curEmployee));
 
         var payload = new DTRProcessorPayloadBuilder()
             .SetEmployee(curEmployee)
@@ -52,6 +53,41 @@ public class CurrentDayDTRPayload
         payload.Provider.DtrContextModel = context;
         return payload;
 
+    }
+
+    private static List<Attendance> SetTravelAttendance(TravelOrderApplication? currentTravel,
+        EmployeeDTRRun curEmployee)
+    {
+        var atts = new List<Attendance>();
+        if ( currentTravel != null &&
+            !currentTravel.IsManualEntry &&
+             currentTravel.StartTime.HasValue && 
+             currentTravel.EndTime.HasValue)
+        {
+            atts.Add(
+                new Attendance
+                {
+                    BioId = curEmployee.BioId,
+                    BranchId = curEmployee.BranchId,
+                    ClientId = curEmployee.ClientId,
+                    DepartmentId = curEmployee.DepartmentId,
+                    OperationAreaId = curEmployee.AreaId,
+                    EmployeeId = curEmployee.Id,
+                    WorkDateTime = currentTravel.StartTime.Value,
+                });
+            atts.Add(
+               new Attendance
+               {
+                   BioId = curEmployee.BioId,
+                   BranchId = curEmployee.BranchId,
+                   ClientId = curEmployee.ClientId,
+                   DepartmentId = curEmployee.DepartmentId,
+                   OperationAreaId = curEmployee.AreaId,
+                   EmployeeId = curEmployee.Id,
+                   WorkDateTime = currentTravel.EndTime.Value,
+               });
+        }
+        return atts;
     }
     public static ICurrentShiftProvider CreateShiftProvider(DTRContextModel context, EmployeeDTRRun employee, DateOnly curDate)
     {

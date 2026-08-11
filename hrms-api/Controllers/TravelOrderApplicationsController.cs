@@ -54,7 +54,7 @@ namespace Hrms.Api.Controllers
             foreach (var item in payload)
             {
                 var data = _mapper.Map<TravelOrderApplication>(item);
-                data.Status = "Approved";
+                data.ApprovalStatus = ApprovalStatus.Approved;
                 await _service.AddAsync(data, token);
                 results.Add(_mapper.Map<TravelOrderApplicationModel>(data));
             }

@@ -9,6 +9,6 @@ public class UnderTimeApplication : BaseEntity
     public DateOnly PayrollDate { get; set; }
     public double UTMinutes { get; set; }
     public string Remarks { get; set; } = string.Empty;
-    public ApprovalStatus OTStatus { get; set; }
+    public ApprovalStatus ApprovalStatus  { get; set; }
 }
 

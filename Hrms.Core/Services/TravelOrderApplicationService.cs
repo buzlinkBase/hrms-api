@@ -35,7 +35,9 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         var data = await _uow.Repository
                 .Find<TravelOrderApplication>(x => x.StartDate >= fromDate
                     && x.EndDate <= toDate
-                    && employeeIds.Contains(x.EmployeeId))
+                    && employeeIds.Contains(x.EmployeeId)
+                    && x.ApprovalStatus == ApprovalStatus.Approved
+                    )
                  .GroupBy(a => new TravelKey(a.EmployeeId))
                  .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.StartDate).ToList(), token);
         ;

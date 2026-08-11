@@ -23,14 +23,18 @@ public class UndertimePolicy : ConditionalPolicyBase
             ledger.Record(ledgerKey, TimeRange.Empty);
             return TimeRange.Empty;
         }
-
+        var maxMinutes = shift.MaxWorkingMinutes;
         var finalReg = ledger.GetByTag("work_time", context);
         var finalLate = ledger.GetByTag("late", context);
-        var travelTime = ledger.GetByTag("travel", context);
 
-        var maxMinutes = shift.MaxWorkingMinutes;
-        var utMinutes = Math.Max(0, maxMinutes - travelTime.TotalMinutes - finalReg.TotalMinutes - finalLate.TotalMinutes);
+        //if travel time provided is only hours deduct it here
+        //if it provides actual timerange, it was already added as attendance in payload builder and let it run through pipelines
+        var currentTravel = context.Payload.Data.CurrentTravel;
+        var travelTime = currentTravel != null && currentTravel.IsManualEntry
+            ? ledger.GetByTag("travel", context).TotalMinutes
+            : 0;
 
+        var utMinutes = Math.Max(0, maxMinutes - travelTime - finalReg.TotalMinutes - finalLate.TotalMinutes);
         var result = utMinutes > 0 ? new TimeRange(utMinutes) : TimeRange.Empty;
         ledger.Record(ledgerKey, result);
         return result;

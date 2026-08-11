@@ -54,7 +54,7 @@ namespace Hrms.Api.Controllers
             foreach (var item in payload)
             {
                 var data = _mapper.Map<UnderTimeApplication>(item);
-                data.OTStatus = ApprovalStatus.Approved;
+                data.ApprovalStatus = ApprovalStatus.Approved;
                 await _service.AddAsync(data, token);
                 results.Add(_mapper.Map<UnderTimeApplicationModel>(data));
             }

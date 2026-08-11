@@ -21,6 +21,7 @@ public class TravelOrderApplication : BaseEntity
     public string Classification { get; set; } = string.Empty;
     public string Purpose { get; set; } = string.Empty;
     public double Cost { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; } 
     public virtual Employee? Employee { get; set; }
     public TravelOrderApplication()
     {

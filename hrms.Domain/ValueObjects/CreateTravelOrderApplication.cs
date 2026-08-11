@@ -15,15 +15,14 @@ public class CreateTravelOrderApplication
     public string Purpose { get; set; } = string.Empty;
     public double Cost { get; set; } = 0;
     public string? ApplicationRemarks { get; set; }
-
 }
 
 public class UpdateTravelOrderApplication : CreateTravelOrderApplication
 {
     public Guid Id { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; }= ApprovalStatus.Approved;
 }
 
 public class TravelOrderApplicationModel : UpdateTravelOrderApplication
 {
-    public string ApprovalStatus { get; set; } = "ForApproval";
 }

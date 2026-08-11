@@ -14,7 +14,7 @@ public class CreateOverTimeApplication
 public class UpdateOvertimeApplication : CreateOverTimeApplication
 {
     public Guid Id { get; set; }
-    public ApprovalStatus OTStatus { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; }
 }
 
 public class OvertimeApplicationModel : UpdateOvertimeApplication
@@ -23,5 +23,4 @@ public class OvertimeApplicationModel : UpdateOvertimeApplication
     public bool FlexiEndTime { get; set; }
     public bool PaidByNetDutyTime { get; set; }
     public double OverTimeThreshold { get; set; }
-    public DateTime CreatedAt { get; set; }
 }
