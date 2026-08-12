@@ -35,6 +35,17 @@ public class HrmsContext : DbContext, IDbContext
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
         modelBuilder.UseTenantAndDateFilter(_tenantProvider?.TenantId ?? Guid.Empty);
+
+        // Every query implicitly filters on TenantId + DeletedAt via the global query filter above,
+        // so every entity that carries them needs an index covering that filter.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(IEntityTenant).IsAssignableFrom(entityType.ClrType)) continue;
+            if (entityType.FindProperty(nameof(ITimeStamp.DeletedAt)) == null) continue;
+
+            modelBuilder.Entity(entityType.ClrType)
+                .HasIndex(nameof(IEntityTenant.TenantId), nameof(ITimeStamp.DeletedAt));
+        }
     }
 
     #region "dbsets" 

@@ -21,6 +21,18 @@ public class AdmsContext : DbContext
     {
         //modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
         modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
+
+        // Every query implicitly filters on TenantId + DeletedAt via the global query filter above,
+        // so every entity that carries them needs an index covering that filter.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(IEntityTenant).IsAssignableFrom(entityType.ClrType)) continue;
+            if (entityType.FindProperty(nameof(ITimeStamp.DeletedAt)) == null) continue;
+
+            modelBuilder.Entity(entityType.ClrType)
+                .HasIndex(nameof(IEntityTenant.TenantId), nameof(ITimeStamp.DeletedAt));
+        }
+
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
