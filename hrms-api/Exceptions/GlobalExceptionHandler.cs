@@ -18,6 +18,7 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             ValidationException => StatusCodes.Status400BadRequest,
             UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
             UnauthorizedException => StatusCodes.Status401Unauthorized,
+            NotFoundException => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status500InternalServerError,
         };
 

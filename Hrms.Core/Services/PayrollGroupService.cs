@@ -58,6 +58,10 @@ public class PayrollGroupService : BaseService<PayrollGroup>
         var existing = await Context.PayrollGroups
             .Include(x => x.CutoffDays)
             .FirstOrDefaultAsync(x => x.Id == payload.Id, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

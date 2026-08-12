@@ -18,6 +18,10 @@ public class PositionService : BaseService<Position>
     public async Task UpdateAsync(UpdatePosition payload, CancellationToken token)
     {
         var existing = await Context.Positions.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

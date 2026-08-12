@@ -24,6 +24,10 @@ public class HDMFService : BaseService<HDMFTable>
     public async Task UpdateAsync(UpdateHDMF payload, CancellationToken token)
     {
         var existing = await Context.GovHDMFs.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         if (existing != null)
         {

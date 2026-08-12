@@ -59,6 +59,10 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     public async Task UpdateAsync(UpdateLeaveApplication payload, CancellationToken token)
     {
         var existing = await Context.leaveApplications.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await AddDetailAsync(existing, token);

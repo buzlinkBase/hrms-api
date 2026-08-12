@@ -17,6 +17,10 @@ public class RateTableService : BaseService<RateTable>
     public async Task UpdateAsync(UpdateRateTable payload, CancellationToken token)
     {
         var existing = await Context.PremiumRates.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         existing.Description = payload.Type.ToString();
         await ModifyAsync(existing, token);

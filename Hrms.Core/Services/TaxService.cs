@@ -25,6 +25,10 @@ public class TaxService : BaseService<TaxTable>
     public async Task UpdateAsync(UpdateWax payload, CancellationToken token)
     {
         var existing = await Context.GovTaxes.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         if (existing != null)
         {

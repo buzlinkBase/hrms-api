@@ -6,11 +6,8 @@ namespace Hrms.Core.Services;
 
 public class BranchService : BaseService<Branch>
 {
-    private readonly IMapper _mapper;
-    public BranchService(IUnitOfWorkService service,
-        IMapper mapper) : base(service)
+    public BranchService(IUnitOfWorkService service) : base(service)
     {
-        _mapper = mapper;
     }
 
     protected override async Task<EvaluationResult> CreateValidatorAsync(Branch model, CancellationToken token)
@@ -42,7 +39,11 @@ public class BranchService : BaseService<Branch>
     public async Task UpdateAsync(UpdateBranch payload, CancellationToken token)
     {
         var existing = await Context.Branches.FindAsync(new object[] { payload.Id }, token);
-        payload.Adapt(existing, _mapper.Config);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
+        payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }

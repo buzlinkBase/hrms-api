@@ -25,6 +25,10 @@ public class SSSService : BaseService<SSSTable>
     public async Task UpdateAsync(UpdateSSS payload, CancellationToken token)
     {
         var existing = await Context.GovSSSes.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         if (existing != null)
         {

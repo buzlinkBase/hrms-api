@@ -38,6 +38,10 @@ public class DepartmentService : BaseService<Department>
     public async Task UpdateAsync(UpdateDepartment payload, CancellationToken token)
     {
         var existing = await Context.Departments.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

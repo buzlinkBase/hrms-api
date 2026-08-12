@@ -134,7 +134,7 @@ public class EmployeeService : BaseService<Employee>
 
         if (existing == null)
         {
-            throw new Exception("Record not found");
+            throw new NotFoundException("Record not found");
         }
         existing.RestDays.Clear();
         payload.Adapt(existing);

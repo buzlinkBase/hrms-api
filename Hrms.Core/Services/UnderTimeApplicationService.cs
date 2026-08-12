@@ -16,6 +16,10 @@ public class UnderTimeApplicationService : BaseService<UnderTimeApplication>
     public async Task UpdateAsync(UpdateUnderTimeApplication payload, CancellationToken token)
     {
         var existing = await Context.UTApplications.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

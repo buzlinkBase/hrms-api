@@ -17,6 +17,10 @@ public class SalaryAdjustmentService : BaseService<SalaryAdjustment>
     public async Task UpdateAsync(UpdateSalaryAdjustment payload, CancellationToken token)
     {
         var existing = await Context.Set<SalaryAdjustment>().FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

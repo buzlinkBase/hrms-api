@@ -40,6 +40,10 @@ public class TimeShiftService : BaseService<TimeShift>
     {
         var effectiveId = (payload.Id ?? Guid.Empty) == Guid.Empty ? id : payload.Id.Value;
         var existing = await Context.TimeShifts.FindAsync(new object[] { effectiveId }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

@@ -16,6 +16,10 @@ public class EmployeeRecordService : BaseService<EmployeeRecord>
     public async Task UpdateAsync(UpdateEmployeeRecord payload, CancellationToken token)
     {
         var existing = await Context.EmployeeRecords.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

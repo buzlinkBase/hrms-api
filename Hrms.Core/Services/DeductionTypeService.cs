@@ -16,6 +16,10 @@ public class DeductionTypeService : BaseService<DeductionType>
     public async Task UpdateAsync(UpdateDeductionType payload, CancellationToken token)
     {
         var existing = await Context.DeductionTypes.FindAsync(new object[] { payload.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

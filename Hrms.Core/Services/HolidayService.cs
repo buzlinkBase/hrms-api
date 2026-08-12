@@ -22,6 +22,10 @@ public class HolidayService : BaseService<Holiday>
     public async Task<HolidayModel> UpdateAsync(UpdateHoliday model, CancellationToken token)
     {
         var existing = await Context.Holidays.FindAsync(new object[] { model.Id }, token);
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
         model.Adapt(existing);
         existing.HolYear = model.HolDate.Year;
         await ModifyAsync(existing, token);

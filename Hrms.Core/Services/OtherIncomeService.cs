@@ -17,7 +17,11 @@ public class OtherIncomeService : BaseService<OtherIncome>
     public async Task UpdateAsync(UpdateOtherIncome payload, CancellationToken token)
     {
         var existing = await Context.Allowances.FindAsync(new object[] { payload.Id }, token);
-        var wasTaxable = existing!.IsTaxable;
+        if (existing == null)
+        {
+            throw new NotFoundException("Record not found");
+        }
+        var wasTaxable = existing.IsTaxable;
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await UpdateIsTaxableAsync(wasTaxable, existing, token);
