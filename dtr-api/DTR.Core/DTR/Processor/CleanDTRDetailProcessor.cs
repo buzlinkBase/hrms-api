@@ -61,6 +61,7 @@ public class DailyRecordBuilder
     {
         var currentAtt = context.Payload.Data.CurrentAttendance.FirstOrDefault();
         var emp = context.Payload.Data.Employee;
+        var actualTs = TimeRangeCalculator.GetTimeRange(context.Payload.Data.CurrentAttendance.Where(x=>!x.IsVirtual).ToList());
         var dtr = new DTRDetailModel
         {
             ShiftWorkingHour = context.Payload.Data.CurrentShift.MaxWorkingMinutes / 60,
@@ -74,8 +75,8 @@ public class DailyRecordBuilder
             ShiftName = context.Payload.Data.CurrentShift.ShiftName,
             ShiftStartTime = context.Payload.Data.CurrentShift.StartTime,
             ShiftEndTime = context.Payload.Data.CurrentShift.EndTime,
-            StartTime = context.CanonicalTimeRange.TimeRecords.MinBy(x => x.StartTime)?.StartTime,
-            EndTime = context.CanonicalTimeRange.TimeRecords.MaxBy(x => x.EndTime)?.EndTime,
+            StartTime = actualTs.TimeRecords.MinBy(x => x.StartTime)?.StartTime,
+            EndTime = actualTs.TimeRecords.MaxBy(x => x.EndTime)?.EndTime,
             WorkType = StringHelpers.AddSpacesBeforeCaps(workType.ToString()).Trim(),
             WorkTypeEnum = workType,
 
