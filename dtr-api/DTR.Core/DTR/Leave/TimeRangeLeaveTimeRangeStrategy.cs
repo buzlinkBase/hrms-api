@@ -14,7 +14,7 @@ public sealed class TimeRangeLeaveTimeRangeStrategy : ILeaveTimeRangeStrategy
     public TimeRange ComputeTimeRange(LeaveApplication application, TimeContext context)
     {
         // 1. Guard against null application and missing time parameters
-        if (application == null || !application.StartTime.HasValue || !application.EndTime.HasValue)
+        if (application == null)
             return TimeRange.Empty;
 
         // 2. Safe navigation of context graph
@@ -51,6 +51,8 @@ public sealed class TimeRangeLeaveTimeRangeStrategy : ILeaveTimeRangeStrategy
             {
                 StartTime = start,
                 EndTime   = end,
+                IsVirtual =  true,
+                IsLeave = true
             }
         };
 

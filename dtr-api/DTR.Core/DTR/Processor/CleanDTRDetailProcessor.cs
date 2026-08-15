@@ -84,7 +84,7 @@ public class DailyRecordBuilder
             OverMinutes = pipeline.Overbreak.TotalMinutes,
             LateForOTMinutes = 0,
             OBHours = pipeline.Travel.TotalMinutes.ToHour(),
-            LeaveHours = 0,
+            LeaveHours = pipeline.Leave.TotalMinutes.ToHour(),
             CreditsSpent = ResolveCreditsSpent(workType, context.Payload.Data.CurrentLeave),
             AbsentCount = workType == WorkType.Absent ? 1 : 0,
 
