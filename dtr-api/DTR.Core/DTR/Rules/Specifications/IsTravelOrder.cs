@@ -8,3 +8,11 @@ public class IsTravelOrder : IRuleSpecification
         return application != null;
     }
 }
+public class IsLeaved  : IRuleSpecification
+{
+    public bool IsSatisfiedBy(TimeRange input, TimeContext context)
+    {
+        var application = context.Payload.Data.CurrentLeave;
+        return application != null;
+    }
+}

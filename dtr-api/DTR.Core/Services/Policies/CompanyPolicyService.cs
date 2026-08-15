@@ -12,8 +12,8 @@ public class CompanyPolicyRule
     public ManualEntryLimitEnum AttFillLimit { get; set; }
     public HolidayTimeBasis HolidayTimeBasis { get; set; }
     public bool IsHolPlusReg { get; set; }
-    public HolidayCreditMode HolidayColumnPresentation { get; set; }
 }
+
 public class CompanyPolicyService
 {
     public CompanyPolicyRule Transform(Dictionary<string, GeneralSettingModel> data)
@@ -27,7 +27,6 @@ public class CompanyPolicyService
         AutoFillLimit(policy, data);
         SetHolidayComputationBasis(policy, data);
         SetIsHolidayAddedInHolidayColumn(policy, data);
-        SetHolidayColumnPresentation(policy, data);
         return policy;
     }
 
@@ -117,15 +116,5 @@ public class CompanyPolicyService
             var settingvalue = GeneralSettingsUtil.ParseBool(IsHolPlusReg.Value, false);
             policy.IsHolPlusReg = settingvalue;
         }
-    }
-
-    private void SetHolidayColumnPresentation(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
-    {
-        policy.HolidayColumnPresentation = HolidayCreditMode.NoCredit;
-        if (data.TryGetValue(SettingKey.HolidayColumnPresentation.ToString(), out GeneralSettingModel? hol))
-        {
-            var settingvalue = GeneralSettingsUtil.ParseEnum(hol.Value, HolidayCreditMode.NoCredit);
-            policy.HolidayColumnPresentation = settingvalue;
-        }
-    }
+    } 
 }

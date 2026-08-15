@@ -14,6 +14,13 @@ internal static class CommonExtensions
         var holiday = new IsHolidaySpec(HolidayType.LEGAL);
         return holiday.IsSatisfiedBy(context.CanonicalTimeRange, context);
     }
+
+    internal static bool IsDoubleHoliday(this TimeRange plus8)
+    {
+        var holCount = plus8.GetMetaData<int>("HolidayCount");
+        return holCount > 1;
+    }
+
     internal static bool IsSpecialHoliday(this TimeContext context)
     {
         var holiday = new IsHolidaySpec(HolidayType.SPECIAL);
@@ -37,7 +44,7 @@ internal static class CommonExtensions
 
         var result = GetCurrentSpecialHoliday(context)?.WorkType == HolidayWorkType.NonWorking;
         context.Payload.SharedSpecCache.RecordTag(nameof(IsSpecialNonWorking), context, result);
-        return result; 
+        return result;
     }
 
     private static HolidayInfo? GetCurrentSpecialHoliday(TimeContext context)

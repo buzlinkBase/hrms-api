@@ -30,6 +30,7 @@ public class DailyRecord : BaseEntity, IUserField
     public int HolCount { get; set; } = 0;
     public int SPCount { get; set; } = 0;
     public double LeaveHours { get; set; }
+    public double CreditsSpent { get; set; }
 
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }
@@ -60,6 +61,21 @@ public class DailyRecord : BaseEntity, IUserField
     public double RestSpecialDayOTHours { get; set; }
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
+
+    public double SpecialWorkDayHours { get; set; }
+    public double SpecialWorkDayOTHours { get; set; }
+    public double SpecialWorkDayNDHours { get; set; }
+    public double SpecialWorkDayNDOTHours { get; set; }
+
+    public double DoubleLegalHours { get; set; }
+    public double DoubleLegalOTHours { get; set; }
+    public double DoubleLegalNDHours { get; set; }
+    public double DoubleLegalNDOTHours { get; set; }
+
+    public double RestDoubleLegalHours { get; set; }
+    public double RestDoubleLegalOTHours { get; set; }
+    public double RestDoubleLegalNDHours { get; set; }
+    public double RestDoubleLegalNDOTHours { get; set; }
 
     public string Note { get; set; } = string.Empty;
 

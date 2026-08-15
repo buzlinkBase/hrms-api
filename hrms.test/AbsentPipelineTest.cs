@@ -78,12 +78,12 @@ public static class AbsentTestHelpers
         };
     }
 
-    public static PayrollContext CreatePayrollContextForAbsentWithLeave(decimal dailyRate = 1000, LeaveDayType dayType = LeaveDayType.WholeDay)
+    public static PayrollContext CreatePayrollContextForAbsentWithLeave(decimal dailyRate = 1000, DayFraction dayFraction = DayFraction.FullDay)
     {
         var empId = Guid.NewGuid();
         var pdate = DateOnly.FromDateTime(DateTime.Today);
         var leaveId = Guid.NewGuid();
-        var leave = LeaveHelper.CreateLeave(empId, leaveId, dayType, PayType.WithPay, pdate);
+        var leave = LeaveHelper.CreateLeave(empId, leaveId, dayFraction, PayType.WithPay, pdate);
         return new PayrollContext
         {
             Employee = new EmployeeModelPayrollRun

@@ -149,13 +149,21 @@ public enum DayType
     RESTDAY,
     REGULAR,
     REGULAR_OT,
-    LEGAL_HOLIDAY_OVERTIME,
-    SPECIAL_HOLIDAY_OVERTIME,
+    REST_OT, 
+    LEGAL,
+    LEGAL_OT,
+    SPECIAL, 
+    SPECIAL_OT,
     NIGHT_DIFF,
     NONHOLIDAY,
     RESTLEGAL,
+    RESTLEGAL_OT,
     RESTSPECIAL, 
-    REST_HOL_OT,
+    RESTSPECIAL_OT,  
+    DOUBLE_LEGAL,
+    DOUBLE_LEGAL_OT,
+    RESTDOUBLE_LEGAL,
+    RESTDOUBLE_LEGAL_OT,
 }
 
 //public enum ATT_TYPE
@@ -206,10 +214,18 @@ public enum PayType
     WithoutPay
 }
 
-public enum LeaveDayType
+public enum DurationType
 {
-    WholeDay,
-    HalfDay
+    SingleDay,
+    MultiDay,
+    Partial
+}
+
+public enum DayFraction
+{
+    FullDay,
+    AM,
+    PM
 }
 //public enum TravelDayType
 //{
@@ -227,9 +243,32 @@ public enum PaySource
 {
     Company,       // employer-funded
     Government,    // statutory/SSS-funded
-    //Shared,        // employer advances, reimbursed by government
+    Shared,        // employer advances, government reimburses (e.g. SSS Maternity)
     Unpaid,        // no pay
     Other
+}
+
+public enum AccrualBasis
+{
+    None,          // manual / lump-sum grant; Credits field is the entitlement
+    Monthly,       // AccrualRate days earned each month
+    Annually,      // AccrualRate days earned at period start/end
+    PerPayPeriod,  // AccrualRate days earned each payroll cycle
+    PerEvent,      // full Credits granted on qualifying event (childbirth, illness, etc.)
+}
+
+public enum CarryOverType
+{
+    Forfeit,    // unused balance is lost at period end
+    Unlimited,  // entire balance carries over
+    Capped,     // up to CarryOverMaxDays carries over; excess forfeited
+}
+
+public enum GenderRestriction
+{
+    None,
+    MaleOnly,
+    FemaleOnly,
 }
 
 
@@ -258,6 +297,7 @@ public enum LeaveType
 
 public enum RateType
 {
+    // ── Building-block multipliers (kept for payroll pipeline) ────────────────
     REGULAR,
     NIGHTDIFF,
     OVERTIME,
@@ -267,6 +307,53 @@ public enum RateType
     SPECIAL_WORKING,
     SPECIAL_NON_WORKING,
     RESTDAY_SPECIAL,
+
+    // ── Compound DTR-column rates (hours × rate = pay amount) ─────────────────
+    // Regular
+    REG,
+    REG_OT,
+    REG_ND,
+    REG_ND_OT,
+    // Rest Day
+    RD,
+    RD_OT,
+    RD_ND,
+    RD_ND_OT,
+    // Legal Holiday (worked)
+    LH,
+    LH_OT,
+    LH_ND,
+    LH_ND_OT,
+    // Special Non-Working Holiday (worked)
+    SH,
+    SH_OT,
+    SH_ND,
+    SH_ND_OT,
+    // Rest Day + Legal Holiday
+    RD_LH,
+    RD_LH_OT,
+    RD_LH_ND,
+    RD_LH_ND_OT,
+    // Rest Day + Special Non-Working Holiday
+    RD_SH,
+    RD_SH_OT,
+    RD_SH_ND,
+    RD_SH_ND_OT,
+    // Special Working Holiday (same multiplier as regular)
+    SW,
+    SW_OT,
+    SW_ND,
+    SW_ND_OT,
+    // Double Legal Holiday (worked)
+    DLH,
+    DLH_OT,
+    DLH_ND,
+    DLH_ND_OT,
+    // Rest Day + Double Legal Holiday
+    RD_DLH,
+    RD_DLH_OT,
+    RD_DLH_ND,
+    RD_DLH_ND_OT,
 }
 
 public enum ApprovalStatus
@@ -275,6 +362,20 @@ public enum ApprovalStatus
     Approved,
     Cancelled,
     Declined
+}
+
+public enum LedgerEntryType
+{
+    Grant,          // initial credit grant at period start or per-event
+    Accrual,        // auto-accrual (monthly / annually / per pay period)
+    CarryOver,      // balance rolled over from a previous period
+    Reserved,       // Phase 1: soft hold placed on balance when leave is approved
+    Released,       // soft hold lifted (cancelled before DTR, or DTR post released delta)
+    Deduction,      // Phase 2: DTR-confirmed actual days consumed after batch is posted
+    Reversal,       // Deduction undone (leave cancelled/declined after DTR was already posted)
+    Expiry,         // balance forfeited at period end (forfeit / cap policy)
+    Adjustment,     // manual HR correction
+    CashConversion, // balance paid out as cash (monetization)
 }
 
 
@@ -297,11 +398,7 @@ public enum OvertimeEligibilityRule
     OffsetAgainstUndertimeOrLateness,
     IndependentOfAttendanceIssues,
 }
-public enum HolidayCreditMode
-{
-    AutoCredit,
-    NoCredit,
-}
+
 public enum RecordStatus
 {
     Active,

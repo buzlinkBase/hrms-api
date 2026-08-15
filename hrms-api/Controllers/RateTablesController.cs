@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Hrms.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -13,11 +14,15 @@ namespace Hrms.Api.Controllers
     public class RateTablesController : ControllerBase
     {
         private readonly RateTableService _service;
+        private readonly AccountInitService _accountInitService;
         private readonly IMapper _mapper;
 
-        public RateTablesController(RateTableService service, IMapper mapper)
+        public RateTablesController(RateTableService service,
+            AccountInitService accountInitService,
+            IMapper mapper)
         {
             _service = service;
+            _accountInitService = accountInitService;
             _mapper = mapper;
         }
 
@@ -47,6 +52,17 @@ namespace Hrms.Api.Controllers
             var respModel = _mapper.Map<RateTableModel>(data);
             return Ok(respModel);
         }
+
+        [HttpPost("insert-default")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
+        public async Task<IActionResult> AddDefault(CancellationToken token)
+        {
+            await _accountInitService.Create(token);
+            await _accountInitService.CommitChangesAsync(token);
+            return NoContent();
+        }
+
 
         [HttpPut("{id}")]
         [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]

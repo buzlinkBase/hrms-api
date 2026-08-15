@@ -4,62 +4,115 @@ namespace Hrms.Domain.Entities;
 
 public class Leave : BaseEntity
 {
-    public string Code { get; set; } = string.Empty; // e.g. "MAT"
-    public string? Category { get; set; } // e.g. Statutory, Company
-    public string Description { get; set; } = string.Empty; // e.g. "Maternity Leave" 
-    public double Credits { get; set; } // default entitlement 
-    public PaySource PaySource { get; set; }
-    public LeaveReset LeaveReset { get; set; } = LeaveReset.PerPeriod;
+    // ── Identification ────────────────────────────────────────────────────────
+    public string Code { get; set; } = string.Empty;
+    public string? Category { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public string LegalBasis { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
+
+    // ── Pay & Source ──────────────────────────────────────────────────────────
+    public PaySource PaySource { get; set; } = PaySource.Company;
+    public bool EmployerAdvancesPayment { get; set; }
+
+    // ── Accrual ───────────────────────────────────────────────────────────────
+    public AccrualBasis AccrualBasis { get; set; } = AccrualBasis.None;
+    public double Credits { get; set; }               // lump-sum entitlement (AccrualBasis.None/PerEvent)
+    public double AccrualRate { get; set; }           // days earned per accrual period
+    public double? MaxAccrualBalance { get; set; }    // null = uncapped
+    public bool ProRateFirstYear { get; set; }
+    public LeaveReset LeaveReset { get; set; } = LeaveReset.PerPeriod;
+
+    // ── Eligibility ───────────────────────────────────────────────────────────
+    public int MinServiceMonths { get; set; }         // 0 = immediately eligible
+    public GenderRestriction GenderRestriction { get; set; } = GenderRestriction.None;
+    public bool RequiresApproval { get; set; } = true;
+    public bool RequiresSupportingDocument { get; set; }
+
+    // ── Application Rules ─────────────────────────────────────────────────────
+    public bool AllowHalfDay { get; set; } = true;
+    public bool AllowPartial { get; set; }            // time-based (hours) leave
+    public bool AllowNegativeBalance { get; set; }    // advance leave
+    public double? MaxDaysPerYear { get; set; }       // annual cap (null = unlimited)
+    public int? MaxConsecutiveDays { get; set; }      // per-application cap
+
+    // ── Carry-Over ────────────────────────────────────────────────────────────
+    public CarryOverType CarryOverType { get; set; } = CarryOverType.Forfeit;
+    public double CarryOverMaxDays { get; set; }
+    public int? CarryOverExpiryMonths { get; set; }
+
+    // ── Cash Conversion ───────────────────────────────────────────────────────
+    public bool ConvertToCash { get; set; }
+    public decimal CashConversionRate { get; set; } = 1.0m;
+    public double? MaxCashConversionDays { get; set; }
+
+    // ── Statutory ─────────────────────────────────────────────────────────────
+    public bool IsStatutory { get; set; }
 }
 
 public class LeaveApplication : BaseEntity
 {
     public Guid LeaveId { get; set; }
+    public required virtual Leave Leave { get; set; }
     public Guid EmployeeId { get; set; }
+    public DurationType DurationType { get; set; } = DurationType.SingleDay;
     public DateOnly LeaveDateFrom { get; set; }
     public DateOnly LeaveDateTo { get; set; }
-    public LeaveDayType DayType { get; set; } = LeaveDayType.WholeDay;
+    public DayFraction DayFraction { get; set; } = DayFraction.FullDay;
     public PayType PayType { get; set; } = PayType.WithPay;
+    public bool IsManualEntry { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
+    public double TotalMinutes { get; set; }
     public ApprovalStatus ApprovalStatus { get; set; }
     public int? ReviewedBy { get; set; }
     public DateTime? ReviewedOn { get; set; }
     public string? ApplicationRemarks { get; set; }
+    public string? SupportingDocumentUrl { get; set; }
     public int? AuditTrailId { get; set; }
-    public virtual ICollection<LeaveApplicationDetail> Details { get; set; } = new List<LeaveApplicationDetail>();
-}
-
-public class LeaveApplicationDetail : BaseEntity
-{
-    public Guid ApplicationId { get; set; }
-    public DateOnly LeaveDate { get; set; }
-    public virtual LeaveApplication Application { get; set; }
 }
 
 public class LeaveCredits : BaseEntity
 {
-    //validity
+    // ── Period ────────────────────────────────────────────────────────────────
+    public int PeriodYear { get; set; }         // e.g. 2025
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
 
+    // ── Ownership ─────────────────────────────────────────────────────────────
     public Guid EmployeeId { get; set; }
+    public virtual Employee Employee { get; set; } = null!;
     public Guid LeaveId { get; set; }
-    public decimal Credits { get; set; }
-    public decimal Balance { get; set; }
+    public virtual Leave Leave { get; set; } = null!;
 
+    // ── Balance ───────────────────────────────────────────────────────────────
+    public decimal Granted { get; set; }        // total days credited this period (grants + accruals + carry-overs)
+    public decimal Used { get; set; }           // total days consumed by DTR-confirmed deductions
+    public decimal Balance { get; set; }        // Granted − Used (authoritative hard balance)
+    public decimal Reserved { get; set; }       // Phase 1 soft hold: approved-but-not-yet-DTR-posted days
+    public decimal AvailableToFile => Balance - Reserved; // what the employee can actually file against
 }
 
 public class LeaveLedger : BaseEntity
 {
+    // ── Ownership ─────────────────────────────────────────────────────────────
     public Guid EmployeeId { get; set; }
-    public virtual Employee Employee { get; set; }
+    public virtual Employee Employee { get; set; } = null!;
     public Guid LeaveId { get; set; }
-    public DateOnly EntryDate { get; set; }
-    public decimal Add { get; set; }
-    public decimal Less { get; set; }
-    public decimal Balance { get; set; }
-    public string Particulars { get; set; } = string.Empty;
-    public Guid LeaveCreditsId { get; set; } //  fk for credits
-    public Guid? ReferenceApplicationId { get; set; } // link to LeaveApplication
+    public virtual Leave Leave { get; set; } = null!;
+    public Guid LeaveCreditsId { get; set; }
+    public virtual LeaveCredits LeaveCredits { get; set; } = null!;
 
+    // ── Entry ─────────────────────────────────────────────────────────────────
+    public LedgerEntryType EntryType { get; set; }
+    public DateOnly EntryDate { get; set; }
+    public decimal Add { get; set; }            // days credited (Grant, Accrual, CarryOver, Reversal, Adjustment+)
+    public decimal Less { get; set; }           // days debited  (Deduction, Expiry, CashConversion, Adjustment-)
+    public decimal Balance { get; set; }        // running balance after this entry
+    public string Particulars { get; set; } = string.Empty;
+
+    // ── Reference ─────────────────────────────────────────────────────────────
+    public Guid? ReferenceApplicationId { get; set; }
+    public virtual LeaveApplication? Application { get; set; }
+    public string? DtrBatchCode { get; set; }   // set on Phase 2 Deduction/Released entries — links ledger to the DTR batch
 }

@@ -66,11 +66,12 @@ public class PayrollRangeContextComposerService
 
         try
         {
-            var empIds = employees.Select(x => x.Id).ToList();
+            var hasEmpIds = employees.Select(x => x.Id).ToHashSet();
+            var empIds = hasEmpIds.ToList();
 
             // 2. Start all tasks in parallel (I/O Bound)
             var ratesTask = _rateTableService.FindAllAsync(token);
-            var leavesTask = _leaveService.FindLeaveDetailsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var leavesTask = _leaveService.FindByDateRangeAsync(dtrPayload.FromDate, dtrPayload.ToDate, hasEmpIds, token);
             var leaveCreditsTask = _leaveLedgerService.LoadCreditsAsync(empIds, token);
             var otherIncomeTask = _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var deductionsTask = _deductionService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);

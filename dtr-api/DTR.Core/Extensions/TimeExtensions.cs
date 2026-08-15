@@ -25,7 +25,11 @@ public static class TimeExtensions
         return range == null || range.TotalMinutes <= 0;
     }
     public static TimeRecord Tag(this TimeRecord r, string label)
-    => new(r.StartTime, r.EndTime, label);
+        => new(r.StartTime, r.EndTime, label, r.IsVirtual, r.IsLeave);
+
+    public static TimeRecordCollection ExcludeLeave(this TimeRecordCollection source) =>
+        new TimeRecordCollection(source.Where(r => !r.IsLeave));
+
     public static TimeRecordCollection Retag(this TimeRecordCollection source, string newTag)
     {
         if (string.IsNullOrWhiteSpace(newTag) || source == null || source.Count == 0)

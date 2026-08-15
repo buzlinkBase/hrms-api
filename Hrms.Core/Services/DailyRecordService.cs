@@ -11,14 +11,18 @@ public class DailyRecordService : BaseService<DailyRecord>
     private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
     private readonly ILogger<DailyRecordService> _logger;
+    private readonly LeaveDtrReconciliationService _reconciliation;
+
     public DailyRecordService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
         IMapper mapper,
-        ILogger<DailyRecordService> logger) : base(uow)
+        ILogger<DailyRecordService> logger,
+        LeaveDtrReconciliationService reconciliation) : base(uow)
     {
-        _config = config;
-        _mapper = mapper;
-        _logger = logger;
+        _config         = config;
+        _mapper         = mapper;
+        _logger         = logger;
+        _reconciliation = reconciliation;
     }
     public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token)
     {
@@ -74,6 +78,67 @@ public class DailyRecordService : BaseService<DailyRecord>
         Expression<Func<DailyRecord, bool>> expression = x => true;
 
         return expression;
+    }
+
+    public async Task PostAsync(string batchCode, CancellationToken token)
+    {
+        var records = await _uow.Repository
+            .Find<DailyRecord>(x => x.BatchCode == batchCode && !x.Posted)
+            .ToListAsync(token);
+
+        foreach (var r in records)
+            r.Posted = true;
+
+        // Phase 2: convert approval-time reservations into authoritative deductions
+        // using CreditsSpent already set by the DTR computation engine.
+        await _reconciliation.ConsumeReservationsAsync(batchCode, records, token);
+
+        await CommitChangesAsync(token);
+        _logger.LogInformation("DTR posted: batch {BatchCode} ({Count} records)", batchCode, records.Count);
+    }
+
+    public async Task UnpostAsync(string batchCode, CancellationToken token)
+    {
+        var records = await _uow.Repository
+            .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
+            .ToListAsync(token);
+
+        foreach (var r in records)
+        {
+            r.Posted       = false;
+            r.CreditsSpent = 0;
+        }
+
+        // Reverse Phase 2 credit deductions; restores reservations for still-approved leaves
+        await _reconciliation.ReverseConsumptionAsync(batchCode, token);
+
+        await CommitChangesAsync(token);
+        _logger.LogInformation("DTR unposted: batch {BatchCode} ({Count} records)", batchCode, records.Count);
+    }
+
+    // Unpost individual records by employee + date range (used when a leave status changes
+    // after the DTR for that period was already posted).
+    public async Task<int> UnpostByDateRangeAsync(Guid employeeId, DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var records = await _uow.Repository
+            .Find<DailyRecord>(x =>
+                x.EmployeeId == employeeId &&
+                x.WorkDate   >= from        &&
+                x.WorkDate   <= to          &&
+                x.Posted)
+            .ToListAsync(token);
+
+        if (records.Count == 0) return 0;
+
+        foreach (var r in records)
+        {
+            r.Posted       = false;
+            r.CreditsSpent = 0;
+        }
+
+        // Caller is responsible for CommitChangesAsync so this can be batched
+        // with other changes in the same unit of work.
+        return records.Count;
     }
 
     public async Task<List<BatchesModel>> GetBatches(DateOnly fromDate, DateOnly toDate, CancellationToken token)
@@ -140,6 +205,7 @@ public class DailyRecordService : BaseService<DailyRecord>
                 RestSpecialDayNDOTHours = x.Sum(xx => xx.RestSpecialDayNDOTHours),
                 RestSpecialDayOTHours = x.Sum(xx => xx.RestSpecialDayOTHours),
                 AbsentCount = x.Sum(x => x.AbsentCount),
+                LeaveHours = x.Sum(x => x.LeaveHours),
             })
             .OrderBy(x => x.FullName)
             .ToListAsync(token);

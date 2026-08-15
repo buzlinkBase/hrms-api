@@ -2,12 +2,11 @@
 
 namespace DTR.Core.DTR.DisplayRule.ColumnsViewRule.DisplayRules;
 
-internal class HolidayToRegularRule : IColumnDisplayRule
+internal class HolidayPlusRegularRule : IColumnDisplayRule
 {
-    public HolidayToRegularRule()
+    public HolidayPlusRegularRule()
     {
     }
-
     public TimeRange ApplyRules(DisplayContext context)
     {
         var regular = context.PipeLineResult.Regular;

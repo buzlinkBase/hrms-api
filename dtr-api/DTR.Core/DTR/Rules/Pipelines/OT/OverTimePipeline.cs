@@ -9,7 +9,6 @@ public class OverTimePipeline
     }
     public TimeRange Apply(TimeRange cannonicalTimeRange)
     {
-
         var ledger = _context.Payload.Ledger;
         var key = TimeRangeLedger.CreateKey("FinalOT", _context);
         var cached = _context.Payload.Ledger.GetByKey(key);
@@ -18,11 +17,8 @@ public class OverTimePipeline
             return cached.Value ?? TimeRange.Empty;
         }
 
-        //check if rendered 8hr
         if (IsRequire8HourWork())
         {
-            //TODO update settings change label to workhours
-            //check if employee rendered the required hours
             var workTime = _context.Payload.Ledger.GetByTag("work_time", _context);
             var reach8hr = workTime.TotalMinutes >= _context.Payload.Data.CurrentShift.MaxWorkingMinutes;
             if (!reach8hr)

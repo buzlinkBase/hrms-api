@@ -6,15 +6,16 @@ internal class LeavePolicy : PayrollPolicyBase<LineCollection<BasicPipelineData>
     //HOLIDAY PAY IF THEY ARE ELIGIBLE
     //.AndNot(new IsRegularHoliday())
     public LeavePolicy() : base(new IsLeave()
-        .AndNot(new IsRegularHoliday())
-        //.AndNot(new IsSpecialNonWorkingDuty())
+        .AndNot(new IsLegalHolidayDay())
+        .AndNot(new IsSpecialNonWorkingDay())
+        .AndNot(new IsRestDayType())
         .And(new IsEligibleForLeaveCredits()))
     { }
 
 
     public override LineCollection<BasicPipelineData> ApplyIfSatisfied(LineCollection<BasicPipelineData> linecollection, PayrollContext context)
     {
-        var key = new EmployeePayDateKey(context.Employee.Id, context.PayrollDate);
+        var key = new Leavekey(context.Employee.Id);
         // No leave records for this employee/pay date
         if (!context.Payload.Leaves.TryGetValue(key, out var leaves) || leaves == null || !leaves.Any())
             return linecollection;
@@ -28,7 +29,7 @@ internal class LeavePolicy : PayrollPolicyBase<LineCollection<BasicPipelineData>
                 PayType = leave.PayType
             };
             // Compute leave duration (whole day = 1.0, half day = 0.5)
-            decimal leaveFraction = leave.DayType == LeaveDayType.WholeDay ? 1.0m : 0.5m;
+            decimal leaveFraction = leave.DayFraction == DayFraction.FullDay ? 1.0m : 0.5m;
             line.LeaveInfo.leaveFraction = leaveFraction;
 
             // Check available leave credits

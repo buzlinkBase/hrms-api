@@ -17,7 +17,7 @@ public class RegularHolidayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
 
         bool IsElible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
 
-        if (context.Payload.CompanyPolicy.HolidayCreditPolicy == HolidayCreditMode.NoCredit && IsElible)
+        if (IsElible)
         {
             //TODO if fixed get only the premium
             workedHours += holidayCredit * shiftHours;

@@ -55,16 +55,15 @@ public class ActualDayOTHourProvider : IHolidayOTSliceProvider
         }
 
         //get holiday range
-        var shifFrom = _context.CanonicalTimeRange.TimeRecords.MinBy(x => x.StartTime)?.StartTime ?? DateTime.MinValue;
-        var toDate = _context.CanonicalTimeRange.TimeRecords.MaxBy(x => x.EndTime)?.EndTime ?? DateTime.MinValue;
+        var realRecords = _context.CanonicalTimeRange.TimeRecords.ExcludeLeave();
+        var shifFrom = realRecords.MinBy(x => x.StartTime)?.StartTime ?? DateTime.MinValue;
+        var toDate   = realRecords.MaxBy(x => x.EndTime)?.EndTime ?? DateTime.MinValue;
         var shift = new CurrentShift() { StartTime = shifFrom, EndTime = toDate };
 
         var holiday = _context.Payload.Provider.HolidayProvider
             .GetHolidayDuringShift(holidayType, _context.Payload.Data.Employee, shift)
             .ToTimeRange();
-
         var timeRange = HolidayOTCalculator.Calculate(_oT, holiday);
-
         if (holiday.TotalMinutes > 0)
         {
             var exclude_key = TimeRangeLedger.CreateKey($"REGULAR_OT_ACTUAL_{holidayType}", _context);
@@ -72,9 +71,7 @@ public class ActualDayOTHourProvider : IHolidayOTSliceProvider
                 .ToTimeRange();
             _context.Payload.Ledger.Record(exclude_key, exlude);
         }
-
         _context.Payload.Ledger.Record(key, timeRange);
         return timeRange;
-
     }
 }

@@ -5,7 +5,7 @@
 namespace Hrms.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class applicationfield : Migration
+    public partial class leavemodelchanges : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

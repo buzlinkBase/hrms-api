@@ -169,5 +169,6 @@ public class CurrentRangeDTRPayloadService
         var settings = await _generalSettingService.GetSettingsAsync("Employee", ids);
         return new EmployeePolicyService().Transform(settings);
     }
+
 }
 

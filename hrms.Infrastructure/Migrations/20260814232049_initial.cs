@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NetTopologySuite.Geometries;
 
@@ -9,7 +10,7 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class initial_create : Migration
+    public partial class initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -24,11 +25,12 @@ namespace Hrms.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     Description = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -49,11 +51,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Boundary = table.Column<Polygon>(type: "geometry", nullable: true)
                         .Annotation("MySql:SpatialReferenceSystemId", 4326),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -82,11 +85,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Boundary = table.Column<Polygon>(type: "geometry", nullable: true)
                         .Annotation("MySql:SpatialReferenceSystemId", 4326),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -103,11 +107,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -135,11 +140,12 @@ namespace Hrms.Infrastructure.Migrations
                     TotalWorkingDays = table.Column<int>(type: "int", nullable: false),
                     TakehomePercentage = table.Column<int>(type: "int", nullable: false),
                     ApplyStatutoryOnActualMonth = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -169,11 +175,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -190,11 +197,12 @@ namespace Hrms.Infrastructure.Migrations
                     DeductionId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
                     Amount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -209,11 +217,12 @@ namespace Hrms.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     Description = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -236,11 +245,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Metadata = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -263,11 +273,12 @@ namespace Hrms.Infrastructure.Migrations
                     TotalContribution = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -289,11 +300,12 @@ namespace Hrms.Infrastructure.Migrations
                     TotalContribution = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -314,11 +326,12 @@ namespace Hrms.Infrastructure.Migrations
                     ER = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     EC = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     TotalContibution = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -339,11 +352,12 @@ namespace Hrms.Infrastructure.Migrations
                     PercentageInAmountOf = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     BaseTaxDue = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     AddOnPercentage = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -363,11 +377,12 @@ namespace Hrms.Infrastructure.Migrations
                     EmployeeShare = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     EmployerShare = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     TotalContribution = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -408,11 +423,12 @@ namespace Hrms.Infrastructure.Migrations
                     IncomeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
                     Amount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -421,56 +437,54 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "leaveApplications",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    LeaveId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    LeaveDateFrom = table.Column<DateOnly>(type: "date", nullable: false),
-                    LeaveDateTo = table.Column<DateOnly>(type: "date", nullable: false),
-                    DayType = table.Column<int>(type: "int", nullable: false),
-                    PayType = table.Column<int>(type: "int", nullable: false),
-                    ApprovalStatus = table.Column<int>(type: "int", nullable: false),
-                    ReviewedBy = table.Column<int>(type: "int", nullable: true),
-                    ReviewedOn = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    ApplicationRemarks = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    AuditTrailId = table.Column<int>(type: "int", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_leaveApplications", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
                 name: "Leaves",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Category = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
                     Code = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Category = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Description = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Credits = table.Column<double>(type: "double", nullable: false),
-                    PaySource = table.Column<string>(type: "longtext", nullable: false)
+                    LegalBasis = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    LeaveReset = table.Column<int>(type: "int", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    PaySource = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    EmployerAdvancesPayment = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AccrualBasis = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Credits = table.Column<double>(type: "double", nullable: false),
+                    AccrualRate = table.Column<double>(type: "double", nullable: false),
+                    MaxAccrualBalance = table.Column<double>(type: "double", nullable: true),
+                    ProRateFirstYear = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    LeaveReset = table.Column<int>(type: "int", nullable: false),
+                    MinServiceMonths = table.Column<int>(type: "int", nullable: false),
+                    GenderRestriction = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    RequiresApproval = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    RequiresSupportingDocument = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AllowHalfDay = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AllowPartial = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AllowNegativeBalance = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    MaxDaysPerYear = table.Column<double>(type: "double", nullable: true),
+                    MaxConsecutiveDays = table.Column<int>(type: "int", nullable: true),
+                    CarryOverType = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    CarryOverMaxDays = table.Column<double>(type: "double", nullable: false),
+                    CarryOverExpiryMonths = table.Column<int>(type: "int", nullable: true),
+                    ConvertToCash = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    CashConversionRate = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    MaxCashConversionDays = table.Column<double>(type: "double", nullable: true),
+                    IsStatutory = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -491,11 +505,12 @@ namespace Hrms.Infrastructure.Migrations
                     ToDate = table.Column<DateOnly>(type: "date", nullable: false),
                     Time1 = table.Column<TimeSpan>(type: "time(6)", nullable: true),
                     Time2 = table.Column<TimeSpan>(type: "time(6)", nullable: true),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -522,11 +537,12 @@ namespace Hrms.Infrastructure.Migrations
                     IsTaxable = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -603,11 +619,12 @@ namespace Hrms.Infrastructure.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     PayrollFrequency = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -667,11 +684,12 @@ namespace Hrms.Infrastructure.Migrations
                     NonTaxableBenefits = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     TaxableBenefits = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     IsPosted = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -691,11 +709,12 @@ namespace Hrms.Infrastructure.Migrations
                     EmployeeShare = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     EmployerShare = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     TotalContribution = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -713,11 +732,12 @@ namespace Hrms.Infrastructure.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Rate = table.Column<double>(type: "double", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -738,11 +758,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Rate = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     Remarks = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -761,11 +782,12 @@ namespace Hrms.Infrastructure.Migrations
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     Amount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     IsPosted = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -788,11 +810,12 @@ namespace Hrms.Infrastructure.Migrations
                     TotalContibution = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -811,11 +834,12 @@ namespace Hrms.Infrastructure.Migrations
                     PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
                     Date = table.Column<DateOnly>(type: "date", nullable: false),
                     Amount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -850,11 +874,12 @@ namespace Hrms.Infrastructure.Migrations
                     OverTimeThreshold = table.Column<double>(type: "double", nullable: false),
                     MinimumWorkMinutes = table.Column<double>(type: "double", nullable: false),
                     MaxWorkingMinutes = table.Column<double>(type: "double", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -875,11 +900,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     IncomeTypeId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     IsTaxable = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -906,11 +932,12 @@ namespace Hrms.Infrastructure.Migrations
                     IsRecuring = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     IsPaid = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -937,11 +964,12 @@ namespace Hrms.Infrastructure.Migrations
                     HolDate = table.Column<DateOnly>(type: "date", nullable: false),
                     IsRecuring = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     IsPaid = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -972,11 +1000,12 @@ namespace Hrms.Infrastructure.Migrations
                     Notes = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     DeductionApplicationId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1000,11 +1029,12 @@ namespace Hrms.Infrastructure.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     PriorityLevel = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1018,25 +1048,43 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "LeaveApplicationDetails",
+                name: "leaveApplications",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    ApplicationId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    LeaveDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    LeaveId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    DurationType = table.Column<int>(type: "int", nullable: false),
+                    LeaveDateFrom = table.Column<DateOnly>(type: "date", nullable: false),
+                    LeaveDateTo = table.Column<DateOnly>(type: "date", nullable: false),
+                    DayFraction = table.Column<int>(type: "int", nullable: false),
+                    PayType = table.Column<int>(type: "int", nullable: false),
+                    IsManualEntry = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    TotalMinutes = table.Column<double>(type: "double", nullable: false),
+                    ApprovalStatus = table.Column<int>(type: "int", nullable: false),
+                    ReviewedBy = table.Column<int>(type: "int", nullable: true),
+                    ReviewedOn = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    ApplicationRemarks = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    SupportingDocumentUrl = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    AuditTrailId = table.Column<int>(type: "int", nullable: true),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_LeaveApplicationDetails", x => x.Id);
+                    table.PrimaryKey("PK_leaveApplications", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_LeaveApplicationDetails_leaveApplications_ApplicationId",
-                        column: x => x.ApplicationId,
-                        principalTable: "leaveApplications",
+                        name: "FK_leaveApplications_Leaves_LeaveId",
+                        column: x => x.LeaveId,
+                        principalTable: "Leaves",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
@@ -1057,11 +1105,12 @@ namespace Hrms.Infrastructure.Migrations
                     Notes = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     OtherIncomeApplicationId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1084,11 +1133,12 @@ namespace Hrms.Infrastructure.Migrations
                     IsEndOfMonth = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     Label = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1125,11 +1175,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     File = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1168,15 +1219,31 @@ namespace Hrms.Infrastructure.Migrations
                     LogSource = table.Column<int>(type: "int", nullable: false),
                     Boundary = table.Column<Polygon>(type: "geometry", nullable: true)
                         .Annotation("MySql:SpatialReferenceSystemId", 4326),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Attendances", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Attendances_Areas_OperationAreaId",
+                        column: x => x.OperationAreaId,
+                        principalTable: "Areas",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Attendances_Branches_BranchId",
+                        column: x => x.BranchId,
+                        principalTable: "Branches",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Attendances_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id");
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -1191,11 +1258,12 @@ namespace Hrms.Infrastructure.Migrations
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
                     State = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1220,11 +1288,12 @@ namespace Hrms.Infrastructure.Migrations
                     State = table.Column<int>(type: "int", nullable: false),
                     BatchCode = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1241,8 +1310,10 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     WorkType = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    WorkTypeEnum = table.Column<int>(type: "int", nullable: false),
                     FullName = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    ShiftId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     WorkDate = table.Column<DateOnly>(type: "date", nullable: false),
                     ShiftName = table.Column<string>(type: "longtext", nullable: false)
@@ -1251,10 +1322,16 @@ namespace Hrms.Infrastructure.Migrations
                     ShiftEndTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    LateHours = table.Column<double>(type: "double", nullable: false),
-                    UTHours = table.Column<double>(type: "double", nullable: false),
-                    OverBreakHours = table.Column<double>(type: "double", nullable: false),
-                    LateForOTHours = table.Column<double>(type: "double", nullable: false),
+                    LateMinutes = table.Column<double>(type: "double", nullable: false),
+                    UTMinutes = table.Column<double>(type: "double", nullable: false),
+                    OverMinutes = table.Column<double>(type: "double", nullable: false),
+                    LateForOTMinutes = table.Column<double>(type: "double", nullable: false),
+                    OBHours = table.Column<double>(type: "double", nullable: false),
+                    AbsentCount = table.Column<int>(type: "int", nullable: false),
+                    HolCount = table.Column<int>(type: "int", nullable: false),
+                    SPCount = table.Column<int>(type: "int", nullable: false),
+                    LeaveHours = table.Column<double>(type: "double", nullable: false),
+                    CreditsSpent = table.Column<double>(type: "double", nullable: false),
                     RegularNetHours = table.Column<double>(type: "double", nullable: false),
                     RegularOTHours = table.Column<double>(type: "double", nullable: false),
                     RegularNDHours = table.Column<double>(type: "double", nullable: false),
@@ -1279,9 +1356,18 @@ namespace Hrms.Infrastructure.Migrations
                     RestSpecialDayOTHours = table.Column<double>(type: "double", nullable: false),
                     RestSpecialDayNDHours = table.Column<double>(type: "double", nullable: false),
                     RestSpecialDayNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    LeaveHours = table.Column<double>(type: "double", nullable: false),
-                    OB = table.Column<double>(type: "double", nullable: false),
-                    Absent = table.Column<int>(type: "int", nullable: false),
+                    SpecialWorkDayHours = table.Column<double>(type: "double", nullable: false),
+                    SpecialWorkDayOTHours = table.Column<double>(type: "double", nullable: false),
+                    SpecialWorkDayNDHours = table.Column<double>(type: "double", nullable: false),
+                    SpecialWorkDayNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalOTHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalNDHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalNDHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalNDOTHours = table.Column<double>(type: "double", nullable: false),
                     Note = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
@@ -1290,15 +1376,14 @@ namespace Hrms.Infrastructure.Migrations
                     PayrollGroupId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    HolCount = table.Column<int>(type: "int", nullable: false),
-                    SPCount = table.Column<int>(type: "int", nullable: false),
                     ShiftWorkingHour = table.Column<double>(type: "double", nullable: false),
                     Posted = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1316,11 +1401,12 @@ namespace Hrms.Infrastructure.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     HeadId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1396,11 +1482,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     ProfileImg = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1424,7 +1511,8 @@ namespace Hrms.Infrastructure.Migrations
                         name: "FK_Employees_Departments_DepartmentId",
                         column: x => x.DepartmentId,
                         principalTable: "Departments",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Employees_PayrollGroups_PayrollGroupId",
                         column: x => x.PayrollGroupId,
@@ -1456,11 +1544,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1486,11 +1575,12 @@ namespace Hrms.Infrastructure.Migrations
                     Gender = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     DOB = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1512,11 +1602,12 @@ namespace Hrms.Infrastructure.Migrations
                     SchoolName = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     YearGraduated = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1541,11 +1632,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     File = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1570,11 +1662,12 @@ namespace Hrms.Infrastructure.Migrations
                     IsEligibleForLeaveCredits = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     IsEligibleFor13thMonth = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     IsNoDTRNotRequired = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1600,11 +1693,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     FromDate = table.Column<DateOnly>(type: "date", nullable: false),
                     ToDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1628,11 +1722,12 @@ namespace Hrms.Infrastructure.Migrations
                     EE = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     ER = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     AddOns = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1661,11 +1756,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     LeaveCreditsId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     ReferenceApplicationId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1686,21 +1782,20 @@ namespace Hrms.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     OTDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    FlexiEndTime = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    PaidByNetDutyTime = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    ManualOTMinutes = table.Column<double>(type: "double", nullable: false),
+                    IsManualEntry = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     OverTimeThreshold = table.Column<double>(type: "double", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    OTStatus = table.Column<int>(type: "int", nullable: false),
-                    OTMinutes = table.Column<double>(type: "double", nullable: false),
-                    OTBeforeOverride = table.Column<double>(type: "double", nullable: false),
+                    ApprovalStatus = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1725,11 +1820,12 @@ namespace Hrms.Infrastructure.Migrations
                     EE = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     ER = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     AddOns = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1750,11 +1846,12 @@ namespace Hrms.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1774,11 +1871,12 @@ namespace Hrms.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     DayName = table.Column<int>(type: "int", nullable: false),
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1801,11 +1899,12 @@ namespace Hrms.Infrastructure.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Level = table.Column<double>(type: "double", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1830,11 +1929,12 @@ namespace Hrms.Infrastructure.Migrations
                     ER = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     EC = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     AddOns = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1858,11 +1958,12 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     EE = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     AddOns = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1886,17 +1987,60 @@ namespace Hrms.Infrastructure.Migrations
                     Amount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ThirteenthMonthLedgers", x => x.Id);
                     table.ForeignKey(
                         name: "FK_ThirteenthMonthLedgers_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "TravelOrderApplications",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Reference = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ApplicationDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    StartDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    EndDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    IsManualEntry = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    TotalMinutes = table.Column<double>(type: "double", nullable: false),
+                    StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    Destination = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Classification = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Purpose = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Cost = table.Column<double>(type: "double", nullable: false),
+                    ApprovalStatus = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TravelOrderApplications", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TravelOrderApplications_Employees_EmployeeId",
                         column: x => x.EmployeeId,
                         principalTable: "Employees",
                         principalColumn: "Id",
@@ -1914,12 +2058,13 @@ namespace Hrms.Infrastructure.Migrations
                     UTMinutes = table.Column<double>(type: "double", nullable: false),
                     Remarks = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    OTStatus = table.Column<int>(type: "int", nullable: false),
+                    ApprovalStatus = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1938,14 +2083,17 @@ namespace Hrms.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    BatchCode = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
                     EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     TimeShiftId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1967,20 +2115,19 @@ namespace Hrms.Infrastructure.Migrations
 
             migrationBuilder.InsertData(
                 table: "GeneralSettings",
-                columns: new[] { "Id", "CreatedAt", "DeletedAt", "Description", "IdentityType", "IdentityTypeId", "Metadata", "Status", "UpdatedAt", "Value" },
+                columns: new[] { "Id", "CreatedAt", "DeletedAt", "Description", "IdentityType", "IdentityTypeId", "Metadata", "Status", "TenantId", "UpdatedAt", "Value" },
                 values: new object[,]
                 {
-                    { new Guid("0123f5e6-d7c8-4234-bcda-6789012345fa"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "NightDiffThreshold", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" },
-                    { new Guid("1234a5b6-c7d8-4345-cdab-7890123456ab"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "AttFillLimit", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "NOLIMIT" },
-                    { new Guid("2345b6c7-d8e9-4456-dabc-8901234567bc"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HolidayTimeBasis", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "BasedOnTimeInDayType" },
-                    { new Guid("3456c7d8-e9f0-4567-abcd-9012345678cd"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsHolPlusReg", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "True" },
-                    { new Guid("4567d8e9-f012-4678-bcda-0123456789de"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HolidayColumnPresentation", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "AutoCredit" },
-                    { new Guid("a2618e39-1a02-4055-989a-7b3bcc61f7b3"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "OTEligibility", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "IndependentOfAttendanceIssues" },
-                    { new Guid("b1a2c3d4-e5f6-4789-abcd-1234567890ab"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "OTInclusion", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "UsePostShiftWork" },
-                    { new Guid("c2b3a4d5-f6e7-4890-bcda-2345678901bc"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsHalfDayLateOn", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "False" },
-                    { new Guid("d3c4b5a6-e7f8-4901-cdab-3456789012cd"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HalfDayLateThresholdMinutes", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" },
-                    { new Guid("e4d5c6b7-f8e9-4012-dabc-4567890123de"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsWholeDayLateOn", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "False" },
-                    { new Guid("f5e6d7c8-9012-4123-abcd-5678901234ef"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "WholeDayLateThresholdMinutes", "Company", null, null, "Active", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" }
+                    { new Guid("0123f5e6-d7c8-4234-bcda-6789012345fa"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "NightDiffThreshold", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" },
+                    { new Guid("1234a5b6-c7d8-4345-cdab-7890123456ab"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "AttFillLimit", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "NOLIMIT" },
+                    { new Guid("2345b6c7-d8e9-4456-dabc-8901234567bc"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HolidayTimeBasis", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "BasedOnTimeInDayType" },
+                    { new Guid("3456c7d8-e9f0-4567-abcd-9012345678cd"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsHolPlusReg", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "False" },
+                    { new Guid("a2618e39-1a02-4055-989a-7b3bcc61f7b3"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "OTEligibility", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "IndependentOfAttendanceIssues" },
+                    { new Guid("b1a2c3d4-e5f6-4789-abcd-1234567890ab"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "OTInclusion", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "UsePostShiftWork" },
+                    { new Guid("c2b3a4d5-f6e7-4890-bcda-2345678901bc"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsHalfDayLateOn", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "False" },
+                    { new Guid("d3c4b5a6-e7f8-4901-cdab-3456789012cd"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "HalfDayLateThresholdMinutes", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" },
+                    { new Guid("e4d5c6b7-f8e9-4012-dabc-4567890123de"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "IsWholeDayLateOn", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "False" },
+                    { new Guid("f5e6d7c8-9012-4123-abcd-5678901234ef"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "WholeDayLateThresholdMinutes", "Company", null, null, "Active", new Guid("00000000-0000-0000-0000-000000000000"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "0" }
                 });
 
             migrationBuilder.CreateIndex(
@@ -1989,9 +2136,29 @@ namespace Hrms.Infrastructure.Migrations
                 column: "IncomeTypeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Allowances_TenantId_DeletedAt",
+                table: "Allowances",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AllowanceTypes_TenantId_DeletedAt",
+                table: "AllowanceTypes",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Areas_TenantId_DeletedAt",
+                table: "Areas",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AssignAssets_EmployeeId",
                 table: "AssignAssets",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AssignAssets_TenantId_DeletedAt",
+                table: "AssignAssets",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Att_BRId_DepId_Area_ClId_LS",
@@ -2009,9 +2176,29 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "LogSource", "WorkDateTime" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Attendances_ClientId",
+                table: "Attendances",
+                column: "ClientId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Attendances_EmployeeId",
                 table: "Attendances",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attendances_OperationAreaId",
+                table: "Attendances",
+                column: "OperationAreaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attendances_TenantId_DeletedAt",
+                table: "Attendances",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Branches_TenantId_DeletedAt",
+                table: "Branches",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChangeHolidays_EmployeeId",
@@ -2024,9 +2211,19 @@ namespace Hrms.Infrastructure.Migrations
                 column: "HolidayId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ChangeHolidays_TenantId_DeletedAt",
+                table: "ChangeHolidays",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ChangeRestDays_EmployeeId",
                 table: "ChangeRestDays",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChangeRestDays_TenantId_DeletedAt",
+                table: "ChangeRestDays",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ClientHolidays_ClientId",
@@ -2034,9 +2231,29 @@ namespace Hrms.Infrastructure.Migrations
                 column: "ClientId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ClientHolidays_TenantId_DeletedAt",
+                table: "ClientHolidays",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Clients_TenantId_DeletedAt",
+                table: "Clients",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Companies_TenantId_DeletedAt",
+                table: "Companies",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_CutoffDay_PayrollGroupId",
                 table: "CutoffDay",
                 column: "PayrollGroupId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CutoffDay_TenantId_DeletedAt",
+                table: "CutoffDay",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_DailyTimeRecords_EmployeeId",
@@ -2044,14 +2261,44 @@ namespace Hrms.Infrastructure.Migrations
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DailyTimeRecords_TenantId_DeletedAt",
+                table: "DailyTimeRecords",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DeductionApplicationDetails_DeductionApplicationId",
                 table: "DeductionApplicationDetails",
                 column: "DeductionApplicationId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DeductionApplicationDetails_TenantId_DeletedAt",
+                table: "DeductionApplicationDetails",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DeductionApplications_TenantId_DeletedAt",
+                table: "DeductionApplications",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DeductionPayments_TenantId_DeletedAt",
+                table: "DeductionPayments",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Deductions_CategoryId",
                 table: "Deductions",
                 column: "CategoryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Deductions_TenantId_DeletedAt",
+                table: "Deductions",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DeductionTypes_TenantId_DeletedAt",
+                table: "DeductionTypes",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Departments_HeadId",
@@ -2060,9 +2307,19 @@ namespace Hrms.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Departments_TenantId_DeletedAt",
+                table: "Departments",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Dependents_EmployeeId",
                 table: "Dependents",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Dependents_TenantId_DeletedAt",
+                table: "Dependents",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Educations_EmployeeId",
@@ -2070,9 +2327,19 @@ namespace Hrms.Infrastructure.Migrations
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Educations_TenantId_DeletedAt",
+                table: "Educations",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_EmployeeRecords_EmployeeId",
                 table: "EmployeeRecords",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeRecords_TenantId_DeletedAt",
+                table: "EmployeeRecords",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Employees_AreaId",
@@ -2125,6 +2392,11 @@ namespace Hrms.Infrastructure.Migrations
                 column: "Suffix");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Employees_TenantId_DeletedAt",
+                table: "Employees",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Employees_TimeShiftId",
                 table: "Employees",
                 column: "TimeShiftId");
@@ -2136,9 +2408,49 @@ namespace Hrms.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_EmployeeSettings_TenantId_DeletedAt",
+                table: "EmployeeSettings",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Employments_EmployeeId",
                 table: "Employments",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employments_TenantId_DeletedAt",
+                table: "Employments",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GeneralSettings_TenantId_DeletedAt",
+                table: "GeneralSettings",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GovHDMFs_TenantId_DeletedAt",
+                table: "GovHDMFs",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GovPHICs_TenantId_DeletedAt",
+                table: "GovPHICs",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GovSSSes_TenantId_DeletedAt",
+                table: "GovSSSes",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GovTaxes_TenantId_DeletedAt",
+                table: "GovTaxes",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HDMFContributions_TenantId_DeletedAt",
+                table: "HDMFContributions",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_HDMFRates_EmployeeId",
@@ -2147,9 +2459,19 @@ namespace Hrms.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_HDMFRates_TenantId_DeletedAt",
+                table: "HDMFRates",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Holidays_AreaId",
                 table: "Holidays",
                 column: "AreaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Holidays_TenantId_DeletedAt",
+                table: "Holidays",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_InboxState_Delivered",
@@ -2157,9 +2479,19 @@ namespace Hrms.Infrastructure.Migrations
                 column: "Delivered");
 
             migrationBuilder.CreateIndex(
-                name: "IX_LeaveApplicationDetails_ApplicationId",
-                table: "LeaveApplicationDetails",
-                column: "ApplicationId");
+                name: "IX_IncomePayments_TenantId_DeletedAt",
+                table: "IncomePayments",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_leaveApplications_LeaveId",
+                table: "leaveApplications",
+                column: "LeaveId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_leaveApplications_TenantId_DeletedAt",
+                table: "leaveApplications",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_LeaveLedgers_EmployeeId",
@@ -2167,14 +2499,44 @@ namespace Hrms.Infrastructure.Migrations
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_LeaveLedgers_TenantId_DeletedAt",
+                table: "LeaveLedgers",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Leaves_TenantId_DeletedAt",
+                table: "Leaves",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ManualAttendance_TenantId_DeletedAt",
+                table: "ManualAttendance",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OTApplications_EmployeeId",
                 table: "OTApplications",
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_OTApplications_TenantId_DeletedAt",
+                table: "OTApplications",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OtherIncomeApplicationDetails_OtherIncomeApplicationId",
                 table: "OtherIncomeApplicationDetails",
                 column: "OtherIncomeApplicationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OtherIncomeApplicationDetails_TenantId_DeletedAt",
+                table: "OtherIncomeApplicationDetails",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OtherIncomeApplications_TenantId_DeletedAt",
+                table: "OtherIncomeApplications",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessage_EnqueueTime",
@@ -2204,10 +2566,45 @@ namespace Hrms.Infrastructure.Migrations
                 column: "Created");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PayrollGroups_TenantId_DeletedAt",
+                table: "PayrollGroups",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payrolls_TenantId_DeletedAt",
+                table: "Payrolls",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PHICContributions_TenantId_DeletedAt",
+                table: "PHICContributions",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PHICRates_EmployeeId",
                 table: "PHICRates",
                 column: "EmployeeId",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PHICRates_TenantId_DeletedAt",
+                table: "PHICRates",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Positions_TenantId_DeletedAt",
+                table: "Positions",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PremiumRates_TenantId_DeletedAt",
+                table: "PremiumRates",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProratedAllowances_TenantId_DeletedAt",
+                table: "ProratedAllowances",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_RestDayDates_EmployeeId",
@@ -2215,9 +2612,19 @@ namespace Hrms.Infrastructure.Migrations
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RestDayDates_TenantId_DeletedAt",
+                table: "RestDayDates",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RestDays_EmployeeId",
                 table: "RestDays",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RestDays_TenantId_DeletedAt",
+                table: "RestDays",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Sections_DepartmentId",
@@ -2225,9 +2632,24 @@ namespace Hrms.Infrastructure.Migrations
                 column: "DepartmentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Sections_TenantId_DeletedAt",
+                table: "Sections",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Skills_EmployeeId",
                 table: "Skills",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Skills_TenantId_DeletedAt",
+                table: "Skills",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SSSContributions_TenantId_DeletedAt",
+                table: "SSSContributions",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_SSSRates_EmployeeId",
@@ -2236,10 +2658,25 @@ namespace Hrms.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_SSSRates_TenantId_DeletedAt",
+                table: "SSSRates",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TaxContributions_TenantId_DeletedAt",
+                table: "TaxContributions",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TaxRates_EmployeeId",
                 table: "TaxRates",
                 column: "EmployeeId",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TaxRates_TenantId_DeletedAt",
+                table: "TaxRates",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ThirteenthMonthLedgers_EmployeeId",
@@ -2247,14 +2684,44 @@ namespace Hrms.Infrastructure.Migrations
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ThirteenthMonthLedgers_TenantId_DeletedAt",
+                table: "ThirteenthMonthLedgers",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeShifts_TenantId_DeletedAt",
+                table: "TimeShifts",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TravelOrderApplications_EmployeeId",
+                table: "TravelOrderApplications",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TravelOrderApplications_TenantId_DeletedAt",
+                table: "TravelOrderApplications",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UTApplications_EmployeeId",
                 table: "UTApplications",
                 column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_UTApplications_TenantId_DeletedAt",
+                table: "UTApplications",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_WorkSchedulePlans_EmployeeId",
                 table: "WorkSchedulePlans",
                 column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkSchedulePlans_TenantId_DeletedAt",
+                table: "WorkSchedulePlans",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_WorkSchedulePlans_TimeShiftId",
@@ -2393,13 +2860,10 @@ namespace Hrms.Infrastructure.Migrations
                 name: "IncomePayments");
 
             migrationBuilder.DropTable(
-                name: "LeaveApplicationDetails");
+                name: "leaveApplications");
 
             migrationBuilder.DropTable(
                 name: "LeaveLedgers");
-
-            migrationBuilder.DropTable(
-                name: "Leaves");
 
             migrationBuilder.DropTable(
                 name: "ManualAttendance");
@@ -2459,6 +2923,9 @@ namespace Hrms.Infrastructure.Migrations
                 name: "ThirteenthMonthLedgers");
 
             migrationBuilder.DropTable(
+                name: "TravelOrderApplications");
+
+            migrationBuilder.DropTable(
                 name: "UTApplications");
 
             migrationBuilder.DropTable(
@@ -2477,7 +2944,7 @@ namespace Hrms.Infrastructure.Migrations
                 name: "DeductionTypes");
 
             migrationBuilder.DropTable(
-                name: "leaveApplications");
+                name: "Leaves");
 
             migrationBuilder.DropTable(
                 name: "OtherIncomeApplications");

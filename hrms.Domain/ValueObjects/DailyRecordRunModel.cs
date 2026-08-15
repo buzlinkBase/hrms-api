@@ -25,6 +25,7 @@ public class DailyRecordRunModel
     public int HolCount { get; set; } = 0;
     public int SPCount { get; set; } = 0;
     public double LeaveHours { get; set; }
+    public double CreditsSpent { get; set; }
 
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }

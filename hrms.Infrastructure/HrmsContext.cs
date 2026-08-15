@@ -78,6 +78,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<RestDayDate> RestDayDates { get; set; }
 
     public DbSet<Leave> Leaves { get; set; }
+    public DbSet<LeaveCredits> LeaveCredits { get; set; }
     public DbSet<LeaveLedger> LeaveLedgers { get; set; }
     public DbSet<Holiday> Holidays { get; set; }
     public DbSet<ChangeHoliday> ChangeHolidays { get; set; }
@@ -101,7 +102,6 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<IncomePayment> IncomePayments { get; set; }
     public DbSet<DeductionPayment> DeductionPayments { get; set; }
     public DbSet<LeaveApplication> leaveApplications { get; set; }
-    public DbSet<LeaveApplicationDetail> LeaveApplicationDetails { get; set; }
 
     public DbSet<SSSTable> GovSSSes { get; set; }
     public DbSet<PHICTable> GovPHICs { get; set; }

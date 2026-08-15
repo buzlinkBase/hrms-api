@@ -46,6 +46,7 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.Remove(id, token);
+            await _service.CommitChangesAsync(token);
             return Ok("success");
         }
     }

@@ -35,7 +35,7 @@ public class LeavePipelineTest
     [Fact]
     public void ApplyIfSatified_WholeDayLeaveWithCredits_ComputesValue()
     {
-        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(hasCredits: true, dayType: LeaveDayType.WholeDay, dailyRate: 1000);
+        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(hasCredits: true, dayFraction: DayFraction.FullDay, dailyRate: 1000);
         var pipe = new LeavePipeline();
         var result = pipe.Run(context);
 
@@ -48,7 +48,7 @@ public class LeavePipelineTest
     [Fact]
     public void ApplyIfSatified_HalfDayLeaveWithCredits_ComputesHalfValue()
     {
-        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(hasCredits: true, dayType: LeaveDayType.HalfDay, dailyRate: 800);
+        var context = LeaveTestHelpers.CreatePayrollContextWithLeave(hasCredits: true, dayFraction: DayFraction.AM, dailyRate: 800);
         var pipe = new LeavePipeline();
         var result = pipe.Run(context);
 
@@ -97,7 +97,7 @@ public static class LeaveTestHelpers
     }
 
     public static PayrollContext CreatePayrollContextWithLeave(
-        bool hasCredits, LeaveDayType dayType = LeaveDayType.WholeDay,
+        bool hasCredits, DayFraction dayFraction = DayFraction.FullDay,
         decimal dailyRate = 1000,
         PayType payType = PayType.WithPay)
     {
@@ -110,7 +110,7 @@ public static class LeaveTestHelpers
             DailyRate = dailyRate,
             Settings = new EmployeeSettingModel { IsEligibleForLeaveCredits = true }
         };
-        var leave = LeaveHelper.CreateLeave(empId, leaveId, dayType, payType);
+        var leave = LeaveHelper.CreateLeave(empId, leaveId, dayFraction, payType);
 
         return new PayrollContext
         {
@@ -137,8 +137,8 @@ public static class LeaveTestHelpers
         var leaveId1 = Guid.NewGuid();
         var leaveId2 = Guid.NewGuid();
 
-        var leave1 = LeaveHelper.CreateLeave(empId, leaveId1, LeaveDayType.HalfDay);
-        var leave2 = LeaveHelper.CreateLeave(empId, leaveId2, LeaveDayType.HalfDay);
+        var leave1 = LeaveHelper.CreateLeave(empId, leaveId1, DayFraction.AM);
+        var leave2 = LeaveHelper.CreateLeave(empId, leaveId2, DayFraction.AM);
 
         return new PayrollContext
         {
@@ -168,12 +168,12 @@ public static class LeaveTestHelpers
 public static class LeaveHelper
 {
     public static LeaveApplicationPyRun CreateLeave(Guid employeeId, Guid leaveId,
-        LeaveDayType dayType = LeaveDayType.WholeDay, PayType payType = PayType.WithPay, DateOnly? leaveDate = null)
+        DayFraction dayFraction = DayFraction.FullDay, PayType payType = PayType.WithPay, DateOnly? leaveDate = null)
     {
         return new LeaveApplicationPyRun
         {
             LeaveId = leaveId,
-            DayType = dayType,
+            DayFraction = dayFraction,
             PayType = payType,
             EmployeeId = employeeId,
             LeaveDate = leaveDate ?? DateOnly.FromDateTime(DateTime.Today),

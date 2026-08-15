@@ -6,8 +6,7 @@ public class LeaveApplicationProvider
 {
     private readonly Dictionary<Leavekey, List<LeaveApplication>> _leaveApplications;
     private readonly EmployeeDTRRun _employee;
-    public LeaveApplicationProvider(Dictionary<Leavekey, List<LeaveApplication>> leaveApplocations,
-        EmployeeDTRRun currentEmployee)
+    public LeaveApplicationProvider(Dictionary<Leavekey, List<LeaveApplication>> leaveApplocations, EmployeeDTRRun currentEmployee)
     {
         _leaveApplications = leaveApplocations;
         _employee = currentEmployee;
@@ -15,12 +14,36 @@ public class LeaveApplicationProvider
     public LeaveApplication? GetApplication(DateOnly date)
     {
         var key = new Leavekey(_employee.Id);
-        if (_leaveApplications.TryGetValue(key, out var applications))
+        if (!_leaveApplications.TryGetValue(key, out var applications) || applications == null) return null;
+
+        var app = applications.FirstOrDefault(a => a.LeaveDateFrom <= date && date <= a.LeaveDateTo);
+        if (app == null) return null;
+
+        TimeOnly? startTimeOnly = app.StartTime.HasValue ? TimeOnly.FromDateTime(app.StartTime.Value) : null;
+        TimeOnly? endTimeOnly = app.EndTime.HasValue ? TimeOnly.FromDateTime(app.EndTime.Value) : null;
+        var isCross = app.EndTime.HasValue ? app.LeaveDateTo.ToDateTime(TimeOnly.MinValue).Date < app.EndTime.Value.Date : false;
+        return new LeaveApplication
         {
-            return applications.FirstOrDefault(app =>
-                app.LeaveDateFrom <= date && date <= app.LeaveDateTo);
-        }
-        return null;
+            Id = app.Id,
+            LeaveId = app.LeaveId,
+            Leave = app.Leave,
+            LeaveDateFrom = date,
+            LeaveDateTo = date,
+            AuditTrailId = app.AuditTrailId,
+            DayFraction = app.DayFraction,
+            DurationType = app.DurationType,
+            PayType = app.PayType,
+            IsManualEntry = app.IsManualEntry,
+            TotalMinutes = app.TotalMinutes,
+            ReviewedOn = app.ReviewedOn,
+            ReviewedBy = app.ReviewedBy,
+            ApprovalStatus = app.ApprovalStatus,
+            ApplicationRemarks = app.ApplicationRemarks,
+            StartTime = startTimeOnly.HasValue ? date.ToDateTime(startTimeOnly.Value) : null,
+            EndTime = !endTimeOnly.HasValue
+                ? null
+                : isCross ? date.AddDays(1).ToDateTime(endTimeOnly.Value) : date.ToDateTime(endTimeOnly.Value)
+        };
     }
 }
 

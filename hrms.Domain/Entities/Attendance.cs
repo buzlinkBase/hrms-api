@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities.EmployeeEntities;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using Hrms.Domain.Entities.EmployeeEntities;
 using NetTopologySuite.Geometries;
 namespace Hrms.Domain.Entities;
 
@@ -26,6 +27,12 @@ public class Attendance : BaseEntity, IUserField
     public string EditRemarks { get; set; } = string.Empty;
     public LOGSOURCE LogSource { get; set; } = LOGSOURCE.UPLOADED;
     public Polygon? Boundary { get; set; }
+
+    [NotMapped]
+    public bool IsVirtual { get; set; }
+
+    [NotMapped]
+    public bool IsLeave { get; set; }
 }
 
 public class UnkownEmpAttendance : BaseEntity

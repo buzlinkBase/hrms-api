@@ -4,9 +4,8 @@ namespace Hrms.Domain.Entities;
 
 public class OverTimeApplication : BaseEntity
 {
-
     public Guid EmployeeId { get; set; }
-    public virtual Employee Employee { get; set; }
+    public required virtual Employee Employee { get; set; }
     public DateOnly OTDate { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }
@@ -14,8 +13,6 @@ public class OverTimeApplication : BaseEntity
     public bool IsManualEntry { get; set; }
     public double OverTimeThreshold { get; set; } = 0;
     public string Remarks { get; set; } = string.Empty;
-
     public ApprovalStatus ApprovalStatus { get; set; }
-
 }
 

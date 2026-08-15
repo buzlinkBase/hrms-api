@@ -9,13 +9,30 @@ namespace Hrms.Infrastructure.EntityConfig
     {
         public void Configure(EntityTypeBuilder<Leave> builder)
         {
-
             builder.Property(x => x.PaySource)
-            .HasConversion(
+                .HasConversion(
                     v => v.ToString(),
-                    v => EnumParserConfig.SafeParseEnum(v, PaySource.Unpaid)
-                );
+                    v => EnumParserConfig.SafeParseEnum(v, PaySource.Unpaid));
 
+            builder.Property(x => x.AccrualBasis)
+                .HasConversion(
+                    v => v.ToString(),
+                    v => EnumParserConfig.SafeParseEnum(v, AccrualBasis.None));
+
+            builder.Property(x => x.CarryOverType)
+                .HasConversion(
+                    v => v.ToString(),
+                    v => EnumParserConfig.SafeParseEnum(v, CarryOverType.Forfeit));
+
+            builder.Property(x => x.GenderRestriction)
+                .HasConversion(
+                    v => v.ToString(),
+                    v => EnumParserConfig.SafeParseEnum(v, GenderRestriction.None));
+
+            builder.Property(x => x.LeaveReset)
+                .HasConversion(
+                    v => v.ToString(),
+                    v => EnumParserConfig.SafeParseEnum(v, LeaveReset.PerPeriod));
 
             // builder.HasData(
             // new Leave
@@ -150,6 +167,42 @@ namespace Hrms.Infrastructure.EntityConfig
             //    PaySource = PaySource.Company,
             //    LeaveReset = LeaveReset.PerPeriod
             //});
+        }
+    }
+
+    public class LeaveCreditsEfConfig : IEntityTypeConfiguration<LeaveCredits>
+    {
+        public void Configure(EntityTypeBuilder<LeaveCredits> builder)
+        {
+            builder.HasIndex(x => new { x.EmployeeId, x.LeaveId, x.PeriodYear }).IsUnique();
+
+            builder.Property(x => x.Granted).HasPrecision(18, 4);
+            builder.Property(x => x.Used).HasPrecision(18, 4);
+            builder.Property(x => x.Balance).HasPrecision(18, 4);
+            builder.Property(x => x.Reserved).HasPrecision(18, 4);
+            builder.Ignore(x => x.AvailableToFile);
+
+            builder.HasOne(x => x.Leave).WithMany().HasForeignKey(x => x.LeaveId).OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+
+    public class LeaveLedgerEfConfig : IEntityTypeConfiguration<LeaveLedger>
+    {
+        public void Configure(EntityTypeBuilder<LeaveLedger> builder)
+        {
+            builder.Property(x => x.EntryType)
+                .HasConversion(
+                    v => v.ToString(),
+                    v => EnumParserConfig.SafeParseEnum(v, LedgerEntryType.Adjustment));
+
+            builder.Property(x => x.Add).HasPrecision(18, 4);
+            builder.Property(x => x.Less).HasPrecision(18, 4);
+            builder.Property(x => x.Balance).HasPrecision(18, 4);
+            builder.Property(x => x.DtrBatchCode).HasMaxLength(100);
+
+            builder.HasOne(x => x.Leave).WithMany().HasForeignKey(x => x.LeaveId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne(x => x.LeaveCredits).WithMany().HasForeignKey(x => x.LeaveCreditsId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne(x => x.Application).WithMany().HasForeignKey(x => x.ReferenceApplicationId).OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

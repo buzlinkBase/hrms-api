@@ -4,12 +4,8 @@ namespace Hrms.Core.Services;
 
 public class AccountInitService : BaseService<Company>
 {
-    private readonly ITenantProvider _tenantProvider;
-
-    public AccountInitService(IUnitOfWorkService uow,
-        ITenantProvider tenantProvider) : base(uow)
+    public AccountInitService(IUnitOfWorkService uow ) : base(uow)
     {
-        _tenantProvider = tenantProvider;
     }
     public async Task Create(CancellationToken token)
     {
@@ -23,37 +19,301 @@ public class AccountInitService : BaseService<Company>
     private void SetDefaultLeaves()
     {
         var leaves = new List<Leave>
+        {
+            // ── Statutory — Company-paid ──────────────────────────────────────────
+            new Leave
             {
-                new Leave { Id = Guid.NewGuid(), Code = "SIL", Description = "Service Incentive Leave (SIL)", PaySource = PaySource.Company, Credits = 5, LeaveReset = LeaveReset.PerPeriod },
-                new Leave { Id = Guid.NewGuid(), Code = "PL", Description = "Paternity Leave", PaySource = PaySource.Company, Credits = 7, LeaveReset = LeaveReset.PerEvent },
-                new Leave { Id = Guid.NewGuid(), Code = "SPL", Description = "Parental Leave for Solo Parents", PaySource = PaySource.Company, Credits = 7, LeaveReset = LeaveReset.PerPeriod },
-                new Leave { Id = Guid.NewGuid(), Code = "SLW", Description = "Special Leave for Women (Gynecological Disorders)", PaySource = PaySource.Company, Credits = 60, LeaveReset = LeaveReset.PerEvent },
-                new Leave { Id = Guid.NewGuid(), Code = "VAWC", Description = "Leave for Victims of Violence Against Women and Children", PaySource = PaySource.Company, Credits = 10, LeaveReset = LeaveReset.PerEvent },
-                new Leave { Id = Guid.NewGuid(), Code = "RL", Description = "Rehabilitation Leave (Occupational Injuries)", PaySource = PaySource.Company, Credits = 120, LeaveReset = LeaveReset.PerEvent },
-                new Leave { Id = Guid.NewGuid(), Code = "SEL", Description = "Special Emergency Leave (Calamities)", PaySource = PaySource.Company, Credits = 5, LeaveReset = LeaveReset.PerEvent },
-                new Leave { Id = Guid.NewGuid(), Code = "VL", Description = "Vacation Leave", PaySource = PaySource.Company, Credits = 10, LeaveReset = LeaveReset.PerPeriod },
-                new Leave { Id = Guid.NewGuid(), Code = "SL", Description = "Sick Leave", PaySource = PaySource.Company, Credits = 5, LeaveReset = LeaveReset.PerPeriod },
-                new Leave { Id = Guid.NewGuid(), Code = "EL", Description = "Educational Leave (Government Employees)", PaySource = PaySource.Government, Credits = 10, LeaveReset = LeaveReset.PerPeriod },
-                new Leave { Id = Guid.NewGuid(), Code = "MC", Description = "Magna Carta Leave for Government Employees", PaySource = PaySource.Government, Credits = 5, LeaveReset = LeaveReset.PerPeriod },
-                new Leave { Id = Guid.NewGuid(), Code = "ML", Description = "Maternity Leave", PaySource = PaySource.Government, Credits = 105, LeaveReset = LeaveReset.PerEvent },
-            };
+                Id                       = Guid.NewGuid(),
+                Code                     = "SIL",
+                Category                 = "Statutory",
+                Description              = "Service Incentive Leave",
+                LegalBasis               = "Labor Code Art. 95 (Service Incentive Leave)",
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.Annually,
+                Credits                  = 0,
+                AccrualRate              = 5,
+                LeaveReset               = LeaveReset.PerPeriod,
+                MinServiceMonths         = 12,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                CarryOverType            = CarryOverType.Forfeit,
+                ConvertToCash            = true,
+                CashConversionRate       = 1.0m,
+                MaxCashConversionDays    = 5,
+                IsStatutory              = true,
+                RequiresApproval         = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "VL",
+                Category                 = "Benefit",
+                Description              = "Vacation Leave",
+                LegalBasis               = string.Empty,
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.Monthly,
+                Credits                  = 0,
+                AccrualRate              = 0.833,
+                LeaveReset               = LeaveReset.PerPeriod,
+                MinServiceMonths         = 6,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                CarryOverType            = CarryOverType.Capped,
+                CarryOverMaxDays         = 5,
+                RequiresApproval         = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "SL",
+                Category                 = "Benefit",
+                Description              = "Sick Leave",
+                LegalBasis               = string.Empty,
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.Monthly,
+                Credits                  = 0,
+                AccrualRate              = 0.417,
+                LeaveReset               = LeaveReset.PerPeriod,
+                MinServiceMonths         = 6,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                CarryOverType            = CarryOverType.Forfeit,
+                RequiresApproval         = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "PL",
+                Category                 = "Statutory",
+                Description              = "Paternity Leave",
+                LegalBasis               = "RA 8187 (Paternity Leave Act of 1996)",
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.PerEvent,
+                Credits                  = 7,
+                LeaveReset               = LeaveReset.PerEvent,
+                GenderRestriction        = GenderRestriction.MaleOnly,
+                AllowHalfDay             = false,
+                AllowNegativeBalance     = false,
+                MaxConsecutiveDays       = 7,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "SPL",
+                Category                 = "Statutory",
+                Description              = "Parental Leave for Solo Parents",
+                LegalBasis               = "RA 8972 (Solo Parents' Welfare Act of 2000)",
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.None,
+                Credits                  = 7,
+                LeaveReset               = LeaveReset.PerPeriod,
+                MinServiceMonths         = 12,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                CarryOverType            = CarryOverType.Forfeit,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "SLW",
+                Category                 = "Statutory",
+                Description              = "Special Leave for Women (Gynecological Disorders)",
+                LegalBasis               = "RA 9710 (Magna Carta of Women)",
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.PerEvent,
+                Credits                  = 60,
+                LeaveReset               = LeaveReset.PerEvent,
+                GenderRestriction        = GenderRestriction.FemaleOnly,
+                MinServiceMonths         = 6,
+                AllowHalfDay             = false,
+                AllowNegativeBalance     = false,
+                MaxConsecutiveDays       = 60,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "VAWC",
+                Category                 = "Statutory",
+                Description              = "Leave for Victims of Violence Against Women and Children",
+                LegalBasis               = "RA 9262 (Anti-VAWC Act of 2004)",
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.None,
+                Credits                  = 10,
+                LeaveReset               = LeaveReset.PerPeriod,
+                GenderRestriction        = GenderRestriction.FemaleOnly,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                CarryOverType            = CarryOverType.Forfeit,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "SEL",
+                Category                 = "Emergency",
+                Description              = "Special Emergency Leave (Calamities)",
+                LegalBasis               = "DOLE Department Order No. 53-03",
+                PaySource                = PaySource.Company,
+                AccrualBasis             = AccrualBasis.PerEvent,
+                Credits                  = 5,
+                LeaveReset               = LeaveReset.PerEvent,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                RequiresApproval         = true,
+                IsStatutory              = false,
+            },
+
+            // ── Statutory — Shared/Government-paid ───────────────────────────────
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "ML",
+                Category                 = "Statutory",
+                Description              = "Maternity Leave",
+                LegalBasis               = "RA 11210 (105-Day Expanded Maternity Leave Law)",
+                PaySource                = PaySource.Government,
+                EmployerAdvancesPayment  = true,
+                AccrualBasis             = AccrualBasis.PerEvent,
+                Credits                  = 105,
+                LeaveReset               = LeaveReset.PerEvent,
+                GenderRestriction        = GenderRestriction.FemaleOnly,
+                MinServiceMonths         = 3,
+                AllowHalfDay             = false,
+                AllowNegativeBalance     = false,
+                MaxConsecutiveDays       = 105,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "RL",
+                Category                 = "Statutory",
+                Description              = "Rehabilitation Leave (Occupational Injuries)",
+                LegalBasis               = "PD 626 (Employees' Compensation Law)",
+                PaySource                = PaySource.Shared,
+                EmployerAdvancesPayment  = true,
+                AccrualBasis             = AccrualBasis.PerEvent,
+                Credits                  = 120,
+                LeaveReset               = LeaveReset.PerEvent,
+                AllowHalfDay             = false,
+                AllowNegativeBalance     = false,
+                MaxConsecutiveDays       = 120,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+
+            // ── Government-sector only ────────────────────────────────────────────
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "EL",
+                Category                 = "Government",
+                Description              = "Educational Leave",
+                LegalBasis               = "CSC Rules on Leave (Government Employees)",
+                PaySource                = PaySource.Government,
+                AccrualBasis             = AccrualBasis.None,
+                Credits                  = 10,
+                LeaveReset               = LeaveReset.PerPeriod,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                CarryOverType            = CarryOverType.Forfeit,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+            new Leave
+            {
+                Id                       = Guid.NewGuid(),
+                Code                     = "MCL",
+                Category                 = "Government",
+                Description              = "Magna Carta Leave (Government Employees)",
+                LegalBasis               = "RA 7877 / CSC MC 25 s.1994 (Magna Carta for Public School Teachers)",
+                PaySource                = PaySource.Government,
+                AccrualBasis             = AccrualBasis.None,
+                Credits                  = 5,
+                LeaveReset               = LeaveReset.PerPeriod,
+                AllowHalfDay             = true,
+                AllowNegativeBalance     = false,
+                CarryOverType            = CarryOverType.Forfeit,
+                RequiresSupportingDocument = false,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
+        };
         _uow.Repository.AddRange(leaves);
     }
     private void SetDefaultRates()
     {
         var rates = new List<RateTable>
-    {
-        // Base Rates
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.REGULAR, ShortDescription = "REG", Description = "Regular Day", Rate = RATE_DEFAULT.REGULAR },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.NIGHTDIFF, ShortDescription = "ND", Description = "Night Differential", Rate = RATE_DEFAULT.NIGHTDIFF },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.OVERTIME, ShortDescription = "OT", Description = "Overtime", Rate = RATE_DEFAULT.OVERTIME },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.RESTDAY_DUTY, ShortDescription = "RD", Description = "Rest Day Duty", Rate = RATE_DEFAULT.RESTDAY_DUTY },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.LEGAL_HOLIDAY, ShortDescription = "LH", Description = "Legal Holiday (No Work)", Rate = RATE_DEFAULT.LEGAL_HOLIDAY },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.LEGAL_HOLIDAY_DUTY, ShortDescription = "LH-DUTY", Description = "Legal Holiday Duty", Rate = RATE_DEFAULT.LEGAL_HOLIDAY_DUTY },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.SPECIAL_WORKING, ShortDescription = "SP-WH", Description = "Special Working Holiday", Rate = RATE_DEFAULT.SPECIAL_WORKING },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.SPECIAL_NON_WORKING, ShortDescription = "SP-NWH", Description = "Special Non-Working Holiday", Rate = RATE_DEFAULT.SPECIAL_NON_WORKING },
-        new RateTable { Id = Guid.NewGuid(), Type = RateType.RESTDAY_SPECIAL, ShortDescription = "RD-SP", Description = "Special Rest Day", Rate = RATE_DEFAULT.RESTDAY_SPECIAL }
-    };
+        {
+            // ── Regular ───────────────────────────────────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.REG,       ShortDescription = "REG",          Description = "Regular Hours",                          Rate = RATE_DEFAULT.REG },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.REG_OT,    ShortDescription = "REG-OT",       Description = "Regular Overtime",                       Rate = RATE_DEFAULT.REG_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.REG_ND,    ShortDescription = "REG-ND",       Description = "Regular Night Differential",             Rate = RATE_DEFAULT.REG_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.REG_ND_OT, ShortDescription = "REG-ND-OT",    Description = "Regular Night Differential Overtime",    Rate = RATE_DEFAULT.REG_ND_OT },
+
+            // ── Rest Day ──────────────────────────────────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD,        ShortDescription = "RD",           Description = "Rest Day",                               Rate = RATE_DEFAULT.RD },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_OT,     ShortDescription = "RD-OT",        Description = "Rest Day Overtime",                      Rate = RATE_DEFAULT.RD_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_ND,     ShortDescription = "RD-ND",        Description = "Rest Day Night Differential",            Rate = RATE_DEFAULT.RD_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_ND_OT,  ShortDescription = "RD-ND-OT",     Description = "Rest Day Night Differential Overtime",   Rate = RATE_DEFAULT.RD_ND_OT },
+
+            // ── Legal Holiday (Worked) ─────────────────────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.LH,        ShortDescription = "LH",           Description = "Legal Holiday",                          Rate = RATE_DEFAULT.LH },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.LH_OT,     ShortDescription = "LH-OT",        Description = "Legal Holiday Overtime",                 Rate = RATE_DEFAULT.LH_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.LH_ND,     ShortDescription = "LH-ND",        Description = "Legal Holiday Night Differential",       Rate = RATE_DEFAULT.LH_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.LH_ND_OT,  ShortDescription = "LH-ND-OT",     Description = "Legal Holiday Night Differential OT",    Rate = RATE_DEFAULT.LH_ND_OT },
+
+            // ── Special Non-Working Holiday (Worked) ──────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SH,        ShortDescription = "SH",           Description = "Special Non-Working Holiday",            Rate = RATE_DEFAULT.SH },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SH_OT,     ShortDescription = "SH-OT",        Description = "Special Holiday Overtime",               Rate = RATE_DEFAULT.SH_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SH_ND,     ShortDescription = "SH-ND",        Description = "Special Holiday Night Differential",     Rate = RATE_DEFAULT.SH_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SH_ND_OT,  ShortDescription = "SH-ND-OT",     Description = "Special Holiday Night Differential OT",  Rate = RATE_DEFAULT.SH_ND_OT },
+
+            // ── Rest Day + Legal Holiday ───────────────────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_LH,        ShortDescription = "RD-LH",        Description = "Rest Day Legal Holiday",                         Rate = RATE_DEFAULT.RD_LH },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_LH_OT,     ShortDescription = "RD-LH-OT",     Description = "Rest Day Legal Holiday Overtime",                Rate = RATE_DEFAULT.RD_LH_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_LH_ND,     ShortDescription = "RD-LH-ND",     Description = "Rest Day Legal Holiday Night Differential",      Rate = RATE_DEFAULT.RD_LH_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_LH_ND_OT,  ShortDescription = "RD-LH-ND-OT",  Description = "Rest Day Legal Holiday Night Differential OT",   Rate = RATE_DEFAULT.RD_LH_ND_OT },
+
+            // ── Rest Day + Special Non-Working Holiday ────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_SH,        ShortDescription = "RD-SH",        Description = "Rest Day Special Holiday",                       Rate = RATE_DEFAULT.RD_SH },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_SH_OT,     ShortDescription = "RD-SH-OT",     Description = "Rest Day Special Holiday Overtime",              Rate = RATE_DEFAULT.RD_SH_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_SH_ND,     ShortDescription = "RD-SH-ND",     Description = "Rest Day Special Holiday Night Differential",    Rate = RATE_DEFAULT.RD_SH_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_SH_ND_OT,  ShortDescription = "RD-SH-ND-OT",  Description = "Rest Day Special Holiday Night Differential OT", Rate = RATE_DEFAULT.RD_SH_ND_OT },
+
+            // ── Special Working Holiday ────────────────────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SW,        ShortDescription = "SW",           Description = "Special Working Holiday",                        Rate = RATE_DEFAULT.SW },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SW_OT,     ShortDescription = "SW-OT",        Description = "Special Working Holiday Overtime",               Rate = RATE_DEFAULT.SW_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SW_ND,     ShortDescription = "SW-ND",        Description = "Special Working Holiday Night Differential",     Rate = RATE_DEFAULT.SW_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.SW_ND_OT,  ShortDescription = "SW-ND-OT",     Description = "Special Working Holiday Night Differential OT",  Rate = RATE_DEFAULT.SW_ND_OT },
+
+            // ── Double Legal Holiday (Worked) ─────────────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.DLH,        ShortDescription = "DLH",          Description = "Double Legal Holiday",                           Rate = RATE_DEFAULT.DLH },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.DLH_OT,     ShortDescription = "DLH-OT",       Description = "Double Legal Holiday Overtime",                  Rate = RATE_DEFAULT.DLH_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.DLH_ND,     ShortDescription = "DLH-ND",       Description = "Double Legal Holiday Night Differential",        Rate = RATE_DEFAULT.DLH_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.DLH_ND_OT,  ShortDescription = "DLH-ND-OT",    Description = "Double Legal Holiday Night Differential OT",     Rate = RATE_DEFAULT.DLH_ND_OT },
+
+            // ── Rest Day + Double Legal Holiday ───────────────────────────────────
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_DLH,        ShortDescription = "RD-DLH",        Description = "Rest Day Double Legal Holiday",                          Rate = RATE_DEFAULT.RD_DLH },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_DLH_OT,     ShortDescription = "RD-DLH-OT",     Description = "Rest Day Double Legal Holiday Overtime",                 Rate = RATE_DEFAULT.RD_DLH_OT },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_DLH_ND,     ShortDescription = "RD-DLH-ND",     Description = "Rest Day Double Legal Holiday Night Differential",       Rate = RATE_DEFAULT.RD_DLH_ND },
+            new RateTable { Id = Guid.NewGuid(), Type = RateType.RD_DLH_ND_OT,  ShortDescription = "RD-DLH-ND-OT",  Description = "Rest Day Double Legal Holiday Night Differential OT",    Rate = RATE_DEFAULT.RD_DLH_ND_OT },
+        };
         _uow.Repository.AddRange(rates);
     }
 }

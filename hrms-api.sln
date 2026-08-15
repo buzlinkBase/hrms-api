@@ -35,8 +35,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{F871CE
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Adms", "Adms", "{D4B3B064-D497-462B-BDD6-75FA42BF84BE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuzlinkRepository", "..\uow\BuzlinkRepository.csproj", "{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -191,18 +189,6 @@ Global
 		{66AC57F3-3BB3-26A0-B4EC-76D5A0903BEB}.Release|x64.Build.0 = Release|x64
 		{66AC57F3-3BB3-26A0-B4EC-76D5A0903BEB}.Release|x86.ActiveCfg = Release|x86
 		{66AC57F3-3BB3-26A0-B4EC-76D5A0903BEB}.Release|x86.Build.0 = Release|x86
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Debug|x64.Build.0 = Debug|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Debug|x86.Build.0 = Debug|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Release|x64.ActiveCfg = Release|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Release|x64.Build.0 = Release|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Release|x86.ActiveCfg = Release|Any CPU
-		{D9681E8A-8584-E3A4-B9A5-12B994B88B6F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

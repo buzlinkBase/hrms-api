@@ -58,28 +58,24 @@ public class TimeRecord
         EndTime = DateTime.MinValue;
     }
 
-    public TimeRecord(DateTime startTime, DateTime endTime, string? tag = "")
+    public TimeRecord(DateTime startTime, DateTime endTime, string? tag = "", bool isVirtual = false, bool isLeave = false)
     {
         StartTime = startTime;
         EndTime = endTime;
         Tag = tag ?? string.Empty;
+        IsVirtual = isVirtual;
+        IsLeave = isLeave;
     }
 
-    public static TimeRecord Set(DateTime startTime, DateTime endTime, string? tag) => new TimeRecord(startTime, endTime, tag);
-    public static TimeRecord? Null()
-    {
-        return null;
-    }
+    public static TimeRecord Set(DateTime startTime, DateTime endTime, string? tag, bool isVirtual = false, bool isLeave = false)
+        => new TimeRecord(startTime, endTime, tag, isVirtual, isLeave);
+
+    public static TimeRecord? Null() => null;
 
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
-    public double TotalMinutes
-    {
-        get
-        {
-            return TimeRangeCalculator.GetTotalMinutes(StartTime, EndTime);
-        }
-    }
+    public double TotalMinutes => TimeRangeCalculator.GetTotalMinutes(StartTime, EndTime);
     public string Tag { get; set; }
-
+    public bool IsVirtual { get; set; }
+    public bool IsLeave { get; set; }
 }

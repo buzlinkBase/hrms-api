@@ -32,7 +32,7 @@ internal class IsLeave : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
     {
-        var key = new EmployeePayDateKey(context.Employee.Id, context.PayrollDate);
+        var key = new Leavekey(context.Employee.Id);
         context.Payload.Leaves.TryGetValue(key, out var leave);
         return leave != null && leave.Any();
     }
@@ -43,11 +43,11 @@ internal class IsWholeDayLeave : IPayrollSpec<PayrollContext>
     public bool IsSatisfiedBy(PayrollContext context)
     {
 
-        var key = new EmployeePayDateKey(context.Employee.Id, context.PayrollDate);
+        var key = new Leavekey(context.Employee.Id);
         context.Payload.Leaves.TryGetValue(key, out var leave);
 
         return leave != null && leave
-            .Where(x => x.DayType == LeaveDayType.WholeDay)
+            .Where(x => x.DayFraction == DayFraction.FullDay)
             .Any();
 
     }
@@ -65,6 +65,35 @@ internal class IsRestDay : IPayrollSpec<PayrollContext>
     {
         return context.WorkType == WorkType.RestDay;
     }
+}
+
+// Covers all legal-holiday work-type variants (with or without rest day / duty).
+internal class IsLegalHolidayDay : IPayrollSpec<PayrollContext>
+{
+    public bool IsSatisfiedBy(PayrollContext context) =>
+        context.WorkType is WorkType.LegalHoliday
+            or WorkType.LegalHolidayDuty
+            or WorkType.RestDayLegalHoliday
+            or WorkType.RestDayLegalHolidayDuty;
+}
+
+// Covers all special-non-working-holiday work-type variants.
+internal class IsSpecialNonWorkingDay : IPayrollSpec<PayrollContext>
+{
+    public bool IsSatisfiedBy(PayrollContext context) =>
+        context.WorkType is WorkType.SpecialNonWorkingHoliday
+            or WorkType.SpecialHolidayDuty
+            or WorkType.RestDaySpecialHoliday
+            or WorkType.RestDaySpecialHolidayDuty;
+}
+
+// Covers all rest-day work-type variants not already captured by holiday specs.
+internal class IsRestDayType : IPayrollSpec<PayrollContext>
+{
+    public bool IsSatisfiedBy(PayrollContext context) =>
+        context.WorkType is WorkType.RestDay
+            or WorkType.RestDayDuty
+            or WorkType.RestDayTravel;
 }
 internal class IsRegularWorkDay : IPayrollSpec<PayrollContext>
 {

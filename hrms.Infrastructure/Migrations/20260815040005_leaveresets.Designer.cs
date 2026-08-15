@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    [Migration("20260801235409_addrelationnavigation")]
-    partial class addrelationnavigation
+    [Migration("20260815040005_leaveresets")]
+    partial class leaveresets
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -124,6 +124,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("LogSource", "WorkDateTime")
                         .HasDatabaseName("IX_Attendance_ls_wt");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.HasIndex("BranchId", "DepartmentId", "OperationAreaId", "ClientId")
                         .HasDatabaseName("IX_Att_BRId_DepId_Area_ClId_LS");
 
@@ -182,6 +184,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Branches");
                 });
 
@@ -229,6 +233,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("HolidayId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("ChangeHolidays");
                 });
 
@@ -274,6 +280,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("ChangeRestDays");
                 });
 
@@ -308,6 +316,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Clients");
                 });
@@ -362,6 +372,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("ClientHolidays");
                 });
@@ -423,6 +435,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Companies");
                 });
 
@@ -466,6 +480,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Areas");
                 });
 
@@ -508,6 +524,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("PayrollGroupId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("CutoffDay");
                 });
 
@@ -535,11 +553,26 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<double>("CreditsSpent")
+                        .HasColumnType("double");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<Guid?>("DepartmentId")
                         .HasColumnType("char(36)");
+
+                    b.Property<double>("DoubleLegalHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("DoubleLegalNDHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("DoubleLegalNDOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("DoubleLegalOTHours")
+                        .HasColumnType("double");
 
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
@@ -614,6 +647,18 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("RestDayOTHours")
                         .HasColumnType("double");
 
+                    b.Property<double>("RestDoubleLegalHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestDoubleLegalNDHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestDoubleLegalNDOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestDoubleLegalOTHours")
+                        .HasColumnType("double");
+
                     b.Property<double>("RestLegalDayHours")
                         .HasColumnType("double");
 
@@ -669,6 +714,18 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("SpecialHolOTHours")
                         .HasColumnType("double");
 
+                    b.Property<double>("SpecialWorkDayHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("SpecialWorkDayNDHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("SpecialWorkDayNDOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("SpecialWorkDayOTHours")
+                        .HasColumnType("double");
+
                     b.Property<DateTime?>("StartTime")
                         .HasColumnType("datetime(6)");
 
@@ -701,6 +758,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("DailyTimeRecords");
                 });
@@ -744,6 +803,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Deductions");
                 });
@@ -815,6 +876,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("DeductionApplications");
                 });
 
@@ -878,6 +941,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("DeductionApplicationId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("DeductionApplicationDetails");
                 });
 
@@ -917,6 +982,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("DeductionPayments");
                 });
 
@@ -947,6 +1014,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("DeductionTypes");
                 });
@@ -988,6 +1057,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("HeadId")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Departments");
                 });
@@ -1058,6 +1129,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("AssignAssets");
                 });
 
@@ -1105,6 +1178,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Dependents");
                 });
 
@@ -1143,6 +1218,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Educations");
                 });
@@ -1340,6 +1417,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TimeShiftId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Employees");
                 });
 
@@ -1383,6 +1462,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("EmployeeRecords");
                 });
@@ -1435,6 +1516,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("EmployeeSettings");
                 });
 
@@ -1480,6 +1563,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Employments");
                 });
@@ -1527,6 +1612,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("HDMFRates");
                 });
 
@@ -1573,6 +1660,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("PHICRates");
                 });
 
@@ -1608,6 +1697,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("RestDays");
                 });
 
@@ -1642,6 +1733,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("RestDayDates");
                 });
@@ -1692,6 +1785,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("SSSRates");
                 });
 
@@ -1730,6 +1825,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Skills");
                 });
@@ -1773,6 +1870,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("TaxRates");
                 });
@@ -1818,6 +1917,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("GeneralSettings");
 
@@ -1931,17 +2032,6 @@ namespace Hrms.Infrastructure.Migrations
                             TenantId = new Guid("00000000-0000-0000-0000-000000000000"),
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "False"
-                        },
-                        new
-                        {
-                            Id = new Guid("4567d8e9-f012-4678-bcda-0123456789de"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "HolidayColumnPresentation",
-                            IdentityType = "Company",
-                            Status = "Active",
-                            TenantId = new Guid("00000000-0000-0000-0000-000000000000"),
-                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "NoCredit"
                         });
                 });
 
@@ -1989,6 +2079,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("HDMFContributions");
                 });
@@ -2045,6 +2137,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("GovHDMFs");
                 });
 
@@ -2099,6 +2193,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("AreaId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Holidays");
                 });
 
@@ -2138,6 +2234,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("IncomePayments");
                 });
 
@@ -2147,12 +2245,44 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("AccrualBasis")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<double>("AccrualRate")
+                        .HasColumnType("double");
+
+                    b.Property<bool>("AllowHalfDay")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("AllowNegativeBalance")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("AllowPartial")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("CarryOverExpiryMonths")
+                        .HasColumnType("int");
+
+                    b.Property<double>("CarryOverMaxDays")
+                        .HasColumnType("double");
+
+                    b.Property<string>("CarryOverType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal>("CashConversionRate")
+                        .HasColumnType("decimal(65,30)");
+
                     b.Property<string>("Category")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<bool>("ConvertToCash")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -2167,16 +2297,55 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("LeaveReset")
+                    b.Property<bool>("EmployerAdvancesPayment")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("GenderRestriction")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsStatutory")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("LeaveReset")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LegalBasis")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<double?>("MaxAccrualBalance")
+                        .HasColumnType("double");
+
+                    b.Property<double?>("MaxCashConversionDays")
+                        .HasColumnType("double");
+
+                    b.Property<int?>("MaxConsecutiveDays")
+                        .HasColumnType("int");
+
+                    b.Property<double?>("MaxDaysPerYear")
+                        .HasColumnType("double");
+
+                    b.Property<int>("MinServiceMonths")
                         .HasColumnType("int");
 
                     b.Property<string>("PaySource")
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<bool>("ProRateFirstYear")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Remarks")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<bool>("RequiresApproval")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RequiresSupportingDocument")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2189,6 +2358,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Leaves");
                 });
@@ -2211,14 +2382,23 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("DayType")
+                    b.Property<int>("DayFraction")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("DurationType")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsManualEntry")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<DateOnly>("LeaveDateFrom")
                         .HasColumnType("date");
@@ -2238,67 +2418,43 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime?>("ReviewedOn")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("StartTime")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Status")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SupportingDocumentUrl")
                         .HasColumnType("longtext");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("char(36)");
 
+                    b.Property<double>("TotalMinutes")
+                        .HasColumnType("double");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LeaveId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("leaveApplications");
                 });
 
-            modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplicationDetail", b =>
+            modelBuilder.Entity("Hrms.Domain.Entities.LeaveCredits", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
-
-                    b.Property<Guid>("ApplicationId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateOnly>("LeaveDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApplicationId");
-
-                    b.ToTable("LeaveApplicationDetails");
-                });
-
-            modelBuilder.Entity("Hrms.Domain.Entities.LeaveLedger", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<decimal>("Add")
-                        .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("Balance")
-                        .HasColumnType("decimal(65,30)");
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -2309,8 +2465,85 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
+                    b.Property<DateTime>("FromDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Granted")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("LeaveId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("PeriodYear")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Reserved")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ToDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Used")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeaveId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.HasIndex("EmployeeId", "LeaveId", "PeriodYear")
+                        .IsUnique();
+
+                    b.ToTable("LeaveCredits");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.LeaveLedger", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Add")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Balance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DtrBatchCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateOnly>("EntryDate")
                         .HasColumnType("date");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<Guid>("LeaveCreditsId")
                         .HasColumnType("char(36)");
@@ -2319,7 +2552,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<decimal>("Less")
-                        .HasColumnType("decimal(65,30)");
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("Particulars")
                         .IsRequired()
@@ -2341,6 +2575,14 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("LeaveCreditsId");
+
+                    b.HasIndex("LeaveId");
+
+                    b.HasIndex("ReferenceApplicationId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("LeaveLedgers");
                 });
@@ -2389,6 +2631,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("ManualAttendance");
                 });
 
@@ -2435,6 +2679,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IncomeTypeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Allowances");
                 });
@@ -2499,6 +2745,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("OtherIncomeApplications");
                 });
 
@@ -2556,6 +2804,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("OtherIncomeApplicationId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("OtherIncomeApplicationDetails");
                 });
 
@@ -2587,6 +2837,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("AllowanceTypes");
                 });
 
@@ -2595,6 +2847,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -2605,35 +2860,26 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
-                    b.Property<DateTime>("EndTime")
+                    b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<bool>("FlexiEndTime")
+                    b.Property<bool>("IsManualEntry")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<double>("OTBeforeOverride")
+                    b.Property<double>("ManualOTMinutes")
                         .HasColumnType("double");
 
                     b.Property<DateOnly>("OTDate")
                         .HasColumnType("date");
 
-                    b.Property<double>("OTMinutes")
-                        .HasColumnType("double");
-
-                    b.Property<int>("OTStatus")
-                        .HasColumnType("int");
-
                     b.Property<double>("OverTimeThreshold")
                         .HasColumnType("double");
-
-                    b.Property<bool>("PaidByNetDutyTime")
-                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Remarks")
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<DateTime>("StartTime")
+                    b.Property<DateTime?>("StartTime")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Status")
@@ -2649,6 +2895,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("OTApplications");
                 });
@@ -2697,6 +2945,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("PHICContributions");
                 });
@@ -2749,6 +2999,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("GovPHICs");
                 });
@@ -2914,6 +3166,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Payrolls");
                 });
 
@@ -2952,6 +3206,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("PayrollGroups");
                 });
 
@@ -2989,6 +3245,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Positions");
                 });
@@ -3035,6 +3293,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("ProratedAllowances");
                 });
 
@@ -3079,6 +3339,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("PremiumRates");
                 });
@@ -3135,6 +3397,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("SSSContributions");
                 });
 
@@ -3186,6 +3450,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("GovSSSes");
                 });
 
@@ -3229,6 +3495,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Sections");
                 });
@@ -3279,6 +3547,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("GovTaxes");
                 });
 
@@ -3319,6 +3589,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("ThirteenthMonthLedgers");
                 });
@@ -3412,7 +3684,86 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("TimeShifts");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.TravelOrderApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ApplicationDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Classification")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<double>("Cost")
+                        .HasColumnType("double");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsManualEntry")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("StartTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<double>("TotalMinutes")
+                        .HasColumnType("double");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("TravelOrderApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UnderTimeApplication", b =>
@@ -3420,6 +3771,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -3429,9 +3783,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
-
-                    b.Property<int>("OTStatus")
-                        .HasColumnType("int");
 
                     b.Property<DateOnly>("PayrollDate")
                         .HasColumnType("date");
@@ -3456,6 +3807,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("UTApplications");
                 });
@@ -3502,6 +3855,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("TaxContributions");
                 });
 
@@ -3545,6 +3900,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId");
 
                     b.HasIndex("TimeShiftId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("WorkSchedulePlans");
                 });
@@ -4007,15 +4364,34 @@ namespace Hrms.Infrastructure.Migrations
                     b.Navigation("Area");
                 });
 
-            modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplicationDetail", b =>
+            modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplication", b =>
                 {
-                    b.HasOne("Hrms.Domain.Entities.LeaveApplication", "Application")
-                        .WithMany("Details")
-                        .HasForeignKey("ApplicationId")
+                    b.HasOne("Hrms.Domain.Entities.Leave", "Leave")
+                        .WithMany()
+                        .HasForeignKey("LeaveId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Application");
+                    b.Navigation("Leave");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.LeaveCredits", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.Leave", "Leave")
+                        .WithMany()
+                        .HasForeignKey("LeaveId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Leave");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveLedger", b =>
@@ -4026,7 +4402,30 @@ namespace Hrms.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Hrms.Domain.Entities.LeaveCredits", "LeaveCredits")
+                        .WithMany()
+                        .HasForeignKey("LeaveCreditsId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.Leave", "Leave")
+                        .WithMany()
+                        .HasForeignKey("LeaveId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.LeaveApplication", "Application")
+                        .WithMany()
+                        .HasForeignKey("ReferenceApplicationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Application");
+
                     b.Navigation("Employee");
+
+                    b.Navigation("Leave");
+
+                    b.Navigation("LeaveCredits");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncome", b =>
@@ -4066,6 +4465,17 @@ namespace Hrms.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ThirteenthMonthLedger", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.TravelOrderApplication", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
                         .WithMany()
@@ -4143,11 +4553,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Navigation("Skills");
 
                     b.Navigation("TaxRate");
-                });
-
-            modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplication", b =>
-                {
-                    b.Navigation("Details");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncomeApplication", b =>

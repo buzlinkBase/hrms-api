@@ -1,21 +1,19 @@
-﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
 /// <summary>
-/// Resolves the <see cref="WorkType"/> for a shift by evaluating attendance, leave,
-/// rest-day, and holiday status against a fixed priority order:
+/// Resolves the <see cref="WorkType"/> for a shift against a fixed priority order:
 ///
-///   1. Incomplete attendance         — always wins; nothing else matters if the punches don't pair up.
-///   2. Worked while on leave         — half-day leave: attendance plus an active leave
-///                                       application for the same day.
-///   3. Worked the shift (pure duty)  — rest day / legal / special non-working holiday duty variants,
-///                                       else regular work (including special working holidays).
-///   4. On leave (no duty)            — leave on a rest day collapses to a plain rest day;
-///                                       otherwise paid/unpaid leave per the leave's pay type.
-///   5. Rest day (no duty, no leave).
-///   6. Holiday (no duty, no leave, not a rest day) — legal, special non-working, or absent on special working.
-///   7. Absent — fallback when none of the above apply.
+///   1. Incomplete attendance       — always wins; nothing else matters if punches don't pair up.
+///   2. Rest day / holiday duty     — employee worked; rest-day and holiday classifications beat leave.
+///   3. Leave duty                  — employee worked on a regular day while on (partial) leave.
+///   4. Regular duty                — employee worked a normal shift.
+///   5. Rest day (no duty)          — including holiday combinations on a rest day.
+///   6. Legal holiday (no duty)     — beats leave when employee did not work.
+///   7. Special non-working (no duty) — beats leave when employee did not work.
+///   8. On leave (no duty, regular day).
+///   9. Special working / travel / absent — fallbacks.
 /// </summary>
 public static class WorkTypeResolver
 {
@@ -37,9 +35,7 @@ public static class WorkTypeResolver
         if (hasAttendance)
             return ResolveDutyWorkType(leave, isRestDay, isLegalHoliday, isSpecialWorking, isSpecialNonWorking);
 
-        if (leave != null)
-            return ResolveLeaveWorkType(leave, isRestDay);
-
+        // No attendance — rest day and holidays outrank leave
         if (isRestDay)
         {
             if (isLegalHoliday) return WorkType.RestDayLegalHoliday;
@@ -53,19 +49,21 @@ public static class WorkTypeResolver
         if (isSpecialNonWorking)
             return WorkType.SpecialNonWorkingHoliday;
 
+        if (leave != null)
+            return ResolveLeaveWorkType(leave);
+
         if (isSpecialWorking)
-            return WorkType.Absent;//return WorkType.SpecialWorkingHoliday;
+            return WorkType.Absent;
 
         if (travel != null)
             return ResolveTravelWorkType(travel, isRestDay);
 
         return WorkType.Absent;
-
     }
 
     /// <summary>
-    /// Employee has attendance for the shift. If a leave application is active (half-day leave),
-    /// that combined classification wins. Otherwise resolves pure duty.
+    /// Employee has attendance. Rest day and holiday classifications outrank leave.
+    /// Leave only wins on a plain regular working day.
     /// </summary>
     private static WorkType ResolveDutyWorkType(
         LeaveApplication? leave,
@@ -74,9 +72,6 @@ public static class WorkTypeResolver
         bool isSpecialWorking,
         bool isSpecialNonWorking)
     {
-        if (leave != null)
-            return ResolveDutyOnLeaveWorkType(leave);
-
         if (isRestDay)
         {
             if (isLegalHoliday) return WorkType.RestDayLegalHolidayDuty;
@@ -93,11 +88,14 @@ public static class WorkTypeResolver
         if (isSpecialWorking)
             return WorkType.SpecialWorkingHoliday;
 
+        if (leave != null)
+            return ResolveDutyOnLeaveWorkType(leave);
+
         return WorkType.RegularWorkDay;
     }
 
     /// <summary>
-    /// Employee worked part of the shift while having an active leave application.
+    /// Employee worked on a regular day while on (partial) leave.
     /// </summary>
     private static WorkType ResolveDutyOnLeaveWorkType(LeaveApplication leave) =>
         leave.PayType == PayType.WithPay
@@ -105,18 +103,12 @@ public static class WorkTypeResolver
             : WorkType.UnpaidLeave;
 
     /// <summary>
-    /// Employee has no attendance but is on leave. Leave on a rest day collapses
-    /// to a plain rest day.
+    /// Employee has no attendance and is on leave on a regular working day.
     /// </summary>
-    private static WorkType ResolveLeaveWorkType(LeaveApplication leave, bool isRestDay)
-    {
-        if (isRestDay)
-            return WorkType.RestDay;
-
-        return leave.PayType == PayType.WithPay
+    private static WorkType ResolveLeaveWorkType(LeaveApplication leave) =>
+        leave.PayType == PayType.WithPay
             ? WorkType.PaidLeave
             : WorkType.UnpaidLeave;
-    }
 
     private static WorkType ResolveTravelWorkType(TravelOrderApplication travel, bool isRestDay)
     {

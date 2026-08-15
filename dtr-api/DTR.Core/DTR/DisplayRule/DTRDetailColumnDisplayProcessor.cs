@@ -3,6 +3,40 @@ using DTR.Core.DTR.DisplayRule.ColumnsViewRule.Evaluators;
 
 namespace DTR.Core;
 
+public static class DutyTypeMapFactory
+{
+    public static readonly Dictionary<DayType, IDutyDayEvaluator> Create = new()
+    {
+        { DayType.REGULAR, new RegularDayEvaluator()},
+        { DayType.RESTDAY, new RestDayEvaluator() },
+
+        { DayType.REGULAR_OT, new RegularOverTimeEvaluator()},
+        { DayType.REST_OT, new RestOverTimeEvaluator()},
+
+        { DayType.LEGAL, new LegalHolidayEvaluator()},
+        { DayType.LEGAL_OT, new LegalHolidayOTEvaluator()},
+
+        { DayType.SPECIAL, new  SpecialHolidayEvaluator()},
+        { DayType.SPECIAL_OT, new SpecialHolidayOTEvaluator()},
+
+        { DayType.RESTLEGAL, new RestLegalEvaluator()},
+        { DayType.RESTLEGAL_OT, new RestLegalHolidayOTEvaluator()},
+
+        { DayType.RESTSPECIAL, new RestSpecialEvaluator()},
+        { DayType.RESTSPECIAL_OT, new RestSpecialHolidayOTEvaluator()},
+
+        { DayType.DOUBLE_LEGAL, new DoubleLegalHolidayEvaluator()},
+        { DayType.DOUBLE_LEGAL_OT, new DoubleLegalHolidayOTEvaluator()},
+
+        { DayType.RESTDOUBLE_LEGAL, new DoubleRestLegalEvaluator()},
+        { DayType.RESTDOUBLE_LEGAL_OT, new DoubleRestLegalHolidayOTEvaluator()},
+
+        { DayType.NIGHT_DIFF, new NightDiffEvaluator()},
+        { DayType.NONHOLIDAY, new NonHolidayEvaluator()},
+
+    };
+}
+
 public static class DTRDetailColumnDisplayProcessor
 {
     public static NightDiffEvaluationResult ComputeNightDiff(EvaluatedColumnResult evaluated, DisplayContext dContext)
@@ -10,6 +44,7 @@ public static class DTRDetailColumnDisplayProcessor
         var nightDiffThresholdEvaluator = DutyTypeMapFactory.Create[DayType.NIGHT_DIFF];
         var ndlh = new ColumnDisplayEvaluator(new LegalNightDiffRule(evaluated)).Handle(dContext);
         var ndRegular = new ColumnDisplayEvaluator(new RegularNightdiffRule(evaluated)).Handle(dContext);
+
         TimeRange EvalND(TimeRange range) => nightDiffThresholdEvaluator.Evaluate(NightDiffCalculator.Calculate(range), dContext);
         return new NightDiffEvaluationResult
         {
@@ -19,58 +54,51 @@ public static class DTRDetailColumnDisplayProcessor
             RestOT = EvalND(evaluated.RestOT),
             Legal = ndlh,
             Special = EvalND(evaluated.SPHoliday),
-            LegalOT = EvalND(evaluated.LHOT),
-            SpecialOT = EvalND(evaluated.SPOT),
+            LegalOT = EvalND(evaluated.LegalOT),
+            SpecialOT = EvalND(evaluated.SpecialOT),
             RestLegal = EvalND(evaluated.RestLegal),
             RestLegalOT = EvalND(evaluated.RestLegalOT),
             RestSpecial = EvalND(evaluated.RestSpecial),
-            RestSpecialOT = EvalND(evaluated.RestSpecialOT)
+            RestSpecialOT = EvalND(evaluated.RestSpecialOT),
+            DoubleLegalHoliday = EvalND(evaluated.DoubleLegalHoliday),
+            DoubleLegalHolidayOT = EvalND(evaluated.DoubleLegalHolidayOT),
+            RestDoubleLegal = EvalND(evaluated.RestDoubleLegal),
+            RestDoubleLegalOT = EvalND(evaluated.RestDoubleLegalOT),
         };
     }
 
     public static EvaluatedColumnResult DisplayRule(DisplayContext displayContext)
     {
         var evaluators = DutyTypeMapFactory.Create;
-        var OtProvider = HolidayOTFactory.Create(displayContext.TimeContext, displayContext.PipeLineResult.OT);
-        // Context-based calculations
-        var regTimeRange = new ColumnDisplayEvaluator(new HolidayToRegularRule()).Handle(displayContext);
-        var holidaTimeRange = new ColumnDisplayEvaluator(new HolidayPlusAutoTimeCreditRule()).Handle(displayContext);
-        var spHolidayDisplay = new ColumnDisplayEvaluator(new SpecialHolidayDisplayRule()).Handle(displayContext);
-        var overTime = displayContext.PipeLineResult.OT;
-
-        // Regular & Rest Work
-        var regularWork = evaluators[DayType.REGULAR].Evaluate(regTimeRange, displayContext);
-        var restWork = evaluators[DayType.RESTDAY].Evaluate(regTimeRange, displayContext);
-
-        // Overtime
-        var regOT = CompositeDutyEvaluators.RegularOvertime.Evaluate(overTime, displayContext);
-        var restOT = CompositeDutyEvaluators.RestOvertime.Evaluate(overTime, displayContext);
-
-        // Holidays
-        var legalOT = OtProvider.Calculate(HolidayType.LEGAL);
-        var specialOT = OtProvider.Calculate(HolidayType.SPECIAL);
-        var legalOTResult = evaluators[DayType.LEGAL_HOLIDAY_OVERTIME].Evaluate(legalOT, displayContext);
-        var specialOTResult = evaluators[DayType.SPECIAL_HOLIDAY_OVERTIME].Evaluate(specialOT, displayContext);
+        var LegalHolidayRange = new ColumnDisplayEvaluator(new LegalHolidayRule()).Handle(displayContext);
+        var regularOT = displayContext.PipeLineResult.OT;
+        var regTimeRange = new ColumnDisplayEvaluator(new HolidayPlusRegularRule()).Handle(displayContext);
+        var holidayOTProvider = HolidayOTFactory.Create(displayContext.TimeContext, regularOT);
+        var legalOT = holidayOTProvider.Calculate(HolidayType.LEGAL);
+        var specialOT = holidayOTProvider.Calculate(HolidayType.SPECIAL);
+        var legalOTResult = evaluators[DayType.LEGAL_OT].Evaluate(legalOT, displayContext);
+        var specialOTResult = evaluators[DayType.SPECIAL_OT].Evaluate(specialOT, displayContext);
 
         // Rest Day + Holiday Overtime
-        var restLegalOT = CompositeDutyEvaluators.RestLegalOvertime.Evaluate(legalOT, displayContext);
-        var restSpecialOT = CompositeDutyEvaluators.RestSpecialOvertime.Evaluate(specialOT, displayContext);
-
         return new EvaluatedColumnResult
         {
-            RegWork = regularWork,
-            RestWork = restWork,
-            OverTime = overTime,
-            LegalHoliday = holidaTimeRange,
-            SPHoliday = spHolidayDisplay,
-            RegOT = regOT,
-            RestOT = restOT,
-            LHOT = legalOTResult,
-            SPOT = specialOTResult,
+            RegWork = evaluators[DayType.REGULAR].Evaluate(regTimeRange, displayContext),
+            RestWork = evaluators[DayType.RESTDAY].Evaluate(regTimeRange, displayContext),
+            OverTime = regularOT,
+            LegalHoliday = evaluators[DayType.LEGAL].Evaluate(LegalHolidayRange, displayContext),
+            SPHoliday = evaluators[DayType.SPECIAL].Evaluate(displayContext.PipeLineResult.SpecialHoliday, displayContext),
+            RegOT = evaluators[DayType.REGULAR_OT].Evaluate(regularOT, displayContext),
+            RestOT = evaluators[DayType.REST_OT].Evaluate(regularOT, displayContext),
+            LegalOT = legalOTResult,
+            SpecialOT = specialOTResult,
             RestLegal = evaluators[DayType.RESTLEGAL].Evaluate(displayContext.PipeLineResult.LegalHoliday, displayContext),
-            RestLegalOT = restLegalOT,
+            RestLegalOT = evaluators[DayType.RESTLEGAL_OT].Evaluate(legalOT, displayContext),
             RestSpecial = evaluators[DayType.RESTSPECIAL].Evaluate(displayContext.PipeLineResult.SpecialHoliday, displayContext),
-            RestSpecialOT = restSpecialOT
+            RestSpecialOT = evaluators[DayType.RESTSPECIAL_OT].Evaluate(specialOT, displayContext),
+            DoubleLegalHoliday = evaluators[DayType.DOUBLE_LEGAL].Evaluate(legalOT, displayContext),
+            DoubleLegalHolidayOT = evaluators[DayType.DOUBLE_LEGAL_OT].Evaluate(legalOT, displayContext),
+            RestDoubleLegal = evaluators[DayType.RESTDOUBLE_LEGAL].Evaluate(legalOT, displayContext),
+            RestDoubleLegalOT = evaluators[DayType.RESTDOUBLE_LEGAL_OT].Evaluate(legalOT, displayContext),
         };
     }
 }
@@ -79,6 +107,7 @@ public class EvaluatedColumnResult
 {
     public TimeRange RegWork { get; set; } = TimeRange.Empty;
     public TimeRange RestWork { get; set; } = TimeRange.Empty;
+
     public TimeRange LegalHoliday { get; set; } = TimeRange.Empty;
     public TimeRange SPHoliday { get; set; } = TimeRange.Empty;
 
@@ -86,13 +115,19 @@ public class EvaluatedColumnResult
     public TimeRange RegOT { get; set; } = TimeRange.Empty;
     public TimeRange RestOT { get; set; } = TimeRange.Empty;
 
-    public TimeRange LHOT { get; set; } = TimeRange.Empty;
-    public TimeRange SPOT { get; set; } = TimeRange.Empty;
+    public TimeRange LegalOT { get; set; } = TimeRange.Empty;
+    public TimeRange SpecialOT { get; set; } = TimeRange.Empty;
 
     public TimeRange RestLegal { get; set; } = TimeRange.Empty;
     public TimeRange RestLegalOT { get; set; } = TimeRange.Empty;
     public TimeRange RestSpecial { get; set; } = TimeRange.Empty;
     public TimeRange RestSpecialOT { get; set; } = TimeRange.Empty;
+
+    public TimeRange DoubleLegalHoliday { get; set; } = TimeRange.Empty;
+    public TimeRange DoubleLegalHolidayOT { get; set; } = TimeRange.Empty;
+    public TimeRange RestDoubleLegal { get; set; } = TimeRange.Empty;
+    public TimeRange RestDoubleLegalOT { get; set; } = TimeRange.Empty;
+
 
 }
 public class NightDiffEvaluationResult
@@ -112,6 +147,11 @@ public class NightDiffEvaluationResult
     public TimeRange RestSpecial { get; set; } = TimeRange.Empty;
     public TimeRange RestSpecialOT { get; set; } = TimeRange.Empty;
 
+    public TimeRange DoubleLegalHoliday { get; set; } = TimeRange.Empty;
+    public TimeRange DoubleLegalHolidayOT { get; set; } = TimeRange.Empty;
+    public TimeRange RestDoubleLegal { get; set; } = TimeRange.Empty;
+    public TimeRange RestDoubleLegalOT { get; set; } = TimeRange.Empty;
+
 }
 public class PipeLineResult
 {
@@ -124,5 +164,5 @@ public class PipeLineResult
     public TimeRange UT { get; set; } = TimeRange.Empty;
     public TimeRange Overbreak { get; set; } = TimeRange.Empty;
     public TimeRange Leave { get; set; } = TimeRange.Empty;
-    public TimeRange Travel  { get; set; } = TimeRange.Empty;
+    public TimeRange Travel { get; set; } = TimeRange.Empty;
 }

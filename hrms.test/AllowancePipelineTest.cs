@@ -91,7 +91,7 @@ public static class AllowanceTestHelpers
             },
             Leaves = new Dictionary<EmployeePayDateKey, List<LeaveApplicationPyRun>>(),
             LeaveCredits = new Dictionary<EmployeeLeaveCreditsKey, decimal>(),
-            CompanyPolicy = new CompanyPolicyRule { HolidayCreditPolicy = HolidayCreditMode.NoCredit },
+            CompanyPolicy = new CompanyPolicyRule { },
             PremiumRates = TestRateProvider.GetDefaultPremiumRates(),
         };
 
