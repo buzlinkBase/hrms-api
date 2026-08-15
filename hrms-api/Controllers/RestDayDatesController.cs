@@ -27,9 +27,13 @@ namespace Hrms.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-        public async Task<IActionResult> GetAll([FromQuery] Guid employee_id, CancellationToken token)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] Guid employee_id,
+            [FromQuery] DateOnly? date_from,
+            [FromQuery] DateOnly? date_to,
+            CancellationToken token)
         {
-            var data = await _service.FindAllAsync(employee_id, token);
+            var data = await _service.FindAllAsync(employee_id, date_from, date_to, token);
             return Ok(data);
         }
 
