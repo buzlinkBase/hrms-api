@@ -14,9 +14,16 @@ public sealed class PartialLeaveAttendanceStrategy : ILeaveAttendanceStrategy
         EmployeeDTRRun employee,
         CurrentShift? shift)
     {
-        if (leave.IsManualEntry || !(leave.StartTime.HasValue && leave.EndTime.HasValue)) return [];
+        if (shift == null) return [];
+        if (leave.IsManualEntry)
+        {
+            return VirtualAttendanceFactory.CreatePair(employee, shift.StartTime, shift.StartTime.AddMinutes(leave.TotalMinutes), true);
+        }
+
+        if (!(leave.StartTime.HasValue && leave.EndTime.HasValue)) return [];
+
         var startTime = leave.StartTime.Value;
-        var endTime = leave.EndTime.Value; 
+        var endTime = leave.EndTime.Value;
         return VirtualAttendanceFactory.CreatePair(employee, startTime, endTime, true);
     }
 }

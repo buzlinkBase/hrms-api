@@ -95,9 +95,9 @@ public static class DTRDetailColumnDisplayProcessor
             RestLegalOT = evaluators[DayType.RESTLEGAL_OT].Evaluate(legalOT, displayContext),
             RestSpecial = evaluators[DayType.RESTSPECIAL].Evaluate(displayContext.PipeLineResult.SpecialHoliday, displayContext),
             RestSpecialOT = evaluators[DayType.RESTSPECIAL_OT].Evaluate(specialOT, displayContext),
-            DoubleLegalHoliday = evaluators[DayType.DOUBLE_LEGAL].Evaluate(legalOT, displayContext),
+            DoubleLegalHoliday = evaluators[DayType.DOUBLE_LEGAL].Evaluate(LegalHolidayRange, displayContext),
             DoubleLegalHolidayOT = evaluators[DayType.DOUBLE_LEGAL_OT].Evaluate(legalOT, displayContext),
-            RestDoubleLegal = evaluators[DayType.RESTDOUBLE_LEGAL].Evaluate(legalOT, displayContext),
+            RestDoubleLegal = evaluators[DayType.RESTDOUBLE_LEGAL].Evaluate(LegalHolidayRange, displayContext),
             RestDoubleLegalOT = evaluators[DayType.RESTDOUBLE_LEGAL_OT].Evaluate(legalOT, displayContext),
         };
     }

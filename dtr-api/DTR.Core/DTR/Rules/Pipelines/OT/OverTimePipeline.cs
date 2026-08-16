@@ -16,7 +16,6 @@ public class OverTimePipeline
         {
             return cached.Value ?? TimeRange.Empty;
         }
-
         if (IsRequire8HourWork())
         {
             var workTime = _context.Payload.Ledger.GetByTag("work_time", _context);
@@ -29,14 +28,15 @@ public class OverTimePipeline
 
         //get actual OT
         return new OverTimeHandlerProcessor(_context).Handle(cannonicalTimeRange);
-
     }
+
     private bool IsRequire8HourWork()
     {
         var restrictOt = _context.Payload.Data.CompanyPolicy.OTEligibility == OvertimeEligibilityRule.RequireFullRegularHours;
         if (_context.Payload.Data.Employee.ClientId.HasValue)
         {
-            var clientPolicy = _context.Payload.Provider.ClientPolicyProvider.GetPolicy(_context.Payload.Data.Employee.ClientId);
+            var clientPolicy = _context.Payload.Provider.ClientPolicyProvider
+                .GetPolicy(_context.Payload.Data.Employee.ClientId);
             if (clientPolicy != null)
             {
                 restrictOt = clientPolicy.OvertimeEligibilityRule == OvertimeEligibilityRule.RequireFullRegularHours;

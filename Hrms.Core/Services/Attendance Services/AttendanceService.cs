@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities;
+﻿using Castle.Components.DictionaryAdapter.Xml;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services;
@@ -173,12 +174,13 @@ public class AttendanceService : BaseService<Attendance>
 
     public async Task<Dictionary<AttendanceEmpId, List<Attendance>>> LoadAttForDTRProcess(
         DTRRequestPayload payload,
+        HashSet<Guid> empIds,
         bool canProcess,
         CancellationToken token)
     {
         var from = payload.FromDate;
         var to = payload.ToDate.AddDays(1);
-        var EmployeeId = payload.EmployeeId;
+        //var EmployeeId = payload.EmployeeId;
         var departmentId = payload.DepartmentId;
         var payrollGroupId = payload.PayrollGroupId;
         var branchId = payload.BranchId;
@@ -209,10 +211,11 @@ public class AttendanceService : BaseService<Attendance>
             .AsSplitQuery()
             .Include(x => x.Employee)
             .Where(x =>
+                x.Status=="Active" &&
                 x.WorkDateTime >= from &&
                 x.WorkDateTime <= to &&
                 x.EmployeeId != null &&
-                (EmployeeId == null || EmployeeId == Guid.Empty || x.EmployeeId == EmployeeId) &&
+                empIds.Contains(x.EmployeeId.Value) &&
                 (branchId == null || branchId == Guid.Empty || x.BranchId == areaId) && // Note: double check if x.BranchId == areaId was intentional here instead of branchId
                 (departmentId == null || departmentId == Guid.Empty || x.DepartmentId == departmentId) &&
                 (areaId == null || areaId == Guid.Empty || x.OperationAreaId == areaId) &&

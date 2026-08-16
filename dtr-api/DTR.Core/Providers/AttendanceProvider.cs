@@ -6,7 +6,9 @@ public class AttendanceProvider
 {
     private readonly GetCurrentAttendancePayload _payload;
     private readonly ICurrentShiftProvider _currentShiftProvider;
-    public AttendanceProvider(GetCurrentAttendancePayload payload, ICurrentShiftProvider CurrentShiftProvider)
+    public AttendanceProvider(GetCurrentAttendancePayload payload, 
+
+        ICurrentShiftProvider CurrentShiftProvider)
     {
         _payload = payload;
         _currentShiftProvider = CurrentShiftProvider;
@@ -26,36 +28,15 @@ public class AttendanceProvider
             return new List<Attendance>();
 
         var key = new AttendanceEmpId(_payload.Employee.Id);
-        if (!_payload.AllEmployeesAttendances.TryGetValue(key, out var attendances) || attendances == null)
+        if (!_payload.Context.CleanAttendance.TryGetValue(key, out var attendances) || attendances == null)
             return new List<Attendance>();
 
-        //hours before shift
-        var allowance = currentShift.ShiftType == TimeShiftType.SPLIT ? 0 : TimeAllowance.TimeInAllowance;
-
-        //get only att within set window
+        var allowance = currentShift.ShiftType == TimeShiftType.SPLIT ? 0 : _payload.Context.CompanyPolicy.TimeInAllowance;
         var allAtts = attendances
             .Where(x =>
                 x.WorkDateTime >= currentShift.StartTime.AddMinutes(allowance) &&
                 x.WorkDateTime < nextShift.StartTime.AddMinutes(allowance))
             .ToList();
-
-        //SetFlexiShift(currentShift, allAtts);
-
         return allAtts;
-    }
-
-    private void SetFlexiShift(CurrentShift? currentShift, List<Attendance> attendances)
-    {
-        //if (currentShift == null) return;
-        //if (currentShift.ShiftType == TimeShiftType.FLEXI && attendances.Any())
-        //{
-        //    //alter shift start and end based on first time in
-        //    var att = attendances.FirstOrDefault()!;
-        //    var calcEndTime = att.WorkDateTime.AddMinutes(currentShift.MaxWorkingMinutes);
-        //    currentShift.StartTime = att.WorkDateTime;
-        //    //check if outside bounderies
-        //    currentShift.EndTime = calcEndTime <= currentShift.EndTime
-        //        ? calcEndTime : currentShift.EndTime;
-        //}
-    }
+    } 
 }

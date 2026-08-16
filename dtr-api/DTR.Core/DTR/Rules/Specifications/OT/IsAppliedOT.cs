@@ -20,6 +20,7 @@ public class IsAppliedOTSpec : IRuleSpecification
     }
 }
 
+
 public class IsSystemAutoComputeOT : IRuleSpecification
 {
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
@@ -30,7 +31,9 @@ public class IsSystemAutoComputeOT : IRuleSpecification
             return cached.Value;
 
         var shift = context.Payload.Data.CurrentShift;
+
         var isEligible = shift.WithOT;
+
         context.Payload.SharedSpecCache.Record(key, isEligible);
         return isEligible;
 

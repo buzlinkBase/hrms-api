@@ -86,7 +86,7 @@ public class DailyRecordBuilder
             LateForOTMinutes = 0,
             OBHours = pipeline.Travel.TotalMinutes.ToHour(),
             LeaveHours = pipeline.Leave.TotalMinutes.ToHour(),
-            CreditsSpent = ResolveCreditsSpent(workType, context.Payload.Data.CurrentLeave),
+            CreditsSpent = ResolveCreditsSpent(workType, context.Payload.Data.CurrentLeave, pipeline.Leave.TotalMinutes),
             AbsentCount = workType == WorkType.Absent ? 1 : 0,
 
             RegularNetHours = (evaluated.RegWork.TotalMinutes - NightDiff.Regular.TotalMinutes).ToHour(),
@@ -140,10 +140,15 @@ public class DailyRecordBuilder
 
     }
 
-    private static double ResolveCreditsSpent(WorkType workType, LeaveApplication? leave)
+    private static double ResolveCreditsSpent(WorkType workType, LeaveApplication? leave, double leaveMinutes)
     {
         if (workType is not (WorkType.PaidLeave or WorkType.UnpaidLeave)) return 0;
         if (leave == null) return 0;
+
+        // Partial/hourly leaves: derive credit-days from actual DTR leave minutes (8-hour day)
+        if (leave.DurationType == DurationType.Partial)
+            return Math.Round(leaveMinutes / (8.0 * 60), 4);
+
         return leave.DayFraction == DayFraction.FullDay ? 1.0 : 0.5;
     }
 }

@@ -21,6 +21,14 @@ internal static class CommonExtensions
         return holCount > 1;
     }
 
+    internal static bool IsDoubleLegalHoliday(this TimeContext context)
+    {
+        var currentDate = context.Payload.Data.CurrentShift.ShiftDate;
+        var holidays = context.Payload.Provider.HolidayProvider
+            .GetHolidayDuringDate(HolidayType.LEGAL, context.Payload.Data.Employee, currentDate);
+        return holidays.Count() > 1;
+    }
+
     internal static bool IsSpecialHoliday(this TimeContext context)
     {
         var holiday = new IsHolidaySpec(HolidayType.SPECIAL);

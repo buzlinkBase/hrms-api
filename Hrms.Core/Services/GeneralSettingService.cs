@@ -14,6 +14,10 @@ public class GeneralSettingService : BaseService<GeneralSetting>
     {
         _uow.Repository.Remove<GeneralSetting>(x => x.IdentityTypeId == IdentityId && x.IdentityType == IdentityType);
     }
+    public async Task DeleteAsync(string identityType, string identityId, CancellationToken token = default)
+    {
+        await ExecuteDeleteAsync(x => x.IdentityType == identityType && x.IdentityTypeId == identityId, token);
+    }
 
     public async Task<Dictionary<string, GeneralSettingModel>> GetSettingsAsync(string identityType)
     {

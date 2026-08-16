@@ -42,11 +42,15 @@ public class CurrentRangeDTRPayloadService
     public async Task<DTRContextModel> SetPayload(bool canprocess, DTRRequestPayload payload, bool removeDoublePunch = true, CancellationToken token = default)
     {
         var (fromDate, toDate) = GetDateRange(payload);
-        var cleanAttendance = await LoadCleanAttendance(canprocess, payload, removeDoublePunch, token);
+        var companyPolicy = await LoadCompanyPolicy();
+        var gap = removeDoublePunch ? companyPolicy.DoublePunchGap : 0;
         var employees = await ExtractEmployees(payload, token);
         var employeeIds = new HashSet<Guid>(employees.Select(e => e.Id));
+
+        var cleanAttendance = await LoadCleanAttendance(canprocess, payload, removeDoublePunch, employeeIds, gap, token); 
         var clientIds = ExtractClientIds(employees);
         var shiftsTask = await _workScheduleResolver.Resolve(fromDate, toDate, employees, token);
+
         var travelsTask = await _travelService.FindByDateRangeAsync(fromDate, toDate, employeeIds, token);
         var leavesTask = await _leaveApplicationService.FindByDateRangeAsync(fromDate, toDate, employeeIds, token);
         var holidaysTask = await _holidayResolver.ResolveAsync(fromDate, toDate, employees, token);
@@ -54,7 +58,6 @@ public class CurrentRangeDTRPayloadService
         var undertimeTask = await _utService.FindByDateRangeAsync(fromDate, toDate, employeeIds, token);
         var dayOffsTask = await _restDayResolver.ResolveAsync(fromDate, toDate, employees, token);
 
-        var companyPolicy = await LoadCompanyPolicy();
         var clientPolicy = await LoadClientPolicy(companyPolicy, clientIds);
         var employeePolicy = await LoadEmployeePolicy(employeeIds);
 
@@ -85,22 +88,31 @@ public class CurrentRangeDTRPayloadService
         bool canProcess,
         DTRRequestPayload payload,
         bool removeDoublePunch,
+        HashSet<Guid> empIds,
+        double DoublePunchGap = 2,
         CancellationToken token = default)
     {
-
         var (fromDate, toDate) = GetDateRange(payload);
-        var rawLogs = await _attendanceService.LoadAttForDTRProcess(payload, canProcess, token);
+        var rawLogs = await _attendanceService.LoadAttForDTRProcess(payload, empIds, canProcess, token);
         var util = new AttendanceUtility(rawLogs);
-        var gap = removeDoublePunch ? TimeAllowance.DoublePunchGap : 0;
-        return util.RemoveDoublePunch(gap);
+        return util.RemoveDoublePunch(DoublePunchGap);
     }
 
     private async Task<List<EmployeeDTRRun>> ExtractEmployees(DTRRequestPayload payload, CancellationToken token)
     {
-        var query = _employeeService.GetQueryable();
+        var query = _employeeService
+            .GetQueryable(x=> x.EmploymentStatus!=EmploymentStatus.Retired ||
+            x.EmploymentStatus!=EmploymentStatus.Terminated || 
+            x.EmploymentStatus!=EmploymentStatus.Deceased || 
+            x.EmploymentStatus!=EmploymentStatus.Resigned)
+            .Include(x => x.RestDays)
+            .Include(x => x.Settings)
+            .AsQueryable()
+            ;
         if (payload.EmployeeId.HasValue)
         {
-            query = query.Where(x => x.Id == payload.EmployeeId.Value);
+            query = query
+                .Where(x => x.Id == payload.EmployeeId.Value);
         }
         else
         {
@@ -169,6 +181,5 @@ public class CurrentRangeDTRPayloadService
         var settings = await _generalSettingService.GetSettingsAsync("Employee", ids);
         return new EmployeePolicyService().Transform(settings);
     }
-
 }
 

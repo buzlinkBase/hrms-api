@@ -29,20 +29,23 @@ public static class WorkTypeResolver
         var travel = context.Payload.Data.CurrentTravel;
         var isRestDay = new IsRestDaySpec().IsSatisfiedBy(context.CanonicalTimeRange, context);
         var isLegalHoliday = context.IsLegalHoliday();
+        var isDoubleLegal = isLegalHoliday && context.IsDoubleLegalHoliday();
         var isSpecialWorking = context.IsSpecialWorking();
         var isSpecialNonWorking = context.IsSpecialNonWorking();
 
         if (hasAttendance)
-            return ResolveDutyWorkType(leave, isRestDay, isLegalHoliday, isSpecialWorking, isSpecialNonWorking);
+            return ResolveDutyWorkType(leave, isRestDay, isLegalHoliday, isDoubleLegal, isSpecialWorking, isSpecialNonWorking);
 
         // No attendance — rest day and holidays outrank leave
         if (isRestDay)
         {
+            if (isDoubleLegal) return WorkType.RestDayDoubleLegal;
             if (isLegalHoliday) return WorkType.RestDayLegalHoliday;
             if (isSpecialNonWorking) return WorkType.RestDaySpecialHoliday;
             return WorkType.RestDay;
         }
 
+        if (isDoubleLegal) return WorkType.DoubleLegal;
         if (isLegalHoliday)
             return WorkType.LegalHoliday;
 
@@ -69,16 +72,19 @@ public static class WorkTypeResolver
         LeaveApplication? leave,
         bool isRestDay,
         bool isLegalHoliday,
+        bool isDoubleLegal,
         bool isSpecialWorking,
         bool isSpecialNonWorking)
     {
         if (isRestDay)
         {
+            if (isDoubleLegal) return WorkType.RestDayDoubleLegalDuty;
             if (isLegalHoliday) return WorkType.RestDayLegalHolidayDuty;
             if (isSpecialNonWorking) return WorkType.RestDaySpecialHolidayDuty;
             return WorkType.RestDayDuty;
         }
 
+        if (isDoubleLegal) return WorkType.DoubleLegalDuty;
         if (isLegalHoliday)
             return WorkType.LegalHolidayDuty;
 

@@ -364,7 +364,23 @@ public class EmployeeDTRRun
     public string LastName { get; set; } = string.Empty;
     public string MiddleName { get; set; } = string.Empty;
     public string Suffix { get; set; } = string.Empty;
-    public List<RestDayModel> RestDays { get; set; }
+    public List<RestDayModel> RestDays { get; set; } = new();
+}
+
+public class EmployeeSettingsRun
+{
+    public bool IsEligibleForOvertime { get; set; }
+    public bool IsEligibleForHolidayPay { get; set; }
+    public bool IsEligibleForNightDifferential { get; set; }
+    public bool IsEligibleForLeaveCredits { get; set; }
+    public bool IsEligibleFor13thMonth { get; set; }
+    public bool IsNoDTRNotRequired { get; set; } = false;
+    //public bool IsEligibleForHazardPay { get; set; }
+    //public bool IsEligibleForHealthInsurance { get; set; }
+    //public bool IsEligibleForRetirementBenefits { get; set; }
+    //public bool IsEligibleForPerformanceBonus { get; set; }
+    //public bool IsEligibleForMealAllowance { get; set; }
+    //public bool IsEligibleForTransportationAllowance { get; set; }
 }
 
 public class EmployeeFilterResponseModel

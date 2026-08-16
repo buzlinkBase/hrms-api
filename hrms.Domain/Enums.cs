@@ -198,6 +198,12 @@ public enum WorkType
     RestDaySpecialHoliday,      // Unworked Special Non-Working Holiday that falls on Rest Day
     RestDaySpecialHolidayDuty,  // Worked on Special Non-Working Holiday that falls on Rest Day
 
+    // Double Legal Holiday (two legal holidays fall on the same day)
+    DoubleLegal,                // Unworked double legal holiday (no duty)
+    DoubleLegalDuty,            // Worked on double legal holiday
+    RestDayDoubleLegal,         // Unworked double legal holiday on rest day
+    RestDayDoubleLegalDuty,     // Worked on double legal holiday on rest day
+
     // 7. Leaves, Attendance & System States
     PaidLeave,                  // Approved Leave with Pay
     UnpaidLeave,                // Approved Leave without Pay
@@ -444,6 +450,9 @@ public enum SettingKey
     NightDiffThreshold,
     IsHolPlusReg,
     HolidayColumnPresentation,
+    TimeInAllowance,
+    DoublePunchGap,
+    CheckAfterHoliday, 
 }
 
 public enum IncludeNullResponse

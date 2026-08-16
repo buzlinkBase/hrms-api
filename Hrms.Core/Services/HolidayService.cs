@@ -55,7 +55,7 @@ public class HolidayService : BaseService<Holiday>
     {
         from = from.AddDays(-4);
         var holidays = await _uow.Repository
-            .Find<Holiday>(x => x.IsRecuring || (x.HolDate >= from && x.HolDate <= to))
+            .Find<Holiday>(x => x.IsRecuring || (x.HolDate >= from && x.HolDate <= to) && x.Status=="Active")
             .ToListAsync(token)
             ;
 

@@ -45,8 +45,8 @@ public class CurrentDayDTRPayload
             .SetOTProvider(new OverTimeServiceProvider(context.OverTimeApplications, curEmployee))
             .SetUTProvider(new UnderTimeServiceProvider(context.UnderTimeApplications, curEmployee))
             .SetHolidayProvider(HolidayProviderFactory.Create(curEmployee, context.Holidays))
-            .SetClientPolicyProvider(new ClientPolicyProvider(context.ClientPolicies))
             .SetCompanyPolicy(context.CompanyPolicy)
+            .SetClientPolicyProvider(new ClientPolicyProvider(context.ClientPolicies))
             .SetEmployeePolicy(context.EmployeePolicies.TryGetValue(new EmployeePolicyKey(curEmployee.Id), out var policy) ? policy : null)
             .SetDayOff(context.DayOffs)
             .SetDTRContext(context)
@@ -96,9 +96,10 @@ public class CurrentDayDTRPayload
         EmployeeDTRRun employee,
         ICurrentShiftProvider shiftProvider)
     {
-        var payload = new GetCurrentAttendancePayload(context.CleanAttendance, employee);
+        var payload = new GetCurrentAttendancePayload(context, employee);
         return new AttendanceProvider(payload, shiftProvider);
     }
+
 }
 
 public class ShiftProviderFactory
