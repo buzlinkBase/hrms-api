@@ -4,117 +4,116 @@ namespace DTR.Core;
 
 public class AppliedOvertimePolicy : ConditionalPolicyBase
 {
-    public AppliedOvertimePolicy(IRuleSpecification specification) : base(specification, SpecFailureBehavior.ReturnEmpty) { }
+    public AppliedOvertimePolicy(IRuleSpecification specification)
+        : base(specification, SpecFailureBehavior.ReturnEmpty) { }
 
     protected override TimeRange ApplyIfSatisfied(TimeRange input, TimeContext context)
     {
-        var payload = context.Payload;
-        var shift = payload.Data.CurrentShift;
+        var shift = context.Payload.Data.CurrentShift;
         var ledgerKey = this.CreateLedgerKey(context);
 
-        // 🧾 Avoid duplicate claim
+        // 🧾 1. Check cache for existing claim
         var cached = context.Payload.Ledger.GetByKey(ledgerKey);
-        if (cached.Found)
-        {
-            var value = cached.Value ?? TimeRange.Empty;
-            return value;
-        }
+        if (cached.Found) return cached.Value ?? TimeRange.Empty;
 
-        // 📋 Pull applied OT data
-        var appliedOT = payload.Provider.OTProvider.GetOT(shift.ShiftDate);
+        // 📋 2. Pull applied OT data
+        var appliedOT = context.Payload.Provider.OTProvider.GetOT(shift.ShiftDate);
         if (appliedOT == null) return TimeRange.Empty;
 
-        var manualMinutes = appliedOT.ManualOTMinutes;
-
-        // 🛑 Attempt override the system generated OT
+        // 🛑 3. Check for system auto-computed OT
         var systemKey = TimeRangeLedger.CreateKey<AutoComputeOvertimePolicy>(context);
         var cachedSystem = context.Payload.Ledger.GetByKey(systemKey);
         var systemOT = cachedSystem.Value ?? TimeRange.Empty;
-        if (cached.Found)
-        {
-            return cached.Value;
-        }
 
-        if (!systemOT.IsEmpty())
-        {
-            var cropped = systemOT.TimeRecords
-                .CropFromStart(manualMinutes);
+        // 🔄 4. Calculate OT result based on whether system OT exists
+        var result = !systemOT.IsEmpty()
+            ? GetIntersectedOT(systemOT, appliedOT)
+            : CalcAppliedOT(context, ledgerKey, appliedOT);
 
-            var retagged = cropped.TimeRecords
+        this.RecordLedger(context, result);
+        return result;
+    }
+
+    private static TimeRange GetIntersectedOT(TimeRange systemOT, OverTimeApplication appliedOT)
+    {
+        if (appliedOT.IsManualEntry)
+        {
+            var retagged = systemOT.TimeRecords
+                .CropFromStart(appliedOT.ManualOTMinutes)
+                .TimeRecords
                 .Retag("OT_ManualOverride")
                 .ToTimeRange();
 
-            if (retagged.TotalMinutes < appliedOT.OverTimeThreshold)
-            {
-                this.RecordLedger(context, TimeRange.Empty);
-                return TimeRange.Empty;
-            }
-            this.RecordLedger(context, retagged);
-            return retagged;
+            return retagged.TotalMinutes >= appliedOT.OverTimeThreshold ? retagged : TimeRange.Empty;
         }
 
-        //Fallback logic: build from usable time
+        var otTimeBlock = TryCreateOTTimeBlock(appliedOT);
+        if (otTimeBlock != null)
+        {
+            return systemOT.TimeRecords.Intersect(otTimeBlock, "OT_applied").ToTimeRange();
+        }
+        return TimeRange.Empty;
+    }
+
+    private TimeRange CalcAppliedOT(TimeContext context, TimeRangeLedgerCacheKey ledgerKey, OverTimeApplication appliedOT)
+    {
+        var shift = context.Payload.Data.CurrentShift;
         var blocked = context.Payload.Ledger.GetAllAllocatedExcept(ledgerKey);
         var usable = context.CanonicalTimeRange.TimeRecords
-            .ExcludeLeave()
             .Exclude(blocked)
             .MergeOverlapping();
 
-        TimeRange fallbackSlices = TimeRange.Empty;
-        var OTTimeBlock = new TimeRecordCollection();
+        var fallbackSlices = TimeRange.Empty;
 
-        if (!appliedOT.IsManualEntry && appliedOT.StartTime.HasValue && appliedOT.EndTime.HasValue)
+        if (appliedOT.IsManualEntry)
         {
-            OTTimeBlock = new TimeRecordCollection()
-                {
-                    new TimeRecord
-                    {
-                        StartTime = appliedOT.StartTime.Value,
-                        EndTime= appliedOT.EndTime.Value,
-                    }
-                };
-            fallbackSlices = usable.Intersect(OTTimeBlock, "OT_applied").ToTimeRange();
+            var otStart = GetOTStartTime(context);
+            fallbackSlices = usable
+                .Where(r => r.StartTime >= otStart && r.StartTime >= shift.EndTime)
+                .Select(r => new TimeRecord(r.StartTime, r.EndTime, "OT_applied"))
+                .ToTimeRecordCollection()
+                .CropFromStart(appliedOT.ManualOTMinutes);
         }
         else
         {
-            var otStart = GetOTStartTime(context, appliedOT);
-            var shiftEnd = context.Payload.Data.CurrentShift.EndTime;
-            fallbackSlices = usable
-             .Where(r => r.StartTime >= otStart && r.StartTime >= shiftEnd)
-             .Select(r => new TimeRecord(r.StartTime, r.EndTime, "OT_applied"))
-             .ToTimeRecordCollection()
-             .CropFromStart(manualMinutes);
+            var otTimeBlock = TryCreateOTTimeBlock(appliedOT);
+            if (otTimeBlock != null)
+            {
+                fallbackSlices = usable.Intersect(otTimeBlock, "OT_applied").ToTimeRange();
+            }
         }
 
-        var storeValue = fallbackSlices.TotalMinutes >= shift.OverTimeThreshold ? fallbackSlices : TimeRange.Empty;
-        this.RecordLedger(context, storeValue);
-        return storeValue;
+        return fallbackSlices.TotalMinutes >= shift.OverTimeThreshold ? fallbackSlices : TimeRange.Empty;
     }
 
-    private DateTime GetOTStartTime(TimeContext context, OverTimeApplication application)
+    private DateTime GetOTStartTime(TimeContext context)
     {
         var shift = context.Payload.Data.CurrentShift;
-        //double breakTime = 0;
-        //if (shift.LunchStartTime.HasValue
-        //    && shift.LunchEndTime.HasValue
-        //    && shift.LunchBreakDurationMinutes == 0)
-        //{
-        //    breakTime = (shift.LunchEndTime.Value - shift.LunchStartTime.Value).TotalMinutes;
-        //}
-        //double TotalBreak = shift.ShiftType == TimeShiftType.SPLIT
-        //    ? 0.00
-        //    : (shift.LunchBreakDurationMinutes == 0 ? breakTime : shift.LunchBreakDurationMinutes);
 
         if (shift.ShiftType == TimeShiftType.SPLIT)
         {
             var regKey = TimeRangeLedger.CreateKey<RegularHourPolicy>(context);
-            var data = context.Payload.Ledger.GetAllAllocatedExcept(regKey);
-            var usable = context.CanonicalTimeRange.TimeRecords.ExcludeLeave().Exclude(data);
-            var startTime = usable.MinBy(x => x.StartTime)?.StartTime.AddMinutes(shift.MaxWorkingMinutes) ?? context.Payload.Data.CurrentShift.EndTime;
-            return startTime;
+            var allocated = context.Payload.Ledger.GetAllAllocatedExcept(regKey);
+            var usable = context.CanonicalTimeRange.TimeRecords.ExcludeLeave().Exclude(allocated);
+
+            return usable.MinBy(x => x.StartTime)?.StartTime.AddMinutes(shift.MaxWorkingMinutes)
+                ?? shift.EndTime;
         }
-        var start = shift.StartTime.AddMinutes(shift.MaxWorkingMinutes + TimeAllowance.OTTimeCaptureAllowanceMinutes);
-        return start;
-        //return application.StartTime.AddMinutes(TimeAllowance.OTTimeCaptureAllowanceMinutes);
+
+        return shift.StartTime.AddMinutes(shift.MaxWorkingMinutes + TimeAllowance.OTTimeCaptureAllowanceMinutes);
+    }
+
+    private static TimeRecordCollection? TryCreateOTTimeBlock(OverTimeApplication appliedOT)
+    {
+        if (!appliedOT.StartTime.HasValue || !appliedOT.EndTime.HasValue) return null;
+
+        return new TimeRecordCollection
+        {
+            new TimeRecord
+            {
+                StartTime = appliedOT.StartTime.Value,
+                EndTime = appliedOT.EndTime.Value
+            }
+        };
     }
 }
