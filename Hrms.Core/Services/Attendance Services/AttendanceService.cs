@@ -82,6 +82,37 @@ public class AttendanceService : BaseService<Attendance>
             .ToListAsync();
     }
 
+    public async Task<List<AttendanceModel>> GetAllLogsInRange(AttendanceFilterDate filter)
+    {
+        DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
+        DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
+        Guid? filterEmployeeId = filter?.EmployeeId;
+
+        return await Uow.Context.Attendances
+            .Where(x => x.WorkDateTime >= fromDate &&
+                        x.WorkDateTime < toDate &&
+                        (filterEmployeeId == null || x.EmployeeId == filterEmployeeId))
+            .Select(x => new AttendanceModel
+            {
+                Id = x.Id,
+                BioId = x.BioId,
+                Batch = x.BatchCode,
+                EmployeeId = x.EmployeeId,
+                WorkDateTime = x.WorkDateTime,
+                LogSource = x.LogSource.ToString(),
+                Area = x.OperationArea != null ? x.OperationArea.Name : null,
+                Branch = x.Branch != null ? x.Branch.Name : null,
+                Client = x.Client != null ? x.Client.Name : null,
+                Name = x.Employee != null
+                    ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
+                    : "",
+            })
+            .OrderByDescending(x => x.Name)
+            .ThenBy(x => x.WorkDateTime)
+            .ToListAsync();
+    }
+
+
     public async Task<Attendance?> FindOne(Guid attId, CancellationToken token)
     {
         return await Context.Attendances.FindAsync(attId, token);

@@ -187,9 +187,20 @@ public class AttendanceController : ControllerBase
     public async Task<IActionResult> GetManualEntry([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
     {
         var result = await _attendanceService
-            .GetLog(filter, LOGSOURCE.MANUAL);
+            .GetLog(filter,LOGSOURCE.MANUAL);
         return Ok(result);
     }
+
+    [HttpGet("dtr-view-att")]
+    [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAllLogsInRange([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
+    {
+        var result = await _attendanceService
+            .GetAllLogsInRange(filter);
+        return Ok(result);
+    }
+
 
     [HttpGet("raw-logs")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
