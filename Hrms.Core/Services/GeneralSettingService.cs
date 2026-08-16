@@ -14,6 +14,10 @@ public class GeneralSettingService : BaseService<GeneralSetting>
     {
         _uow.Repository.Remove<GeneralSetting>(x => x.IdentityTypeId == IdentityId && x.IdentityType == IdentityType);
     }
+    public async Task DeleteAsync(string identityType, string identityId, CancellationToken token = default)
+    {
+        await ExecuteDeleteAsync(x => x.IdentityType == identityType && x.IdentityTypeId == identityId, token);
+    }
 
     public async Task<Dictionary<string, GeneralSettingModel>> GetSettingsAsync(string identityType)
     {
@@ -73,7 +77,6 @@ public class GeneralSettingService : BaseService<GeneralSetting>
         var role = OvertimeEligibilityRule.IndependentOfAttendanceIssues;
         var entryLimit = ManualEntryLimitEnum.NOLIMIT;
         var TimeInDayType = HolidayTimeBasis.BasedOnTimeInDayType;
-        var HolPresentation = HolidayCreditMode.AutoCredit;
 
         settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = inclusion.ToString() });
         settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.OTEligibility.ToString(), Value = role.ToString() });
@@ -85,7 +88,6 @@ public class GeneralSettingService : BaseService<GeneralSetting>
         settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.NightDiffThreshold.ToString(), Value = "5" });
         settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.HolidayTimeBasis.ToString(), Value = TimeInDayType.ToString() });
         settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.IsHolPlusReg.ToString(), Value = "true" });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.HolidayColumnPresentation.ToString(), Value = HolPresentation.ToString() });
         await AddRangeAsync(settings, TenantId);
 
     }

@@ -35,6 +35,17 @@ public class HrmsContext : DbContext, IDbContext
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
         modelBuilder.UseTenantAndDateFilter(_tenantProvider?.TenantId ?? Guid.Empty);
+
+        // Every query implicitly filters on TenantId + DeletedAt via the global query filter above,
+        // so every entity that carries them needs an index covering that filter.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(IEntityTenant).IsAssignableFrom(entityType.ClrType)) continue;
+            if (entityType.FindProperty(nameof(ITimeStamp.DeletedAt)) == null) continue;
+
+            modelBuilder.Entity(entityType.ClrType)
+                .HasIndex(nameof(IEntityTenant.TenantId), nameof(ITimeStamp.DeletedAt));
+        }
     }
 
     #region "dbsets" 
@@ -67,6 +78,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<RestDayDate> RestDayDates { get; set; }
 
     public DbSet<Leave> Leaves { get; set; }
+    public DbSet<LeaveCredits> LeaveCredits { get; set; }
     public DbSet<LeaveLedger> LeaveLedgers { get; set; }
     public DbSet<Holiday> Holidays { get; set; }
     public DbSet<ChangeHoliday> ChangeHolidays { get; set; }
@@ -90,7 +102,6 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<IncomePayment> IncomePayments { get; set; }
     public DbSet<DeductionPayment> DeductionPayments { get; set; }
     public DbSet<LeaveApplication> leaveApplications { get; set; }
-    public DbSet<LeaveApplicationDetail> LeaveApplicationDetails { get; set; }
 
     public DbSet<SSSTable> GovSSSes { get; set; }
     public DbSet<PHICTable> GovPHICs { get; set; }

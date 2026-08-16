@@ -17,7 +17,7 @@ public class CalculatorPayload : BasePayloadContext
     public DateOnly ToDate { get; set; }
     public Dictionary<RateType, decimal> PremiumRates { get; set; } = new();
     public Dictionary<EmployeeKey, List<Payroll>> Payrolls { get; set; } = new();
-    public Dictionary<EmployeePayDateKey, List<LeaveApplicationPyRun>> Leaves { get; set; } = new();
+    public Dictionary<Leavekey, List<LeaveApplication>> Leaves { get; set; } = new();
     public Dictionary<EmployeeLeaveCreditsKey, decimal> LeaveCredits { get; set; } = new();
     public Dictionary<EmployeeKey, List<OtherIncomeInfo>> Incomes { get; set; } = new();
     public Dictionary<EmployeeKey, List<DeductionInfo>> Deductions { get; set; } = new();

@@ -29,10 +29,11 @@ public enum PayType
     WithoutPay
 }
 
-public enum LeaveDayType
+public enum DayFraction
 {
-    WholeDay,
-    HalfDay
+    FullDay,
+    AM,
+    PM
 }
 
 [Flags]

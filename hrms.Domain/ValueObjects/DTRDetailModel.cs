@@ -8,7 +8,7 @@ public class DTRDetailModel
     public string WorkType { get; set; } = string.Empty;
     public WorkType WorkTypeEnum { get; set; }
     public string? FullName { get; set; }
-    public Guid? ShiftId  { get; set; }
+    public Guid? ShiftId { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly WorkDate { get; set; }
     public string ShiftName { get; set; } = string.Empty;
@@ -26,6 +26,7 @@ public class DTRDetailModel
     public int HolCount { get; set; } = 0;
     public int SPCount { get; set; } = 0;
     public double LeaveHours { get; set; }
+    public double CreditsSpent { get; set; }
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }
     public double RegularNDHours { get; set; }
@@ -36,7 +37,7 @@ public class DTRDetailModel
     public double RestDayNDHours { get; set; }
     public double RestDayNDOTHours { get; set; }
 
- 
+
 
     public double LegalHolHours { get; set; }
     public double LegalHolOTHours { get; set; }
@@ -46,7 +47,7 @@ public class DTRDetailModel
     public double SpecialHolHours { get; set; }
     public double SpecialHolOTHours { get; set; }
     public double SpecialHolNightDiffHours { get; set; }
-    public double SpecialHolNightDiffOTHours { get; set; } 
+    public double SpecialHolNightDiffOTHours { get; set; }
 
     public double RestLegalDayHours { get; set; }
     public double RestLegalDayOTHours { get; set; }
@@ -58,18 +59,19 @@ public class DTRDetailModel
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
 
-    //public double SpecialWorkDayHours { get; set; }
-    //public double SpecialWorkDayOTHours { get; set; }
-    //public double SpecialWorkDayNDHours { get; set; }
-    //public double SpecialWorkDayNDOTHours { get; set; }
-    //public double  DoubleLegalHours { get; set; }
-    //public double  DoubleLegalOTHours { get; set; }
-    //public double  DoubleLegalNDHours { get; set; }
-    //public double  DoubleLegalNDOTHours { get; set; }
-    //public double RestDoubleLegalHours { get; set; }
-    //public double RestDoubleLegalOTHours { get; set; }
-    //public double RestDoubleLegalNDHours { get; set; }
-    //public double RestDoubleLegalNDOTHours { get; set; }  
+    public double SpecialWorkDayHours { get; set; }
+    public double SpecialWorkDayOTHours { get; set; }
+    public double SpecialWorkDayNDHours { get; set; }
+    public double SpecialWorkDayNDOTHours { get; set; }
+
+    public double DoubleLegalHours { get; set; }
+    public double DoubleLegalOTHours { get; set; }
+    public double DoubleLegalNDHours { get; set; }
+    public double DoubleLegalNDOTHours { get; set; }
+    public double RestDoubleLegalHours { get; set; }
+    public double RestDoubleLegalOTHours { get; set; }
+    public double RestDoubleLegalNDHours { get; set; }
+    public double RestDoubleLegalNDOTHours { get; set; }
 
 
     public string Note { get; set; } = string.Empty;
@@ -87,6 +89,9 @@ public class DTRDetailModel
         + SpecialHolHours + SpecialHolOTHours + SpecialHolNightDiffHours + SpecialHolNightDiffOTHours
         + RestLegalDayHours + RestLegalDayOTHours + RestLegalDayNDHours + RestLegalDayNDOTHours
         + RestSpecialDayHours + RestSpecialDayOTHours + RestSpecialDayNDHours + RestSpecialDayNDOTHours
+        + DoubleLegalHours + DoubleLegalOTHours + DoubleLegalNDHours + DoubleLegalNDOTHours
+        + RestDoubleLegalHours + RestDoubleLegalOTHours + RestDoubleLegalNDHours + RestDoubleLegalNDOTHours
+        + SpecialWorkDayHours + SpecialWorkDayOTHours + SpecialWorkDayNDHours + SpecialWorkDayNDOTHours
         ;
 }
 public class DTRSummaryModel
@@ -102,7 +107,7 @@ public class DTRSummaryModel
     public int AbsentCount { get; set; }
     //public int HolCount { get; set; } = 0;
     //public int SPCount { get; set; } = 0;
-    //public double LeaveHours { get; set; }
+    public double LeaveHours { get; set; }
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }
     public double RegularNDHours { get; set; }
@@ -131,7 +136,17 @@ public class DTRSummaryModel
     public double RestSpecialDayHours { get; set; }
     public double RestSpecialDayOTHours { get; set; }
     public double RestSpecialDayNDHours { get; set; }
-    public double RestSpecialDayNDOTHours { get; set; } 
+    public double RestSpecialDayNDOTHours { get; set; }
+
+    public double DoubleLegalHours { get; set; }
+    public double DoubleLegalOTHours { get; set; }
+    public double DoubleLegalNDHours { get; set; }
+    public double DoubleLegalNDOTHours { get; set; }
+    public double RestDoubleLegalHours { get; set; }
+    public double RestDoubleLegalOTHours { get; set; }
+    public double RestDoubleLegalNDHours { get; set; }
+    public double RestDoubleLegalNDOTHours { get; set; }
+
 }
 
 public class BatchesModel

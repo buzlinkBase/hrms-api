@@ -56,6 +56,7 @@ public class AppliedOvertimePolicy : ConditionalPolicyBase
         //Fallback logic: build from usable time
         var blocked = context.Payload.Ledger.GetAllAllocatedExcept(ledgerKey);
         var usable = context.CanonicalTimeRange.TimeRecords
+            .ExcludeLeave()
             .Exclude(blocked)
             .MergeOverlapping();
 
@@ -108,7 +109,7 @@ public class AppliedOvertimePolicy : ConditionalPolicyBase
         {
             var regKey = TimeRangeLedger.CreateKey<RegularHourPolicy>(context);
             var data = context.Payload.Ledger.GetAllAllocatedExcept(regKey);
-            var usable = context.CanonicalTimeRange.TimeRecords.Exclude(data);
+            var usable = context.CanonicalTimeRange.TimeRecords.ExcludeLeave().Exclude(data);
             var startTime = usable.MinBy(x => x.StartTime)?.StartTime.AddMinutes(shift.MaxWorkingMinutes) ?? context.Payload.Data.CurrentShift.EndTime;
             return startTime;
         }

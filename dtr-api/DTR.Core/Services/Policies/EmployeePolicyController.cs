@@ -1,10 +1,13 @@
-﻿namespace DTR.Core;
+﻿using Hrms.Domain.Entities.EmployeeEntities;
+
+namespace DTR.Core;
 
 public class EmployeePolicyRule
 {
     public EmployeePolicyKey Key { get; set; }
     //public OvertimeEligibilityRule? OvertimeEligibilityRule { get; set; }
     //public OvertimeInclusionPolicy? OvertimeInclusionPolicy { get; set; }
+
 }
 
 public class EmployeePolicyService
@@ -25,26 +28,26 @@ public class EmployeePolicyService
             ;
         return result;
     }
-    //private OvertimeEligibilityRule? SetElegibility(Dictionary<string, GeneralSettingModel>? data)
-    //{
-    //    if (data == null) return null;
-    //    if (data.TryGetValue(SettingKey.OTEligibility.ToString(), out var model))
-    //    {
-    //        var value = GeneralSettingsUtil.ParseEnum<OvertimeEligibilityRule>(model.Value, OvertimeEligibilityRule.RequireFullRegularHours);
-    //        return value;
-    //    }
-    //    return null;
-    //}
 
-    //private OvertimeInclusionPolicy? SetExlusion(Dictionary<string, GeneralSettingModel>? data)
-    //{
-    //    if (data == null) return null;
-    //    if (data.TryGetValue(SettingKey.OTEligibility.ToString(), out var model))
-    //    {
-    //        var value = GeneralSettingsUtil.ParseEnum(model.Value, OvertimeInclusionPolicy.IncludePostShiftWork);
-    //        return value;
-    //    }
-    //    return null;
-    //}
+    private OvertimeEligibilityRule? SetElegibility(Dictionary<string, GeneralSettingModel>? data)
+    {
+        if (data == null) return null;
+        if (data.TryGetValue(SettingKey.OTEligibility.ToString(), out var model))
+        {
+            var value = GeneralSettingsUtil.ParseEnum<OvertimeEligibilityRule>(model.Value, OvertimeEligibilityRule.RequireFullRegularHours);
+            return value;
+        }
+        return null;
+    }
+    private OvertimeInclusionPolicy? SetExlusion(Dictionary<string, GeneralSettingModel>? data)
+    {
+        if (data == null) return null;
+        if (data.TryGetValue(SettingKey.OTEligibility.ToString(), out var model))
+        {
+            var value = GeneralSettingsUtil.ParseEnum(model.Value, OvertimeInclusionPolicy.UsePostShiftWork);
+            return value;
+        }
+        return null;
+    }
 }
 public record struct EmployeePolicyKey(Guid EmployeeId);

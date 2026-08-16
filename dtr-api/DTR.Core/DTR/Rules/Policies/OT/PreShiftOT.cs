@@ -19,7 +19,6 @@ public class PreShiftOTHandler : OTComputationHandlerBase
                 return clientpolicy?.OvertimeInclusionPolicy == OvertimeInclusionPolicy.UseEarlyClockIn;
             }
         }
-
         return context.Payload.Data.CompanyPolicy.OTInclusionPolicy == OvertimeInclusionPolicy.UseEarlyClockIn;
 
     }
@@ -29,9 +28,9 @@ public class PreShiftOTHandler : OTComputationHandlerBase
         var ledgerKey = TimeRangeLedger.CreateKey(nameof(PreShiftOTHandler), context);
         var blocked = context.Payload.Ledger.GetAllAllocatedExcept(ledgerKey);
         var usable = context.CanonicalTimeRange.TimeRecords
+            .ExcludeLeave()
             .Exclude(blocked)
-            .MergeOverlapping()
-            ;
+            .MergeOverlapping();
         return new CalculatePreShiftOverTime().ComputePreShiftOvertime(usable, shift!.StartTime);
 
     }

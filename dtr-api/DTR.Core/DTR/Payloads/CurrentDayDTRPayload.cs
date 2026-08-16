@@ -1,7 +1,6 @@
 ﻿
 
 using Hrms.Domain.Entities;
-using NPOI.SS.Formula.Functions;
 
 namespace DTR.Core;
 
@@ -14,7 +13,6 @@ public class CurrentDayDTRPayload
     bool processOnlyPairedAtt = true)
     {
         var shiftProvider = CreateShiftProvider(context, curEmployee, currentDate);
-
         var currentShift = shiftProvider.GetCurrentShift();
         //capture attendance
         var attendanceProvider = CreateAttendanceProvider(context, curEmployee, shiftProvider);
@@ -28,8 +26,9 @@ public class CurrentDayDTRPayload
         var currentLeave = leaveProvider.GetApplication(currentDate);
         var currentTravel = travelProvider.GetApplication(currentDate);
 
-        //load travel attendance
+        //load travel and leave virtual attendance
         attendance.AddRange(SetTravelAttendance(currentTravel, curEmployee));
+        attendance.AddRange(SetLeaveAttendance(attendance, currentLeave, curEmployee,currentShift));
         attendance = attendance.OrderBy(p => p.WorkDateTime).ToList();
 
         var payload = new DTRProcessorPayloadBuilder()
@@ -46,8 +45,8 @@ public class CurrentDayDTRPayload
             .SetOTProvider(new OverTimeServiceProvider(context.OverTimeApplications, curEmployee))
             .SetUTProvider(new UnderTimeServiceProvider(context.UnderTimeApplications, curEmployee))
             .SetHolidayProvider(HolidayProviderFactory.Create(curEmployee, context.Holidays))
-            .SetClientPolicyProvider(new ClientPolicyProvider(context.ClientPolicies))
             .SetCompanyPolicy(context.CompanyPolicy)
+            .SetClientPolicyProvider(new ClientPolicyProvider(context.ClientPolicies))
             .SetEmployeePolicy(context.EmployeePolicies.TryGetValue(new EmployeePolicyKey(curEmployee.Id), out var policy) ? policy : null)
             .SetDayOff(context.DayOffs)
             .SetDTRContext(context)
@@ -58,40 +57,35 @@ public class CurrentDayDTRPayload
 
     }
 
-    private static List<Attendance> SetTravelAttendance(TravelOrderApplication? currentTravel,
-        EmployeeDTRRun curEmployee)
+    private static List<Attendance> SetTravelAttendance(TravelOrderApplication? currentTravel, EmployeeDTRRun curEmployee)
     {
-        var atts = new List<Attendance>();
-        if (currentTravel != null &&
-            !currentTravel.IsManualEntry &&
-             currentTravel.StartTime.HasValue &&
-             currentTravel.EndTime.HasValue)
-        {
-            atts.Add(
-                new Attendance
-                {
-                    BioId = curEmployee.BioId,
-                    BranchId = curEmployee.BranchId,
-                    ClientId = curEmployee.ClientId,
-                    DepartmentId = curEmployee.DepartmentId,
-                    OperationAreaId = curEmployee.AreaId,
-                    EmployeeId = curEmployee.Id,
-                    WorkDateTime = currentTravel.StartTime.Value,
-                });
-            atts.Add(
-               new Attendance
-               {
-                   BioId = curEmployee.BioId,
-                   BranchId = curEmployee.BranchId,
-                   ClientId = curEmployee.ClientId,
-                   DepartmentId = curEmployee.DepartmentId,
-                   OperationAreaId = curEmployee.AreaId,
-                   EmployeeId = curEmployee.Id,
-                   WorkDateTime = currentTravel.EndTime.Value,
-               });
-        }
-        return atts;
+        if (currentTravel == null || currentTravel.IsManualEntry
+            || !currentTravel.StartTime.HasValue || !currentTravel.EndTime.HasValue)
+            return [];
+
+        return VirtualAttendanceFactory.CreatePair(curEmployee, currentTravel.StartTime.Value, currentTravel.EndTime.Value);
     }
+
+    private static List<Attendance> SetLeaveAttendance(
+        List<Attendance> existing,
+        LeaveApplication? curLeave,
+        EmployeeDTRRun curEmployee,
+        CurrentShift? shift)
+    {
+        if (curLeave == null || !IsEligibleForVirtualAttendance(curLeave)) return [];
+
+        var strategy = LeaveAttendanceStrategyFactory.Create(curLeave.DurationType);
+        return strategy.CreateVirtualAttendance(existing, curLeave, curEmployee, shift);
+    }
+
+    // Virtual attendance is injected only when the employer bears the cost.
+    // Government-only leave (maternity, paternity, etc.) is paid by SSS/PhilHealth —
+    // the company does not inject a paid time block.
+    private static bool IsEligibleForVirtualAttendance(LeaveApplication leave) =>
+        leave.PayType != PayType.WithoutPay &&
+        leave.Leave?.PaySource is PaySource.Company or PaySource.Shared;
+
+
     public static ICurrentShiftProvider CreateShiftProvider(DTRContextModel context, EmployeeDTRRun employee, DateOnly curDate)
     {
         return ShiftProviderFactory.Create(context, employee, curDate);
@@ -102,9 +96,10 @@ public class CurrentDayDTRPayload
         EmployeeDTRRun employee,
         ICurrentShiftProvider shiftProvider)
     {
-        var payload = new GetCurrentAttendancePayload(context.CleanAttendance, employee);
+        var payload = new GetCurrentAttendancePayload(context, employee);
         return new AttendanceProvider(payload, shiftProvider);
     }
+
 }
 
 public class ShiftProviderFactory

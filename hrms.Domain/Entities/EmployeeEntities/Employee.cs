@@ -2,6 +2,7 @@
 
 public class Employee : BaseEntity
 {
+    public Guid? UserId { get; set; }
     public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
@@ -135,7 +136,6 @@ public class EmployeeSetting : BaseEntity
     public bool IsEligibleForLeaveCredits { get; set; }
     public bool IsEligibleFor13thMonth { get; set; }
     public bool IsNoDTRNotRequired { get; set; } = false;
-
 
     //public bool IsEligibleForHazardPay { get; set; }
     //public bool IsEligibleForHealthInsurance { get; set; }

@@ -18,11 +18,12 @@ public class TimeRangeSetter
         for (int i = 0; i < paired.Count - 1; i += 2)
         {
             if (i + 1 < paired.Count && paired[i + 1] == null) continue;
-            timeRecords.Add(new TimeRecord
-            {
-                StartTime = paired[i].WorkDateTime,
-                EndTime = paired[i + 1].WorkDateTime
-            });
+            var entry = paired[i];
+            timeRecords.Add(new TimeRecord(
+                entry.WorkDateTime,
+                paired[i + 1].WorkDateTime,
+                isVirtual: entry.IsVirtual,
+                isLeave: entry.IsLeave));
         }
         return timeRecords;
     }

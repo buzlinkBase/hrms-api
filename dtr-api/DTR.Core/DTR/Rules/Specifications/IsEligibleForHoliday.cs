@@ -73,7 +73,7 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
         // (e.g. for consecutive holidays like Dec 25 + 26), so it can't be short-circuited
         // by the suppression flag. Only the *forward* check is suppressed during recursion,
         // to avoid forward-check ↔ forward-check cycles.
-        if (TimeAllowance.CheckAfterHoliday && isEligible && !LegalHolidayForwardCheck.SuppressForwardCheck.Value)
+        if (context.Payload.Data.CompanyPolicy.CheckAfterHoliday && isEligible && !LegalHolidayForwardCheck.SuppressForwardCheck.Value)
             isEligible = HasQualifyingDayLookingForward(context);
 
         payload.SharedSpecCache.Record(cacheKey, isEligible);

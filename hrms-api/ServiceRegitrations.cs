@@ -13,7 +13,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.DbServices;
@@ -25,6 +24,7 @@ using StackExchange.Redis;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using Hrms.Core.Messaging.LeaveWorkers;
 
 namespace Hrms.Api.Extensions;
 
@@ -46,6 +46,9 @@ public static class ServiceRegistrationsExt
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
         builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
         builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
+        builder.Services.Configure<LeaveSchedulerOptions>(builder.Configuration.GetSection("LeaveScheduler"));
+        builder.Services.AddHostedService<LeaveSchedulerService>(); // fires daily, discovers tenants from Leaves.TenantId
+        builder.Services.AddScoped<LeaveDtrReconciliationService>();
 
         builder.Services.AddKeyedScoped<IFileParser, DatParser>(".dat");
         //builder.Services.AddKeyedScoped<IFileParser, CsvParser>(".csv");

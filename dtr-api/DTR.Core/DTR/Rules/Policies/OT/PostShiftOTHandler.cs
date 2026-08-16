@@ -35,6 +35,7 @@ public class PostShiftOTHandler : OTComputationHandlerBase
             .GetAllAllocatedExcept(ledgerKey)
             ;
         var usable = context.CanonicalTimeRange.TimeRecords
+            .ExcludeLeave()
             .Exclude(blocked)
             .MergeOverlapping();
 
@@ -161,7 +162,7 @@ public class SplitOT : IShiftTypeIdentifier
         var shift = _context.Payload.Data.CurrentShift;
         var regKey = TimeRangeLedger.CreateKey<RegularHourPolicy>(_context);
         var data = _context.Payload.Ledger.GetAllAllocatedExcept(regKey);
-        var usable = _context.CanonicalTimeRange.TimeRecords.Exclude(data);
+        var usable = _context.CanonicalTimeRange.TimeRecords.ExcludeLeave().Exclude(data);
         var startTime = usable.MinBy(x => x.StartTime)?.StartTime.AddMinutes(shift.MaxWorkingMinutes); // ?? _context.Payload.Data.CurrentShift.EndTime;
         return startTime;
     }

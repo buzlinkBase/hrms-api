@@ -25,15 +25,7 @@ public class RegularTimeShiftRuleFactory
 {
     public static IRegularTimeShiftRule Create(TimeContext context, IRuleSpecification specification)
     {
-        switch (context.Payload.Data.CurrentShift.ShiftType)
-        {
-            case TimeShiftType.FIXED:
-                return new FixedShiftRegularTimePolicy(context, specification);
-            case TimeShiftType.SPLIT:
-                return new FixedShiftRegularTimePolicy(context, specification);
-            default:
-                throw new NotImplementedException("IRegularTimeShiftRule");
-        }
+        return new FixedShiftRegularTimePolicy(context, specification);
     }
 }
 

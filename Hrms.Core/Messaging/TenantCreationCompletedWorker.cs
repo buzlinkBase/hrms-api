@@ -24,8 +24,8 @@ public class TenantCreationCompletedWorker : IConsumer<TenantCreationCompleted>
     public Task Consume(ConsumeContext<TenantCreationCompleted> context)
     {
         var useDedicated = _configuration.GetValue<bool?>("Hris:DedicatedDatabase") ?? false;
-        ITenantProvisioner provisioner = useDedicated 
-            ? _dedicatedProvisioner 
+        ITenantProvisioner provisioner = useDedicated
+            ? _dedicatedProvisioner
             : _instanceProvisioner;
 
         return provisioner.ProvisionAsync(context);
@@ -85,10 +85,15 @@ public class InstanceProvisioner : ITenantProvisioner
             TenantId = message.TenantId,
             HrisOrgId = message.TenantId.ToString(),
             DatabaseName = "shared",
-            Status = "Active", 
+            Status = "Active",
             ProvisionedAtUtc = DateTime.UtcNow
         }, context.CancellationToken);
-
+        var payload = new TenantSetInitData
+        {
+            ConnectionString = connectionString,
+            TenantId = message.TenantId,
+        };
+        await context.Publish(payload, context.CancellationToken);
         await _uow.CommitChangesAsync("", context.CancellationToken);
     }
 }
@@ -176,7 +181,14 @@ public class DedicatedProvisioner : ITenantProvisioner
                 DatabaseName = dbName,
                 Status = "Active",
                 ProvisionedAtUtc = DateTime.UtcNow
-            }, context.CancellationToken); 
+            }, context.CancellationToken);
+
+            var payload = new TenantSetInitData
+            {
+                ConnectionString = connectionModel.ConnectionString,
+                TenantId = message.TenantId,
+            };
+            await context.Publish(payload, context.CancellationToken);
         }
         catch (Exception ex)
         {

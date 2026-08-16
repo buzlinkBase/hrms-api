@@ -115,8 +115,6 @@ public class MappingProfile : IRegister
         config.NewConfig<PayrollGroup, PayrollGroupModel>();
         config.NewConfig<CutoffModel, CutoffDay>().TwoWays();
 
-
-
         config.NewConfig<CreateLeave, Leave>();
         config.NewConfig<UpdateLeave, Leave>();
         config.NewConfig<Leave, LeaveModel>();
@@ -124,12 +122,6 @@ public class MappingProfile : IRegister
         config.NewConfig<CreateLeaveApplication, LeaveApplication>();
         config.NewConfig<UpdateLeaveApplication, LeaveApplication>();
         config.NewConfig<LeaveApplication, LeaveApplicationModel>();
-
-        config.NewConfig<LeaveApplicationDetail, LeaveApplicationPyRun>()
-            .Map(dest => dest.LeaveId, src => src.Application.LeaveId)
-            .Map(dest => dest.EmployeeId, src => src.Application.EmployeeId)
-            .Map(dest => dest.DayType, src => src.Application.DayType)
-            .Map(dest => dest.PayType, src => src.Application.PayType);
 
         // Schedules, Holidays, OT
         config.NewConfig<CreateWorkRotationPlan, WorkSchedulePlan>();

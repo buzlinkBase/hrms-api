@@ -7,7 +7,6 @@ public class AutoComputedOTHandler : OverTimeHandler
     }
     protected override TimeRange Process()
     {
-
         var pipeline = new PolicyPipeline()
              .AddPolicy(new AutoComputeOvertimePolicy(new IsSystemAutoComputeOT()))
              //.AddPolicy(new TrimOTForFirst8HrPolicy(new IsOTFirst8hrRuleSpec(), SpecFailureBehavior.ReturnInput))

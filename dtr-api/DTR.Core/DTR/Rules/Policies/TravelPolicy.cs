@@ -22,7 +22,6 @@ public class TravelPolicy : ConditionalPolicyBase
         }
 
         var MaxWorkingMinutes = context.Payload.Data.CurrentShift.MaxWorkingMinutes;
-
         if (application.IsManualEntry)
         {
             var resultRange = new TimeRange(Math.Min(application.TotalMinutes, MaxWorkingMinutes));
@@ -38,7 +37,6 @@ public class TravelPolicy : ConditionalPolicyBase
                 EndTime=application.EndTime.Value,
             }
         };
-
         //cap to timeshift
         var capped = timeBlock.CapAndCrop(context.Payload.Data.CurrentShift);
         var rangeResult = capped.TimeRecords.Intersect(workHours.TimeRecords).ToTimeRange();

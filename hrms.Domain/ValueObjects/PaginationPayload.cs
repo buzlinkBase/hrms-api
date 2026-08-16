@@ -9,7 +9,6 @@ public class CompanyPolicyRule
 {
     public OvertimeInclusionPolicy OTInclusionPolicy { get; set; }
     public OvertimeEligibilityRule OTEligibility { get; set; }
-    public HolidayCreditMode HolidayCreditPolicy { get; set; }
     public bool ApplyStatutoryOnActualMonth { get; set; }
     public decimal RequiredTakehomePercentage { get; set; } = 10;
     public int RequiredWorkingDays { get; set; } = 22;

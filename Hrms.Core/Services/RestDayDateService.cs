@@ -43,10 +43,18 @@ public class RestDayDateService : BaseService<RestDayDate>
     }
 
 
-    public async Task<List<RestDayDateModel>> FindAllAsync(Guid empId, CancellationToken token)
+    public async Task<List<RestDayDateModel>> FindAllAsync(
+        Guid empId,
+        DateOnly? dateFrom,
+        DateOnly? dateTo,
+        CancellationToken token)
     {
-        var data = await GetQueryable(x => x.EmployeeId == empId)
-            .ToListAsync(token);
+        var query = GetQueryable(x => x.EmployeeId == empId);
+        if (dateFrom.HasValue)
+            query = query.Where(x => x.PayrollDate >= dateFrom.Value);
+        if (dateTo.HasValue)
+            query = query.Where(x => x.PayrollDate <= dateTo.Value);
+        var data = await query.ToListAsync(token);
         return _mapper.Map<List<RestDayDateModel>>(data);
     }
 

@@ -1,5 +1,6 @@
 ﻿using Hrms.Core.Messaging;
 using Hrms.Core.Messaging.Filter;
+using Hrms.Core.Messaging.LeaveWorkers;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,10 @@ public static class RabbitMqConfiguration
             x.AddConsumer<AccountLinkedWorker, AccountLinkedDefinition>();
             x.AddConsumer<TenantInitConfigWorker, TenantInitDataWorkerDefination>();
             x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
+            x.AddConsumer<LeaveGrantOnEventWorker, LeaveGrantOnEventWorkerDefinition>();
+            x.AddConsumer<LeaveAccrualWorker, LeaveAccrualWorkerDefinition>();
+            x.AddConsumer<LeavePeriodGrantWorker, LeavePeriodGrantWorkerDefinition>();
+            x.AddConsumer<LeaveCarryOverWorker, LeaveCarryOverWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();

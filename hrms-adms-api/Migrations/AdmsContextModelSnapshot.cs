@@ -71,6 +71,8 @@ namespace Hrms.adms.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("Attendances");
                 });
 
@@ -114,6 +116,8 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("BiometricDetails", (string)null);
                 });
@@ -200,6 +204,8 @@ namespace Hrms.adms.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("BiometricDevices");
                 });
 
@@ -243,6 +249,8 @@ namespace Hrms.adms.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("BiometricTemplates");
                 });
 
@@ -269,6 +277,8 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Biometrics", (string)null);
                 });
@@ -304,6 +314,8 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("DeviceCommands");
                 });
@@ -350,6 +362,8 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("DeviceUsers");
                 });
@@ -408,6 +422,8 @@ namespace Hrms.adms.Migrations
 
                     b.HasIndex("ThermalAndMaskId");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("FeaturesAndProtocols");
                 });
 
@@ -442,6 +458,8 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("MultiBioSupports");
                 });
@@ -479,6 +497,8 @@ namespace Hrms.adms.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("PhotosAndMedias");
                 });
 
@@ -514,6 +534,8 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("QrCodeConfigs");
                 });
@@ -554,6 +576,8 @@ namespace Hrms.adms.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "DeletedAt");
+
                     b.ToTable("SystemCounters");
                 });
 
@@ -586,6 +610,8 @@ namespace Hrms.adms.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("ThermalAndMaskConfigs");
                 });

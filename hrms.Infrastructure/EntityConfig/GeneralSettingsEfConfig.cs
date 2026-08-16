@@ -111,16 +111,6 @@ internal class GeneralSettingsEfConfig : IEntityTypeConfiguration<GeneralSetting
                 Status = "Active",
                 CreatedAt = seedDate,
                 UpdatedAt = seedDate
-            },
-            new GeneralSetting
-            {
-                Id = Guid.Parse("4567D8E9-F012-4678-BCDA-0123456789DE"),
-                IdentityType = "Company",
-                Description = SettingKey.HolidayColumnPresentation.ToString(),
-                Value = HolidayCreditMode.NoCredit.ToString(),
-                Status = "Active",
-                CreatedAt = seedDate,
-                UpdatedAt = seedDate
             }
         );
     }

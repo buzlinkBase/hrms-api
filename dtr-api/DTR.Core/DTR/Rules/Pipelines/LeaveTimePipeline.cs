@@ -1,4 +1,6 @@
-﻿namespace DTR.Core;
+﻿using DTR.Core.DTR.Rules.Policies;
+
+namespace DTR.Core;
 
 public class LeaveTimePipeline
 {
@@ -9,15 +11,17 @@ public class LeaveTimePipeline
     }
     public TimeRange Apply(TimeRange input)
     {
-        if (_context.Payload.Data.CurrentLeave == null) return TimeRange.Empty;
-        if (_context.Payload.Data.CurrentLeave.DayType == LeaveDayType.WholeDay)
+
+        var ledgerKey = TimeRangeLedger.CreateKey("onleave", _context);
+        var cached = _context.Payload.Ledger.GetByKey(ledgerKey);
+        if (cached.Found)
         {
-            return new TimeRange(_context.Payload.Data.CurrentShift.MaxWorkingMinutes);
+            return cached.Value;
         }
-        if (_context.Payload.Data.CurrentLeave.DayType == LeaveDayType.HalfDay)
-        {
-            return new TimeRange(_context.Payload.Data.CurrentShift.MaxWorkingMinutes / 2);
-        }
-        return TimeRange.Empty;
+        var pipeline = new LeavePolicy(new IsLeaved());
+        var resultRange = pipeline.Apply(input, _context);
+        _context.Payload.Ledger.RecordByTag("onleave", _context, resultRange);
+        return resultRange;
+
     }
 }

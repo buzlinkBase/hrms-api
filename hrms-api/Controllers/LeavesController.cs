@@ -1,5 +1,7 @@
 using Asp.Versioning;
+using Hrms.Core.Messaging.LeaveWorkers;
 using Hrms.Domain.Entities;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -18,7 +20,7 @@ namespace Hrms.Api.Controllers
         public LeavesController(LeaveService service, IMapper mapper)
         {
             _service = service;
-            _mapper = mapper;
+            _mapper  = mapper;
         }
 
         [HttpGet]
@@ -62,6 +64,23 @@ namespace Hrms.Api.Controllers
         {
             await _service.DeleteAsync(id, token);
             return Ok();
+        }
+
+        /// <summary>
+        /// Manually trigger the leave period grant for a given year.
+        /// Creates LeaveCredits and Grant ledger entries for all eligible employees.
+        /// Defaults to the current year if no year is provided.
+        /// </summary>
+        [HttpPost("credits/grant")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> TriggerPeriodGrant(
+            [FromServices] IPublishEndpoint publisher,
+            [FromQuery] int? year,
+            CancellationToken token)
+        {
+            var targetYear = year ?? DateTime.UtcNow.Year;
+            await publisher.Publish(new RunLeavePeriodGrant(targetYear), token);
+            return Ok($"Leave period grant triggered for {targetYear}. Credits will be created shortly.");
         }
     }
 }

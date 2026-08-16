@@ -12,8 +12,13 @@ public class CompanyPolicyRule
     public ManualEntryLimitEnum AttFillLimit { get; set; }
     public HolidayTimeBasis HolidayTimeBasis { get; set; }
     public bool IsHolPlusReg { get; set; }
-    public HolidayCreditMode HolidayColumnPresentation { get; set; }
+
+    public double TimeInAllowance { get; set; } = -120;
+    public double DoublePunchGap { get; set; } = 2;//2mins
+    public bool CheckAfterHoliday { get; set; } = false;
+
 }
+
 public class CompanyPolicyService
 {
     public CompanyPolicyRule Transform(Dictionary<string, GeneralSettingModel> data)
@@ -27,7 +32,9 @@ public class CompanyPolicyService
         AutoFillLimit(policy, data);
         SetHolidayComputationBasis(policy, data);
         SetIsHolidayAddedInHolidayColumn(policy, data);
-        SetHolidayColumnPresentation(policy, data);
+        SetTimeInAllowance(policy, data);
+        SetDoublePunchGap(policy, data);
+        SetCheckAfterHoliday(policy, data);
         return policy;
     }
 
@@ -118,14 +125,33 @@ public class CompanyPolicyService
             policy.IsHolPlusReg = settingvalue;
         }
     }
-
-    private void SetHolidayColumnPresentation(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    private void SetTimeInAllowance(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
     {
-        policy.HolidayColumnPresentation = HolidayCreditMode.NoCredit;
-        if (data.TryGetValue(SettingKey.HolidayColumnPresentation.ToString(), out GeneralSettingModel? hol))
+        policy.TimeInAllowance = -120;
+        if (data.TryGetValue(SettingKey.TimeInAllowance.ToString(), out GeneralSettingModel? TimeInAllowance))
         {
-            var settingvalue = GeneralSettingsUtil.ParseEnum(hol.Value, HolidayCreditMode.NoCredit);
-            policy.HolidayColumnPresentation = settingvalue;
+            var settingvalue = GeneralSettingsUtil.ParseInt(TimeInAllowance.Value, -120);
+            policy.TimeInAllowance = settingvalue;
+        }
+    }
+
+    private void SetDoublePunchGap(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.DoublePunchGap = 2;
+        if (data.TryGetValue(SettingKey.DoublePunchGap.ToString(), out GeneralSettingModel? DoublePunchGap))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseInt(DoublePunchGap.Value, 2);
+            policy.DoublePunchGap = settingvalue;
+        }
+    }
+
+    private void SetCheckAfterHoliday(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.CheckAfterHoliday = false;
+        if (data.TryGetValue(SettingKey.CheckAfterHoliday.ToString(), out GeneralSettingModel? CheckAfterHoliday))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseBool(CheckAfterHoliday.Value, false);
+            policy.CheckAfterHoliday = settingvalue;
         }
     }
 }

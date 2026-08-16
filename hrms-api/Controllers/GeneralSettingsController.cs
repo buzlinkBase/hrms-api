@@ -1,0 +1,158 @@
+using Asp.Versioning;
+using DTR.Core;
+using Hrms.Domain.Entities;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Hrms.Api.Controllers;
+
+public class UpdateCompanyPolicyRequest
+{
+    public string OtInclusionPolicy { get; set; } = "";
+    public string OtEligibility { get; set; } = "";
+    public bool IsHalfDayLateOn { get; set; }
+    public bool IsWholeDayLateOn { get; set; }
+    public double HalfDayLateThresholdMinutes { get; set; }
+    public double WholeDayLateThresholdMinutes { get; set; }
+    public double NightDiffThreshold { get; set; }
+    public string AttFillLimit { get; set; } = "";
+    public string HolidayTimeBasis { get; set; } = "";
+    public bool IsHolPlusReg { get; set; }
+    public double TimeInAllowance { get; set; }
+    public double DoublePunchGap { get; set; }
+    public bool CheckAfterHoliday { get; set; }
+}
+
+public class CompanyPolicyResponse
+{
+    public string OtInclusionPolicy { get; set; } = "";
+    public string OtEligibility { get; set; } = "";
+    public bool IsHalfDayLateOn { get; set; }
+    public bool IsWholeDayLateOn { get; set; }
+    public double HalfDayLateThresholdMinutes { get; set; }
+    public double WholeDayLateThresholdMinutes { get; set; }
+    public double NightDiffThreshold { get; set; }
+    public string AttFillLimit { get; set; } = "";
+    public string HolidayTimeBasis { get; set; } = "";
+    public bool IsHolPlusReg { get; set; }
+    public double TimeInAllowance { get; set; }
+    public double DoublePunchGap { get; set; }
+    public bool CheckAfterHoliday { get; set; }
+}
+
+public class ClientPolicyDto
+{
+    public string? OtEligibility { get; set; }
+    public string? OtInclusionPolicy { get; set; }
+}
+
+public class ClientPolicyRequest
+{
+    public string? OtEligibility { get; set; }
+    public string? OtInclusionPolicy { get; set; }
+}
+
+[Route("api/v{version:apiVersion}/[controller]")]
+[ApiVersion("1.0")]
+[ApiController]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+[ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+public class GeneralSettingsController : ControllerBase
+{
+    private readonly GeneralSettingService _settingService;
+    private readonly CompanyPolicyService _policyService;
+
+    public GeneralSettingsController(GeneralSettingService settingService, CompanyPolicyService policyService)
+    {
+        _settingService = settingService;
+        _policyService = policyService;
+    }
+
+    [HttpGet("company")]
+    [ProducesResponseType(typeof(ResponseModel<CompanyPolicyResponse>), 200)]
+    public async Task<IActionResult> GetCompanyPolicy(CancellationToken token)
+    {
+        var settings = await _settingService.GetSettingsAsync("Company");
+        var policy = _policyService.Transform(settings);
+        var response = new CompanyPolicyResponse
+        {
+            OtInclusionPolicy = policy.OTInclusionPolicy.ToString(),
+            OtEligibility = policy.OTEligibility.ToString(),
+            IsHalfDayLateOn = policy.IsHalfDayLateOn,
+            IsWholeDayLateOn = policy.IsWholeDayLateOn,
+            HalfDayLateThresholdMinutes = policy.HalfDayLateThresholdMinutes,
+            WholeDayLateThresholdMinutes = policy.WholeDayLateThresholdMinutes,
+            NightDiffThreshold = policy.NightDiffThreshold,
+            AttFillLimit = policy.AttFillLimit.ToString(),
+            HolidayTimeBasis = policy.HolidayTimeBasis.ToString(),
+            IsHolPlusReg = policy.IsHolPlusReg,
+            TimeInAllowance = policy.TimeInAllowance,
+            DoublePunchGap = policy.DoublePunchGap,
+            CheckAfterHoliday = policy.CheckAfterHoliday,
+        };
+        return Ok(response);
+    }
+
+    [HttpPut("company")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> UpdateCompanyPolicy(
+        [FromBody] UpdateCompanyPolicyRequest request,
+        CancellationToken token)
+    {
+        var settings = new List<GeneralSetting>
+        {
+            new() { IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = request.OtInclusionPolicy },
+            new() { IdentityType = "Company", Description = SettingKey.OTEligibility.ToString(), Value = request.OtEligibility },
+            new() { IdentityType = "Company", Description = SettingKey.AttFillLimit.ToString(), Value = request.AttFillLimit },
+            new() { IdentityType = "Company", Description = SettingKey.HolidayTimeBasis.ToString(), Value = request.HolidayTimeBasis },
+            new() { IdentityType = "Company", Description = SettingKey.IsHalfDayLateOn.ToString(), Value = request.IsHalfDayLateOn.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.IsWholeDayLateOn.ToString(), Value = request.IsWholeDayLateOn.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.HalfDayLateThresholdMinutes.ToString(), Value = request.HalfDayLateThresholdMinutes.ToString() },
+            new() { IdentityType = "Company", Description = SettingKey.WholeDayLateThresholdMinutes.ToString(), Value = request.WholeDayLateThresholdMinutes.ToString() },
+            new() { IdentityType = "Company", Description = SettingKey.NightDiffThreshold.ToString(), Value = request.NightDiffThreshold.ToString() },
+            new() { IdentityType = "Company", Description = SettingKey.IsHolPlusReg.ToString(), Value = request.IsHolPlusReg.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.TimeInAllowance.ToString(), Value = request.TimeInAllowance.ToString() },
+            new() { IdentityType = "Company", Description = SettingKey.DoublePunchGap.ToString(), Value = request.DoublePunchGap.ToString() },
+            new() { IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = request.CheckAfterHoliday.ToString().ToLower() },
+        };
+        await _settingService.AddRangeAsync(settings, Guid.Empty);
+        await _settingService.CommitChangesAsync();
+        return Ok("success");
+    }
+
+    [HttpGet("client/{clientId:guid}")]
+    [ProducesResponseType(typeof(ResponseModel<ClientPolicyDto>), 200)]
+    public async Task<IActionResult> GetClientPolicy(Guid clientId, CancellationToken token)
+    {
+        var clientSettings = await _settingService.GetSettingsAsync("Client", new HashSet<string> { clientId.ToString() });
+        var dict = clientSettings.TryGetValue(new SettingGroupKey(clientId), out var d)
+            ? d
+            : new Dictionary<string, GeneralSettingModel>();
+
+        return Ok(new ClientPolicyDto
+        {
+            OtEligibility = dict.TryGetValue(SettingKey.OTEligibility.ToString(), out var e) ? e.Value : null,
+            OtInclusionPolicy = dict.TryGetValue(SettingKey.OTInclusion.ToString(), out var i) ? i.Value : null,
+        });
+    }
+
+    [HttpPut("client/{clientId:guid}")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> UpdateClientPolicy(Guid clientId, [FromBody] ClientPolicyRequest request, CancellationToken token)
+    {
+        // Always wipe existing overrides first so null fields truly fall back to company settings
+        await _settingService.DeleteAsync("Client", clientId.ToString(), token);
+        var settings = new List<GeneralSetting>();
+        if (!string.IsNullOrWhiteSpace(request.OtEligibility))
+            settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTEligibility.ToString(), Value = request.OtEligibility });
+        if (!string.IsNullOrWhiteSpace(request.OtInclusionPolicy))
+            settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTInclusion.ToString(), Value = request.OtInclusionPolicy });
+
+        if (settings.Any())
+        {
+            await _settingService.AddRangeAsync(settings, Guid.Empty);
+        }
+        await _settingService.CommitChangesAsync();
+        return Ok("success");
+    }
+}

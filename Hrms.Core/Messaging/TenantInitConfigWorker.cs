@@ -23,7 +23,6 @@ public class TenantInitConfigWorker : IConsumer<TenantSetInitData>
 
     public async Task Consume(ConsumeContext<TenantSetInitData> context)
     {
-
         var message = context.Message;
         using var scope = _factory.CreateScope();
         _tenantConnectionInfo.TenantId = message.TenantId;

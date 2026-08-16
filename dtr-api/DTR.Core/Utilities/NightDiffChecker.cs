@@ -51,12 +51,16 @@ public class NightDiffCalculator
         if (timeRecords == null || timeRecords.Count == 0)
             return new TimeRange();
 
+        var realRecords = timeRecords.ExcludeLeave();
+        if (realRecords.Count == 0)
+            return new TimeRange();
+
         double totalTime = 0;
         var trCollection = new TimeRecordCollection();
-        for (int i = 0; i < timeRecords.Count; i++)
+        for (int i = 0; i < realRecords.Count; i++)
         {
-            var timeRange = timeRecords[i];
-            if (timeRange?.StartTime == null || timeRange.EndTime == null)
+            var timeRange = realRecords[i];
+            if (timeRange?.StartTime == null || timeRange?.EndTime == null)
                 continue;
 
             var splitRanges = NightDiffTimeSplitter.Split(timeRange.StartTime, timeRange.EndTime);

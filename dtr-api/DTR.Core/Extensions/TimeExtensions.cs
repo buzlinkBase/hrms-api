@@ -25,7 +25,11 @@ public static class TimeExtensions
         return range == null || range.TotalMinutes <= 0;
     }
     public static TimeRecord Tag(this TimeRecord r, string label)
-    => new(r.StartTime, r.EndTime, label);
+        => new(r.StartTime, r.EndTime, label, r.IsVirtual, r.IsLeave);
+
+    public static TimeRecordCollection ExcludeLeave(this TimeRecordCollection source) =>
+        new TimeRecordCollection(source.Where(r => !r.IsLeave));
+
     public static TimeRecordCollection Retag(this TimeRecordCollection source, string newTag)
     {
         if (string.IsNullOrWhiteSpace(newTag) || source == null || source.Count == 0)
@@ -99,8 +103,9 @@ public static class TimeExtensions
             }
 
             var last = merged.Last();
-            if (range.StartTime <= last.EndTime)
+            if (range.StartTime <= last.EndTime && range.IsLeave == last.IsLeave)
             {
+                // Only merge records of the same kind — never blur the work/leave boundary
                 last.EndTime = new[] { last.EndTime, range.EndTime }.Max();
             }
             else
@@ -143,11 +148,11 @@ public static class TimeExtensions
 
         // ✂️ Trim start if there's room
         if (rStart > oStart)
-            yield return new TimeRecord(oStart, rStart, original.Tag);
+            yield return new TimeRecord(oStart, rStart, original.Tag, original.IsVirtual, original.IsLeave);
 
         // ✂️ Trim end if there's room
         if (rEnd < oEnd)
-            yield return new TimeRecord(rEnd, oEnd, original.Tag);
+            yield return new TimeRecord(rEnd, oEnd, original.Tag, original.IsVirtual, original.IsLeave);
     }
     public static TimeRange CapAndCrop(this TimeRecordCollection actualTime, CurrentShift shift)
     {
@@ -189,7 +194,7 @@ public static class TimeExtensions
             else
             {
                 var cappedEnd = slice.StartTime.AddMinutes(remaining);
-                capped.Add(new TimeRecord(slice.StartTime, cappedEnd));
+                capped.Add(new TimeRecord(slice.StartTime, cappedEnd, slice.Tag, slice.IsVirtual, slice.IsLeave));
                 break;
             }
         }
@@ -221,12 +226,7 @@ public static class TimeExtensions
             else
             {
                 var newEnd = record.StartTime.AddMinutes(remaining);
-                cropped.Add(new TimeRecord
-                {
-                    StartTime = record.StartTime,
-                    EndTime = newEnd,
-                    Tag = record.Tag
-                });
+                cropped.Add(new TimeRecord(record.StartTime, newEnd, record.Tag, record.IsVirtual, record.IsLeave));
                 remaining = 0;
             }
         }
@@ -257,12 +257,7 @@ public static class TimeExtensions
             else
             {
                 var newStart = record.EndTime.AddMinutes(-remaining);
-                cropped.Add(new TimeRecord
-                {
-                    StartTime = newStart,
-                    EndTime = record.EndTime,
-                    Tag = record.Tag
-                });
+                cropped.Add(new TimeRecord(newStart, record.EndTime, record.Tag, record.IsVirtual, record.IsLeave));
                 remaining = 0;
             }
         }
@@ -298,12 +293,7 @@ public static class TimeExtensions
             {
                 // Trim from end
                 var newEnd = record.EndTime.AddMinutes(-remaining);
-                result.Add(new TimeRecord
-                {
-                    StartTime = record.StartTime,
-                    EndTime = newEnd,
-                    Tag = record.Tag
-                });
+                result.Add(new TimeRecord(record.StartTime, newEnd, record.Tag, record.IsVirtual, record.IsLeave));
                 remaining = 0;
             }
         }
@@ -321,7 +311,7 @@ public static class TimeExtensions
                 var start = new[] { src.StartTime, m.StartTime }.Max();
                 var end = new[] { src.EndTime, m.EndTime }.Min();
                 if (start < end)
-                    result.Add(new TimeRecord(start, end, tag ?? $"{src.Tag}_x_{m.Tag}"));
+                    result.Add(new TimeRecord(start, end, tag ?? $"{src.Tag}_x_{m.Tag}", src.IsVirtual, src.IsLeave));
             }
         }
         return result;
@@ -334,8 +324,7 @@ public static class TimeExtensions
         if (start >= end)
             return TimeRecord.Null();
 
-        return new TimeRecord(start, end, tag ?? $"{a.Tag}_x_{b.Tag}");
-
+        return new TimeRecord(start, end, tag ?? $"{a.Tag}_x_{b.Tag}", a.IsVirtual, a.IsLeave);
     }
     public static bool IsOverlaps(this TimeRecord a, TimeRecord b)
     {
@@ -368,7 +357,7 @@ public static class TimeExtensions
             var croppedDuration = (effectiveEnd - effectiveStart).TotalMinutes;
             if (croppedDuration > 0)
             {
-                var cropped = TimeRecord.Set(effectiveStart, effectiveEnd, r.Tag);
+                var cropped = TimeRecord.Set(effectiveStart, effectiveEnd, r.Tag, r.IsVirtual, r.IsLeave);
                 collected.Add(cropped);
                 accumulated += croppedDuration;
             }
@@ -396,7 +385,7 @@ public static class TimeExtensions
                 var remaining = targetMinutes - accumulated;
                 if (remaining > 0)
                 {
-                    var cropped = TimeRecord.Set(r.StartTime, r.StartTime.AddMinutes(remaining), r.Tag);
+                    var cropped = TimeRecord.Set(r.StartTime, r.StartTime.AddMinutes(remaining), r.Tag, r.IsVirtual, r.IsLeave);
                     collected.Add(cropped);
                     accumulated += remaining;
                 }
@@ -420,7 +409,7 @@ public static class TimeExtensions
 
                 // If overlapping, crop to afterTime
                 var croppedStart = afterTime < r.EndTime ? afterTime : r.StartTime;
-                return new TimeRecord(croppedStart, r.EndTime, r.Tag);
+                return new TimeRecord(croppedStart, r.EndTime, r.Tag, r.IsVirtual, r.IsLeave);
             })
             .Where(r => r.IsValid()) // Remove invalid records
             .ToTimeRecordCollection();

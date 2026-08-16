@@ -4,7 +4,8 @@ using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
-public record GetCurrentAttendancePayload(Dictionary<AttendanceEmpId, List<Attendance>> AllEmployeesAttendances,
+public record GetCurrentAttendancePayload(
+    DTRContextModel Context, 
     EmployeeDTRRun Employee);
 public class DTRProcessorPayloadBuilder
 {
@@ -23,7 +24,7 @@ public class DTRProcessorPayloadBuilder
         _payload.Data.CurrentLeave = leave;
         return this;
     }
-    public DTRProcessorPayloadBuilder SetCurrentTravel (TravelOrderApplication?  travel)
+    public DTRProcessorPayloadBuilder SetCurrentTravel(TravelOrderApplication? travel)
     {
         _payload.Data.CurrentTravel = travel;
         return this;
