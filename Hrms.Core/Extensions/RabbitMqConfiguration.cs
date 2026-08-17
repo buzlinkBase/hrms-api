@@ -26,6 +26,7 @@ public static class RabbitMqConfiguration
             x.AddConsumer<LeaveAccrualWorker, LeaveAccrualWorkerDefinition>();
             x.AddConsumer<LeavePeriodGrantWorker, LeavePeriodGrantWorkerDefinition>();
             x.AddConsumer<LeaveCarryOverWorker, LeaveCarryOverWorkerDefinition>();
+            x.AddConsumer<UserOnboardedWorker, UserOnboardedWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -98,5 +99,13 @@ public class TenantInitDataWorkerDefination : ConsumerDefinition<TenantInitConfi
     public TenantInitDataWorkerDefination()
     {
         EndpointName = "hrms-tenant-default-config-que";
+    }
+}
+
+public class UserOnboardedWorkerDefinition : ConsumerDefinition<UserOnboardedWorker>
+{
+    public UserOnboardedWorkerDefinition()
+    {
+        EndpointName = "hrms-user-onboarded-que";
     }
 }

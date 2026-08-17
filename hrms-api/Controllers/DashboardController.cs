@@ -26,6 +26,7 @@ public class DashboardController : ControllerBase
         DateTime phNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, phZone);
         DateOnly today = DateOnly.FromDateTime(phNow);
         DateOnly monthStart = new DateOnly(today.Year, today.Month, 1);
+        DateOnly next7days = today.AddDays(7);
         DateOnly sevenDaysAgo = today.AddDays(-6);
         DateTime thirtyDaysAgo = phNow.AddDays(-30);
         DateTime sevenDaysAgoUtc = phNow.AddDays(-7);
@@ -76,10 +77,10 @@ public class DashboardController : ControllerBase
             .OrderBy(g => g.Key)
             .Select(g => new
             {
-                Date    = g.Key,
+                Date = g.Key,
                 Present = g.Count(d => d.StartTime != null && d.AbsentCount == 0),
-                Late    = g.Count(d => d.LateMinutes > 0 && d.AbsentCount == 0),
-                Absent  = g.Count(d => d.AbsentCount > 0),
+                Late = g.Count(d => d.LateMinutes > 0 && d.AbsentCount == 0),
+                Absent = g.Count(d => d.AbsentCount > 0),
             })
             .ToListAsync(token);
 
@@ -91,8 +92,8 @@ public class DashboardController : ControllerBase
             .Select(g => new
             {
                 DepartmentId = g.Key.DepartmentId,
-                DeptName     = g.Key.DeptName,
-                Count        = g.Count()
+                DeptName = g.Key.DeptName,
+                Count = g.Count()
             })
             .OrderByDescending(x => x.Count)
             .Take(8)
@@ -100,7 +101,9 @@ public class DashboardController : ControllerBase
 
         // ── Upcoming Holidays ─────────────────────────────────────────────────
         var holidays = await _uow.Repository
-            .Find<Holiday>(h => h.HolDate >= today)
+            .FindAll<Holiday>()
+            .Where(h => !h.IsRecuring ? h.HolDate >= today && h.HolDate <= next7days : true)
+            .Where(h => h.IsRecuring ? h.HolDate.Month >= today.Month && h.HolDate.Month <= next7days.Month : true)
             .AsNoTracking()
             .OrderBy(h => h.HolDate)
             .Take(5)
@@ -141,19 +144,19 @@ public class DashboardController : ControllerBase
         var pendingRequestDetails = pendingLeaveApps
             .Select(l => new
             {
-                Id           = l.Id.ToString(),
-                Type         = "leave",
+                Id = l.Id.ToString(),
+                Type = "leave",
                 EmployeeName = pendingEmpDict.GetValueOrDefault(l.EmployeeId, "Unknown"),
-                SubmittedAt  = l.CreatedAt,
-                Status       = "pending"
+                SubmittedAt = l.CreatedAt,
+                Status = "pending"
             })
             .Concat(pendingOTApps.Select(o => new
             {
-                Id           = o.Id.ToString(),
-                Type         = "overtime",
+                Id = o.Id.ToString(),
+                Type = "overtime",
                 EmployeeName = pendingEmpDict.GetValueOrDefault(o.EmployeeId, "Unknown"),
-                SubmittedAt  = o.CreatedAt,
-                Status       = "pending"
+                SubmittedAt = o.CreatedAt,
+                Status = "pending"
             }))
             .OrderByDescending(x => x.SubmittedAt)
             .Take(5)
@@ -201,27 +204,27 @@ public class DashboardController : ControllerBase
         var recentActivity = recentLeaveApps
             .Select(l => new
             {
-                Id           = l.Id.ToString(),
-                Type         = "leave-request",
+                Id = l.Id.ToString(),
+                Type = "leave-request",
                 EmployeeName = activityEmpDict.GetValueOrDefault(l.EmployeeId, "Unknown"),
-                Description  = "Filed a leave application",
-                Timestamp    = l.CreatedAt
+                Description = "Filed a leave application",
+                Timestamp = l.CreatedAt
             })
             .Concat(recentOTApps.Select(o => new
             {
-                Id           = o.Id.ToString(),
-                Type         = "schedule-change",
+                Id = o.Id.ToString(),
+                Type = "schedule-change",
                 EmployeeName = activityEmpDict.GetValueOrDefault(o.EmployeeId, "Unknown"),
-                Description  = "Filed an overtime application",
-                Timestamp    = o.CreatedAt
+                Description = "Filed an overtime application",
+                Timestamp = o.CreatedAt
             }))
             .Concat(recentNewHires.Select(e => new
             {
-                Id           = e.Id.ToString(),
-                Type         = "new-hire",
+                Id = e.Id.ToString(),
+                Type = "new-hire",
                 EmployeeName = e.Name.Trim(),
-                Description  = "Joined the organization",
-                Timestamp    = e.CreatedAt
+                Description = "Joined the organization",
+                Timestamp = e.CreatedAt
             }))
             .OrderByDescending(a => a.Timestamp)
             .Take(10)
@@ -237,44 +240,44 @@ public class DashboardController : ControllerBase
                 lateToday,
                 absentToday,
                 onLeaveToday,
-                pendingRequests   = pendingLeaveCount + pendingOTCount,
+                pendingRequests = pendingLeaveCount + pendingOTCount,
                 newHiresThisMonth = newHires,
             },
             attendanceTrend = trend.Select(t => new
             {
-                date    = t.Date.ToString("ddd"),
+                date = t.Date.ToString("ddd"),
                 present = t.Present,
-                late    = t.Late,
-                absent  = t.Absent,
+                late = t.Late,
+                absent = t.Absent,
             }),
             departmentHeadcount = deptHeadcount.Select(d => new
             {
-                departmentId   = d.DepartmentId.ToString(),
+                departmentId = d.DepartmentId.ToString(),
                 departmentName = d.DeptName,
-                headcount      = d.Count,
+                headcount = d.Count,
             }),
             upcomingHolidays = holidays.Select(h => new
             {
-                id   = h.Id.ToString(),
+                id = h.Id.ToString(),
                 name = h.Description,
                 date = h.HolDate.ToString("yyyy-MM-dd"),
                 type = h.HolType == HolidayType.LEGAL ? "Regular" : "Special",
             }),
             recentActivity = recentActivity.Select(a => new
             {
-                id           = a.Id,
-                type         = a.Type,
+                id = a.Id,
+                type = a.Type,
                 employeeName = a.EmployeeName,
-                description  = a.Description,
-                timestamp    = a.Timestamp,
+                description = a.Description,
+                timestamp = a.Timestamp,
             }),
             pendingRequests = pendingRequestDetails.Select(p => new
             {
-                id           = p.Id,
-                type         = p.Type,
+                id = p.Id,
+                type = p.Type,
                 employeeName = p.EmployeeName,
-                submittedAt  = p.SubmittedAt,
-                status       = p.Status,
+                submittedAt = p.SubmittedAt,
+                status = p.Status,
             }),
         });
     }

@@ -148,6 +148,8 @@ public class EmployeeService : BaseService<Employee>
             existing.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
         }
 
+        existing.Email = string.IsNullOrWhiteSpace(payload.Email) ? null : payload.Email.Trim();
+
         var branch = _uow.Repository.FindOne<Branch>(existing.BranchId ?? Guid.Empty);
         existing.BranchId = branch?.Id;
         await ModifyAsync(existing, token);

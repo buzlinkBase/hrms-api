@@ -22,8 +22,8 @@ public class CreateEmployee
     public Guid? PayrollGroupId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? AreaId { get; set; }
-    public Guid? BranchId { get; set; }
-
+    public Guid? BranchId { get; set; } 
+    public string? Email { get; set; }
     public Guid? SectionId { get; set; }
     public Guid? PositionId { get; set; }
     public JobLevelOption JobLevel { get; set; }
@@ -130,6 +130,7 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public string PHICNo { get; set; } = string.Empty;
     [IgnoreMember] public string HDMFNo { get; set; } = string.Empty;
     [IgnoreMember] public string TIN { get; set; } = string.Empty;
+    [IgnoreMember] public string? Email { get; set; }
     [IgnoreMember] public string Contact { get; set; } = string.Empty;
     [IgnoreMember] public string Address1 { get; set; } = string.Empty;
     [IgnoreMember] public string Address2 { get; set; } = string.Empty;

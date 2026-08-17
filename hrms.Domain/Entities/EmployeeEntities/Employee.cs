@@ -4,6 +4,7 @@ public class Employee : BaseEntity
 {
     public Guid? UserId { get; set; }
     public int? BioId { get; set; }
+    public string? Email { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
     public Guid PayrollGroupId { get; set; }
