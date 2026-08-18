@@ -353,6 +353,7 @@ public partial class EmployeePackModel
 public class EmployeeDTRRun
 {
     public int? BioId { get; set; }
+    public string? EmpNo  { get; set; }
     public Guid Id { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? AreaId { get; set; }

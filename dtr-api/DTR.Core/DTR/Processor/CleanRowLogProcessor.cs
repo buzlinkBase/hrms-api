@@ -30,7 +30,7 @@ internal class ExtracLogsToRows
         {
             var dtr = new RowLogModel
             {
-                EmpNo = payload.Data.Employee.BioId.ToString(),
+                EmpNo = payload.Data.Employee.EmpNo ?? "",
                 FullName = payload.Data.Employee.FullName(),
                 EmployeeId = payload.Data.Employee.Id,
                 WorkDate = payrollDate,

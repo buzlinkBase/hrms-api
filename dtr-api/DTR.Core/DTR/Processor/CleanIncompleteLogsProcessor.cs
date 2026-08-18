@@ -59,9 +59,9 @@ internal class FixMapper : IIncompleteLogShiftMapper
         Attendance? otOut = null;
         var dtr = new ColumnarLogModel
         {
-            EmpNo = payload.Data.Employee.BioId.ToString(),
+            EmpNo = payload.Data.Employee?.BioId?.ToString() ?? "",
             FullName = payload.Data.Employee.FullName(),
-            EmployeeId = payload.Data.Employee.Id,
+            EmployeeId = payload.Data.Employee?.Id ?? Guid.Empty,
             WorkDate = payrollDate,
             ShiftName = shift.ShiftName,
             Log1 = am != null ? AttInfo.Set(am.Id, am.WorkDateTime) : null,
@@ -87,12 +87,12 @@ internal class SplitMapper : IIncompleteLogShiftMapper
     {
         var dtr = new ColumnarLogModel
         {
-            EmpNo = payload.Data.Employee.BioId.ToString(),
+            EmpNo = payload.Data.Employee?.EmpNo ?? "",
             FullName = payload.Data.Employee.FullName(),
-            EmployeeId = payload.Data.Employee.Id,
-            ClientId = payload.Data.Employee.ClientId,
-            PayrollGroupId = payload.Data.Employee.PayrollGroupId,
-            DepartmentId = payload.Data.Employee.DepartmentId,
+            EmployeeId = payload.Data.Employee?.Id ?? Guid.Empty,
+            ClientId = payload.Data.Employee?.ClientId ?? Guid.Empty,
+            PayrollGroupId = payload.Data.Employee?.PayrollGroupId ?? Guid.Empty,
+            DepartmentId = payload.Data.Employee?.DepartmentId ?? Guid.Empty,
             WorkDate = payrollDate,
             ShiftName = _payload.Data.CurrentShift.ShiftName,
             Department = _payload.Data.Employee?.DepartmentName ?? "",

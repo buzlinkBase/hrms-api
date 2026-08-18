@@ -47,7 +47,7 @@ public class CurrentRangeDTRPayloadService
         var employees = await ExtractEmployees(payload, token);
         var employeeIds = new HashSet<Guid>(employees.Select(e => e.Id));
 
-        var cleanAttendance = await LoadCleanAttendance(canprocess, payload, removeDoublePunch, employeeIds, gap, token); 
+        var cleanAttendance = await LoadCleanAttendance(canprocess, payload, removeDoublePunch, employeeIds, gap, token);
         var clientIds = ExtractClientIds(employees);
         var shiftsTask = await _workScheduleResolver.Resolve(fromDate, toDate, employees, token);
 
@@ -101,10 +101,10 @@ public class CurrentRangeDTRPayloadService
     private async Task<List<EmployeeDTRRun>> ExtractEmployees(DTRRequestPayload payload, CancellationToken token)
     {
         var query = _employeeService
-            .GetQueryable(x=> x.EmploymentStatus!=EmploymentStatus.Retired ||
-            x.EmploymentStatus!=EmploymentStatus.Terminated || 
-            x.EmploymentStatus!=EmploymentStatus.Deceased || 
-            x.EmploymentStatus!=EmploymentStatus.Resigned)
+            .GetQueryable(x => x.EmploymentStatus != EmploymentStatus.Retired ||
+            x.EmploymentStatus != EmploymentStatus.Terminated ||
+            x.EmploymentStatus != EmploymentStatus.Deceased ||
+            x.EmploymentStatus != EmploymentStatus.Resigned)
             .Include(x => x.RestDays)
             .Include(x => x.Settings)
             .AsQueryable()
@@ -143,6 +143,7 @@ public class CurrentRangeDTRPayloadService
             Suffix = x.Suffix,
             TimeShiftId = x.TimeShiftId,
             BioId = x.BioId,
+            EmpNo = x.EmployeeNo,
             PayrollGroupId = x.PayrollGroupId,
             DepartmentId = x.DepartmentId,
             DepartmentName = x.Department != null ? x.Department.Name : null,

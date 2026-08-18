@@ -28,12 +28,12 @@ internal class ExtracLogsToColumns : IIncompleteLogShiftMapper
     {
         var dtr = new ColumnarLogModel
         {
-            EmpNo = payload.Data.Employee.BioId.ToString(),
+            EmpNo = payload.Data.Employee?.EmpNo ?? "",
             FullName = payload.Data.Employee.FullName(),
-            EmployeeId = payload.Data.Employee.Id,
-            ClientId = payload.Data.Employee.ClientId,
-            DepartmentId = payload.Data.Employee.DepartmentId,
-            PayrollGroupId = payload.Data.Employee.PayrollGroupId,
+            EmployeeId = payload.Data.Employee?.Id ?? Guid.Empty,
+            ClientId = payload.Data.Employee?.ClientId ?? Guid.Empty,
+            DepartmentId = payload.Data.Employee?.DepartmentId ?? Guid.Empty,
+            PayrollGroupId = payload.Data.Employee?.PayrollGroupId ?? Guid.Empty,
             WorkDate = payrollDate,
             ShiftName = _payload.Data.CurrentShift.ShiftName,
             Department = _payload.Data.Employee?.DepartmentName ?? "",
