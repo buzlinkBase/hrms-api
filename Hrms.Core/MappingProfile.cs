@@ -18,7 +18,8 @@ public class MappingProfile : IRegister
         config.NewConfig<DateTime?, DateOnly?>()
             .MapWith(src => src.HasValue ? DateOnly.FromDateTime(src.Value) : null);
 
-        config.NewConfig<PayrollSummaryLine, Payroll>().TwoWays();
+        config.NewConfig<PayrollSummaryLine, Payroll>();
+        config.NewConfig<Payroll, PayrollSummaryLine>();
         config.NewConfig<CreateDepartment, Department>().TwoWays();
         config.NewConfig<UpdateDepartment, Department>();
 
@@ -141,6 +142,13 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateTravelOrderApplication, TravelOrderApplication>();
         config.NewConfig<TravelOrderApplication, TravelOrderApplicationModel>();
 
+        config.NewConfig<CreatePassSlipApplication, PassSlipApplication>();
+        config.NewConfig<UpdatePassSlipApplication, PassSlipApplication>();
+        config.NewConfig<PassSlipApplication, PassSlipApplicationModel>()
+            .Map(dest => dest.EmployeeName, src => src.Employee != null
+                ? (src.Employee.LastName ?? "") + ", " + (src.Employee.FirstName ?? "") + " " + (src.Employee.MiddleName ?? "")
+                : null);
+
         config.NewConfig<CreateUnderTimeApplication, UnderTimeApplication>();
         config.NewConfig<UpdateUnderTimeApplication, UnderTimeApplication>();
         config.NewConfig<UnderTimeApplication, UnderTimeApplicationModel>();
@@ -226,6 +234,10 @@ public class MappingProfile : IRegister
         config.NewConfig<CreateSSS, SSSTable>();
         config.NewConfig<UpdateSSS, SSSTable>();
         config.NewConfig<SSSTable, SSSModel>();
+
+        config.NewConfig<CreateAnnualTax, AnnualTaxTable>();
+        config.NewConfig<UpdateAnnualTax, AnnualTaxTable>();
+        config.NewConfig<AnnualTaxTable, AnnualTaxModel>();
 
         config.NewConfig<CreateRateTable, RateTable>();
         config.NewConfig<UpdateRateTable, RateTable>();

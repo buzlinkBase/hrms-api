@@ -89,6 +89,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<OverTimeApplication> OTApplications { get; set; }
     public DbSet<UnderTimeApplication> UTApplications { get; set; }
     public DbSet<TravelOrderApplication> TravelOrderApplications { get; set; }
+    public DbSet<PassSlipApplication> PassSlipApplications { get; set; }
 
     public DbSet<OtherIncomeType> AllowanceTypes { get; set; }
     public DbSet<ProratedAllowanceForSSS> ProratedAllowances { get; set; }
@@ -107,6 +108,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<PHICTable> GovPHICs { get; set; }
     public DbSet<HDMFTable> GovHDMFs { get; set; }
     public DbSet<TaxTable> GovTaxes { get; set; }
+    public DbSet<AnnualTaxTable> GovAnnualTaxes { get; set; }
 
     public DbSet<SSSContribution> SSSContributions { get; set; }
     public DbSet<PHICContribution> PHICContributions { get; set; }

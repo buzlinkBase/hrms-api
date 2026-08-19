@@ -32,5 +32,24 @@ public class PayrollService : BaseService<Payroll>
         await RemoveAsync(Id, token);
     }
 
+    public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token)
+    {
+        await BulkInsertAsync(payrolls, token);
+    }
+
+    public async Task<List<Payroll>> GetAsync(
+        DateOnly from, DateOnly to,
+        Guid? employeeId, Guid? clientId, Guid? payrollGroupId,
+        CancellationToken token)
+    {
+        return await GetQueryable(x =>
+                x.PayPeriodStart >= from && x.PayPeriodEnd <= to &&
+                (employeeId == null || x.EmployeeId == employeeId) &&
+                (clientId == null || x.ClientId == clientId) &&
+                (payrollGroupId == null || x.PayrollGroupId == payrollGroupId))
+            .OrderByDescending(x => x.PayPeriodStart)
+            .ThenBy(x => x.FullName)
+            .ToListAsync(token);
+    }
 }
 
