@@ -57,10 +57,26 @@ internal static class CommonExtensions
 
     private static HolidayInfo? GetCurrentSpecialHoliday(TimeContext context)
     {
-        return context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
-            HolidayType.SPECIAL,
-            context.Payload.Data.Employee,
-            context.Payload.Data.CurrentShift);
+        //return context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
+        //    HolidayType.SPECIAL,
+        //    context.Payload.Data.Employee,
+        //    context.Payload.Data.CurrentShift);
+
+        var info = context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
+                HolidayType.SPECIAL,
+                context.Payload.Data.Employee,
+                context.Payload.Data.CurrentShift);
+
+        if (info == null) return null;
+
+        if (context.Payload.Data.CompanyPolicy.HolidayTimeBasis == HolidayTimeBasis.BasedOnTimeInDayType)
+        {
+            return info.PayrollDate == context.Payload.Data.CurrentDate
+               ? info
+               : null;
+        }
+
+        return info;
     }
     internal static bool IsRestDay(this TimeContext context)
     {
