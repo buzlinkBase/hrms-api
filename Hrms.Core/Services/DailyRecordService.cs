@@ -45,59 +45,38 @@ public class DailyRecordService : BaseService<DailyRecord>
         await CommitChangesAsync(token);
     }
 
-    public async Task<(Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records, DateOnly FromDate, DateOnly ToDate)>
-        LoadForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
-    {
-        var records = await GetQueryable(x => x.Posted && batchCodes.Contains(x.BatchCode!))
-            .AsNoTracking()
-            .Include(x => x.Employee)
-            .ProjectToType<DailyRecordRunModel>(_config)
-            .Where(x => x.EmployeeId != null)
-            .GroupBy(x => new EmployeeKey(x.EmployeeId))
-            .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
-
-        var allDates = records.Values.SelectMany(x => x).Select(x => x.WorkDate).ToList();
-        var fromDate = allDates.Any() ? allDates.Min() : DateOnly.FromDateTime(DateTime.UtcNow);
-        var toDate   = allDates.Any() ? allDates.Max() : fromDate;
-
-        return (records, fromDate, toDate);
-    }
-
     public async Task<Dictionary<EmployeeKey, List<DailyRecordRunModel>>>
-        LoadForPayrollAsync(PayrollCalcPayload payload,
+        LoadForPayrollAsync(DTRQueryPayload payload,
         CancellationToken token)
     {
-        IQueryable<DailyRecord> query;
-
-        if (payload.BatchCodes != null && payload.BatchCodes.Count > 0)
-        {
-            query = GetQueryable(x => x.Posted && payload.BatchCodes.Contains(x.BatchCode!))
-                .AsNoTracking()
-                .Include(x => x.Employee);
-        }
-        else
-        {
-            query = GetQueryable(GetQueryExpression(payload))
-                .AsNoTracking()
-                .Include(x => x.Employee);
-        }
+        var expression = GetQueryExpression(payload)
+            ;
+        var query = GetQueryable(expression)
+            .AsNoTracking()
+            .Include(x => x.Employee)
+            ;
+        var data = query
+            .ProjectToType<DailyRecordRunModel>(_config)
+            .ToList();
 
         return await query
             .ProjectToType<DailyRecordRunModel>(_config)
-            .Where(x => x.EmployeeId != null)
+             .Where(x => x.EmployeeId != null) // filter out nulls
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
     }
 
     private Expression<Func<DailyRecord, bool>> GetQueryExpression(DTRQueryPayload payload)
     {
-        Expression<Func<DailyRecord, bool>> expression = x =>
-            x.Posted &&
-            x.WorkDate >= payload.FromDate && x.WorkDate <= payload.ToDate &&
-            (payload.EmployeeId == null || x.EmployeeId == payload.EmployeeId) &&
-            (payload.DepartmentId == null || x.DepartmentId == payload.DepartmentId) &&
-            (payload.PayrollGroupId == null || x.PayrollGroupId == payload.PayrollGroupId) &&
-            (payload.ClientId == null || x.ClientId == payload.ClientId);
+        //Expression<Func<DailyRecord, bool>> expression = x => 
+        //         (x.WorkDate >= payload.FromDate && x.WorkDate <= payload.ToDate) &&
+        //         (payload.EmployeeId == null || x.EmployeeId == payload.EmployeeId) &&
+        //         (payload.DepartmentId == null || (x.DepartmentId.HasValue ? x.DepartmentId.Value == payload.DepartmentId : x.DepartmentId == payload.DepartmentId)) &&
+        //         (payload.PayrollGroupId == null || (x.PayrollGroupId.HasValue ? x.PayrollGroupId.Value == payload.PayrollGroupId : x.PayrollGroupId == payload.PayrollGroupId)) &&
+        //         (payload.ClientId == null || (x.ClientId.HasValue ? x.ClientId.Value == payload.ClientId : x.ClientId == payload.ClientId))
+        //         ;
+        Expression<Func<DailyRecord, bool>> expression = x => true;
+
         return expression;
     }
 
@@ -166,17 +145,13 @@ public class DailyRecordService : BaseService<DailyRecord>
     {
         return await Context.DailyTimeRecords
             .Where(x => x.WorkDate >= fromDate && x.WorkDate <= toDate && x.BatchCode != null)
-            .GroupBy(x => x.BatchCode)
-            .Select(g => new BatchesModel
+            .Select(x => new BatchesModel
             {
-                Code = g.Key,
-                FromDate = g.Min(x => x.WorkDate),
-                ToDate = g.Max(x => x.WorkDate),
-                EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
-                IsPosted = g.All(x => x.Posted)
+                Code = x.BatchCode
             })
-            .OrderByDescending(x => x.FromDate)
-            .ToListAsync(token);
+            .Distinct()
+            .ToListAsync(token)
+            ;
     }
 
     public async Task<List<DTRSummaryModel>> DTRSummaryQuery(string BatchCode, CancellationToken token)
