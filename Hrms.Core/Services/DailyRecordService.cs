@@ -48,7 +48,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     public async Task<(Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records, DateOnly FromDate, DateOnly ToDate)>
         LoadForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
     {
-        var records = await GetQueryable(x => x.Posted && batchCodes.Contains(x.BatchCode!))
+        var records = await GetQueryable(x => batchCodes.Contains(x.BatchCode!))
             .AsNoTracking()
             .Include(x => x.Employee)
             .ProjectToType<DailyRecordRunModel>(_config)

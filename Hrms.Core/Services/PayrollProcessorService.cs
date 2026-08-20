@@ -39,7 +39,7 @@ public class PayrollProcessorService
 
         var dateRange = new DateRangePayload(fromDate, toDate);
         var period = BuildPayrollPeriod(dateRange);
-        var batch = Guid.NewGuid();
+        var batch = Guid.CreateVersion7();
 
         var employees = dtrs.Values
             .SelectMany(x => x.Select(x => x.Employee))
@@ -68,7 +68,7 @@ public class PayrollProcessorService
     }
 
     private static string BuildPayrollPeriod(DateRangePayload payload) => string.Concat(
-             payload.FromDate.ToString("MMM-dd-YY"),
+             payload.FromDate.ToString("MMM-dd-YY")," ",
              payload.ToDate.ToString("MMM-dd-YY"),
              string.Empty);
 
