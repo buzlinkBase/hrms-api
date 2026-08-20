@@ -20,6 +20,7 @@ public class PayrollRangeContextComposerService
     private readonly CompanyService _companyService;
     private readonly HolidayService _holidayService;
     private readonly PayrollService _payrollService;
+    private readonly SalaryAdjustmentService _salaryAdjService;
 
     public PayrollRangeContextComposerService(RateTableService rateTableService,
         LeaveApplicationService leaveService,
@@ -36,7 +37,8 @@ public class PayrollRangeContextComposerService
         TaxContributionService taxcontriService,
         CompanyService companyService,
         HolidayService holidayService,
-        PayrollService payrollService
+        PayrollService payrollService,
+        SalaryAdjustmentService salaryAdjService
         )
     {
         _rateTableService = rateTableService;
@@ -55,9 +57,10 @@ public class PayrollRangeContextComposerService
         _companyService = companyService;
         _holidayService = holidayService;
         _payrollService = payrollService;
+        _salaryAdjService = salaryAdjService;
     }
     public async Task<CalculatorPayload?> ComposeAsync(
-   PayrollCalcPayload dtrPayload,
+   DateRangePayload dtrPayload,
    List<EmployeeModelPayrollRun> employees,
    CancellationToken token)
     {
@@ -75,6 +78,7 @@ public class PayrollRangeContextComposerService
             var leaveCreditsTask = _leaveLedgerService.LoadCreditsAsync(empIds, token);
             var otherIncomeTask = _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var deductionsTask = _deductionService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var salaryAdjTask = _salaryAdjService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var companyTask = _companyService.FineOneAsync(token);
 
             // Contributions
@@ -95,7 +99,8 @@ public class PayrollRangeContextComposerService
             await Task.WhenAll(
                 ratesTask, leavesTask, leaveCreditsTask, otherIncomeTask, deductionsTask, companyTask,
                 payrollsTask, sssContriTask, phicContriTask, hdmfContriTask, taxContriTask,
-                sssTableTask, phicTableTask, hdmfTableTask, taxTableTask, holidaysTask
+                sssTableTask, phicTableTask, hdmfTableTask, taxTableTask, holidaysTask,
+                salaryAdjTask
             );
 
             // 4. Extract results synchronously (No more 'await' needed here)
@@ -116,6 +121,7 @@ public class PayrollRangeContextComposerService
                 LeaveCredits = leaveCreditsTask.Result,
                 Deductions = deductionsTask.Result,
                 Incomes = otherIncomeTask.Result,
+                SalaryAdjustments = salaryAdjTask.Result,
                 SSSTableModel = sssTableTask.Result,
                 PHICTableModel = phicTableTask.Result,
                 HDMFTableModel = hdmfTableTask.Result,

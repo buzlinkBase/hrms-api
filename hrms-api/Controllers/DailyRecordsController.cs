@@ -66,12 +66,35 @@ public class DailyRecordsController : ControllerBase
 
     [HttpGet("batch-codes")]
     [ProducesResponseType(typeof(ResponseModel<List<BatchesModel>>), 200)]
-    public async Task<IActionResult> GetCodes(CancellationToken token)
+    public async Task<IActionResult> GetCodes(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken token)
     {
-        var fromDate = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-1));
-        var toDate = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));
+        var fromDate = from.HasValue
+            ? DateOnly.FromDateTime(from.Value)
+            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-6));
+        var toDate = to.HasValue
+            ? DateOnly.FromDateTime(to.Value)
+            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));
         var result = await _service.GetBatches(fromDate, toDate, token);
         return Ok(result);
+    }
+
+    [HttpPost("post")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> PostBatch([FromQuery] string batchCode, CancellationToken token)
+    {
+        await _service.PostAsync(batchCode, token);
+        return Ok();
+    }
+
+    [HttpPost("unpost")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> UnpostBatch([FromQuery] string batchCode, CancellationToken token)
+    {
+        await _service.UnpostAsync(batchCode, token);
+        return Ok();
     }
 
     [HttpGet("tardiness-report")]
