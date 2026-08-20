@@ -30,6 +30,17 @@ public class SalaryAdjustmentService : BaseService<SalaryAdjustment>
     {
         return await GetQueryable().ToListAsync(token);
     }
+
+    public async Task<Dictionary<EmployeeKey, List<SalaryAdjustment>>> LoadAsync(
+        List<Guid> empIds, DateOnly fromDate, DateOnly toDate, CancellationToken token)
+    {
+        return await GetQueryable(x =>
+                empIds.Contains(x.EmployeeId) &&
+                x.PayrollDate >= fromDate &&
+                x.PayrollDate <= toDate)
+            .GroupBy(x => x.EmployeeId)
+            .ToDictionaryAsync(g => new EmployeeKey(g.Key), g => g.ToList(), token);
+    }
     public async Task<SalaryAdjustment?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return await GetOneAsync(Id, token);

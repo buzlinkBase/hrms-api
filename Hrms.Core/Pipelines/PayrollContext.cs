@@ -21,6 +21,7 @@ public class CalculatorPayload : BasePayloadContext
     public Dictionary<EmployeeLeaveCreditsKey, decimal> LeaveCredits { get; set; } = new();
     public Dictionary<EmployeeKey, List<OtherIncomeInfo>> Incomes { get; set; } = new();
     public Dictionary<EmployeeKey, List<DeductionInfo>> Deductions { get; set; } = new();
+    public Dictionary<EmployeeKey, List<SalaryAdjustment>> SalaryAdjustments { get; set; } = new();
     public Dictionary<EmployeeKey, List<SSSContributionModel>> SSSContribution { get; set; } = new();
     public Dictionary<EmployeeKey, List<PHICContributionModel>> PHICContribution { get; set; } = new();
     public Dictionary<EmployeeKey, List<HDMFContributionModel>> HDMFContribution { get; set; } = new();

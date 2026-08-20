@@ -152,6 +152,10 @@ public class DTRSummaryModel
 public class BatchesModel
 {
     public string? Code { get; set; }
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+    public int EmployeeCount { get; set; }
+    public bool IsPosted { get; set; }
 }
 
 public class TardinessReportModel
