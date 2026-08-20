@@ -6,7 +6,7 @@ public class StatutoryHelper
 {
     public static decimal GetMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
-        if (context.Employee.SalaryType == SalaryType.MONTHLY_FIXED)
+        if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             return context.Employee.MonthlyRate
                 + RateAddOns(context)
@@ -17,7 +17,7 @@ public class StatutoryHelper
     public static decimal GetSemiMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
         var day = context.Payload.FromDate.Day;
-        if (context.Employee.SalaryType == SalaryType.MONTHLY_FIXED)
+        if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             return context.Employee.MonthlyRate
               + RateAddOns(context)
@@ -39,7 +39,7 @@ public class StatutoryHelper
          context.Payload.FromDate.IsLastWeekOfMonth() ||
          context.Payload.ToDate.IsLastWeekOfMonth();
 
-        if (context.Employee.SalaryType == SalaryType.MONTHLY_FIXED)
+        if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             return context.Employee.MonthlyRate
                 + RateAddOns(context)
@@ -113,7 +113,7 @@ public class StatutoryHelper
           + x.Cola);
 
         decimal remainingIncome = 0m;
-        if (context.Employee.SalaryType == SalaryType.MONTHLY_FIXED)
+        if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             baseRate = context.Employee.MonthlyRate;
             // Handle mid-month hires
@@ -227,7 +227,7 @@ public class StatutoryHelper
     {
         //deduct absenses for prior months
         //only deduct from fix_monthly since variable already deducted with absenses
-        if (context.Employee.SalaryType != SalaryType.MONTHLY_FIXED) return 0;
+        if (context.Employee.SalaryType != SalaryType.FIXED) return 0;
         var absences = GetAbsencesTotal(context);
         var lateUt = GetLateUTAmount(context);
         var lwop = GetLWOP(context);//TODO if leave is embeeded in salary

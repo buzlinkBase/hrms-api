@@ -5,51 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers;
 
-public class UpdateCompanyPolicyRequest
-{
-    public string OtInclusionPolicy { get; set; } = "";
-    public string OtEligibility { get; set; } = "";
-    public bool IsHalfDayLateOn { get; set; }
-    public bool IsWholeDayLateOn { get; set; }
-    public double HalfDayLateThresholdMinutes { get; set; }
-    public double WholeDayLateThresholdMinutes { get; set; }
-    public double NightDiffThreshold { get; set; }
-    public string AttFillLimit { get; set; } = "";
-    public string HolidayTimeBasis { get; set; } = "";
-    public bool IsHolPlusReg { get; set; }
-    public double TimeInAllowance { get; set; }
-    public double DoublePunchGap { get; set; }
-    public bool CheckAfterHoliday { get; set; }
-}
-
-public class CompanyPolicyResponse
-{
-    public string OtInclusionPolicy { get; set; } = "";
-    public string OtEligibility { get; set; } = "";
-    public bool IsHalfDayLateOn { get; set; }
-    public bool IsWholeDayLateOn { get; set; }
-    public double HalfDayLateThresholdMinutes { get; set; }
-    public double WholeDayLateThresholdMinutes { get; set; }
-    public double NightDiffThreshold { get; set; }
-    public string AttFillLimit { get; set; } = "";
-    public string HolidayTimeBasis { get; set; } = "";
-    public bool IsHolPlusReg { get; set; }
-    public double TimeInAllowance { get; set; }
-    public double DoublePunchGap { get; set; }
-    public bool CheckAfterHoliday { get; set; }
-}
-
-public class ClientPolicyDto
-{
-    public string? OtEligibility { get; set; }
-    public string? OtInclusionPolicy { get; set; }
-}
-
-public class ClientPolicyRequest
-{
-    public string? OtEligibility { get; set; }
-    public string? OtInclusionPolicy { get; set; }
-}
 
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
@@ -115,8 +70,8 @@ public class GeneralSettingsController : ControllerBase
             new() { IdentityType = "Company", Description = SettingKey.DoublePunchGap.ToString(), Value = request.DoublePunchGap.ToString() },
             new() { IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = request.CheckAfterHoliday.ToString().ToLower() },
         };
-        await _settingService.AddRangeAsync(settings, Guid.Empty);
-        await _settingService.CommitChangesAsync();
+
+        await _settingService.ReplaceByIdentityTypeAsync("Company", settings, null, token);
         return Ok("success");
     }
 
@@ -140,19 +95,55 @@ public class GeneralSettingsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> UpdateClientPolicy(Guid clientId, [FromBody] ClientPolicyRequest request, CancellationToken token)
     {
-        // Always wipe existing overrides first so null fields truly fall back to company settings
-        await _settingService.DeleteAsync("Client", clientId.ToString(), token);
         var settings = new List<GeneralSetting>();
         if (!string.IsNullOrWhiteSpace(request.OtEligibility))
             settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTEligibility.ToString(), Value = request.OtEligibility });
         if (!string.IsNullOrWhiteSpace(request.OtInclusionPolicy))
             settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTInclusion.ToString(), Value = request.OtInclusionPolicy });
-
-        if (settings.Any())
-        {
-            await _settingService.AddRangeAsync(settings, Guid.Empty);
-        }
-        await _settingService.CommitChangesAsync();
+        await _settingService.ReplaceByIdentityTypeAsync("Client", settings, clientId.ToString(), token);
         return Ok("success");
     }
+}
+
+public class UpdateCompanyPolicyRequest
+{
+    public string OtInclusionPolicy { get; set; } = "";
+    public string OtEligibility { get; set; } = "";
+    public bool IsHalfDayLateOn { get; set; }
+    public bool IsWholeDayLateOn { get; set; }
+    public double HalfDayLateThresholdMinutes { get; set; }
+    public double WholeDayLateThresholdMinutes { get; set; }
+    public double NightDiffThreshold { get; set; }
+    public string AttFillLimit { get; set; } = "";
+    public string HolidayTimeBasis { get; set; } = "";
+    public bool IsHolPlusReg { get; set; }
+    public double TimeInAllowance { get; set; }
+    public double DoublePunchGap { get; set; }
+    public bool CheckAfterHoliday { get; set; }
+}
+public class CompanyPolicyResponse
+{
+    public required string OtInclusionPolicy { get; set; } = "";
+    public required string OtEligibility { get; set; } = "";
+    public required bool IsHalfDayLateOn { get; set; }
+    public required bool IsWholeDayLateOn { get; set; }
+    public required double HalfDayLateThresholdMinutes { get; set; }
+    public required double WholeDayLateThresholdMinutes { get; set; }
+    public required double NightDiffThreshold { get; set; }
+    public required string AttFillLimit { get; set; } = "";
+    public required string HolidayTimeBasis { get; set; } = "";
+    public required bool IsHolPlusReg { get; set; }
+    public required double TimeInAllowance { get; set; }
+    public required double DoublePunchGap { get; set; }
+    public required bool CheckAfterHoliday { get; set; }
+}
+public class ClientPolicyDto
+{
+    public string? OtEligibility { get; set; }
+    public string? OtInclusionPolicy { get; set; }
+}
+public class ClientPolicyRequest
+{
+    public string? OtEligibility { get; set; }
+    public string? OtInclusionPolicy { get; set; }
 }

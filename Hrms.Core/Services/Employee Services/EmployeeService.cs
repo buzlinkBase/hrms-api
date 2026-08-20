@@ -253,6 +253,19 @@ public class EmployeeService : BaseService<Employee>
             MetaData = new PaginationMetaData(await query.CountAsync(), payload.Page, payload.Limit)
         };
     }
+
+    public async Task<EmployeeFullModel?> GetFullByIdAsync(Guid id, CancellationToken token)
+    {
+        return await GetQueryable(x => x.Id == id)
+            .Include(x => x.Skills)
+            .Include(x => x.Dependents)
+            .Include(x => x.Educations)
+            .Include(x => x.Assets)
+            .Include(x => x.EmployeeRecords)
+            .Include(x => x.Employments)
+            .ProjectToType<EmployeeFullModel>(_config)
+            .FirstOrDefaultAsync(token);
+    }
     public async Task<Employee?> FineOneAsync(Guid Id, CancellationToken token)
     {
         var result = await GetQueryable(x => x.Id == Id)

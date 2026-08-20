@@ -6,218 +6,83 @@ public record struct SettingRecordKey(string IdentityType, string? IdentityTypeI
 public class GeneralSettingService : BaseService<GeneralSetting>
 {
     public GeneralSettingService(IUnitOfWorkService uow) : base(uow) { }
-    public async Task Remove(string IdentityType)
+    public async Task<Dictionary<string, GeneralSettingModel>> GetSettingsAsync(string identityType)
     {
-        _uow.Repository.Remove<GeneralSetting>(x => x.IdentityType == IdentityType);
+        var settingsList = await Uow.Repository
+            .FindAll<GeneralSetting>()
+            .Where(x => x.IdentityType == identityType)
+            .ToListAsync();
+
+        return settingsList
+            .GroupBy(x => x.Description)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var firstItem = group.First();
+                    return new GeneralSettingModel
+                    {
+                        Key = group.Key,
+                        Metadata = firstItem.Metadata,
+                        IdentityId = firstItem.IdentityTypeId,
+                        Value = firstItem.Value
+                    };
+                });
     }
-    public async Task Remove(string IdentityType, string IdentityId)
+
+    public async Task<Dictionary<SettingGroupKey, Dictionary<string, GeneralSettingModel>>> GetSettingsAsync(
+    string identityType,
+    HashSet<string>? validIdentities)
     {
-        _uow.Repository.Remove<GeneralSetting>(x => x.IdentityTypeId == IdentityId && x.IdentityType == IdentityType);
+        if (validIdentities == null || !validIdentities.Any())
+            return new Dictionary<SettingGroupKey, Dictionary<string, GeneralSettingModel>>();
+
+        // 1. Fetch filtered entities from database into memory
+        var settingsList = await Uow.Repository
+            .FindAll<GeneralSetting>()
+            .Where(x => x.IdentityType == identityType && x.IdentityTypeId != null && validIdentities.Contains(x.IdentityTypeId))
+            .ToListAsync();
+
+        // 2. Build the nested dictionary safely in-memory
+        return settingsList
+            .Where(x => !string.IsNullOrEmpty(x.IdentityTypeId) && Guid.TryParse(x.IdentityTypeId, out _))
+            .GroupBy(x => x.IdentityTypeId!)
+            .ToDictionary(
+                group => new SettingGroupKey(Guid.Parse(group.Key)),
+                group => group
+                    .GroupBy(x => x.Description)
+                    .ToDictionary(
+                        subGroup => subGroup.Key,
+                        subGroup =>
+                        {
+                            var firstItem = subGroup.First();
+                            return new GeneralSettingModel
+                            {
+                                Key = subGroup.Key,
+                                Metadata = firstItem.Metadata,
+                                IdentityId = firstItem.IdentityTypeId,
+                                Value = firstItem.Value
+                            };
+                        })
+            );
+    }
+
+    public async Task ReplaceByIdentityTypeAsync(string identityType, List<GeneralSetting> incoming, string? IdentityTypeId, CancellationToken token = default)
+    {
+        var existing = await GetQueryable(x => x.IdentityType == identityType && x.IdentityTypeId == IdentityTypeId)
+            .ToListAsync(token);
+        Context.GeneralSettings.RemoveRange(existing);
+        if (incoming.Any())
+        {
+            await Context.GeneralSettings.AddRangeAsync(incoming, token);
+        }
+        await CommitChangesAsync(token);
     }
     public async Task DeleteAsync(string identityType, string identityId, CancellationToken token = default)
     {
         await ExecuteDeleteAsync(x => x.IdentityType == identityType && x.IdentityTypeId == identityId, token);
     }
-
-    public async Task<Dictionary<string, GeneralSettingModel>> GetSettingsAsync(string identityType)
-    {
-        // 1. Guard against invalid inputs
-        if (string.IsNullOrWhiteSpace(identityType))
-        {
-            return new Dictionary<string, GeneralSettingModel>();
-        }
-
-        // 2. Project the data first to minimize database payload and memory footprint
-        var settingsList = await GetQueryable(x => x.IdentityType == identityType)
-            .Select(x => new GeneralSettingModel
-            {
-                Id = x.Id,
-                Key = x.Description,
-                Metadata = x.Metadata,
-                IdentityId = x.IdentityTypeId,
-                Value = x.Value
-            })
-            .ToListAsync();
-
-        // 3. Safely handle potential duplicate keys by keeping the latest entry
-        var settingsDictionary = new Dictionary<string, GeneralSettingModel>(StringComparer.OrdinalIgnoreCase);
-        foreach (var setting in settingsList)
-        {
-            if (!string.IsNullOrEmpty(setting.Key))
-            {
-                settingsDictionary[setting.Key] = setting;
-            }
-        }
-        return settingsDictionary;
-    }
-
-    public async Task<Dictionary<SettingGroupKey, Dictionary<string, GeneralSettingModel>>> GetSettingsAsync(string IdentityType, HashSet<string>? identities)
-    {
-        if (identities == null || !identities.Any()) return new Dictionary<SettingGroupKey, Dictionary<string, GeneralSettingModel>>();
-
-        return await GetQueryable(x => x.IdentityType == IdentityType && identities.Contains(x.IdentityTypeId))
-            .GroupBy(x => x.IdentityTypeId)
-            .ToDictionaryAsync(x => new SettingGroupKey(Guid.Parse(x.Key)), y => y
-                    .GroupBy(x => x.Description)
-                    .ToDictionary(x => x.Key, x => new GeneralSettingModel()
-                    {
-                        Key = x.Key,
-                        Metadata = x.FirstOrDefault().Metadata,
-                        IdentityId = x.FirstOrDefault().IdentityTypeId,
-                        Value = x.FirstOrDefault().Value
-                    }));
-    }
-
-    public async Task CreateCompanyDefault(Guid TenantId)
-    {
-        var exists = _uow.Repository.FindAll<GeneralSetting>().FirstOrDefault();
-        if (exists != null) return;
-        var settings = new List<GeneralSetting>();
-        var inclusion = OvertimeInclusionPolicy.UsePostShiftWork;
-        var role = OvertimeEligibilityRule.IndependentOfAttendanceIssues;
-        var entryLimit = ManualEntryLimitEnum.NOLIMIT;
-        var TimeInDayType = HolidayTimeBasis.BasedOnTimeInDayType;
-
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = inclusion.ToString() });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.OTEligibility.ToString(), Value = role.ToString() });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.AttFillLimit.ToString(), Value = entryLimit.ToString() });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.IsHalfDayLateOn.ToString(), Value = "false" });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.IsWholeDayLateOn.ToString(), Value = "false" });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.HalfDayLateThresholdMinutes.ToString(), Value = "0" });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.WholeDayLateThresholdMinutes.ToString(), Value = "0" });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.NightDiffThreshold.ToString(), Value = "5" });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.HolidayTimeBasis.ToString(), Value = TimeInDayType.ToString() });
-        settings.Add(new GeneralSetting { IdentityType = "Company", Description = SettingKey.IsHolPlusReg.ToString(), Value = "true" });
-        await AddRangeAsync(settings, TenantId);
-
-    }
-    public async Task AddRangeAsync(List<GeneralSetting> models, Guid tenantId)
-    {
-        if (models == null || !models.Any()) return;
-
-        // Create keys for incoming models
-        var incomingKeys = models
-            .Select(x => new SettingRecordKey
-            {
-                IdentityType = x.IdentityType,
-                IdentityTypeId = x.IdentityTypeId,
-                Description = x.Description
-            })
-            .ToHashSet();
-
-        // Fetch existing records from DB
-        var existingRecords = _uow.Repository
-            .FindAll<GeneralSetting>()
-            .ToList();
-
-        var existingKeys = existingRecords
-            .Select(x => new SettingRecordKey
-            {
-                IdentityType = x.IdentityType,
-                IdentityTypeId = x.IdentityTypeId,
-                Description = x.Description
-            })
-            .ToHashSet();
-
-        // Split models into new and existing
-        var newModels = models
-            .Where(x => !existingKeys.Contains(new SettingRecordKey
-            {
-                IdentityType = x.IdentityType,
-                IdentityTypeId = x.IdentityTypeId,
-                Description = x.Description
-            }))
-            .ToList();
-
-        var updateModels = models
-            .Where(x => existingKeys.Contains(new SettingRecordKey
-            {
-                IdentityType = x.IdentityType,
-                IdentityTypeId = x.IdentityTypeId,
-                Description = x.Description
-            }))
-            .ToList();
-
-        // Add new records
-        if (newModels.Any())
-        {
-            await _uow.Repository.AddRangeAsync(newModels);
-        }
-
-        // Update existing records
-        foreach (var updateModel in updateModels)
-        {
-            var existing = existingRecords.FirstOrDefault(x =>
-                x.IdentityType == updateModel.IdentityType &&
-                x.IdentityTypeId == updateModel.IdentityTypeId &&
-                x.Description == updateModel.Description);
-
-            if (existing != null)
-            {
-                // Update only the fields that changed
-                existing.Value = updateModel.Value;
-                existing.Metadata = updateModel.Metadata;
-                _uow.Repository.Update(existing);
-            }
-        }
-    }
-    public void AddOrUpdate(GeneralSetting model)
-    {
-        var existing = _uow.Repository.FindAll<GeneralSetting>()
-            .FirstOrDefault(x => x.IdentityType == model.IdentityType
-                 && x.IdentityTypeId == model.IdentityTypeId
-                 && x.Description == model.Description);
-        if (existing == null)
-        {
-            AddOrUpdate(model);
-        }
-        else
-        {
-            existing.Value = model.Value;
-            existing.Metadata = model.Metadata;
-            AddOrUpdate(existing);
-        }
-    }
-    public async Task<bool> CommitChangesAsync()
-    {
-        return await _uow.CommitChangesAsync();
-    }
-
 }
 
 public record struct SettingGroupKey(Guid IdentityId);
-public class GeneralSettingsUtil
-{
-    public static T ParseEnum<T>(string input, T fallback) where T : struct, Enum
-    {
-        if (Enum.TryParse<T>(input, ignoreCase: true, out var result))
-        {
-            return result;
-        }
-        return fallback;
-    }
-    public static bool ParseBool(string input, bool fallback)
-    {
-        if (bool.TryParse(input, out var result))
-        {
-            return result;
-        }
-        return fallback;
-    }
-    public static int ParseInt(string input, int fallback)
-    {
-        if (int.TryParse(input, out var result))
-        {
-            return result;
-        }
-        return fallback;
-    }
-    public static double ParseDouble(string input, double fallback)
-    {
-        if (double.TryParse(input, out var result))
-        {
-            return result;
-        }
-        return fallback;
-    }
-}
+public record SettingCompositeKey(string Description, string? IdentityTypeId);

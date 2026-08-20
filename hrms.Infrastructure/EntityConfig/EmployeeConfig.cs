@@ -22,7 +22,7 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
         builder.Property(x => x.SalaryType)
           .HasConversion(
                 v => v.ToString(),
-                v => EnumParserConfig.SafeParseEnum(v, SalaryType.MONTHLY_VARIABLE)
+                v => EnumParserConfig.SafeParseEnum(v, SalaryType.VARIABLE)
             );
 
         builder.Property(x => x.JobLevel)

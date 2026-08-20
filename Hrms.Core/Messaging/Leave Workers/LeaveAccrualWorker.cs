@@ -22,10 +22,11 @@ public class LeaveAccrualWorker : IConsumer<RunLeaveAccrual>
 
     public async Task Consume(ConsumeContext<RunLeaveAccrual> context)
     {
-        var processDate = context.Message.ProcessDate;
-        var token       = context.CancellationToken;
-        var today       = processDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var count       = 0;
+        var processDate      = context.Message.ProcessDate;
+        var fiscalStartMonth = context.Message.FiscalYearStartMonth;
+        var token            = context.CancellationToken;
+        var today            = processDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var count            = 0;
 
         var accrualLeaves = await _uow.Repository
             .Find<Leave>(x =>
@@ -48,7 +49,7 @@ public class LeaveAccrualWorker : IConsumer<RunLeaveAccrual>
         foreach (var leave in accrualLeaves)
         {
             if (leave.AccrualBasis == AccrualBasis.Annually &&
-                !(processDate.Month == 1 && processDate.Day == 1))
+                !FiscalYearHelper.IsFiscalYearStart(processDate, fiscalStartMonth))
                 continue;
 
             var accrualRate = (decimal)leave.AccrualRate;

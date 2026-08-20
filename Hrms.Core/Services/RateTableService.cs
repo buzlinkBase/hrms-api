@@ -39,7 +39,21 @@ public class RateTableService : BaseService<RateTable>
     {
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
+    }
 
+    public async Task ClearAllAsync(CancellationToken token)
+    {
+        var records = await GetQueryable().ToListAsync(token);
+        Context.PremiumRates.RemoveRange(records);
+        await CommitChangesAsync(token);
+    }
+
+    public async Task BulkReplaceAsync(List<RateTable> incoming, CancellationToken token)
+    {
+        var existing = await GetQueryable().ToListAsync(token);
+        Context.PremiumRates.RemoveRange(existing);
+        await Context.PremiumRates.AddRangeAsync(incoming, token);
+        await CommitChangesAsync(token);
     }
 }
 

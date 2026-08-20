@@ -28,7 +28,7 @@ public class ClientPolicyService
     private OvertimeEligibilityRule? SetElegibility(CompanyPolicyRule companyRule, Dictionary<string, GeneralSettingModel>? data)
     {
         if (data == null) return companyRule.OTEligibility;
-        if (data.TryGetValue(SettingKey.OTEligibility.ToString(), out var model))
+        if (data.TryGetValue(SettingKey.OTEligibility.ToString(), out var model) && model.Value != null)
         {
             var value = GeneralSettingsUtil.ParseEnum(model.Value, companyRule.OTEligibility);
             return value;
@@ -39,7 +39,7 @@ public class ClientPolicyService
     private OvertimeInclusionPolicy? SetExlusion(CompanyPolicyRule companyRule, Dictionary<string, GeneralSettingModel>? data)
     {
         if (data == null) return companyRule.OTInclusionPolicy;
-        if (data.TryGetValue(SettingKey.OTInclusion.ToString(), out var model))
+        if (data.TryGetValue(SettingKey.OTInclusion.ToString(), out var model) && model.Value != null)
         {
             var value = GeneralSettingsUtil.ParseEnum(model.Value, companyRule.OTInclusionPolicy);
             return value;

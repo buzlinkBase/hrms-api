@@ -1,5 +1,8 @@
-﻿namespace Hrms.Domain.Entities;
+﻿using BuzlinkRepository;
 
+namespace Hrms.Domain.Entities;
+
+[DisableSoftDelete]
 public class GeneralSetting : BaseEntity
 {
     public string IdentityType { get; set; }

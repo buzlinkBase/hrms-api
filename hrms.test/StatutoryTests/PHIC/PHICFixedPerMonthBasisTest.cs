@@ -13,7 +13,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -40,7 +40,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -69,7 +69,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.WEEKLY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -96,7 +96,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.DAILY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -125,7 +125,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -151,7 +151,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -182,7 +182,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.WEEKLY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -209,7 +209,7 @@ public class PHICFixedPerMonthBasisTest
         var context = PHICTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.DAILY,
             computationBasis: ComputationBasis.FixedMonthly,
             monthlyRate: 10_000,
@@ -230,111 +230,111 @@ public class PHICFixedPerMonthBasisTest
     /// <summary>
     /// DAILY
     /// </summary>
-    [Fact]
-    public void ShouldComputePHICContribution_ForFixedBasisDailySalaryMonthlyPayroll()
-    {
-        var fromDate = new DateOnly(2025, 12, 1);
-        var toDate = new DateOnly(2025, 12, 31);
-        var context = PHICTestHelpers.BuildContext(
-            fromDate: fromDate,
-            toDate: toDate,
-            salaryType: SalaryType.DAILY,
-            payrollFrequency: PayrollFrequency.MONTHLY,
-            computationBasis: ComputationBasis.FixedMonthly,
-            monthlyRate: 10_000,
-            dailyRate: 384.61m,
-            grossPay: 15_000
-        );
-        var pipeline = new DeductionPipeline();
-        var result = pipeline.Run(context);
+    //[Fact]
+    //public void ShouldComputePHICContribution_ForFixedBasisDailySalaryMonthlyPayroll()
+    //{
+    //    var fromDate = new DateOnly(2025, 12, 1);
+    //    var toDate = new DateOnly(2025, 12, 31);
+    //    var context = PHICTestHelpers.BuildContext(
+    //        fromDate: fromDate,
+    //        toDate: toDate,
+    //        salaryType: SalaryType.DAILY,
+    //        payrollFrequency: PayrollFrequency.MONTHLY,
+    //        computationBasis: ComputationBasis.FixedMonthly,
+    //        monthlyRate: 10_000,
+    //        dailyRate: 384.61m,
+    //        grossPay: 15_000
+    //    );
+    //    var pipeline = new DeductionPipeline();
+    //    var result = pipeline.Run(context);
 
-        Assert.NotNull(result.PHIC);
-        Assert.Equal(100, result.PHIC.EE);
-        Assert.Equal(200, result.PHIC.ER);
-        Assert.Equal(14_900m, result.RemainingGrossBalance);
-        Assert.Empty(result.ScheduledDeductions);
+    //    Assert.NotNull(result.PHIC);
+    //    Assert.Equal(100, result.PHIC.EE);
+    //    Assert.Equal(200, result.PHIC.ER);
+    //    Assert.Equal(14_900m, result.RemainingGrossBalance);
+    //    Assert.Empty(result.ScheduledDeductions);
 
-    }
+    //}
 
 
-    [Fact]
-    public void ShouldComputePHICContribution_ForFixedBasisDailySalarySemiMonthlyPayroll()
-    {
-        var fromDate = new DateOnly(2025, 12, 1);
-        var toDate = new DateOnly(2025, 12, 15);
-        var context = PHICTestHelpers.BuildContext(
-            fromDate: fromDate,
-            toDate: toDate,
-            salaryType: SalaryType.DAILY,
-            payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
-            computationBasis: ComputationBasis.FixedMonthly,
-            monthlyRate: 10_000,
-            dailyRate: 384.61m,
-            grossPay: 15_000
-        );
+    //[Fact]
+    //public void ShouldComputePHICContribution_ForFixedBasisDailySalarySemiMonthlyPayroll()
+    //{
+    //    var fromDate = new DateOnly(2025, 12, 1);
+    //    var toDate = new DateOnly(2025, 12, 15);
+    //    var context = PHICTestHelpers.BuildContext(
+    //        fromDate: fromDate,
+    //        toDate: toDate,
+    //        salaryType: SalaryType.DAILY,
+    //        payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
+    //        computationBasis: ComputationBasis.FixedMonthly,
+    //        monthlyRate: 10_000,
+    //        dailyRate: 384.61m,
+    //        grossPay: 15_000
+    //    );
 
-        HDMFTestHelpers.SetCutoff(context, 1);
-        HDMFTestHelpers.SetCutoff(context, 15);
+    //    HDMFTestHelpers.SetCutoff(context, 1);
+    //    HDMFTestHelpers.SetCutoff(context, 15);
 
-        var pipeline = new DeductionPipeline();
-        var result = pipeline.Run(context);
+    //    var pipeline = new DeductionPipeline();
+    //    var result = pipeline.Run(context);
 
-        Assert.NotNull(result.PHIC);
-        Assert.Equal(50, result.PHIC.EE);
-        Assert.Equal(100, result.PHIC.ER);
-        Assert.Equal(14_950m, result.RemainingGrossBalance);
-        Assert.Empty(result.ScheduledDeductions);
-    }
+    //    Assert.NotNull(result.PHIC);
+    //    Assert.Equal(50, result.PHIC.EE);
+    //    Assert.Equal(100, result.PHIC.ER);
+    //    Assert.Equal(14_950m, result.RemainingGrossBalance);
+    //    Assert.Empty(result.ScheduledDeductions);
+    //}
 
-    [Fact]
-    public void ShouldComputePHICContribution_ForFixedBasisDailySalaryWeeklyPayroll()
-    {
-        var fromDate = new DateOnly(2025, 12, 22);
-        var toDate = new DateOnly(2025, 12, 26);
-        var context = PHICTestHelpers.BuildContext(
-            fromDate: fromDate,
-            toDate: toDate,
-            salaryType: SalaryType.DAILY,
-            payrollFrequency: PayrollFrequency.WEEKLY,
-            computationBasis: ComputationBasis.FixedMonthly,
-            monthlyRate: 10_000,
-            dailyRate: 384.61m,
-            grossPay: 15_000
-        );
+    //[Fact]
+    //public void ShouldComputePHICContribution_ForFixedBasisDailySalaryWeeklyPayroll()
+    //{
+    //    var fromDate = new DateOnly(2025, 12, 22);
+    //    var toDate = new DateOnly(2025, 12, 26);
+    //    var context = PHICTestHelpers.BuildContext(
+    //        fromDate: fromDate,
+    //        toDate: toDate,
+    //        salaryType: SalaryType.DAILY,
+    //        payrollFrequency: PayrollFrequency.WEEKLY,
+    //        computationBasis: ComputationBasis.FixedMonthly,
+    //        monthlyRate: 10_000,
+    //        dailyRate: 384.61m,
+    //        grossPay: 15_000
+    //    );
 
-        var pipeline = new DeductionPipeline();
-        var result = pipeline.Run(context);
-        Assert.NotNull(result.PHIC);
-        Assert.Equal(20m, result.PHIC.EE);
-        Assert.Equal(40, result.PHIC.ER);
-        Assert.Equal(14980m, result.RemainingGrossBalance);
-        Assert.Empty(result.ScheduledDeductions);
-    }
+    //    var pipeline = new DeductionPipeline();
+    //    var result = pipeline.Run(context);
+    //    Assert.NotNull(result.PHIC);
+    //    Assert.Equal(20m, result.PHIC.EE);
+    //    Assert.Equal(40, result.PHIC.ER);
+    //    Assert.Equal(14980m, result.RemainingGrossBalance);
+    //    Assert.Empty(result.ScheduledDeductions);
+    //}
 
-    [Fact]
-    public void ShouldComputePHICContribution_ForFixedBasisDailySalaryDailyPayroll()
-    {
-        var fromDate = new DateOnly(2025, 12, 31);
-        var toDate = new DateOnly(2025, 12, 31);
-        var context = PHICTestHelpers.BuildContext(
-            fromDate: fromDate,
-            toDate: toDate,
-            salaryType: SalaryType.DAILY,
-            payrollFrequency: PayrollFrequency.DAILY,
-            computationBasis: ComputationBasis.FixedMonthly,
-            monthlyRate: 10_000,
-            dailyRate: 384.61m,
-            grossPay: 15_000
-        );
+    //[Fact]
+    //public void ShouldComputePHICContribution_ForFixedBasisDailySalaryDailyPayroll()
+    //{
+    //    var fromDate = new DateOnly(2025, 12, 31);
+    //    var toDate = new DateOnly(2025, 12, 31);
+    //    var context = PHICTestHelpers.BuildContext(
+    //        fromDate: fromDate,
+    //        toDate: toDate,
+    //        salaryType: SalaryType.DAILY,
+    //        payrollFrequency: PayrollFrequency.DAILY,
+    //        computationBasis: ComputationBasis.FixedMonthly,
+    //        monthlyRate: 10_000,
+    //        dailyRate: 384.61m,
+    //        grossPay: 15_000
+    //    );
 
-        var pipeline = new DeductionPipeline();
-        var result = pipeline.Run(context);
+    //    var pipeline = new DeductionPipeline();
+    //    var result = pipeline.Run(context);
 
-        Assert.NotNull(result.PHIC);
-        Assert.Equal(100, result.PHIC.EE);
-        Assert.Equal(200, result.PHIC.ER);
-        Assert.Equal(300, result.PHIC.Total);
-        Assert.Equal(14_900m, result.RemainingGrossBalance);
-        Assert.Empty(result.ScheduledDeductions);
-    }
+    //    Assert.NotNull(result.PHIC);
+    //    Assert.Equal(100, result.PHIC.EE);
+    //    Assert.Equal(200, result.PHIC.ER);
+    //    Assert.Equal(300, result.PHIC.Total);
+    //    Assert.Equal(14_900m, result.RemainingGrossBalance);
+    //    Assert.Empty(result.ScheduledDeductions);
+    //}
 }

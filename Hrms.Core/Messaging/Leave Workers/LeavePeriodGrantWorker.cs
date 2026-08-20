@@ -6,8 +6,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Hrms.Core.Messaging.LeaveWorkers;
 
-// Runs on Jan 1. Creates LeaveCredits records for the new year for all eligible employees
-// on leave types with AccrualBasis.None (lump-sum) that don't already have a current-year record.
+// Runs on the first day of the fiscal year. Creates LeaveCredits records for the new period
+// for all eligible employees on leave types with AccrualBasis.None (lump-sum) that don't
+// already have a current-year record.
 //
 // Idempotency: pre-checks the existing year set then catches any unique-constraint violation
 // from a concurrent run that slipped through the pre-check window.
@@ -24,11 +25,12 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
 
     public async Task Consume(ConsumeContext<RunLeavePeriodGrant> context)
     {
-        var year        = context.Message.Year;
-        var token       = context.CancellationToken;
-        var periodStart = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var periodEnd   = new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc);
-        var entryDate   = DateOnly.FromDateTime(periodStart);
+        var year             = context.Message.Year;
+        var fiscalStartMonth = context.Message.FiscalYearStartMonth;
+        var token            = context.CancellationToken;
+        var periodStart      = FiscalYearHelper.PeriodStart(year, fiscalStartMonth);
+        var periodEnd        = FiscalYearHelper.PeriodEnd(year, fiscalStartMonth);
+        var entryDate        = DateOnly.FromDateTime(periodStart);
         var count       = 0;
 
         // Only lump-sum leave types; PerEvent credits are granted at filing time
@@ -108,7 +110,9 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
         try
         {
             await _uow.CommitChangesAsync("",token);
-            _logger.LogInformation("Period grant {Year}: created {Count} credit record(s)", year, count);
+            _logger.LogInformation(
+                "Period grant FY{Year} (startMonth={Month}): created {Count} credit record(s)",
+                year, fiscalStartMonth, count);
         }
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
         {

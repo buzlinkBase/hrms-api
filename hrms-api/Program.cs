@@ -7,12 +7,14 @@ using Hrms.Core.Hubs;
 using Mapster;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using QuestPDF.Infrastructure;
 using Serilog;
 
 internal class Program
 {
     private static void Main(string[] args)
     {
+        QuestPDF.Settings.License = LicenseType.Community;
         var builder = WebApplication.CreateBuilder(args);
         Log.Logger = new LoggerConfiguration()
        .ReadFrom.Configuration(builder.Configuration)

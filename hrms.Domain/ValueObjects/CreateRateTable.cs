@@ -3,6 +3,8 @@
 public class CreateRateTable
 {
     public RateType Type { get; set; }
+    public string? ShortDescription { get; set; } = string.Empty;
+    public string? Description  { get; set; } = string.Empty;
     public decimal Rate { get; set; }
     public int Remarks { get; set; }
 }

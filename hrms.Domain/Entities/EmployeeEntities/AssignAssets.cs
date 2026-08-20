@@ -12,7 +12,8 @@
         public string SerialNo { get; set; }
         public int Qty { get; set; }
         public DateTime IssuanceDate { get; set; }
-        public DateTime ReturnedDate { get; set; }
+        public DateTime? ReturnedDate { get; set; }
+        public string Status { get; set; }
         public string Remarks { get; set; }
         public string File { get; set; }
     }

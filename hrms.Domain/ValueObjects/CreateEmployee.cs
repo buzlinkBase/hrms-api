@@ -54,7 +54,7 @@ public class CreateEmployee
     public string BloodType { get; set; } = string.Empty;
 
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
-    public SalaryType SalaryType { get; set; } = SalaryType.MONTHLY_VARIABLE;
+    public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     //public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
 
@@ -117,7 +117,7 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public DateTime? DOB { get; set; }
     [IgnoreMember] public string BloodType { get; set; } = string.Empty;
     [IgnoreMember] public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
-    [IgnoreMember] public SalaryType SalaryType { get; set; } = SalaryType.MONTHLY_VARIABLE;
+    [IgnoreMember] public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     [IgnoreMember] public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     [IgnoreMember] public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
     [IgnoreMember] public string BankName { get; set; } = string.Empty;
@@ -185,7 +185,7 @@ public class EmployeeFullModel
     public string BloodType { get; set; } = string.Empty;
 
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
-    public SalaryType SalaryType { get; set; } = SalaryType.MONTHLY_VARIABLE;
+    public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
 
@@ -205,6 +205,7 @@ public class EmployeeFullModel
     public string Contact { get; set; } = string.Empty;
     public string Address1 { get; set; } = string.Empty;
     public string Address2 { get; set; } = string.Empty;
+    public string?  Email  { get; set; } = string.Empty;
 
     public ICollection<SkillModel> Skills { get; set; }
     public ICollection<EducationModel> Educations { get; set; }
@@ -247,7 +248,7 @@ public class EmployeeModelPayrollRun
     public decimal DailyRate { get; set; }
     public decimal Cola { get; set; } //PerPayroll
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
-    public SalaryType SalaryType { get; set; } = SalaryType.MONTHLY_VARIABLE;
+    public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
     public string BankName { get; set; } = string.Empty;
