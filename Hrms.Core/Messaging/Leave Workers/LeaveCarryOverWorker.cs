@@ -22,12 +22,13 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
 
     public async Task Consume(ConsumeContext<RunLeaveCarryOver> context)
     {
-        var fromYear  = context.Message.FromYear;
-        var nextYear  = fromYear + 1;
-        var token     = context.CancellationToken;
-        var closeDate = DateOnly.FromDateTime(new DateTime(fromYear, 12, 31));
-        var nextStart = new DateTime(nextYear, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var nextEnd   = new DateTime(nextYear, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+        var fromYear         = context.Message.FromYear;
+        var fiscalStartMonth = context.Message.FiscalYearStartMonth;
+        var nextYear         = fromYear + 1;
+        var token            = context.CancellationToken;
+        var closeDate        = FiscalYearHelper.LastDayOfFiscalYear(fromYear, fiscalStartMonth);
+        var nextStart        = FiscalYearHelper.PeriodStart(nextYear, fiscalStartMonth);
+        var nextEnd          = FiscalYearHelper.PeriodEnd(nextYear, fiscalStartMonth);
         var carryCount  = 0;
         var expiryCount = 0;
 
@@ -37,10 +38,11 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
             .ToListAsync(token);
 
         // Pre-check: which credit records were already processed (have an Expiry or CarryOver ledger entry)?
+        // Use the exact closeDate so non-calendar fiscal years (end month ≠ Dec) are matched correctly.
         var alreadyProcessedIds = await _uow.Repository
             .Find<LeaveLedger>(x =>
                 (x.EntryType == LedgerEntryType.Expiry || x.EntryType == LedgerEntryType.CarryOver) &&
-                x.EntryDate.Year == fromYear)
+                x.EntryDate == closeDate)
             .Select(x => x.LeaveCreditsId)
             .ToHashSetAsync(token);
 
@@ -148,8 +150,8 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
         {
             await _uow.CommitChangesAsync("",token);
             _logger.LogInformation(
-                "Carry-over {FromYear}→{NextYear}: {Carry} carried, {Expiry} expired",
-                fromYear, nextYear, carryCount, expiryCount);
+                "Carry-over FY{FromYear}→FY{NextYear} (startMonth={Month}): {Carry} carried, {Expiry} expired",
+                fromYear, nextYear, fiscalStartMonth, carryCount, expiryCount);
         }
         catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
         {

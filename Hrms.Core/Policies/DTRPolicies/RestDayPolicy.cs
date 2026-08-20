@@ -13,7 +13,7 @@ internal class RestDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
         var restDayHours = (decimal)context.DailyRecord.RestDayHours;
 
         //for fixed emp just get the premium pay
-        var result = context.Employee.SalaryType == SalaryType.MONTHLY_FIXED
+        var result = context.Employee.SalaryType == SalaryType.FIXED
                    ? hourlyRate * restDayHours * (premiumRate > 1 ? premiumRate - 1 : 0.30m)
                    : hourlyRate * restDayHours * premiumRate
                    ;

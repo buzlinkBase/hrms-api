@@ -10,7 +10,8 @@ public class CreateAssignAsset
     public string SerialNo { get; set; }
     public int Qty { get; set; }
     public DateOnly IssuanceDate { get; set; }
-    public DateOnly ReturnedDate { get; set; }
+    public DateOnly? ReturnedDate { get; set; }
+    public string Status { get; set; }
     public string Remarks { get; set; }
     public string File { get; set; }
 }

@@ -1,8 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using BuzlinkRepository;
 using Hrms.Domain.Entities.EmployeeEntities;
 using NetTopologySuite.Geometries;
 namespace Hrms.Domain.Entities;
 
+[DisableSoftDelete]
 public class Attendance : BaseEntity, IUserField
 {
     public int? BioId { get; set; }

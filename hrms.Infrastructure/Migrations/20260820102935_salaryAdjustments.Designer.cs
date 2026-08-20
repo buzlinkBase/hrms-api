@@ -4,6 +4,7 @@ using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    partial class HrmsContextModelSnapshot : ModelSnapshot
+    [Migration("20260820102935_salaryAdjustments")]
+    partial class salaryAdjustments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,6 +25,50 @@ namespace Hrms.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+
+            modelBuilder.Entity("Hrms.Domain.Entities.AnnualTaxTable", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("AddOnPercentage")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("BaseTaxDue")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("RangeFrom")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("RangeTo")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("GovAnnualTaxes");
+                });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Attendance", b =>
                 {
@@ -3008,6 +3055,67 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("GovPHICs");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.PassSlipApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateOnly>("ApplicationDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("DepartureTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ReturnTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("PassSlipApplications");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.Payroll", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3075,10 +3183,22 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("LateHours")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<double>("LegalHolHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("LegalHolNightDiffHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("LegalHolNightDiffOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("LegalHolOTHours")
+                        .HasColumnType("double");
+
                     b.Property<decimal>("NetPay")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<decimal>("NightDifferentialHR")
+                    b.Property<decimal>("NightDifferentialHour")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("NightDifferentialPay")
@@ -3090,7 +3210,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("OtherDeductions")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<decimal>("OvertimeHR")
+                    b.Property<decimal>("OvertimeHour")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("OvertimePay")
@@ -3121,8 +3241,71 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("PhilHealthContribution")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<double>("RegularNDHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RegularNDOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RegularNetHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RegularOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<decimal>("Reimbursement")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<double>("RestDayHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestDayNDHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestDayNDOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestDayOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestLegalDayHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestLegalDayNDHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestLegalDayNDOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestLegalDayOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestSpecialDayHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestSpecialDayNDHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestSpecialDayNDOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("RestSpecialDayOTHours")
+                        .HasColumnType("double");
+
                     b.Property<decimal>("SSSContribution")
                         .HasColumnType("decimal(65,30)");
+
+                    b.Property<double>("SpecialHolHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("SpecialHolNightDiffHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("SpecialHolNightDiffOTHours")
+                        .HasColumnType("double");
+
+                    b.Property<double>("SpecialHolOTHours")
+                        .HasColumnType("double");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -3314,16 +3497,17 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Description")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<decimal>("Rate")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("decimal(65,30)");
 
                     b.Property<int>("Remarks")
                         .HasColumnType("int");
 
                     b.Property<string>("ShortDescription")
+                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("Status")
@@ -4491,6 +4675,17 @@ namespace Hrms.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OverTimeApplication", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.PassSlipApplication", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
                         .WithMany()

@@ -17,7 +17,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,
@@ -46,7 +46,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,
@@ -74,7 +74,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.WEEKLY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,
@@ -103,7 +103,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.DAILY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,
@@ -135,7 +135,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,
@@ -163,7 +163,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,
@@ -191,7 +191,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.WEEKLY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,
@@ -220,7 +220,7 @@ public class SSSNoneComputeBasisTest
         var context = SSSTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.DAILY,
             computationBasis: ComputationBasis.None,
             monthlyRate: 10_000,

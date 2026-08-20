@@ -1,22 +1,38 @@
 ﻿
+using DTR.Core;
 using Hrms.Domain.Entities;
 namespace Hrms.Core.Services;
 
 public class AccountInitService : BaseService<Company>
 {
-    public AccountInitService(IUnitOfWorkService uow ) : base(uow)
+    private readonly GeneralSettingService _settingService;
+    public AccountInitService(IUnitOfWorkService uow, GeneralSettingService settingService) : base(uow)
     {
+        _settingService = settingService;
     }
     public async Task Create(CancellationToken token)
     {
-        //await CreateOrUpdateAsync(company); 
-        SetDefaultLeaves();
-        SetDefaultRates();
-        //set default branch
-        //set default department
+        //await CreateOrUpdateAsync(company);
+        await SetDefaultLeaves(token);
+        await SetDefaultRates(token);
+        await SetDefaultIncomeTypes(token);
+        await SetDefaultDeductionTypes(token);
+        await PayrollSettings(token);
     }
 
-    private void SetDefaultLeaves()
+    private async Task PayrollSettings(CancellationToken token)
+    {
+        var IdentityType = PayrollSettingsIdentity.IdentityType;
+        var KeyFiscalYearStartMonth = PayrollSettingsIdentity.KeyFiscalYearStartMonth;
+        string KeyThirteenthMonthExemptionCeiling = PayrollSettingsIdentity.KeyThirteenthMonthExemptionCeiling;
+        var incoming = new List<GeneralSetting>
+        {
+            new() { IdentityType = IdentityType, Description = KeyFiscalYearStartMonth, Value = 1.ToString() },
+            new() { IdentityType = IdentityType, Description = KeyThirteenthMonthExemptionCeiling, Value = "90000" },
+        };
+        await _settingService.ReplaceByIdentityTypeAsync(IdentityType, incoming, null, token);
+    }
+    private async Task SetDefaultLeaves(CancellationToken token)
     {
         var leaves = new List<Leave>
         {
@@ -254,66 +270,62 @@ public class AccountInitService : BaseService<Company>
                 IsStatutory              = true,
             },
         };
-        _uow.Repository.AddRange(leaves);
+        await _uow.Repository.AddRangeAsync(leaves, token);
     }
-    private void SetDefaultRates()
+    private async Task SetDefaultRates(CancellationToken token)
     {
         var rates = new List<RateTable>
         {
-            // ── Regular ───────────────────────────────────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.REG,       ShortDescription = "REG",          Description = "Regular Hours",                          Rate = RATE_DEFAULT.REG },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.REG_OT,    ShortDescription = "REG-OT",       Description = "Regular Overtime",                       Rate = RATE_DEFAULT.REG_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.REG_ND,    ShortDescription = "REG-ND",       Description = "Regular Night Differential",             Rate = RATE_DEFAULT.REG_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.REG_ND_OT, ShortDescription = "REG-ND-OT",    Description = "Regular Night Differential Overtime",    Rate = RATE_DEFAULT.REG_ND_OT },
-
-            // ── Rest Day ──────────────────────────────────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD,        ShortDescription = "RD",           Description = "Rest Day",                               Rate = RATE_DEFAULT.RD },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_OT,     ShortDescription = "RD-OT",        Description = "Rest Day Overtime",                      Rate = RATE_DEFAULT.RD_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_ND,     ShortDescription = "RD-ND",        Description = "Rest Day Night Differential",            Rate = RATE_DEFAULT.RD_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_ND_OT,  ShortDescription = "RD-ND-OT",     Description = "Rest Day Night Differential Overtime",   Rate = RATE_DEFAULT.RD_ND_OT },
-
-            // ── Legal Holiday (Worked) ─────────────────────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.LH,        ShortDescription = "LH",           Description = "Legal Holiday",                          Rate = RATE_DEFAULT.LH },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.LH_OT,     ShortDescription = "LH-OT",        Description = "Legal Holiday Overtime",                 Rate = RATE_DEFAULT.LH_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.LH_ND,     ShortDescription = "LH-ND",        Description = "Legal Holiday Night Differential",       Rate = RATE_DEFAULT.LH_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.LH_ND_OT,  ShortDescription = "LH-ND-OT",     Description = "Legal Holiday Night Differential OT",    Rate = RATE_DEFAULT.LH_ND_OT },
-
-            // ── Special Non-Working Holiday (Worked) ──────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SH,        ShortDescription = "SH",           Description = "Special Non-Working Holiday",            Rate = RATE_DEFAULT.SH },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SH_OT,     ShortDescription = "SH-OT",        Description = "Special Holiday Overtime",               Rate = RATE_DEFAULT.SH_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SH_ND,     ShortDescription = "SH-ND",        Description = "Special Holiday Night Differential",     Rate = RATE_DEFAULT.SH_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SH_ND_OT,  ShortDescription = "SH-ND-OT",     Description = "Special Holiday Night Differential OT",  Rate = RATE_DEFAULT.SH_ND_OT },
-
-            // ── Rest Day + Legal Holiday ───────────────────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_LH,        ShortDescription = "RD-LH",        Description = "Rest Day Legal Holiday",                         Rate = RATE_DEFAULT.RD_LH },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_LH_OT,     ShortDescription = "RD-LH-OT",     Description = "Rest Day Legal Holiday Overtime",                Rate = RATE_DEFAULT.RD_LH_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_LH_ND,     ShortDescription = "RD-LH-ND",     Description = "Rest Day Legal Holiday Night Differential",      Rate = RATE_DEFAULT.RD_LH_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_LH_ND_OT,  ShortDescription = "RD-LH-ND-OT",  Description = "Rest Day Legal Holiday Night Differential OT",   Rate = RATE_DEFAULT.RD_LH_ND_OT },
-
-            // ── Rest Day + Special Non-Working Holiday ────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_SH,        ShortDescription = "RD-SH",        Description = "Rest Day Special Holiday",                       Rate = RATE_DEFAULT.RD_SH },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_SH_OT,     ShortDescription = "RD-SH-OT",     Description = "Rest Day Special Holiday Overtime",              Rate = RATE_DEFAULT.RD_SH_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_SH_ND,     ShortDescription = "RD-SH-ND",     Description = "Rest Day Special Holiday Night Differential",    Rate = RATE_DEFAULT.RD_SH_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_SH_ND_OT,  ShortDescription = "RD-SH-ND-OT",  Description = "Rest Day Special Holiday Night Differential OT", Rate = RATE_DEFAULT.RD_SH_ND_OT },
-
-            // ── Special Working Holiday ────────────────────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SW,        ShortDescription = "SW",           Description = "Special Working Holiday",                        Rate = RATE_DEFAULT.SW },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SW_OT,     ShortDescription = "SW-OT",        Description = "Special Working Holiday Overtime",               Rate = RATE_DEFAULT.SW_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SW_ND,     ShortDescription = "SW-ND",        Description = "Special Working Holiday Night Differential",     Rate = RATE_DEFAULT.SW_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SW_ND_OT,  ShortDescription = "SW-ND-OT",     Description = "Special Working Holiday Night Differential OT",  Rate = RATE_DEFAULT.SW_ND_OT },
-
-            // ── Double Legal Holiday (Worked) ─────────────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.DLH,        ShortDescription = "DLH",          Description = "Double Legal Holiday",                           Rate = RATE_DEFAULT.DLH },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.DLH_OT,     ShortDescription = "DLH-OT",       Description = "Double Legal Holiday Overtime",                  Rate = RATE_DEFAULT.DLH_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.DLH_ND,     ShortDescription = "DLH-ND",       Description = "Double Legal Holiday Night Differential",        Rate = RATE_DEFAULT.DLH_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.DLH_ND_OT,  ShortDescription = "DLH-ND-OT",    Description = "Double Legal Holiday Night Differential OT",     Rate = RATE_DEFAULT.DLH_ND_OT },
-
-            // ── Rest Day + Double Legal Holiday ───────────────────────────────────
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_DLH,        ShortDescription = "RD-DLH",        Description = "Rest Day Double Legal Holiday",                          Rate = RATE_DEFAULT.RD_DLH },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_DLH_OT,     ShortDescription = "RD-DLH-OT",     Description = "Rest Day Double Legal Holiday Overtime",                 Rate = RATE_DEFAULT.RD_DLH_OT },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_DLH_ND,     ShortDescription = "RD-DLH-ND",     Description = "Rest Day Double Legal Holiday Night Differential",       Rate = RATE_DEFAULT.RD_DLH_ND },
-            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RD_DLH_ND_OT,  ShortDescription = "RD-DLH-ND-OT",  Description = "Rest Day Double Legal Holiday Night Differential OT",    Rate = RATE_DEFAULT.RD_DLH_ND_OT },
+            // ── Building-block multipliers ────────────────────────────────────────
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.REGULAR,            ShortDescription = "REGULAR",            Description = "Regular",                      Rate = RATE_DEFAULT.REGULAR },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.NIGHTDIFF,          ShortDescription = "NIGHTDIFF",          Description = "Night Differential",           Rate = RATE_DEFAULT.NIGHTDIFF },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.OVERTIME,           ShortDescription = "OVERTIME",           Description = "Overtime",                     Rate = RATE_DEFAULT.OVERTIME },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RESTDAY_DUTY,       ShortDescription = "RESTDAY_DUTY",       Description = "Rest Day Duty",                Rate = RATE_DEFAULT.RESTDAY_DUTY },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.LEGAL_HOLIDAY,      ShortDescription = "LEGAL_HOLIDAY",      Description = "Legal Holiday (No Work)",      Rate = RATE_DEFAULT.LEGAL_HOLIDAY },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.LEGAL_HOLIDAY_DUTY, ShortDescription = "LEGAL_HOLIDAY_DUTY", Description = "Legal Holiday (Worked)",       Rate = RATE_DEFAULT.LEGAL_HOLIDAY_DUTY },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SPECIAL_WORKING,    ShortDescription = "SPECIAL_WORKING",    Description = "Special Working Holiday",      Rate = RATE_DEFAULT.SPECIAL_WORKING },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.SPECIAL_NON_WORKING,ShortDescription = "SPECIAL_NON_WORKING",Description = "Special Non-Working Holiday",  Rate = RATE_DEFAULT.SPECIAL_NON_WORKING },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.RESTDAY_SPECIAL,    ShortDescription = "RESTDAY_SPECIAL",    Description = "Rest Day + Special Holiday",   Rate = RATE_DEFAULT.RESTDAY_SPECIAL },
+            new RateTable { Id = Guid.CreateVersion7(), Type = RateType.HOLIDAY_OT,         ShortDescription = "HOLIDAY_OT",         Description = "Holiday / Rest Day OT Premium", Rate = 1.30m },
         };
-        _uow.Repository.AddRange(rates);
+        await _uow.Repository.AddRangeAsync(rates, token);
     }
+    private async Task SetDefaultIncomeTypes(CancellationToken token)
+    {
+        var types = new List<OtherIncomeType>
+        {
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "13th Month Pay" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Performance Bonus" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Meal Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Transportation Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Communication Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Clothing Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Rice Subsidy" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Medical / Health Subsidy" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Housing Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Laundry Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Uniform Allowance" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Emergency Relief" },
+            new OtherIncomeType { Id = Guid.CreateVersion7(), Description = "Service Incentive Leave (Cash)" },
+        };
+        await _uow.Repository.AddRangeAsync(types, token);
+    }
+    private async Task SetDefaultDeductionTypes(CancellationToken token)
+    {
+        var types = new List<DeductionType>
+        {
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Government Contributions" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Company Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "SSS Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Pag-IBIG (HDMF) Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Cash Advance" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Salary Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Calamity Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Medical / Dental" },
+            new DeductionType { Id = Guid.CreateVersion7(), Description = "Other Deductions" },
+        };
+        await _uow.Repository.AddRangeAsync(types, token);
+    }
+
 }

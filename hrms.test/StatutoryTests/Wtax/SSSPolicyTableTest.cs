@@ -15,7 +15,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -41,7 +41,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -64,7 +64,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -89,7 +89,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -115,7 +115,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 25000,
@@ -140,7 +140,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -167,7 +167,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -194,7 +194,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -223,7 +223,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.WEEKLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -250,7 +250,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_VARIABLE,
+            salaryType: SalaryType.VARIABLE,
             payrollFrequency: PayrollFrequency.DAILY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,
@@ -286,7 +286,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 9_999,
@@ -311,7 +311,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.SEMI_MONTHLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 9999,
@@ -337,7 +337,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.WEEKLY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10000,
@@ -365,7 +365,7 @@ public class WTaxPolicyTableTest
         var context = WTaxTestHelpers.BuildContext(
             fromDate: fromDate,
             toDate: toDate,
-            salaryType: SalaryType.MONTHLY_FIXED,
+            salaryType: SalaryType.FIXED,
             payrollFrequency: PayrollFrequency.DAILY,
             computationBasis: ComputationBasis.Table,
             monthlyRate: 10_000,

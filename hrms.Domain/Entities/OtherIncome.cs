@@ -13,4 +13,5 @@ public class OtherIncome : BaseEntity
     public string Name { get; set; } = string.Empty;
     public Guid? IncomeTypeId { get; set; }
     public bool IsTaxable { get; set; } = false;
+    public string Status { get; set; } = "Active";
 }

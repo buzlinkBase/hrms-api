@@ -115,5 +115,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<ThirteenthMonthLedger> ThirteenthMonthLedgers { get; set; }
     public DbSet<GeneralSetting> GeneralSettings { get; set; }
     public DbSet<ChangeRestDay> ChangeRestDays { get; set; }
+    public DbSet<SalaryAdjustment> SalaryAdjustments { get; set; } 
+
     #endregion
 } 

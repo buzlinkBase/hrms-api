@@ -1,4 +1,5 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -14,8 +15,8 @@ public class LeaveSchedulerOptions
 
 // Wakes once per day at the configured hour. Discovers all active tenant IDs by querying the
 // distinct TenantId values present in the Leaves table (bypasses the per-tenant query filter).
-// Publishes the appropriate leave trigger message for each tenant with an explicit X-Tenant-ID
-// header so that TenantConsumeFilter routes each consumer to the correct tenant database.
+// Reads each tenant's FiscalYearStartMonth from GeneralSettings and publishes the appropriate
+// leave trigger message with an explicit X-Tenant-ID header.
 public class LeaveSchedulerService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -82,9 +83,6 @@ public class LeaveSchedulerService : BackgroundService
         }
     }
 
-    // Query the shared DB with no tenant filter to discover all tenant IDs that have
-    // at least one Leave type configured. This is the source of truth for which tenants
-    // are active in a shared-database multi-tenant setup.
     private async Task<List<Guid>> GetActiveTenantIdsAsync(CancellationToken token)
     {
         using var scope = _scopeFactory.CreateScope();
@@ -98,38 +96,71 @@ public class LeaveSchedulerService : BackgroundService
             .ToListAsync(token);
     }
 
+    // Reads the tenant's FiscalYearStartMonth from GeneralSettings.
+    // Falls back to 1 (calendar year) if not configured.
+    private async Task<int> GetFiscalYearStartMonthAsync(Guid tenantId, CancellationToken token)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<HrmsContext>();
+
+        var setting = await context.GeneralSettings
+            .IgnoreQueryFilters()
+            .Where(x => x.IdentityType == "PayrollSettings"
+                     && x.Description == "FiscalYearStartMonth")
+            .Select(x => x.Value)
+            .FirstOrDefaultAsync(token);
+
+        return int.TryParse(setting, out var month) && month >= 1 && month <= 12 ? month : 1;
+    }
+
     private async Task PublishForTenant(Guid tenantId, DateOnly today, CancellationToken token)
     {
+        var fiscalStartMonth = await GetFiscalYearStartMonthAsync(tenantId, token);
+
         using var scope = _scopeFactory.CreateScope();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
         var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
 
         tenantProvider.SetTenantId(tenantId);
 
-        // Period grant — Jan 1
-        if (today.Month == 1 && today.Day == 1)
+        // ── Fiscal year period grant — first day of the fiscal year ────────────
+        if (FiscalYearHelper.IsFiscalYearStart(today, fiscalStartMonth))
         {
-            await publisher.Publish<RunLeavePeriodGrant>(new RunLeavePeriodGrant(today.Year), SetTenantHeader(tenantId), token);
-            _logger.LogInformation("LeaveScheduler [{Tenant}]: published RunLeavePeriodGrant {Year}", tenantId, today.Year);
+            var fiscalYear = FiscalYearHelper.FiscalYearOf(today, fiscalStartMonth);
+            await publisher.Publish<RunLeavePeriodGrant>(
+                new RunLeavePeriodGrant(fiscalYear, fiscalStartMonth),
+                SetTenantHeader(tenantId),
+                token);
+            _logger.LogInformation(
+                "LeaveScheduler [{Tenant}]: published RunLeavePeriodGrant FY{Year} (startMonth={Month})",
+                tenantId, fiscalYear, fiscalStartMonth);
         }
 
-        // Monthly accrual — 1st of every month
+        // ── Monthly accrual — 1st of every month ──────────────────────────────
         if (today.Day == 1)
         {
-            await publisher.Publish<RunLeaveAccrual>(new RunLeaveAccrual(today), SetTenantHeader(tenantId), token);
-            _logger.LogInformation("LeaveScheduler [{Tenant}]: published RunLeaveAccrual {Date}", tenantId, today);
+            await publisher.Publish<RunLeaveAccrual>(
+                new RunLeaveAccrual(today, fiscalStartMonth),
+                SetTenantHeader(tenantId),
+                token);
+            _logger.LogInformation(
+                "LeaveScheduler [{Tenant}]: published RunLeaveAccrual {Date}", tenantId, today);
         }
 
-        // Year-end carry-over — Dec 31
-        if (today.Month == 12 && today.Day == 31)
+        // ── Fiscal year-end carry-over — last day of the fiscal year ──────────
+        if (FiscalYearHelper.IsFiscalYearEnd(today, fiscalStartMonth))
         {
-            await publisher.Publish<RunLeaveCarryOver>(new RunLeaveCarryOver(today.Year), SetTenantHeader(tenantId), token);
-            _logger.LogInformation("LeaveScheduler [{Tenant}]: published RunLeaveCarryOver {Year}", tenantId, today.Year);
+            var fiscalYear = FiscalYearHelper.FiscalYearOf(today, fiscalStartMonth);
+            await publisher.Publish<RunLeaveCarryOver>(
+                new RunLeaveCarryOver(fiscalYear, fiscalStartMonth),
+                SetTenantHeader(tenantId),
+                token);
+            _logger.LogInformation(
+                "LeaveScheduler [{Tenant}]: published RunLeaveCarryOver FY{Year} (startMonth={Month})",
+                tenantId, fiscalYear, fiscalStartMonth);
         }
     }
 
-    // Bypass TenantPublishFilter by setting the header explicitly per tenant rather than
-    // relying on ITenantProvider, which avoids a single-tenant assumption in the scheduler scope.
     private static Action<PublishContext> SetTenantHeader(Guid tenantId) =>
         ctx => ctx.Headers.Set("X-Tenant-ID", tenantId.ToString());
 }

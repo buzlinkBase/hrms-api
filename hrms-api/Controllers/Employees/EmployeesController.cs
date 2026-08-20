@@ -1,7 +1,9 @@
 using Asp.Versioning;
+using Hrms.Api.Documents;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using QuestPDF.Fluent;
 
 namespace Hrms.Api.Controllers
 {
@@ -118,6 +120,24 @@ namespace Hrms.Api.Controllers
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "employees.xlsx"
             );
+        }
+
+        [HttpGet("{id}/full")]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeFullModel>), 200)]
+        public async Task<IActionResult> GetFullById(Guid id, CancellationToken token)
+        {
+            var data = await _service.GetFullByIdAsync(id, token);
+            return Ok(data);
+        }
+
+        [HttpGet("{id}/print-201")]
+        public async Task<IActionResult> Print201(Guid id, CancellationToken token)
+        {
+            var employee = await _service.GetFullByIdAsync(id, token);
+            if (employee == null) return NotFound();
+            var document = new Employee201Document(employee);
+            var bytes = document.GeneratePdf();
+            return File(bytes, "application/pdf", $"201-{employee.EmployeeNo}.pdf");
         }
 
         [HttpGet("filter")]

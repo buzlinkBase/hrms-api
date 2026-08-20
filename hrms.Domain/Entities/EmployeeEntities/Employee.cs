@@ -41,7 +41,7 @@ public class Employee : BaseEntity
     public string BloodType { get; set; } = string.Empty;
 
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
-    public SalaryType SalaryType { get; set; } = SalaryType.MONTHLY_VARIABLE;
+    public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     //public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
 

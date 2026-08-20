@@ -19,7 +19,7 @@ internal class ScheduledIncomePolicy : PayrollPolicyBase<AllowancePipeData, Payr
         line.RegularAllowances = effectiveIncomes.Where(x => x.Type == IncomeClassType.Regular).ToList();
         line.Deminimises = effectiveIncomes.Where(x => x.Type == IncomeClassType.Deminimis).ToList();
         line.Commissions = effectiveIncomes.Where(x => x.Type == IncomeClassType.Commission).ToList();
-        line.Bonuses = effectiveIncomes.Where(x => x.Type == IncomeClassType.Bonus).ToList();
+        line.Bonuses = effectiveIncomes.Where(x => x.Type == IncomeClassType.SpecialBonus).ToList();
         line.Reimbursements = effectiveIncomes.Where(x => x.Type == IncomeClassType.Reimbursement).ToList();
         line.OtherIncome = effectiveIncomes.Where(x => x.Type == IncomeClassType.Others).ToList();
 

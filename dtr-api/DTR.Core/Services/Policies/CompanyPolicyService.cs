@@ -14,7 +14,7 @@ public class CompanyPolicyRule
     public bool IsHolPlusReg { get; set; }
 
     public double TimeInAllowance { get; set; } = -120;
-    public double DoublePunchGap { get; set; } = 2;//2mins
+    public double DoublePunchGap { get; set; } = 5;
     public bool CheckAfterHoliday { get; set; } = false;
 
 }

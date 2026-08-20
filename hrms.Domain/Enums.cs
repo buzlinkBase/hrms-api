@@ -5,7 +5,7 @@ public enum IncomeClassType
     Deminimis,
     Regular,
     Commission,
-    Bonus,
+    SpecialBonus,
     Reimbursement,
     Others
 }
@@ -60,9 +60,8 @@ public enum PaymentMethod
 
 public enum SalaryType
 {
-    DAILY,
-    MONTHLY_VARIABLE,
-    MONTHLY_FIXED
+    VARIABLE,
+    FIXED
 }
 
 public enum PayrollFrequency
@@ -277,30 +276,6 @@ public enum GenderRestriction
     FemaleOnly,
 }
 
-
-
-public enum LeaveType
-{
-    // Labor Code
-    //ServiceIncentive,     // 5 days with pay after 1 year of service
-    //Sick,                 // Company-provided, not mandated by law but common
-    //Vacation,             // Company-provided, not mandated by law but common
-    //// Special Laws
-    //Maternity,            // 105 days (with option for extension)
-    //Paternity,            // 7 days for married male employees
-    //SoloParent,           // 7 days for qualified solo parents
-    //Parental,             // Covers parental leave for child care (special cases)
-    //SpecialLeaveForWomen, // 2 months for gynecological surgery (RA 9710 Magna Carta of Women)
-    //ViolenceAgainstWomen, // 10 days for victims of VAWC (RA 9262)
-    //Rehabilitation,       // For employees recovering from work-related injury/illness
-    //MagnaCartaDisabled,   // 5 days for employees with disabilities (RA 7277)
-    //StudyLeave,           // 2 months for government employees (RA 4670)
-    //SpecialEmergency,     // For emergencies/calamities (common in company policies)
-    //// Other
-    //Unpaid,               // Leave without pay
-    //Other                 // Catch-all for company-specific or discretionary leaves
-}
-
 public enum RateType
 {
     // ── Building-block multipliers (kept for payroll pipeline) ────────────────
@@ -313,9 +288,7 @@ public enum RateType
     SPECIAL_WORKING,
     SPECIAL_NON_WORKING,
     RESTDAY_SPECIAL,
-
-    // ── Compound DTR-column rates (hours × rate = pay amount) ─────────────────
-    // Regular
+    HOLIDAY_OT,   
     REG,
     REG_OT,
     REG_ND,

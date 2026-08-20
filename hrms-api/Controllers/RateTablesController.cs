@@ -80,5 +80,22 @@ namespace Hrms.Api.Controllers
             await _service.Delete(id, token);
             return Ok();
         }
+
+        [HttpPost("bulk")]
+        [ProducesResponseType(204)]
+        public async Task<IActionResult> BulkReplace([FromBody] List<CreateRateTable> payload, CancellationToken token)
+        {
+            var entities = _mapper.Map<List<RateTable>>(payload);
+            await _service.BulkReplaceAsync(entities, token);
+            return NoContent();
+        }
+
+        [HttpDelete]
+        [ProducesResponseType(204)]
+        public async Task<IActionResult> ClearAll(CancellationToken token)
+        {
+            await _service.ClearAllAsync(token);
+            return NoContent();
+        }
     }
 }

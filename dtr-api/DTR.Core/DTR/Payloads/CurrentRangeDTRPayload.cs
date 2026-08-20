@@ -59,7 +59,7 @@ public class CurrentRangeDTRPayloadService
         var dayOffsTask = await _restDayResolver.ResolveAsync(fromDate, toDate, employees, token);
 
         var clientPolicy = await LoadClientPolicy(companyPolicy, clientIds);
-        var employeePolicy = await LoadEmployeePolicy(employeeIds);
+        var employeePolicy = new Dictionary<EmployeePolicyKey, EmployeePolicyRule>();
 
         return new DTRContextBuilder()
             .WithCleanAttendance(cleanAttendance)
@@ -174,13 +174,6 @@ public class CurrentRangeDTRPayloadService
         var ids = new HashSet<string>(clientIds.Select(id => id!.Value.ToString()));
         var settings = await _generalSettingService.GetSettingsAsync("Client", ids);
         return new ClientPolicyService().Transform(companyPolicy, settings);
-    }
-
-    private async Task<Dictionary<EmployeePolicyKey, EmployeePolicyRule>> LoadEmployeePolicy(HashSet<Guid> employeeIds)
-    {
-        var ids = new HashSet<string>(employeeIds.Select(id => id.ToString()));
-        var settings = await _generalSettingService.GetSettingsAsync("Employee", ids);
-        return new EmployeePolicyService().Transform(settings);
     }
 }
 
