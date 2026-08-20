@@ -61,40 +61,10 @@ public class PayrollSummaryLine
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
 
-    public decimal NonTaxableBenefits { get; set; }
-    public decimal TaxableBenefits { get; set; }
+    //public decimal ThirteenthMonthPay { get; set; }
+    public decimal NonTaxableBenefits { get; set; } // e.g., de minimis benefits
+    public decimal TaxableBenefits { get; set; } // e.g., allowances exceeding thresholds
     public List<OtherIncomeInfo> OtherIncomeCollection { get; set; } = new();
-    public List<BasicRateModel> BasicSalaryItems { get; set; } = new();
+    public List<BasicRateModel> BasicSalaryItems { get; set; } = new();//store all calculated basic we will use this in gov stat computation
     public List<DeductionInfo> DeductionCollection { get; set; } = new();
-
-    // Per-type DTR hour breakdown (aggregated across the payroll period)
-    public double RegularNetHours { get; set; }
-    public double RegularOTHours { get; set; }
-    public double RegularNDHours { get; set; }
-    public double RegularNDOTHours { get; set; }
-
-    public double RestDayHours { get; set; }
-    public double RestDayOTHours { get; set; }
-    public double RestDayNDHours { get; set; }
-    public double RestDayNDOTHours { get; set; }
-
-    public double LegalHolHours { get; set; }
-    public double LegalHolOTHours { get; set; }
-    public double LegalHolNightDiffHours { get; set; }
-    public double LegalHolNightDiffOTHours { get; set; }
-
-    public double SpecialHolHours { get; set; }
-    public double SpecialHolOTHours { get; set; }
-    public double SpecialHolNightDiffHours { get; set; }
-    public double SpecialHolNightDiffOTHours { get; set; }
-
-    public double RestLegalDayHours { get; set; }
-    public double RestLegalDayOTHours { get; set; }
-    public double RestLegalDayNDHours { get; set; }
-    public double RestLegalDayNDOTHours { get; set; }
-
-    public double RestSpecialDayHours { get; set; }
-    public double RestSpecialDayOTHours { get; set; }
-    public double RestSpecialDayNDHours { get; set; }
-    public double RestSpecialDayNDOTHours { get; set; }
 }
