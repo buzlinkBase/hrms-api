@@ -33,6 +33,15 @@ public class AnnualTaxService : BaseService<AnnualTaxTable>
         await CommitChangesAsync(token);
     }
 
+    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
+    {
+        return await GetQueryable()
+            .GroupBy(x => x.EffectiveDate)
+            .Select(x => x.Key)
+            .OrderByDescending(x => x)
+            .ToListAsync(token);
+    }
+
     public async Task<List<AnnualTaxTable>> FindAllAsync(DateOnly effectivity, CancellationToken token)
     {
         return await GetQueryable()

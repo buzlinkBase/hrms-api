@@ -95,6 +95,7 @@ public class CreateEmployee
     //public CreatePosition? Position { get; set; }
     //public CreateArea? Area { get; set; }
     public ICollection<RestDayModel> RestDays { get; set; }
+    public ICollection<EmployeeFixedScheduleDayModel> FixedSchedule { get; set; } = new List<EmployeeFixedScheduleDayModel>();
     public string Status { get; set; } = "Active";
     //public CreateTimeShift? TimeShift { get; set; }
 }
@@ -297,6 +298,14 @@ public class RestDayModel
 {
     [Key(0)] public Guid Id { get; set; }
     [Key(1)] public DayName DayName { get; set; }
+}
+
+[MessagePackObject]
+public class EmployeeFixedScheduleDayModel
+{
+    [Key(0)] public Guid Id { get; set; }
+    [Key(1)] public DayName DayName { get; set; }
+    [Key(2)] public Guid TimeShiftId { get; set; }
 }
 
 //Statutory Schedule and Rates

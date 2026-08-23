@@ -29,7 +29,14 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<List<AnnualTaxModel>>(data));
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("versions")]
+        [ProducesResponseType(typeof(ResponseModel<List<DateOnly>>), 200)]
+        public async Task<IActionResult> GetVersions(CancellationToken token)
+        {
+            return Ok(await _service.VersionsAsync(token));
+        }
+
+        [HttpGet("{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<AnnualTaxModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {

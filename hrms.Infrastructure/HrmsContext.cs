@@ -77,6 +77,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<TaxRate> TaxRates { get; set; }
     public DbSet<Position> Positions { get; set; }
     public DbSet<RestDay> RestDays { get; set; }
+    public DbSet<EmployeeFixedSchedule> EmployeeFixedSchedules { get; set; }
     public DbSet<RestDayDate> RestDayDates { get; set; }
 
     public DbSet<Leave> Leaves { get; set; }

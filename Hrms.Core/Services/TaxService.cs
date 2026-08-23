@@ -38,11 +38,13 @@ public class TaxService : BaseService<TaxTable>
         await CommitChangesAsync(token);
     }
 
-    public async Task<List<DateOnly>> VersionsAsync(DateOnly effectivity, CancellationToken token)
+    public async Task<List<DateOnly>> VersionsAsync(string payrollType, CancellationToken token)
     {
         return await GetQueryable()
+            .Where(x => x.PayrollType == payrollType)
             .GroupBy(x => x.EffectiveDate)
             .Select(x => x.Key)
+            .OrderByDescending(x => x)
             .ToListAsync(token);
     }
 

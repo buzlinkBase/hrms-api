@@ -1,5 +1,8 @@
-﻿namespace Hrms.Domain.Entities.EmployeeEntities;
+﻿using BuzlinkRepository;
 
+namespace Hrms.Domain.Entities.EmployeeEntities;
+
+[DisableSoftDelete]
 public class RestDay : BaseEntity
 {
     public DayName DayName { get; set; }
@@ -7,6 +10,7 @@ public class RestDay : BaseEntity
     public virtual Employee? Employee { get; set; }
 }
 
+[DisableSoftDelete]
 public class RestDayDate : BaseEntity
 {
     public Guid EmployeeId { get; set; }

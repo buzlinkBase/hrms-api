@@ -39,12 +39,13 @@ public class SSSService : BaseService<SSSTable>
     }
 
 
-    public async Task<List<DateOnly>> VersionsAsync(DateOnly effectivity)
+    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
     {
         return await GetQueryable()
             .GroupBy(x => x.EffectiveDate)
             .Select(x => x.Key)
-            .ToListAsync();
+            .OrderByDescending(x => x)
+            .ToListAsync(token);
     }
 
     public async Task<List<SSSTable>> FindAllAsync(DateOnly effectivity,

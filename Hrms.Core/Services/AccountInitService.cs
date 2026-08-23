@@ -677,15 +677,15 @@ public class AccountInitService : BaseService<Company>
     {
         var types = new List<DeductionType>
         {
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Government Contributions" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Company Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "SSS Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Pag-IBIG (HDMF) Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Cash Advance" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Salary Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Calamity Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Medical / Dental" },
-            new DeductionType { Id = Guid.CreateVersion7(), Description = "Other Deductions" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "GOVT",    Name = "Government Contributions" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "COLOAN",  Name = "Company Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "SSSLOAN", Name = "SSS Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "HDMFLOAN", Name = "Pag-IBIG (HDMF) Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "CASHADV", Name = "Cash Advance" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "SALLOAN", Name = "Salary Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "CALLOAN", Name = "Calamity Loan" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "MEDDENT", Name = "Medical / Dental" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "OTHER",   Name = "Other Deductions" },
         };
         await _uow.Repository.AddRangeAsync(types, token);
     }

@@ -123,6 +123,17 @@ public class EmployeeService : BaseService<Employee>
 
     public async Task UpdateAsync(UpdateEmployee payload, CancellationToken token)
     {
+        await _uow.Context.RestDays
+        .Where(x => x.EmployeeId == payload.Id)
+        .ExecuteDeleteAsync(token);
+
+        await _uow.Context.EmployeeFixedSchedules
+        .Where(x => x.EmployeeId == payload.Id)
+        .ExecuteDeleteAsync(token);
+
+        await _uow.SaveChangesAsync(token);
+
+
         var existing = await Context.Employees
             //.Include(x => x.RestDays)
             //.Include(x => x.Settings)
@@ -136,13 +147,15 @@ public class EmployeeService : BaseService<Employee>
         {
             throw new NotFoundException("Record not found");
         }
-        existing.RestDays.Clear();
+         
+        var incomingRestDays = payload.RestDays?.ToList() ?? new List<RestDayModel>();
+        var incomingFixedSchedule = payload.FixedSchedule?.ToList() ?? new List<EmployeeFixedScheduleDayModel>();
+        payload.RestDays = new List<RestDayModel>();
+        payload.FixedSchedule = new List<EmployeeFixedScheduleDayModel>();
+
         payload.Adapt(existing);
         CalculateAge(existing);
-        foreach (var res in existing.RestDays)
-        {
-            res.Id = Guid.Empty;
-        }
+
         if (existing.HireDate == DateOnly.MinValue || payload.HireDate == null)
         {
             existing.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -153,19 +166,30 @@ public class EmployeeService : BaseService<Employee>
         var branch = _uow.Repository.FindOne<Branch>(existing.BranchId ?? Guid.Empty);
         existing.BranchId = branch?.Id;
         await ModifyAsync(existing, token);
+
+        var newRestDays = incomingRestDays.Select(rd => new RestDay
+        {
+            Id = Guid.CreateVersion7(),
+            EmployeeId = payload.Id,
+            DayName = rd.DayName,
+        }).ToList();
+        await _uow.Repository.AddRangeAsync(newRestDays, token);
+
+        var newFixedSchedule = incomingFixedSchedule.Select(fs => new EmployeeFixedSchedule
+        {
+            Id = Guid.CreateVersion7(),
+            EmployeeId = payload.Id,
+            DayName = fs.DayName,
+            TimeShiftId = fs.TimeShiftId,
+        }).ToList();
+        await _uow.Repository.AddRangeAsync(newFixedSchedule, token);
+
         await _uow.SaveChangesAsync(token);
-        var incomingDayNames = payload.RestDays.Select(rd => rd.DayName).ToHashSet();
-        await _uow.Context.RestDays
-            .Where(x => x.EmployeeId == payload.Id && !incomingDayNames.Contains(x.DayName))
-            .ExecuteDeleteAsync(token);
 
         await CommitChangesAsync(token);
     }
 
-    //public Employee? FindBio(int bioId)
-    //{
-    //    return GetQueryable(x => x.BioId == bioId).FirstOrDefault();
-    //}
+ 
 
     public async Task<Employee?> FindOne(Guid id, CancellationToken token)
     {

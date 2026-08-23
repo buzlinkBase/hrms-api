@@ -18,7 +18,8 @@ public class DeductionModel : UpdateDeduction
 
 public class CreateDeductionType
 {
-    public string Description { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }
 
 public class UpdateDeductionType : CreateDeductionType

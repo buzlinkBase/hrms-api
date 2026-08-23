@@ -39,12 +39,13 @@ public class PHICService : BaseService<PHICTable>
     }
 
 
-    public async Task<List<DateOnly>> Versions(DateOnly effectivity)
+    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
     {
         return await GetQueryable()
             .GroupBy(x => x.EffectiveDate)
             .Select(x => x.Key)
-            .ToListAsync();
+            .OrderByDescending(x => x)
+            .ToListAsync(token);
     }
 
     public async Task<List<PHICTable>> FindAllAsync(DateOnly effectivity, CancellationToken token)

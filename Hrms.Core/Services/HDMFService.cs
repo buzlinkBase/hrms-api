@@ -48,12 +48,12 @@ public class HDMFService : BaseService<HDMFTable>
     }
 
 
-    public async Task<List<DateOnly>> Versions(DateOnly effectivity,
-        CancellationToken token)
+    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
     {
         return await GetQueryable()
             .GroupBy(x => x.EffectiveDate)
             .Select(x => x.Key)
+            .OrderByDescending(x => x)
             .ToListAsync(token);
     }
 

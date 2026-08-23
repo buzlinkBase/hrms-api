@@ -31,7 +31,14 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<List<WTaxModel>>(data));
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("versions")]
+        [ProducesResponseType(typeof(ResponseModel<List<DateOnly>>), 200)]
+        public async Task<IActionResult> GetVersions([FromQuery] string payrollType, CancellationToken token)
+        {
+            return Ok(await _service.VersionsAsync(payrollType, token));
+        }
+
+        [HttpGet("{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<WTaxModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {

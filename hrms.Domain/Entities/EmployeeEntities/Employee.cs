@@ -91,10 +91,12 @@ public class Employee : BaseEntity
     public virtual Position? Position { get; set; }
     public virtual CostCenters? Area { get; set; }
     public virtual ICollection<RestDay> RestDays { get; set; }
+    public virtual ICollection<EmployeeFixedSchedule> FixedSchedule { get; set; }
     public virtual TimeShift? TimeShift { get; set; }
     public Employee()
     {
         RestDays = new List<RestDay>();
+        FixedSchedule = new List<EmployeeFixedSchedule>();
     }
 }
 public class SSSRate : BaseEntity
