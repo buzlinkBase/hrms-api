@@ -9,8 +9,9 @@ namespace Hrms.Core.Services;
 // LeaveCredits.Reserved — the hard Balance is untouched.
 //
 // Phase 2 (DTR post): ConsumeReservationsAsync converts reservations into authoritative
-// Deduction entries using CreditsSpent from each DailyRecord. The reservation is released
-// and Used/Balance are updated with the DTR-confirmed amounts.
+// Deduction entries using each DailyRecord's LeavesInfo, summed per LeaveId so records
+// that overlap more than one leave application on the same day are attributed correctly.
+// The reservation is released and Used/Balance are updated with the DTR-confirmed amounts.
 //
 // On unpost: ReverseConsumptionAsync undoes Phase 2. If the leave is still Approved the
 // days go back to Reserved; if Cancelled/Declined a plain Reversal is written.
@@ -32,7 +33,7 @@ public class LeaveDtrReconciliationService
         List<DailyRecord> records,
         CancellationToken token)
     {
-        var leaveRecords = records.Where(r => r.CreditsSpent > 0).ToList();
+        var leaveRecords = records.Where(r => r.PaidLeaveHours > 0).ToList();
         if (leaveRecords.Count == 0) return;
 
         var employeeIds = leaveRecords.Select(r => r.EmployeeId).ToHashSet();
@@ -62,7 +63,14 @@ public class LeaveDtrReconciliationService
 
             if (appRecords.Count == 0) continue;
 
-            var actualConsumed = (decimal)appRecords.Sum(r => r.CreditsSpent);
+            // Attribute hours by LeaveId (not just date range) so a day with more than one
+            // leave application in flight doesn't have its hours mis-split or double-counted.
+            var actualConsumed = (decimal)appRecords
+                .Where(r => r.LeavesInfo != null)
+                .SelectMany(r => r.LeavesInfo!)
+                .Where(li => li.LeaveId == app.LeaveId)
+                .Sum(li => li.Hours);
+
             if (actualConsumed <= 0) continue;
 
             // Idempotency: don't write a second Deduction for the same batch + application

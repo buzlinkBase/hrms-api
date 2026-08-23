@@ -28,6 +28,17 @@ public class TimeRangeLedger : ValueCache<TimeRangeLedgerCacheKey, TimeRange>
         return found ? result! : TimeRange.Empty;
     }
 
+    public TimeRecordCollection GetByStartWithTag (string tagName, TimeContext context)
+    {
+        var key = CreateKey(tagName, context);
+        return Snapshot()
+            .Where(kvp => kvp.Key.Date == key.Date && kvp.Key.EmployeeId == key.EmployeeId && kvp.Key.ToString().StartsWith(tagName))
+            .SelectMany(kvp => kvp.Value.TimeRecords)
+            .ToTimeRecordCollection()
+            ; 
+    }
+
+
     public TimeRecordCollection GetAllocated(TimeRangeLedgerCacheKey key)
     {
         var (found, timeRange) = base.GetByKey(key);

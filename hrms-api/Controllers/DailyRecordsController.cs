@@ -31,13 +31,12 @@ public class DailyRecordsController : ControllerBase
     {
         var rangeFrom = model.Min(x => x.WorkDate);
         var RangeTo = model.Max(x => x.WorkDate);
-        var localTime = DateTime.UtcNow.AddHours(8);
-        var ts = localTime.ToString("MMddyyHHmm");
-        //var rnd = Guid.CreateVersion7().ToString("N").ToString().Substring(1, 5);
+        TimeZoneInfo manilaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+        DateTime localTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, manilaTimeZone);
+        var ts = localTime.ToString("MM.dd.yyyy.HH:mm");
         var models = _mapper.Map<List<DailyRecord>>(model);
         var userId = User.GetRequiredUserId();
-        var count = _service.Context.DailyTimeRecords.GroupBy(x => x.BatchCode).Count() + 1;
-        var batchCode = $"DTR{rangeFrom.ToString("MMMdd")}{RangeTo.ToString("MMMddyyyy")}-{ts}-{count.ToString().PadLeft(5, '0')}";
+        var batchCode = $"DTR{rangeFrom.ToString("MMMddyyyy")}-{RangeTo.ToString("MMMddyyyy")} TS:{ts}";
         foreach (var item in models)
         {
             item.UserId = userId;

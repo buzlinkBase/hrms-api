@@ -44,18 +44,23 @@ public class CreateEmployee
     public string Suffix { get; set; } = string.Empty;
 
     public string Gender { get; set; } = string.Empty;
-
+    public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
-    //public decimal HourlyRate { get; set; }
-    public decimal Cola { get; set; } //PerPayroll
+    public decimal Cola { get; set; }
+
+    public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
+    public decimal? FactorDays { get; set; }
+    public bool UseActualMonthDays { get; set; }
+
+    public bool IsRestDayPaid { get; set; }
+    public bool IsRegularHolidayIncluded { get; set; }
+    public bool IsSpecialNonWorkingIncluded { get; set; }
+    public bool IsNightDiffIncluded { get; set; }
 
     public DateTime? DOB { get; set; }
     public string BloodType { get; set; } = string.Empty;
-
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
-    public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
-    //public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
 
     public string BankName { get; set; } = string.Empty;
@@ -114,6 +119,13 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public decimal MonthlyRate { get; set; }
     [IgnoreMember] public decimal DailyRate { get; set; }
     [IgnoreMember] public decimal Cola { get; set; } //PerPayroll
+    [IgnoreMember] public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
+    [IgnoreMember] public decimal? FactorDays { get; set; }
+    [IgnoreMember] public bool UseActualMonthDays { get; set; }
+    [IgnoreMember] public bool IsRestDayPaid { get; set; }
+    [IgnoreMember] public bool IsRegularHolidayIncluded { get; set; }
+    [IgnoreMember] public bool IsSpecialNonWorkingIncluded { get; set; }
+    [IgnoreMember] public bool IsNightDiffIncluded { get; set; }
     [IgnoreMember] public DateTime? DOB { get; set; }
     [IgnoreMember] public string BloodType { get; set; } = string.Empty;
     [IgnoreMember] public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
@@ -180,6 +192,13 @@ public class EmployeeFullModel
     public decimal DailyRate { get; set; }
     //public decimal HourlyRate { get; set; }
     public decimal Cola { get; set; } //PerPayroll
+    public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
+    public decimal? FactorDays { get; set; }
+    public bool UseActualMonthDays { get; set; }
+    public bool IsRestDayPaid { get; set; }
+    public bool IsRegularHolidayIncluded { get; set; }
+    public bool IsSpecialNonWorkingIncluded { get; set; }
+    public bool IsNightDiffIncluded { get; set; }
 
     public DateTime? DOB { get; set; }
     public string BloodType { get; set; } = string.Empty;
@@ -249,6 +268,13 @@ public class EmployeeModelPayrollRun
     public decimal Cola { get; set; } //PerPayroll
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
     public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
+    public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
+    public decimal? FactorDays { get; set; }
+    public bool UseActualMonthDays { get; set; }
+    public bool IsRestDayPaid { get; set; }
+    public bool IsRegularHolidayIncluded { get; set; }
+    public bool IsSpecialNonWorkingIncluded { get; set; }
+    public bool IsNightDiffIncluded { get; set; }
     public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
     public string BankName { get; set; } = string.Empty;

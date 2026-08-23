@@ -17,6 +17,52 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     public decimal NightDifferentialHour { get; set; }
     public decimal NightDifferentialPay { get; set; }
     public decimal HolidayPay { get; set; }
+
+    // Per-type basic pay breakdown (sum of HolidayPay = LegalHolidayPay + SpecialHolidayPay +
+    // RestLegalDayPay + RestSpecialDayPay + SpecialWorkDayPay + DoubleLegalPay + RestDoubleLegalPay)
+    public decimal RestDayPay { get; set; }
+    public decimal LegalHolidayPay { get; set; }
+    public decimal SpecialHolidayPay { get; set; }
+    public decimal RestLegalDayPay { get; set; }
+    public decimal RestSpecialDayPay { get; set; }
+    public decimal SpecialWorkDayPay { get; set; }
+    public decimal DoubleLegalPay { get; set; }
+    public decimal RestDoubleLegalPay { get; set; }
+
+    // Per-category OT/ND/NDOT pay (sum of each group = OvertimePay / NightDifferentialPay above)
+    public decimal RegularOTPay { get; set; }
+    public decimal RestDayOTPay { get; set; }
+    public decimal LegalHolOTPay { get; set; }
+    public decimal RestLegalDayOTPay { get; set; }
+    public decimal SpecialWorkingOTPay { get; set; }
+    public decimal SpecialNonWorkingOTPay { get; set; }
+    public decimal RestSpecialDayOTPay { get; set; }
+    public decimal SpecialWorkDayOTPay { get; set; }
+    public decimal DoubleLegalOTPay { get; set; }
+    public decimal RestDoubleLegalOTPay { get; set; }
+
+    public decimal RegularNDPay { get; set; }
+    public decimal RestDayNDPay { get; set; }
+    public decimal LegalHolNDPay { get; set; }
+    public decimal RestLegalDayNDPay { get; set; }
+    public decimal SpecialWorkingNDPay { get; set; }
+    public decimal SpecialNonWorkingNDPay { get; set; }
+    public decimal RestSpecialDayNDPay { get; set; }
+    public decimal SpecialWorkDayNDPay { get; set; }
+    public decimal DoubleLegalNDPay { get; set; }
+    public decimal RestDoubleLegalNDPay { get; set; }
+
+    public decimal RegularNDOTPay { get; set; }
+    public decimal RestDayNDOTPay { get; set; }
+    public decimal LegalHolNDOTPay { get; set; }
+    public decimal RestLegalDayNDOTPay { get; set; }
+    public decimal SpecialWorkingNDOTPay { get; set; }
+    public decimal SpecialNonWorkingNDOTPay { get; set; }
+    public decimal RestSpecialDayNDOTPay { get; set; }
+    public decimal SpecialWorkDayNDOTPay { get; set; }
+    public decimal DoubleLegalNDOTPay { get; set; }
+    public decimal RestDoubleLegalNDOTPay { get; set; }
+
     public decimal Cola { get; set; }
     public decimal TotalRegularAllowances { get; set; }
     public decimal TotalBonuses { get; set; }
@@ -53,7 +99,8 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     public decimal EmployerPagIbigContribution { get; set; }
     public decimal EmployerECContribution { get; set; }
 
-    // Optional Reporting Fields
+
+    //public Guid? BranchId { get; set; }
     public Guid? PayrollGroupId { get; set; }
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
@@ -92,4 +139,20 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     public double RestSpecialDayOTHours { get; set; }
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
+
+    public double SpecialWorkDayHours { get; set; }
+    public double SpecialWorkDayOTHours { get; set; }
+    public double SpecialWorkDayNDHours { get; set; }
+    public double SpecialWorkDayNDOTHours { get; set; }
+
+    public double DoubleLegalHours { get; set; }
+    public double DoubleLegalOTHours { get; set; }
+    public double DoubleLegalNDHours { get; set; }
+    public double DoubleLegalNDOTHours { get; set; }
+
+    public double RestDoubleLegalHours { get; set; }
+    public double RestDoubleLegalOTHours { get; set; }
+    public double RestDoubleLegalNDHours { get; set; }
+    public double RestDoubleLegalNDOTHours { get; set; }
+
 }

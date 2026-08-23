@@ -23,7 +23,7 @@
             var table = WTaxHelper.GetTable(context, baseRate);
             if (table == null) return line;
 
-            var due = WTaxHelper.GetCalculatedDue(table);
+            var due = WTaxHelper.GetCalculatedDue(table, baseRate);
             var balance = WTaxHelper.GetBalance(context, due);
 
             if (balance <= 0) return line;

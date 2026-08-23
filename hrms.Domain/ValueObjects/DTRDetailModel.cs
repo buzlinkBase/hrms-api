@@ -1,4 +1,5 @@
 ﻿
+ 
 namespace Hrms.Domain.ValueObjects;
 
 public class DTRDetailModel
@@ -25,8 +26,9 @@ public class DTRDetailModel
     public int AbsentCount { get; set; }
     public int HolCount { get; set; } = 0;
     public int SPCount { get; set; } = 0;
-    public double LeaveHours { get; set; }
-    public double CreditsSpent { get; set; }
+    public List<LeaveMetaDataModel>? LeavesInfo { get; set; }
+    public double PaidLeaveHours { get; set; }
+    public double UnpaidLeaveHours { get; set; }
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }
     public double RegularNDHours { get; set; }
@@ -108,6 +110,7 @@ public class DTRSummaryModel
     //public int HolCount { get; set; } = 0;
     //public int SPCount { get; set; } = 0;
     public double LeaveHours { get; set; }
+    public double UnpaidLeaveHours { get; set; }
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }
     public double RegularNDHours { get; set; }
@@ -170,4 +173,14 @@ public class TardinessReportModel
     public double TardinessMinutes { get; set; }
     public double DeductibleMinutes { get; set; }
     public bool IsWithinGracePeriod => TardinessMinutes > 0 && DeductibleMinutes == 0;
+}
+
+public class LeaveMetaDataModel
+{
+    public Guid LeaveId { get; set; }
+    public string? Name { get; set; } = string.Empty;
+    public double Hours { get; set; }
+    public DateTime StartDateTime { get; set; }
+    public DateTime EndDateTime { get; set; }
+    public PayType PayType { get; set; }
 }

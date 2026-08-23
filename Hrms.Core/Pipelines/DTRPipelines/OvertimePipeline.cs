@@ -1,10 +1,4 @@
-﻿namespace Hrms.Core.Pipelines;
-
-public class OvertimePipeline : BasicPipelineBase
-{
-    public override BasicPipelineData Run(PayrollContext context)
-    {
-        pipeline.AddPolicy(new OvertimePolicy());
-        return pipeline.Execute(new BasicPipelineData(), context);
-    }
-}
+﻿// Superseded by the per-category OT pipelines in OvertimeCategoryPipelines.cs
+// (RegularOTPipeLine, RestDayOTPipeLine, etc.), which BasicPayrollCalculator uses instead.
+// OvertimePolicy no longer exists; this file is unreferenced and kept empty rather than
+// deleted.

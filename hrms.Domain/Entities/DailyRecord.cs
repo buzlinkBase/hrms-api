@@ -14,6 +14,7 @@ public class DailyRecord : BaseEntity, IUserField
     public Guid? ShiftId { get; set; }
     public Guid EmployeeId { get; set; }
     public virtual Employee? Employee { get; set; }
+    public virtual List<DtrLeaveMetaData>? LeavesInfo { get; set; }
     public DateOnly WorkDate { get; set; }
     public string ShiftName { get; set; } = string.Empty;
     public DateTime ShiftStartTime { get; set; }
@@ -29,8 +30,9 @@ public class DailyRecord : BaseEntity, IUserField
     public int AbsentCount { get; set; }
     public int HolCount { get; set; } = 0;
     public int SPCount { get; set; } = 0;
-    public double LeaveHours { get; set; }
-    public double CreditsSpent { get; set; }
+
+    public double PaidLeaveHours { get; set; }
+    public double UnpaidLeaveHours { get; set; }
 
     public double RegularNetHours { get; set; }
     public double RegularOTHours { get; set; }
@@ -62,10 +64,10 @@ public class DailyRecord : BaseEntity, IUserField
     public double RestSpecialDayNDHours { get; set; }
     public double RestSpecialDayNDOTHours { get; set; }
 
-    public double SpecialWorkDayHours { get; set; }
-    public double SpecialWorkDayOTHours { get; set; }
-    public double SpecialWorkDayNDHours { get; set; }
-    public double SpecialWorkDayNDOTHours { get; set; }
+    //public double SpecialWorkDayHours { get; set; }
+    //public double SpecialWorkDayOTHours { get; set; }
+    //public double SpecialWorkDayNDHours { get; set; }
+    //public double SpecialWorkDayNDOTHours { get; set; }
 
     public double DoubleLegalHours { get; set; }
     public double DoubleLegalOTHours { get; set; }
@@ -88,11 +90,17 @@ public class DailyRecord : BaseEntity, IUserField
     public double ShiftWorkingHour { get; set; }
     public bool Posted { get; set; }
 }
-public class DailyRecordPunchCounter : BaseEntity
+
+[DisableSoftDelete]
+public class DtrLeaveMetaData : BaseEntity
 {
-    public DateOnly PayrollDate { get; set; }
-    public Guid EmployeeId { get; set; }
-    public int ManualPunchCount { get; set; }
-    public DateTime WorkTime { get; set; }
+    public Guid DTRId  { get; set; }
+    public virtual DailyRecord? DTR  { get; set; }
+    public Guid LeaveId { get; set; }
+    public string? Name { get; set; } = string.Empty;
+    public double Hours { get; set; }
+    public DateTime StartDateTime { get; set; }
+    public DateTime EndDateTime { get; set; }
+    public PayType PayType { get; set; }  
 }
 

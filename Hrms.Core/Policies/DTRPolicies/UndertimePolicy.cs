@@ -4,8 +4,12 @@ public class UndertimePolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        var workHour = 8.0m;
-        var hr = (decimal)context.DailyRecord.UTMinutes / workHour;
+        var dailyRecord = context.DailyRecord;
+        if (dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.LateMinutes <= 0)
+        {
+            return line;
+        }
+        var hr = (decimal)context.DailyRecord.UTMinutes / 60m;
         var hrRate = context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
         line.UTInfo = new UnderTimeInfo
         {

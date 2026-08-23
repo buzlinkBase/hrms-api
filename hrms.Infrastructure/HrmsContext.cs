@@ -56,11 +56,13 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<Department> Departments { get; set; }
     public DbSet<Payroll> Payrolls { get; set; }
     public DbSet<PayrollGroup> PayrollGroups { get; set; }
+    public DbSet<CutoffDay> CutoffDays { get; set; }
     public DbSet<Section> Sections { get; set; }
     public DbSet<RateTable> PremiumRates { get; set; }
     public DbSet<EmployeeSetting> EmployeeSettings { get; set; }
 
     public DbSet<DailyRecord> DailyTimeRecords { get; set; }
+    public DbSet<DtrLeaveMetaData>  DtrLeaveMetaDatas { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<Employee> Employees { get; set; }
     public DbSet<Skill> Skills { get; set; }

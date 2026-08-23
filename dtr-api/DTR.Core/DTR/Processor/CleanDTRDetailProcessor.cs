@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities;
+﻿using Google.GenAI.Types;
+using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
@@ -61,7 +62,12 @@ public class DailyRecordBuilder
     {
         var currentAtt = context.Payload.Data.CurrentAttendance.FirstOrDefault();
         var emp = context.Payload.Data.Employee;
-        var actualAttRange  = TimeRangeCalculator.GetTimeRange(context.Payload.Data.CurrentAttendance.Where(x=>!x.IsVirtual).ToList());
+        var actualAttRange = TimeRangeCalculator.GetTimeRange(context.Payload.Data.CurrentAttendance.Where(x => !x.IsVirtual).ToList());
+        var unpaidLeaveRange = ProcessUnPaidLeave(context, pipeline);
+        var leaveInfo = new List<LeaveMetaDataModel>();
+        SetMetaInfo(leaveInfo, GetLeaveInfo(pipeline.Leave, "PaidLeave"));
+        SetMetaInfo(leaveInfo, GetLeaveInfo(unpaidLeaveRange, "UnpaidLeave"));
+
         var dtr = new DTRDetailModel
         {
             ShiftWorkingHour = context.Payload.Data.CurrentShift.MaxWorkingMinutes / 60,
@@ -85,8 +91,10 @@ public class DailyRecordBuilder
             OverMinutes = pipeline.Overbreak.TotalMinutes,
             LateForOTMinutes = 0,
             OBHours = pipeline.Travel.TotalMinutes.ToHour(),
-            LeaveHours = pipeline.Leave.TotalMinutes.ToHour(),
-            CreditsSpent = ResolveCreditsSpent(workType, context.Payload.Data.CurrentLeave, pipeline.Leave.TotalMinutes),
+
+            PaidLeaveHours = pipeline.Leave.TotalMinutes.ToHour(),
+            UnpaidLeaveHours = unpaidLeaveRange.TotalMinutes.ToHour(),
+            LeavesInfo = leaveInfo,
             AbsentCount = workType == WorkType.Absent ? 1 : 0,
 
             RegularNetHours = (evaluated.RegWork.TotalMinutes - NightDiff.Regular.TotalMinutes).ToHour(),
@@ -137,18 +145,57 @@ public class DailyRecordBuilder
         };
 
         return dtr;
-
     }
 
-    private static double ResolveCreditsSpent(WorkType workType, LeaveApplication? leave, double leaveMinutes)
+    private static TimeRange ProcessUnPaidLeave(TimeContext context, PipeLineResult pipeline)
     {
-        if (workType is not (WorkType.PaidLeave or WorkType.UnpaidLeave)) return 0;
-        if (leave == null) return 0;
+        var leaves = context.Payload.Provider.LeaveProvider
+            .GetApplications(context.Payload.Data.CurrentDate);
 
-        // Partial/hourly leaves: derive credit-days from actual DTR leave minutes (8-hour day)
-        if (leave.DurationType == DurationType.Partial)
-            return Math.Round(leaveMinutes / (8.0 * 60), 4);
+        var currentLeaves = leaves
+            .Where(x => x.PayType == PayType.WithoutPay)
+            .ToList();
 
-        return leave.DayFraction == DayFraction.FullDay ? 1.0 : 0.5;
+        var shift = context.Payload.Data.CurrentShift;
+        var Trc = new List<TimeRange>();
+        var metas = new List<LeaveMetaDataModel>();
+        foreach (var application in currentLeaves)
+        {
+            var attendances = new List<Attendance>();
+            attendances.AddRange(VirtualTimeComposer.SetLeaveAttendance(application, context.Payload.Data.Employee, shift, false));
+            var result = TimeRangeSetter.SetTimeRangeCollection(attendances);
+            var ledger = context.Payload.Ledger.GetByStartWithTag("leave", context);
+            var clean = result
+                .Exclude(pipeline.Leave.TimeRecords)
+                .Exclude(ledger)
+                .CapAndCrop(shift);
+            if (clean.IsEmpty()) continue;
+            context.Payload.Ledger.RecordByTag("leave" + application.Id, context, clean);
+            Trc.Add(clean);
+            metas.Add(new LeaveMetaDataModel
+            {
+                LeaveId = application.LeaveId,
+                Hours = clean.TotalMinutes.ToHour(),
+                StartDateTime = clean.TimeRecords.MinBy(x => x.StartTime)!.StartTime,
+                EndDateTime = clean.TimeRecords.MinBy(x => x.StartTime)!.EndTime,
+                Name = application.Leave.Description,
+                PayType = application.PayType,
+            });
+        }
+        var finalResult = new TimeRecordCollection(
+                Trc.SelectMany(x => x.TimeRecords.Select(x => x))).ToTimeRange();
+        finalResult.SetMetaData("UnpaidLeave", metas);
+        return finalResult;
+    }
+
+    private static List<LeaveMetaDataModel>? GetLeaveInfo (TimeRange timeRange,string tag)
+    {
+       return timeRange.GetMetaData<List<LeaveMetaDataModel>>(tag);
+    }
+
+    private static void SetMetaInfo(List<LeaveMetaDataModel> meta, List<LeaveMetaDataModel>? info)
+    {
+        if (info == null || !info.Any()) return;
+        meta.AddRange(info);
     }
 }

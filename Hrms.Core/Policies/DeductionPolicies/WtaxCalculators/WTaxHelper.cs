@@ -25,10 +25,10 @@ internal static class WTaxHelper
         return line;
     }
 
-    public static decimal GetCalculatedDue(WTaxModel table)
+    public static decimal GetCalculatedDue(WTaxModel table, decimal gross)
     {
         if (table == null) return 0;
-        return table.BaseTaxDue + (table.RangeFrom * table.AddOnPercentage);
+        return table.BaseTaxDue + (Math.Max(0, gross - table.RangeFrom) * table.AddOnPercentage);
     }
 
     public static decimal GetBalance(DeductionPayloadContext context, decimal ee)

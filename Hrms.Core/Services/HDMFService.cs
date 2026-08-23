@@ -62,6 +62,7 @@ public class HDMFService : BaseService<HDMFTable>
     {
         return await GetQueryable()
             .Where(x => x.EffectiveDate == effectivity)
+            .OrderBy(x => x.MinSalaryBase)
             .ToListAsync(token);
     }
 

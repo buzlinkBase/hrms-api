@@ -24,7 +24,7 @@ public class StatutoryTestContextBase
             BasicSalaryItems = new List<BasicRateModel>
             {
                 new BasicRateModel {
-                    Basic = monthlyRate ,
+                    BasicPay = monthlyRate ,
                     TimeBaseGross = grossPay,
                 },
             }

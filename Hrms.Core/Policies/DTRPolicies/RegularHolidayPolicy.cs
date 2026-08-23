@@ -2,102 +2,71 @@
 
 public class RegularHolidayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
-    public RegularHolidayPolicy()
-    {
-    }
-
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        var premiumRate = RegularHolRateSolver.ResolvePremiumRate(context);
-        var dailyRate = RateHelper.GetDailyRate(context);
-        var hourlyRate = RateHelper.GetHourlyRate(context);
-        var workedHours = (decimal)context.DailyRecord.LegalHolHours;
-        var shiftHours = (decimal)context.DailyRecord.ShiftWorkingHour;
-        var holidayCredit = GetHolidayCreditDays(context);
+        var dailyRecord = context.DailyRecord;
 
-        bool IsElible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
-
-        if (IsElible)
+        if (dailyRecord.WorkTypeEnum is not (WorkType.LegalHoliday or WorkType.LegalHolidayDuty) ||
+            dailyRecord.ShiftWorkingHour <= 0)
         {
-            //TODO if fixed get only the premium
-            workedHours += holidayCredit * shiftHours;
-        }
-        if (premiumRate > 1)
-        {
-            premiumRate -= 1;
+            return line;
         }
 
-        var holDay = (workedHours / shiftHours) >= 1 ? 1 : 0;
-        var remainder = Math.Max((workedHours / shiftHours) - 1, 0);
-        line.Value += holDay * dailyRate;
-        line.Value += remainder * dailyRate * premiumRate;
+        var hourlyRate = context.Employee.DailyRate / (decimal)dailyRecord.ShiftWorkingHour;
+        var workedHours = (decimal)Math.Max(0, dailyRecord.LegalHolHours);
+        var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
+
+        var earnings = HolidayPayCalculator
+            .ForContext(context)
+            .CalculateWorkedPay(hourlyRate, workedHours)
+            .CalculateUnworkedPay(hourlyRate, unworkedHours)
+            .Total;
+
+        line.Value += earnings;
         return line;
-
-    }
-
-    private decimal GetHolidayCreditDays(PayrollContext context)
-    {
-        //if (context.Employee.SalaryType != SalaryType.MONTHLY_FIXED)
-        //{
-        //    return (decimal)context.DailyRecord.HolCount;
-        //}
-        ///Fixed Employee is already paid LH premium
-        //if (context.Employee.SalaryType == SalaryType.MONTHLY_FIXED) return 0;
-        //if eligible HolCount>0
-        bool IsElible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
-        if (!IsElible) return 0;
-        //var workedHours = 0;
-        //var holidayCredit = context.DailyRecord.HolCount;
-        //if (context.Payload.CompanyPolicy.HolidayCreditPolicy == HolidayCreditMode.NoCredit && IsElible)
-        //{
-        //    //TODO if fixed get only the premium
-        //    workedHours += holidayCredit * shiftHours;
-        //}
-        return (decimal)context.DailyRecord.HolCount;
     }
 }
 
-public static class RegularHolRateSolver
+public class HolidayPayCalculator
 {
-    private static readonly List<RateRule> _rules = new()
-    {
-        // Pure Legal Holiday Duty
-        new RateRule
-        {
-            Condition = ctx => new IsRegularHolidayDuty().IsSatisfiedBy(ctx),
-            GetRate = ctx => PremiumRateHelper.GetRate(ctx, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY),
-        },
+    private decimal _total;
+    private readonly bool _isEligible;
+    private readonly bool _isBasePayPreFunded;
+    private readonly decimal _totalRateMultiplier;
 
-        // Rest Day + Legal Holiday Duty
-        new RateRule
-        {
-            Condition = ctx => new IsRestDayLegalHolidayDuty().IsSatisfiedBy(ctx),
-            GetRate = ctx =>
-            {
-                return
-                    PremiumRateHelper.GetRate(ctx, RateType.RESTDAY_DUTY, RATE_DEFAULT.RESTDAY_DUTY) *
-                    PremiumRateHelper.GetRate(ctx, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);
-            },
-        },
-        new RateRule
-        {
-            Condition = ctx => new IsRegularHoliday().IsSatisfiedBy(ctx),
-            GetRate = ctx =>
-            {
-                return
-                    PremiumRateHelper.GetRate(ctx, RateType.RESTDAY_DUTY, RATE_DEFAULT.RESTDAY_DUTY) *
-                    PremiumRateHelper.GetRate(ctx, RateType.LEGAL_HOLIDAY, RATE_DEFAULT.LEGAL_HOLIDAY);
-            },
-        },
-    };
-
-    public static decimal ResolvePremiumRate(PayrollContext context)
+    private HolidayPayCalculator(PayrollContext context)
     {
-        foreach (var rule in _rules)
-        {
-            if (rule.Condition(context))
-                return rule.GetRate(context);
-        }
-        return 1.00m; // default multiplier (no premium)
+        _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
+        _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
+                              context.Employee.IsRegularHolidayIncluded;
+        _totalRateMultiplier = PremiumRateHelper.GetRate(context, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);
     }
+
+    public static HolidayPayCalculator ForContext(PayrollContext context) => new(context);
+
+    public HolidayPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
+    {
+        if (workedHours <= 0) return this;
+        // Ineligible: Earns 1.0x standard rate
+        // Eligible & Pre-Funded: Earns delta premium above 1.0 (e.g., 2.60 - 1.00 = 1.60)
+        // Eligible & Not Pre-Funded: Earns full configured rate multiplier (e.g., 2.60)
+        var multiplier = !_isEligible
+            ? 1.0m
+            : (_isBasePayPreFunded
+                ? Math.Max(0m, _totalRateMultiplier - 1.0m)
+                : _totalRateMultiplier);
+
+        _total += hourlyRate * workedHours * multiplier;
+        return this;
+    }
+
+    public HolidayPayCalculator CalculateUnworkedPay(decimal hourlyRate, decimal unworkedHours)
+    {
+        if (unworkedHours <= 0 || !_isEligible || _isBasePayPreFunded) return this;
+        // Unworked regular holiday pay is paid at 100% (1.0x) base rate
+        _total += hourlyRate * unworkedHours * 1.0m;
+        return this;
+    }
+
+    public decimal Total => _total;
 }

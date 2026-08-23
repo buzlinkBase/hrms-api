@@ -12,7 +12,7 @@ public class IsLeaved  : IRuleSpecification
 {
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
-        var application = context.Payload.Data.CurrentLeave;
+        var application = context.Payload.Data.CurrentLeaves;
         return application != null;
     }
 }

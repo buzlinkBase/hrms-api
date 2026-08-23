@@ -31,17 +31,13 @@ public class UndertimePolicy : ConditionalPolicyBase
         //if travel and leave providing hours only
 
         var currentTravel = context.Payload.Data.CurrentTravel;
-        var currentLeave = context.Payload.Data.CurrentLeave;
+        var currentLeave = context.Payload.Data.CurrentLeaves;
 
         var travelTime = currentTravel != null && currentTravel.IsManualEntry
             ? ledger.GetByTag("travel", context).TotalMinutes
             : 0;
 
-        //var leaveTime = currentLeave != null && currentLeave.IsManualEntry
-        // ? ledger.GetByTag("onleave", context).TotalMinutes
-        // : 0;
         var leaveTime = ledger.GetByTag("onleave", context).TotalMinutes;
-
         var utMinutes = Math.Max(0, maxMinutes - travelTime - leaveTime - finalReg.TotalMinutes - finalLate.TotalMinutes);
         var result = utMinutes > 0 ? new TimeRange(utMinutes) : TimeRange.Empty;
         ledger.Record(ledgerKey, result);

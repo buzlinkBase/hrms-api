@@ -50,6 +50,7 @@ public class TaxService : BaseService<TaxTable>
     {
         return await GetQueryable()
             .Where(x => x.EffectiveDate == effectivity && x.PayrollType == payrollType)
+            .OrderBy(x => x.RangeFrom)
             .ToListAsync(token);
     }
 
