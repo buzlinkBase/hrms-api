@@ -11,39 +11,49 @@ public class LeaveApplicationProvider
         _leaveApplications = leaveApplocations;
         _employee = currentEmployee;
     }
-    public LeaveApplication? GetApplication(DateOnly date)
+
+    public List<LeaveApplication> GetApplications(DateOnly date)
     {
         var key = new Leavekey(_employee.Id);
-        if (!_leaveApplications.TryGetValue(key, out var applications) || applications == null) return null;
+        if (!_leaveApplications.TryGetValue(key, out var applications) || applications == null) return new List<LeaveApplication>();
 
-        var app = applications.FirstOrDefault(a => a.LeaveDateFrom <= date && date <= a.LeaveDateTo);
-        if (app == null) return null;
+        var apps = applications
+            .Where(a => a.LeaveDateFrom <= date && date <= a.LeaveDateTo)
+            .ToList();
+        if (!apps.Any()) return new List<LeaveApplication>();
 
-        TimeOnly? startTimeOnly = app.StartTime.HasValue ? TimeOnly.FromDateTime(app.StartTime.Value) : null;
-        TimeOnly? endTimeOnly = app.EndTime.HasValue ? TimeOnly.FromDateTime(app.EndTime.Value) : null;
-        var isCross = app.EndTime.HasValue ? app.LeaveDateTo.ToDateTime(TimeOnly.MinValue).Date < app.EndTime.Value.Date : false;
-        return new LeaveApplication
+        var leaveApps = new List<LeaveApplication>();
+
+        foreach (var app in apps)
         {
-            Id = app.Id,
-            LeaveId = app.LeaveId,
-            Leave = app.Leave,
-            LeaveDateFrom = date,
-            LeaveDateTo = date,
-            AuditTrailId = app.AuditTrailId,
-            DayFraction = app.DayFraction,
-            DurationType = app.DurationType,
-            PayType = app.PayType,
-            IsManualEntry = app.IsManualEntry,
-            TotalMinutes = app.TotalMinutes,
-            ReviewedOn = app.ReviewedOn,
-            ReviewedBy = app.ReviewedBy,
-            ApprovalStatus = app.ApprovalStatus,
-            ApplicationRemarks = app.ApplicationRemarks,
-            StartTime = startTimeOnly.HasValue ? date.ToDateTime(startTimeOnly.Value) : null,
-            EndTime = !endTimeOnly.HasValue
-                ? null
-                : isCross ? date.AddDays(1).ToDateTime(endTimeOnly.Value) : date.ToDateTime(endTimeOnly.Value)
-        };
+            TimeOnly? startTimeOnly = app.StartTime.HasValue ? TimeOnly.FromDateTime(app.StartTime.Value) : null;
+            TimeOnly? endTimeOnly = app.EndTime.HasValue ? TimeOnly.FromDateTime(app.EndTime.Value) : null;
+            var isCross = app.EndTime.HasValue ? app.LeaveDateTo.ToDateTime(TimeOnly.MinValue).Date < app.EndTime.Value.Date : false;
+
+            leaveApps.Add(new LeaveApplication
+            {
+                Id = app.Id,
+                LeaveId = app.LeaveId,
+                Leave = app.Leave,
+                LeaveDateFrom = date,
+                LeaveDateTo = date,
+                AuditTrailId = app.AuditTrailId,
+                DayFraction = app.DayFraction,
+                DurationType = app.DurationType,
+                PayType = app.PayType,
+                IsManualEntry = app.IsManualEntry,
+                TotalMinutes = app.TotalMinutes,
+                ReviewedOn = app.ReviewedOn,
+                ReviewedBy = app.ReviewedBy,
+                ApprovalStatus = app.ApprovalStatus,
+                ApplicationRemarks = app.ApplicationRemarks,
+                StartTime = startTimeOnly.HasValue ? date.ToDateTime(startTimeOnly.Value) : null,
+                EndTime = !endTimeOnly.HasValue
+                    ? null
+                    : isCross ? date.AddDays(1).ToDateTime(endTimeOnly.Value) : date.ToDateTime(endTimeOnly.Value)
+            });
+        }
+        return leaveApps;
     }
 }
 

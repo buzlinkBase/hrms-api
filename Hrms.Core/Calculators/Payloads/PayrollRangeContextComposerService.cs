@@ -66,89 +66,77 @@ public class PayrollRangeContextComposerService
     {
         // 1. Validate inputs early to avoid unnecessary DB calls
         if (employees == null || !employees.Any()) return null;
-
         try
         {
             var hasEmpIds = employees.Select(x => x.Id).ToHashSet();
             var empIds = hasEmpIds.ToList();
-
             // 2. Start all tasks in parallel (I/O Bound)
-            var ratesTask = _rateTableService.FindAllAsync(token);
-            var leavesTask = _leaveService.FindByDateRangeAsync(dtrPayload.FromDate, dtrPayload.ToDate, hasEmpIds, token);
-            var leaveCreditsTask = _leaveLedgerService.LoadCreditsAsync(empIds, token);
-            var otherIncomeTask = _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var deductionsTask = _deductionService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var salaryAdjTask = _salaryAdjService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var companyTask = _companyService.FineOneAsync(token);
-
+            var ratesTask = await _rateTableService.FindAllAsync(token);
+            var leavesTask = await _leaveService.FindByDateRangeAsync(dtrPayload.FromDate, dtrPayload.ToDate, hasEmpIds, token);
+            var leaveCreditsTask = await _leaveLedgerService.LoadCreditsAsync(empIds, token);
+            var otherIncomeTask = await _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var deductionsTask = await _deductionService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var salaryAdjTask = await _salaryAdjService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var companyTask = await _companyService.FineOneAsync(token);
             // Contributions
-            var payrollsTask = _payrollService.LoadPostedPayrollAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var sssContriTask = _ssscontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var phicContriTask = _phiccontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var hdmfContriTask = _hdmfcontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var taxContriTask = _taxcontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var payrollsTask = await _payrollService.LoadPostedPayrollAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var sssContriTask = await _ssscontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var phicContriTask = await _phiccontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var hdmfContriTask = await _hdmfcontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var taxContriTask = await _taxcontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
 
             // Gov Tables & Holidays
-            var sssTableTask = _govSSSService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var phicTableTask = _govPHICService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var hdmfTableTask = _govHDMFService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var taxTableTask = _govTaxService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var holidaysTask = _holidayService.GetAllHolidays(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var sssTableTask = await _govSSSService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
+            var phicTableTask = await _govPHICService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
+            var hdmfTableTask = await _govHDMFService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
+            var taxTableTask = await _govTaxService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
+            var holidaysTask = await _holidayService.GetAllHolidays(dtrPayload.FromDate, dtrPayload.ToDate, token);
 
             // 3. Wait for all to complete
-            await Task.WhenAll(
-                ratesTask, leavesTask, leaveCreditsTask, otherIncomeTask, deductionsTask, companyTask,
-                payrollsTask, sssContriTask, phicContriTask, hdmfContriTask, taxContriTask,
-                sssTableTask, phicTableTask, hdmfTableTask, taxTableTask, holidaysTask,
-                salaryAdjTask
-            );
-
+            //await Task.WhenAll(
+            //    ratesTask, leavesTask, leaveCreditsTask, otherIncomeTask, deductionsTask, companyTask,
+            //    payrollsTask, sssContriTask, phicContriTask, hdmfContriTask, taxContriTask,
+            //    sssTableTask, phicTableTask, hdmfTableTask, taxTableTask, holidaysTask,
+            //    salaryAdjTask
+            //);
             // 4. Extract results synchronously (No more 'await' needed here)
-            var companyInfo = companyTask.Result;
+            //var companyInfo = companyTask;
 
             return new CalculatorPayload
             {
                 FromDate = dtrPayload.FromDate,
                 ToDate = dtrPayload.ToDate,
-
-                // Transform data using synchronous access
-                PremiumRates = ratesTask.Result
-                    .GroupBy(x => x.Type)
-                    .ToDictionary(g => g.Key, g => g.FirstOrDefault()?.Rate ?? 0),
-
-                Payrolls = payrollsTask.Result,
-                Leaves = leavesTask.Result,
-                LeaveCredits = leaveCreditsTask.Result,
-                Deductions = deductionsTask.Result,
-                Incomes = otherIncomeTask.Result,
-                SalaryAdjustments = salaryAdjTask.Result,
-                SSSTableModel = sssTableTask.Result,
-                PHICTableModel = phicTableTask.Result,
-                HDMFTableModel = hdmfTableTask.Result,
-                TaxTableModel = taxTableTask.Result,
-                SSSContribution = sssContriTask.Result,
-                PHICContribution = phicContriTask.Result,
-                HDMFContribution = hdmfContriTask.Result,
-                TaxContribution = taxContriTask.Result,
-
+                PremiumRates = ratesTask.GroupBy(x => x.Type).ToDictionary(g => g.Key, g => g.FirstOrDefault()?.Rate ?? 0m),
+                PostedPriorPayrolls = payrollsTask,
+                Leaves = leavesTask,
+                LeaveCredits = leaveCreditsTask,
+                Deductions = deductionsTask,
+                Incomes = otherIncomeTask,
+                SalaryAdjustments = salaryAdjTask,
+                SSSTableModel = sssTableTask,
+                PHICTableModel = phicTableTask,
+                HDMFTableModel = hdmfTableTask,
+                TaxTableModel = taxTableTask,
+                SSSContribution = sssContriTask,
+                PHICContribution = phicContriTask,
+                HDMFContribution = hdmfContriTask,
+                TaxContribution = taxContriTask,
                 // Initialization
                 ProratedAllowance = new List<ProratedAllowanceForSSS>(),
                 CompanyPolicy = new CompanyPolicyRule
                 {
-                    RequiredTakehomePercentage = companyInfo?.TakehomePercentage ?? 10,
-                    RequiredWorkingDays = companyInfo?.TotalWorkingDays ?? 26,
-                    ApplyStatutoryOnActualMonth = companyInfo?.ApplyStatutoryOnActualMonth ?? true,
+                    RequiredTakehomePercentage = companyTask?.TakehomePercentage ?? 10,
+                    RequiredWorkingDays = companyTask?.TotalWorkingDays ?? 26,
+                    ApplyStatutoryOnActualMonth = companyTask?.ApplyStatutoryOnActualMonth ?? true,
                 }
             };
         }
         catch (OperationCanceledException)
         {
-            // Handle cancellation gracefully (e.g., user navigated away)
             return null;
         }
         catch (AggregateException ae)
         {
-            // Task.WhenAll wraps exceptions in an AggregateException
             foreach (var ex in ae.Flatten().InnerExceptions)
             {
                 // Log each specific DB failure here

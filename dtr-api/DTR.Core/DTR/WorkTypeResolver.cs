@@ -25,7 +25,7 @@ public static class WorkTypeResolver
         if (hasIncompleteAttendance)
             return WorkType.Incomplete;
 
-        var leave = context.Payload.Data.CurrentLeave;
+        var leave = context.Payload.Data.CurrentLeaves;
         var travel = context.Payload.Data.CurrentTravel;
         var isRestDay = new IsRestDaySpec().IsSatisfiedBy(context.CanonicalTimeRange, context);
         var isLegalHoliday = context.IsLegalHoliday();
@@ -52,7 +52,7 @@ public static class WorkTypeResolver
         if (isSpecialNonWorking)
             return WorkType.SpecialNonWorkingHoliday;
 
-        if (leave != null)
+        if (leave != null && leave.Count > 0)
             return ResolveLeaveWorkType(leave);
 
         if (isSpecialWorking)
@@ -69,7 +69,7 @@ public static class WorkTypeResolver
     /// Leave only wins on a plain regular working day.
     /// </summary>
     private static WorkType ResolveDutyWorkType(
-        LeaveApplication? leave,
+        List<LeaveApplication> leave,
         bool isRestDay,
         bool isLegalHoliday,
         bool isDoubleLegal,
@@ -94,25 +94,27 @@ public static class WorkTypeResolver
         if (isSpecialWorking)
             return WorkType.SpecialWorkingHoliday;
 
-        if (leave != null)
+        if (leave != null && leave.Count > 0)
             return ResolveDutyOnLeaveWorkType(leave);
 
         return WorkType.RegularWorkDay;
     }
 
     /// <summary>
-    /// Employee worked on a regular day while on (partial) leave.
+    /// Employee worked on a regular day while on (partial) leave. A day can have more than
+    /// one leave application in flight — any paid leave present outranks unpaid.
     /// </summary>
-    private static WorkType ResolveDutyOnLeaveWorkType(LeaveApplication leave) =>
-        leave.PayType == PayType.WithPay
+    private static WorkType ResolveDutyOnLeaveWorkType(List<LeaveApplication> leave) =>
+        leave.Any(x => x.PayType == PayType.WithPay)
             ? WorkType.PaidLeave
             : WorkType.UnpaidLeave;
 
     /// <summary>
-    /// Employee has no attendance and is on leave on a regular working day.
+    /// Employee has no attendance and is on leave on a regular working day. A day can have
+    /// more than one leave application in flight — any paid leave present outranks unpaid.
     /// </summary>
-    private static WorkType ResolveLeaveWorkType(LeaveApplication leave) =>
-        leave.PayType == PayType.WithPay
+    private static WorkType ResolveLeaveWorkType(List<LeaveApplication> leave) =>
+        leave.Any(x => x.PayType == PayType.WithPay)
             ? WorkType.PaidLeave
             : WorkType.UnpaidLeave;
 

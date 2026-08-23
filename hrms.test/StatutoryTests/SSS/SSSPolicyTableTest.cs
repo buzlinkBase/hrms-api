@@ -294,7 +294,7 @@ public class SSSPolicyTableTest
             grossPay: 10_000
         );
 
-        context.Payload.Payrolls[new EmployeeKey(context.Employee.Id)] = new List<Payroll>
+        context.Payload.PostedPriorPayrolls[new EmployeeKey(context.Employee.Id)] = new List<Payroll>
         {
             new  Payroll
             {

@@ -52,6 +52,7 @@ public class SSSService : BaseService<SSSTable>
     {
         return await GetQueryable()
             .Where(x => x.EffectiveDate == effectivity)
+            .OrderBy(x=>x.RangeFrom)
             .ToListAsync(token);
     }
 

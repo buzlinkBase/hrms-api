@@ -18,6 +18,12 @@ public class MappingProfile : IRegister
         config.NewConfig<DateTime?, DateOnly?>()
             .MapWith(src => src.HasValue ? DateOnly.FromDateTime(src.Value) : null);
 
+        config.NewConfig<DateOnly, DateTime>()
+            .MapWith(src => src.ToDateTime(TimeOnly.MinValue));
+
+        config.NewConfig<DateOnly?, DateTime?>()
+            .MapWith(src => src.HasValue ? src.Value.ToDateTime(TimeOnly.MinValue) : null);
+
         config.NewConfig<PayrollSummaryLine, Payroll>();
         config.NewConfig<Payroll, PayrollSummaryLine>();
         config.NewConfig<CreateDepartment, Department>().TwoWays();

@@ -1,5 +1,6 @@
 ﻿using Hrms.Core.Messaging.LeaveWorkers;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MassTransit;
 using Microsoft.Extensions.Logging;
@@ -51,6 +52,20 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             .AsNoTracking()
             .FirstOrDefaultAsync(token)
             ?? throw new NotFoundException("Leave type not found");
+
+        if (leave.GenderRestriction != GenderRestriction.None)
+        {
+            var employee = await _uow.Repository
+                .Find<Employee>(x => x.Id == payload.EmployeeId)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(token)
+                ?? throw new NotFoundException("Employee not found");
+
+            var requiredGender = leave.GenderRestriction == GenderRestriction.MaleOnly ? "Male" : "Female";
+            if (!string.Equals(employee.Gender, requiredGender, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"\"{leave.Description}\" is restricted to {requiredGender.ToLower()} employees only.");
+        }
 
         if (!leave.AllowHalfDay &&
             (payload.DayFraction == DayFraction.AM || payload.DayFraction == DayFraction.PM))
@@ -181,8 +196,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
         foreach (var r in records)
         {
-            r.Posted       = false;
-            r.CreditsSpent = 0;
+            r.Posted         = false;
+            r.PaidLeaveHours = 0;
         }
 
         _logger.LogInformation(
@@ -192,7 +207,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
     // Phase 1: soft-reserve the estimated days on approval.
     // The authoritative Deduction only happens in Phase 2 when the DTR batch is posted
-    // and actual CreditsSpent is confirmed by the DTR engine.
+    // and actual PaidLeaveHours is confirmed by the DTR engine.
     private async Task DeductCreditsAsync(LeaveApplication app, CancellationToken token)
     {
         var leave = app.Leave

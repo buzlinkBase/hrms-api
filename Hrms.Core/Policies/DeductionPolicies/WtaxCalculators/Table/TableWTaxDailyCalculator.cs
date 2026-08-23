@@ -24,7 +24,7 @@
             var table = WTaxHelper.GetTable(context, annualizedGross);
             if (table == null) return line;
 
-            var monthlyDue = WTaxHelper.GetCalculatedDue(table);
+            var monthlyDue = WTaxHelper.GetCalculatedDue(table, annualizedGross);
             var balance = WTaxHelper.GetBalance(context, monthlyDue);
 
             if (balance <= 0) return line;

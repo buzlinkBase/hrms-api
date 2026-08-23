@@ -5,10 +5,15 @@ internal class RegularWorkDayPolicy : PayrollPolicyBase<BasicPipelineData, Payro
     public RegularWorkDayPolicy() { }
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        var dailyRate = context.Employee.DailyRate;
-        var hourlyRate = dailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
-        var regularHours = (decimal)context.DailyRecord.RegularNetHours;
+        var dailyRecord = context.DailyRecord;
+        var employee = context.Employee;
+        if (dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.RegularNetHours <= 0)
+        {
+            return line;
+        }
+        var hourlyRate = employee.DailyRate / (decimal)dailyRecord.ShiftWorkingHour;
+        var regularHours = (decimal)dailyRecord.RegularNetHours;
         line.Value += hourlyRate * regularHours;
         return line;
-    }
+    } 
 }

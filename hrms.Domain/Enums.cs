@@ -64,6 +64,20 @@ public enum SalaryType
     FIXED
 }
 
+/// <summary>
+/// How a FIXED-salary employee's Daily Rate is established.
+/// Manual: the stored DailyRate is entered and used as-is.
+/// CalculatedEDR: DailyRate = (MonthlyRate * 12) / FactorDays, recomputed by DailyRateResolver.
+/// MonthlyTotalDays: DailyRate = MonthlyRate / (actual number of days in the payroll month),
+/// so it varies per month (28/29/30/31) instead of using a fixed annual factor.
+/// </summary>
+public enum DailyRateMode
+{
+    Manual,
+    CalculatedEDR,
+    MonthlyTotalDays
+}
+
 public enum PayrollFrequency
 {
     DAILY,
@@ -278,61 +292,17 @@ public enum GenderRestriction
 
 public enum RateType
 {
-    // ── Building-block multipliers (kept for payroll pipeline) ────────────────
     REGULAR,
     NIGHTDIFF,
     OVERTIME,
+    RESTHOLOVERTIME,
     RESTDAY_DUTY,
     LEGAL_HOLIDAY,
     LEGAL_HOLIDAY_DUTY,
     SPECIAL_WORKING,
     SPECIAL_NON_WORKING,
     RESTDAY_SPECIAL,
-    HOLIDAY_OT,   
-    REG,
-    REG_OT,
-    REG_ND,
-    REG_ND_OT,
-    // Rest Day
-    RD,
-    RD_OT,
-    RD_ND,
-    RD_ND_OT,
-    // Legal Holiday (worked)
-    LH,
-    LH_OT,
-    LH_ND,
-    LH_ND_OT,
-    // Special Non-Working Holiday (worked)
-    SH,
-    SH_OT,
-    SH_ND,
-    SH_ND_OT,
-    // Rest Day + Legal Holiday
-    RD_LH,
-    RD_LH_OT,
-    RD_LH_ND,
-    RD_LH_ND_OT,
-    // Rest Day + Special Non-Working Holiday
-    RD_SH,
-    RD_SH_OT,
-    RD_SH_ND,
-    RD_SH_ND_OT,
-    // Special Working Holiday (same multiplier as regular)
-    SW,
-    SW_OT,
-    SW_ND,
-    SW_ND_OT,
-    // Double Legal Holiday (worked)
-    DLH,
-    DLH_OT,
-    DLH_ND,
-    DLH_ND_OT,
-    // Rest Day + Double Legal Holiday
-    RD_DLH,
-    RD_DLH_OT,
-    RD_DLH_ND,
-    RD_DLH_ND_OT,
+    HOLIDAY_OT, 
 }
 
 public enum ApprovalStatus

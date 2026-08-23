@@ -9,7 +9,6 @@ namespace DTR.Core;
 public sealed class PartialLeaveAttendanceStrategy : ILeaveAttendanceStrategy
 {
     public List<Attendance> CreateVirtualAttendance(
-        List<Attendance> existing,
         LeaveApplication leave,
         EmployeeDTRRun employee,
         CurrentShift? shift)

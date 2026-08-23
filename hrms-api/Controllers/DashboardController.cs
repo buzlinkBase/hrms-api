@@ -50,7 +50,7 @@ public class DashboardController : ControllerBase
             .CountAsync(token);
 
         var onLeaveToday = await _uow.Repository
-            .Find<DailyRecord>(d => d.WorkDate == today && d.LeaveHours > 0)
+            .Find<DailyRecord>(d => d.WorkDate == today && d.PaidLeaveHours > 0)
             .AsNoTracking()
             .CountAsync(token);
 

@@ -69,13 +69,13 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
-        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateEmployee payload, CancellationToken token)
         {
             var employee = _mapper.Map<Employee>(payload);
             await _service.AddAsync(employee, token);
             await _service.CommitChangesAsync(token);
-            return Ok(employee);
+            return Ok(_mapper.Map<EmployeeModel>(employee));
         }
 
         [HttpPut("{id}")]

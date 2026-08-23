@@ -27,9 +27,8 @@ public class NightDiffInfo : OvertimeInfo;
 public class LeaveInfo
 {
     public Guid LeaveId { get; set; }
-    public HolidayType Type { get; set; }
     public double ConsumeCredit { get; set; }
-    public decimal leaveFraction { get; set; }
+    //public decimal leaveFraction { get; set; }
 }
 public enum DeductionInfoType
 {

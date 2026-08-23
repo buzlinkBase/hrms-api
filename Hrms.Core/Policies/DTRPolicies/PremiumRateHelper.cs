@@ -28,16 +28,6 @@
         public static decimal GetHourlyRate(PayrollContext context)
         {
             return context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
-            //if (context.Employee.SalaryType == SalaryType.MONTHLY_FIXED)
-            //{
-            //    var monthly = context.Employee.MonthlyRate;
-            //    var daily = monthly / (context.Payload.CompanyPolicy.TotalDaysInaYear / 12);
-            //    return daily / 8; // hourly
-            //}
-            //else
-            //{
-            //    return context.Employee.DailyRate / 8;
-            //}
         }
     }
 }

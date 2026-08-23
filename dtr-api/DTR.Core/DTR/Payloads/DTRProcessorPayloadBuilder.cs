@@ -5,7 +5,7 @@ using Hrms.Domain.Entities;
 namespace DTR.Core;
 
 public record GetCurrentAttendancePayload(
-    DTRContextModel Context, 
+    DTRContextModel Context,
     EmployeeDTRRun Employee);
 public class DTRProcessorPayloadBuilder
 {
@@ -19,9 +19,9 @@ public class DTRProcessorPayloadBuilder
         _payload.Data.CurrentAttendance = currentAttendance;
         return this;
     }
-    public DTRProcessorPayloadBuilder SetCurrentLeave(LeaveApplication? leave)
+    public DTRProcessorPayloadBuilder SetCurrentLeave(List<LeaveApplication> leaves)
     {
-        _payload.Data.CurrentLeave = leave;
+        _payload.Data.CurrentLeaves = leaves;
         return this;
     }
     public DTRProcessorPayloadBuilder SetCurrentTravel(TravelOrderApplication? travel)
@@ -140,7 +140,7 @@ public class DataPayload
     public CompanyPolicyRule CompanyPolicy { get; set; }
     public EmployeePolicyRule EmployeePolicy { get; set; }
     public Dictionary<ResDaykey, CurrentRestDay> CurrentDayoffs { get; set; }
-    public LeaveApplication? CurrentLeave { get; set; }
+    public List<LeaveApplication> CurrentLeaves { get; set; }
     public TravelOrderApplication? CurrentTravel { get; set; }
 }
 public class ProvidersPayload

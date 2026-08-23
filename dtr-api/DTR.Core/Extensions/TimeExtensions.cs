@@ -14,7 +14,7 @@ public static class TimeExtensions
 {
     public static double ToHour(this TimeRange timeRange) => TimeConverter.MinutesToHour(timeRange.TotalMinutes);
     public static double ToHour(this double minutes) => TimeConverter.MinutesToHour(minutes);
-    public static double ToDays(this TimeRange timeRange) => TimeConverter.MinutesToDays(timeRange.TotalMinutes);
+    //public static double ToDays(this TimeRange timeRange) => TimeConverter.MinutesToDays(timeRange.TotalMinutes);
     public static double ToDays(this double minutes) => TimeConverter.MinutesToDays(minutes);
     public static string ToRangeString(this TimeRecord record)
     {

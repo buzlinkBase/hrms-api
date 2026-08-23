@@ -5,9 +5,10 @@ public static class RATE_DEFAULT
     public const decimal REGULAR = 1.00m;
     public const decimal NIGHTDIFF = 1.10m;
     public const decimal OVERTIME = 1.25m;
+    public const decimal HOLIDAY_OT = 1.30m;
     public const decimal RESTDAY_DUTY = 1.30m;
-    public const decimal LEGAL_HOLIDAY = 1.00m;   // no-work holiday pay
-    public const decimal LEGAL_HOLIDAY_DUTY = 2.00m;   // worked on legal holiday
+    public const decimal LEGAL_HOLIDAY = 1.00m;  
+    public const decimal LEGAL_HOLIDAY_DUTY = 2.00m; 
     public const decimal SPECIAL_WORKING = 1.00m;
     public const decimal SPECIAL_NON_WORKING = 1.30m;
     public const decimal RESTDAY_SPECIAL = 1.50m;

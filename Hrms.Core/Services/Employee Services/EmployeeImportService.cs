@@ -702,7 +702,7 @@ public class TemplateDownloaderService
         worksheet.Cell("B3").Value = branchList.FirstOrDefault();
 
         //salary Type
-        var SalaryTypes = new List<string>() { "DAILY", "MONTHLY_VARIABLE", "MONTHLY_FIXED" };
+        var SalaryTypes = new List<string>() { "VARIABLE", "FIXED" };
         helperSheet = workbook.Worksheets.Add("SalaryType");
         CreateSheet(helperSheet, SalaryTypes);
         range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);

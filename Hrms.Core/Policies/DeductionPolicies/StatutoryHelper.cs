@@ -24,7 +24,7 @@ public class StatutoryHelper
               - RateDeductions(context);
         }
 
-        if (!context.Payload.Payrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
         var prioGross = payrol.Sum(x => x.GrossIncome);
 
         return day <= 15
@@ -98,7 +98,7 @@ public class StatutoryHelper
         int remainingDays = daysInMonth - curDay;
 
         // Payroll history
-        if (!context.Payload.Payrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrolls))
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrolls))
         {
             payrolls = new List<Payroll>();
         }
@@ -198,7 +198,7 @@ public class StatutoryHelper
         //TODO add up here the data already in the db outside the range with same month as the from date
         //TODO Cola is per cutoff setup
         //TODO split allowances here to the belonging months
-        if (!context.Payload.Payrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol))
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol))
         {
             payrol = new List<Payroll>();
         }
@@ -236,7 +236,7 @@ public class StatutoryHelper
     private static decimal GetAbsencesTotal(DeductionPayloadContext context)
     {
         //prior payroll
-        if (!context.Payload.Payrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
         var PostedAbsent = payrol.Sum(x => x.Absences);
 
         //current
@@ -255,7 +255,7 @@ public class StatutoryHelper
     }
     private static decimal GetLWOP(DeductionPayloadContext context)
     {
-        if (!context.Payload.Payrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol))
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol))
         {
             payrol = new List<Payroll>();
         }
@@ -274,7 +274,7 @@ public class StatutoryHelper
     }
     private static decimal GetLateUTAmount(DeductionPayloadContext context)
     {
-        if (!context.Payload.Payrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
         var priorLates = payrol.Sum(x => x.LateAmount + x.UnderTimeAmount);
 
         //if (!context.Payload.CompanyPolicy.ApplyStatutoryOnActualMonth)

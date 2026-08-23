@@ -37,6 +37,19 @@ public class Employee : BaseEntity
     public decimal DailyRate { get; set; }
     public decimal Cola { get; set; } //PerPayroll
 
+    // FIXED salary only: whether DailyRate is entered manually or derived as
+    // (MonthlyRate * 12) / FactorDays. See DailyRateResolver.
+    public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
+    public decimal? FactorDays { get; set; }
+    // MonthlyTotalDays mode only: when true, ignores FactorDays and divides by the actual
+    // number of days in each payroll month (28/29/30/31) instead of a fixed denominator.
+    public bool UseActualMonthDays { get; set; }
+
+    public bool IsRestDayPaid { get; set; }
+    public bool IsRegularHolidayIncluded { get; set; }
+    public bool IsSpecialNonWorkingIncluded { get; set; }
+    public bool IsNightDiffIncluded { get; set; }
+
     public DateTime? DOB { get; set; }
     public string BloodType { get; set; } = string.Empty;
 

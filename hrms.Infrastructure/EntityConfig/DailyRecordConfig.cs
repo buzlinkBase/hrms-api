@@ -21,10 +21,15 @@ public class DailyRecordConfig : IEntityTypeConfiguration<DailyRecord>
         //        v => EnumParserConfig.SafeParseEnum(v, DTRSOURCE.SYSTEMCALC)
         //    );
 
-        builder
-        .HasOne(d => d.Employee)
-        .WithMany()
-        .HasForeignKey(d => d.EmployeeId)
-        .IsRequired(false);
+        builder.HasOne(d => d.Employee)
+                    .WithMany()
+                    .HasForeignKey(d => d.EmployeeId)
+                    .IsRequired();
+
+        builder.HasMany(d => d.LeavesInfo)
+            .WithOne(x => x.DTR)
+            .HasForeignKey(d => d.DTRId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .IsRequired();
     }
 }

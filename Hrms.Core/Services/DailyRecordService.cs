@@ -46,19 +46,37 @@ public class DailyRecordService : BaseService<DailyRecord>
     }
 
     public async Task<(Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records, DateOnly FromDate, DateOnly ToDate)>
-        LoadForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
+    LoadForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
     {
-        var records = await GetQueryable(x => batchCodes.Contains(x.BatchCode!))
-            .AsNoTracking()
-            .Include(x => x.Employee)
-            .ProjectToType<DailyRecordRunModel>(_config)
-            .Where(x => x.EmployeeId != null)
-            .GroupBy(x => new EmployeeKey(x.EmployeeId))
-            .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
+        // Guard 1: Argument validation
+        ArgumentNullException.ThrowIfNull(batchCodes);
 
-        var allDates = records.Values.SelectMany(x => x).Select(x => x.WorkDate).ToList();
-        var fromDate = allDates.Any() ? allDates.Min() : DateOnly.FromDateTime(DateTime.UtcNow);
-        var toDate   = allDates.Any() ? allDates.Max() : fromDate;
+        // Guard 2: Short-circuit empty inputs to avoid unnecessary DB calls
+        if (batchCodes.Count == 0)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            return ([], today, today);
+        }
+
+        var recordsList = await GetQueryable(x => batchCodes.Contains(x.BatchCode!))
+             .AsNoTracking()
+             .ProjectToType<DailyRecordRunModel>(_config)
+             .ToListAsync(token);
+
+        // Guard 3: Return early if database returns no matching records
+        if (recordsList.Count == 0)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            return ([], today, today);
+        }
+
+        var records = recordsList
+            .GroupBy(x => new EmployeeKey(x.EmployeeId!))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Single-pass optimization for date range calculation
+        var fromDate = recordsList.Min(x => x.WorkDate);
+        var toDate = recordsList.Max(x => x.WorkDate);
 
         return (records, fromDate, toDate);
     }
@@ -105,13 +123,14 @@ public class DailyRecordService : BaseService<DailyRecord>
     {
         var records = await _uow.Repository
             .Find<DailyRecord>(x => x.BatchCode == batchCode && !x.Posted)
+            .Include(x => x.LeavesInfo)
             .ToListAsync(token);
 
         foreach (var r in records)
             r.Posted = true;
 
         // Phase 2: convert approval-time reservations into authoritative deductions
-        // using CreditsSpent already set by the DTR computation engine.
+        // using PaidLeaveHours/LeavesInfo already set by the DTR computation engine.
         await _reconciliation.ConsumeReservationsAsync(batchCode, records, token);
 
         await CommitChangesAsync(token);
@@ -126,8 +145,8 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         foreach (var r in records)
         {
-            r.Posted       = false;
-            r.CreditsSpent = 0;
+            r.Posted         = false;
+            r.PaidLeaveHours = 0;
         }
 
         // Reverse Phase 2 credit deductions; restores reservations for still-approved leaves
@@ -153,8 +172,8 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         foreach (var r in records)
         {
-            r.Posted       = false;
-            r.CreditsSpent = 0;
+            r.Posted         = false;
+            r.PaidLeaveHours = 0;
         }
 
         // Caller is responsible for CommitChangesAsync so this can be batched
@@ -230,7 +249,8 @@ public class DailyRecordService : BaseService<DailyRecord>
                 RestSpecialDayNDOTHours = x.Sum(xx => xx.RestSpecialDayNDOTHours),
                 RestSpecialDayOTHours = x.Sum(xx => xx.RestSpecialDayOTHours),
                 AbsentCount = x.Sum(x => x.AbsentCount),
-                LeaveHours = x.Sum(x => x.LeaveHours),
+                LeaveHours = x.Sum(x => x.PaidLeaveHours),
+                UnpaidLeaveHours = x.Sum(x => x.UnpaidLeaveHours),
             })
             .OrderBy(x => x.FullName)
             .ToListAsync(token);
@@ -301,8 +321,18 @@ public class DailyRecordService : BaseService<DailyRecord>
                  UTMinutes = x.UTMinutes,
                  OverMinutes = x.OverMinutes,
                  LateForOTMinutes = 0,
-                 OBHours = 0,
-                 LeaveHours = 0,
+                 OBHours = x.OBHours,
+                 PaidLeaveHours = x.PaidLeaveHours,
+                 UnpaidLeaveHours = x.UnpaidLeaveHours,
+                 LeavesInfo = x.LeavesInfo == null ? null : x.LeavesInfo.Select(li => new LeaveMetaDataModel
+                 {
+                     LeaveId = li.LeaveId,
+                     Name = li.Name,
+                     Hours = li.Hours,
+                     StartDateTime = li.StartDateTime,
+                     EndDateTime = li.EndDateTime,
+                     PayType = li.PayType,
+                 }).ToList(),
                  AbsentCount = x.AbsentCount,
 
                  RegularNetHours = x.RegularNetHours,
