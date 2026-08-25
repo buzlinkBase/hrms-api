@@ -7,7 +7,7 @@ namespace DTR.Core;
 public class EnumExtrator
 {
     public static string[] GetNames<T>() => Enum.GetNames(typeof(T));
-    public static string GetName<T>(T evalue) where T : Enum
+    public static string? GetName<T>(T evalue) where T : Enum
     {
         return Enum.GetName(typeof(T), evalue);
     }

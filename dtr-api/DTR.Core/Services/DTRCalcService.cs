@@ -3,11 +3,13 @@
 public class DTRCalcService
 {
     private readonly CurrentRangeDTRPayloadService _payloadRangeService;
+    private readonly IServiceProvider _serviceProvider;
     private CancellationToken? Token;
     private DTRRequestPayload? Payload;
-    public DTRCalcService(CurrentRangeDTRPayloadService payloadRangeService)
+    public DTRCalcService(CurrentRangeDTRPayloadService payloadRangeService, IServiceProvider serviceProvider)
     {
         _payloadRangeService = payloadRangeService;
+        _serviceProvider = serviceProvider;
     }
     public async Task<ObjectCollection<T>> GetDTRInfoAsync<T>(
         DTRRequestPayload payload,
@@ -17,7 +19,7 @@ public class DTRCalcService
         bool processOnlyPairedAtt = true,
         bool removedoublePunch = true) where T : class, new()
     {
-        var processor = DTRProcessorFactory.Create<T>(processorType);
+        var processor = DTRProcessorFactory.Create<T>(processorType, _serviceProvider);
         var canProcess = true;
         var context = await _payloadRangeService.SetPayload(canProcess, payload, removedoublePunch);
         Token = token;

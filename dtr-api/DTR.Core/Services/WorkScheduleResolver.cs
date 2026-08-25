@@ -1,5 +1,4 @@
 ﻿
-using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 
@@ -56,8 +55,6 @@ public class WorkScheduleResolver
     }
 }
 
-
-//handlers
 public abstract class WorkScheduleHandler
 {
     protected WorkScheduleHandler NextHandler { get; set; }

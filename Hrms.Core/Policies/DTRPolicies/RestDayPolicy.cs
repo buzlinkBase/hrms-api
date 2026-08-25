@@ -13,8 +13,8 @@ internal class RestDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
             return line;
         }
 
-        var totalRateMultiplier= PremiumRateHelper.GetRate(context, RateType.RESTDAY_DUTY, RATE_DEFAULT.RESTDAY_DUTY);
-        var hourlyRate = employee.DailyRate / (decimal)dailyRecord.ShiftWorkingHour;
+        var totalRateMultiplier = PremiumRateHelper.GetRate(context, RateType.RESTDAY_DUTY, RATE_DEFAULT.RESTDAY_DUTY);
+        var hourlyRate = RateHelper.GetHourlyRate(context);
         var restDayHours = (decimal)dailyRecord.RestDayHours;
 
         // Check if base rest day rate is pre-funded (Fixed with IsRestDayPaid = true)
@@ -30,5 +30,4 @@ internal class RestDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
         return line;
 
     }
-
 }

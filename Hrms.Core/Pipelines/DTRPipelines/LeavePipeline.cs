@@ -2,11 +2,11 @@
 
 public class LeavePipeline : BasicPipelineCollectionBase
 {
-    public override LineCollection<BasicPipelineData> Run(PayrollContext context)
+    protected override void ConfigurePolicies(PayrollPipeLine<PayrollContext, LineCollection<BasicPipelineData>> pipeline)
     {
         pipeline.AddPolicy(new LeavePolicy());
-        return pipeline.Execute(new LineCollection<BasicPipelineData>(), context);
     }
 }
+
 
 

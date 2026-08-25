@@ -1,10 +1,50 @@
-﻿using Google.GenAI.Types;
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DTR.Core;
 
 public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
 {
+    private readonly IDTRTimePipeline _regularPipeline;
+    private readonly IHolidayDutyTimePipeline _holidayDutyPipeline;
+    private readonly IDTRTimePipeline _travelPipeline;
+    private readonly IDTRTimePipeline _leavePipeline;
+    private readonly IDTRTimePipeline _plus8Pipeline;
+    private readonly IDTRTimePipeline _otPipeline;
+    private readonly IDTRTimePipeline _latePipeline;
+    private readonly IDTRTimePipeline _utPipeline;
+    private readonly IDTRTimePipeline _overbreakPipeline;
+    private readonly IWorkTypeResolver _workTypeResolver;
+    private readonly IDTRDetailColumnDisplayProcessor _displayProcessor;
+    private readonly IDailyRecordBuilder _dailyRecordBuilder;
+
+    public CleanDTRDetailProcessor(
+        [FromKeyedServices(DTRPipelineKeys.Regular)] IDTRTimePipeline regularPipeline,
+        IHolidayDutyTimePipeline holidayDutyPipeline,
+        [FromKeyedServices(DTRPipelineKeys.Travel)] IDTRTimePipeline travelPipeline,
+        [FromKeyedServices(DTRPipelineKeys.Leave)] IDTRTimePipeline leavePipeline,
+        [FromKeyedServices(DTRPipelineKeys.Plus8)] IDTRTimePipeline plus8Pipeline,
+        [FromKeyedServices(DTRPipelineKeys.OT)] IDTRTimePipeline otPipeline,
+        [FromKeyedServices(DTRPipelineKeys.Late)] IDTRTimePipeline latePipeline,
+        [FromKeyedServices(DTRPipelineKeys.UT)] IDTRTimePipeline utPipeline,
+        [FromKeyedServices(DTRPipelineKeys.Overbreak)] IDTRTimePipeline overbreakPipeline,
+        IWorkTypeResolver workTypeResolver,
+        IDTRDetailColumnDisplayProcessor displayProcessor,
+        IDailyRecordBuilder dailyRecordBuilder)
+    {
+        _regularPipeline = regularPipeline;
+        _holidayDutyPipeline = holidayDutyPipeline;
+        _travelPipeline = travelPipeline;
+        _leavePipeline = leavePipeline;
+        _plus8Pipeline = plus8Pipeline;
+        _otPipeline = otPipeline;
+        _latePipeline = latePipeline;
+        _utPipeline = utPipeline;
+        _overbreakPipeline = overbreakPipeline;
+        _workTypeResolver = workTypeResolver;
+        _displayProcessor = displayProcessor;
+        _dailyRecordBuilder = dailyRecordBuilder;
+    }
 
     public DTRDetailModel? Process(DTRProcessorPayload payload)
     {
@@ -23,37 +63,37 @@ public class CleanDTRDetailProcessor : IDTRProcessor<DTRDetailModel>
 
         var pipelineResult = new PipeLineResult
         {
-            Regular = new NonHolidayDutyTimePipeline(context).Apply(cannonicalTimeRange),
-            LegalHoliday = new HolidayDutyTimePipeline(context, HolidayType.LEGAL).Apply(cannonicalTimeRange),
-            SpecialHoliday = new HolidayDutyTimePipeline(context, HolidayType.SPECIAL).Apply(cannonicalTimeRange),
-            Travel = new TravelPipeline(context).Apply(cannonicalTimeRange),
-            Leave = new LeaveTimePipeline(context).Apply(cannonicalTimeRange),
-            Plus8 = new HolidayPlus8TimePipeline(context).Apply(cannonicalTimeRange),
-            OT = new OverTimePipeline(context).Apply(cannonicalTimeRange),
-            Late = new LateTimePipeline(context).Apply(cannonicalTimeRange),
-            UT = new UndertimeTimePipeline(context).Apply(cannonicalTimeRange),
-            Overbreak = new OverbreaktimePipeline(context).Apply(cannonicalTimeRange),
+            Regular = _regularPipeline.Apply(context, cannonicalTimeRange),
+            LegalHoliday = _holidayDutyPipeline.Apply(context, HolidayType.LEGAL, cannonicalTimeRange),
+            SpecialHoliday = _holidayDutyPipeline.Apply(context, HolidayType.SPECIAL, cannonicalTimeRange),
+            Travel = _travelPipeline.Apply(context, cannonicalTimeRange),
+            Leave = _leavePipeline.Apply(context, cannonicalTimeRange),
+            Plus8 = _plus8Pipeline.Apply(context, cannonicalTimeRange),
+            OT = _otPipeline.Apply(context, cannonicalTimeRange),
+            Late = _latePipeline.Apply(context, cannonicalTimeRange),
+            UT = _utPipeline.Apply(context, cannonicalTimeRange),
+            Overbreak = _overbreakPipeline.Apply(context, cannonicalTimeRange),
         };
 
-        var workType = WorkTypeResolver.Resolve(context);
+        var workType = _workTypeResolver.Resolve(context);
         var displayContext = new DisplayContext
         {
             TimeContext = context,
             PipeLineResult = pipelineResult
         };
 
-        var evaluated = DTRDetailColumnDisplayProcessor.DisplayRule(displayContext);
-        var nightDiffResult = DTRDetailColumnDisplayProcessor.ComputeNightDiff(evaluated, displayContext);
+        var evaluated = _displayProcessor.DisplayRule(displayContext);
+        var nightDiffResult = _displayProcessor.ComputeNightDiff(evaluated, displayContext);
 
-        return DailyRecordBuilder.Build(context, pipelineResult,
+        return _dailyRecordBuilder.Build(context, pipelineResult,
             evaluated,
             nightDiffResult,
             workType);
     }
 }
-public class DailyRecordBuilder
+public class DailyRecordBuilder : IDailyRecordBuilder
 {
-    public static DTRDetailModel Build(
+    public DTRDetailModel Build(
         TimeContext context,
         PipeLineResult pipeline,
         EvaluatedColumnResult evaluated,

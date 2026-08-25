@@ -1,35 +1,25 @@
-﻿namespace Hrms.Core.Pipelines;
+namespace Hrms.Core.Pipelines;
 
 public class AbsentPipeline : BasicPipelineBase
 {
-    public override BasicPipelineData Run(PayrollContext context)
+    protected override void ConfigurePolicies(PayrollPipeLine<PayrollContext, BasicPipelineData> pipeline)
     {
         pipeline.AddPolicy(new AbsentDayPolicy());
-        return pipeline.Execute(new BasicPipelineData(), context);
     }
 }
 
 public class LatesPipeLine : BasicPipelineBase
 {
-    public override BasicPipelineData Run(PayrollContext context)
+    protected override void ConfigurePolicies(PayrollPipeLine<PayrollContext, BasicPipelineData> pipeline)
     {
-        pipeline
-            .AddPolicy(new LatePolicy())
-            ;
-        return pipeline.Execute(new BasicPipelineData(), context);
+        pipeline.AddPolicy(new LatePolicy());
     }
 }
 
 public class UnderTimePipeLine : BasicPipelineBase
 {
-    public override BasicPipelineData Run(PayrollContext context)
+    protected override void ConfigurePolicies(PayrollPipeLine<PayrollContext, BasicPipelineData> pipeline)
     {
-        pipeline
-            .AddPolicy(new UndertimePolicy())
-            ;
-        return pipeline.Execute(new BasicPipelineData(), context);
+        pipeline.AddPolicy(new UndertimePolicy());
     }
 }
-
-
-

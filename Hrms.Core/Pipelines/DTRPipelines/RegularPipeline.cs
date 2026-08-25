@@ -3,12 +3,9 @@ namespace Hrms.Core.Pipelines;
 
 public class RegularPipeline : BasicPipelineBase
 {
-    public override BasicPipelineData Run(PayrollContext context)
+    protected override void ConfigurePolicies(PayrollPipeLine<PayrollContext, BasicPipelineData> pipeline)
     {
-        pipeline
-            .AddPolicy(new RegularWorkDayPolicy())
-            ;
-        return pipeline.Execute(new BasicPipelineData(), context);
+        pipeline.AddPolicy(new RegularWorkDayPolicy());
     }
 }
 

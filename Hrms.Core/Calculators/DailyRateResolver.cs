@@ -1,5 +1,10 @@
 namespace Hrms.Core.Calculators;
 
+public interface IDailyRateResolver
+{
+    decimal Resolve(EmployeeModelPayrollRun employee, DateOnly referenceDate = default);
+}
+
 /// <summary>
 /// Resolves the effective Daily Rate to use for a payroll run.
 /// Manual mode (or non-FIXED salary): the employee's stored DailyRate is authoritative.
@@ -14,9 +19,9 @@ namespace Hrms.Core.Calculators;
 /// employee.DailyRate downstream (RestDayPolicy, RegularWorkDayPolicy, StatutoryHelper, etc.)
 /// automatically gets the resolved rate without each needing to call the resolver itself.
 /// </summary>
-public static class DailyRateResolver
+public class DailyRateResolver : IDailyRateResolver
 {
-    public static decimal Resolve(EmployeeModelPayrollRun employee, DateOnly referenceDate = default)
+    public decimal Resolve(EmployeeModelPayrollRun employee, DateOnly referenceDate = default)
     {
         if (employee.SalaryType != SalaryType.FIXED) return employee.DailyRate;
 

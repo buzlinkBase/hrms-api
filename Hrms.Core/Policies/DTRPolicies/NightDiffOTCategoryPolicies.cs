@@ -1,29 +1,34 @@
 namespace Hrms.Core.Policies.DTRPolicies;
 
-/// <summary>
-/// One dedicated policy per WorkType/NDOT-hours column (overtime hours that were also
-/// worked at night) — replaces the OT+ND handlers that used to live inside the
-/// consolidated NightDiffPolicy. Formula (nd - 1.00) is unchanged from the original
-/// handlers — the OT rate was never actually applied to the ND premium there either,
-/// only the ND rate; NDOT differs from plain ND only in which raw hours column it reads.
-/// </summary>
 internal abstract class SingleCategoryNDOTPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
     protected SingleCategoryNDOTPolicy() : base(new IsEligibleForNightDifferential(), SpecFailBehaviour.ReturnInput) { }
 
     protected abstract double Hours(DailyRecordRunModel r);
+    protected abstract RateType[] PolicyRateTypes { get; }
 
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        var dailyRecord = context.DailyRecord;
-     
-        var hours = (decimal)Hours(dailyRecord);
-        if (hours <= 0) return line;
+        var hours = (decimal)Hours(context.DailyRecord);
+        if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
 
-        var hourlyRate = PremiumRateHelper.GetHourlyRate(context);
-        var nd = PremiumRateHelper.GetRate(context, RateType.NIGHTDIFF, RATE_DEFAULT.NIGHTDIFF);
+        var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
 
-        line.Value += hours * hourlyRate * (nd - 1.00m);
+        decimal combinedRateMultiplier = 1.0m;
+        foreach (var rateType in PolicyRateTypes)
+        {
+            var rate = PremiumRateHelper.GetRate(context, rateType, 1.0m);
+            combinedRateMultiplier *= rate;
+        }
+
+        var isPreFunded = context.Employee.IsNightDiffIncluded ||
+                          context.Employee.SalaryType == SalaryType.FIXED;
+
+        var effectiveMultiplier = isPreFunded
+            ? Math.Max(0m, combinedRateMultiplier - 1.00m)
+            : combinedRateMultiplier;
+
+        line.Value += hours * baseHourlyRate * effectiveMultiplier;
         return line;
     }
 }
@@ -31,38 +36,47 @@ internal abstract class SingleCategoryNDOTPolicy : PayrollPolicyBase<BasicPipeli
 internal class RegularNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RegularNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.OVERTIME, RateType.NIGHTDIFF };
 }
 
 internal class RestDayNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestDayNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
 
 internal class LegalHolNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.LegalHolNightDiffOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
 
 internal class RestLegalDayNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestLegalDayNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
+
 internal class SpecialNonWorkingNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.SpecialHolNightDiffOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.SPECIAL_NON_WORKING, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
 
 internal class RestSpecialDayNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestSpecialDayNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_SPECIAL, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
 
 internal class DoubleLegalNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.DoubleLegalNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.LEGAL_HOLIDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
 
 internal class RestDoubleLegalNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestDoubleLegalNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }

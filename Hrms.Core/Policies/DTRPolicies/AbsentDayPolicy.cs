@@ -10,13 +10,15 @@ internal class AbsentDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollCon
 
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        line.AbsentInfo = new AbsentInfo
+        var dailyRecord = context.DailyRecord;
+
+        if (dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.AbsentCount <= 0)
         {
-            PayrollDate = context.PayrollDate,
-            Count = context.DailyRecord.AbsentCount,
-            Amount = context.Employee.DailyRate,
-        };
-        line.Value += 1;
+            return line;
+        }
+
+        line.Value += dailyRecord.AbsentCount * context.Employee.DailyRate;
         return line;
+
     }
 }

@@ -1,59 +1,62 @@
-﻿namespace Hrms.Core.Calculators.Payloads;
+﻿
+namespace Hrms.Core.Calculators.Payloads;
 
 public class BasicRateModel
 {
-    public Guid? DtrId  { get; set; }
-    public string? DTRRef  { get; set; }
+    public Guid? DtrId { get; set; }
+    public string? DTRRef { get; set; }
     public DateOnly Date { get; set; } 
-    public Guid EmployeeId { get; set; }
+
     public decimal BasicPay { get; set; }
-    public decimal RegularDuty { get; set; }
-    public decimal RestDayDuty { get; set; }
-    public decimal LWOP { get; set; }
-    public decimal LeaveWithPay { get; set; }
-    public decimal TimeBaseGross { get; set; }
-    public decimal LegalHoliday { get; set; }
-    public decimal RestLegalDay { get; set; }
-    public decimal RestSpecialDay { get; set; }
-    public decimal SpecialWorkDay { get; set; }
-    public decimal DoubleLegal { get; set; }
-    public decimal RestDoubleLegal { get; set; }
+    public decimal Gross { get; set; }
+    public decimal LateAmount { get; set; }
+    public decimal UTAmount { get; set; }
+    public decimal AbsentAmount { get; set; }
+    public decimal PaidLeave { get; set; }
+    public decimal UnpaidLeave { get; set; }
 
-    // Per-category OT/ND/NDOT pay — one dedicated pipeline per column, individually traceable
-    // instead of folded into the aggregate OTHourInfo/NightDiffInfo below.
-    public decimal RegularOT { get; set; }
-    public decimal RestDayOT { get; set; }
-    public decimal LegalHolOT { get; set; }
-    public decimal RestLegalDayOT { get; set; }
-    public decimal SpecialNonWorkingOT { get; set; }
-    public decimal RestSpecialDayOT { get; set; }
-    public decimal DoubleLegalOT { get; set; }
-    public decimal RestDoubleLegalOT { get; set; }
+    public decimal RegularDayPay { get; set; }
+    public decimal RegularOTPay { get; set; }
+    public decimal RegularNDPay { get; set; } 
+    public decimal RegularNDOTPay { get; set; }
 
-    public decimal RegularND { get; set; }
-    public decimal RestDayND { get; set; }
-    public decimal LegalHolND { get; set; }
-    public decimal RestLegalDayND { get; set; }
-    public decimal SpecialNonWorkingND { get; set; }
-    public decimal RestSpecialDayND { get; set; }
-    public decimal DoubleLegalND { get; set; }
-    public decimal RestDoubleLegalND { get; set; }
+    public decimal RestDayPay { get; set; }
+    public decimal RestDayOTPay { get; set; }
+    public decimal RestDayNDPay { get; set; }
+    public decimal RestDayNDOTPay { get; set; }
 
-    public decimal RegularNDOT { get; set; }
-    public decimal RestDayNDOT { get; set; }
-    public decimal LegalHolNDOT { get; set; }
-    public decimal RestLegalDayNDOT { get; set; }
-    public decimal SpecialNonWorkingNDOT { get; set; }
-    public decimal RestSpecialDayNDOT { get; set; }
-    public decimal DoubleLegalNDOT { get; set; }
-    public decimal RestDoubleLegalNDOT { get; set; }
+    public decimal LegalPay { get; set; }
+    public decimal LegalOTPay { get; set; }
+    public decimal LegalNDPay { get; set; }
+    public decimal LegalNDOTPay { get; set; } 
 
-    public AbsentInfo AbsentInfo { get; set; } = new();
-    //public List<LeaveInfo> Leaves { get; set; } = new();
-    public LateInfo LateHourInfo { get; set; } = new();
-    public UnderTimeInfo UTHourInfo { get; set; } = new();
-    public OvertimeInfo OTHourInfo { get; set; } = new();
-    public NightDiffInfo NightDiffInfo { get; set; } = new();
-    public string Remarks { get; set; } = string.Empty;
+    public decimal SpecialPay { get; set; } 
+    public decimal SpecialOTPay { get; set; }
+    public decimal SpecialNDPay { get; set; }
+    public decimal SpecialNDOTPay { get; set; }
+
+    public decimal RestLegalPay { get; set; }
+    public decimal RestLegalOTPay { get; set; }
+    public decimal RestLegalNDPay { get; set; }
+    public decimal RestLegalNDOTPay { get; set; }
+
+    public decimal RestSpecialPay { get; set; }
+    public decimal RestSpecialOTPay { get; set; }
+    public decimal RestSpecialNDPay { get; set; }
+    public decimal RestSpecialNDOTPay { get; set; }
+
+    public decimal DoubleLegalPay { get; set; }
+    public decimal DoubleLegalOTPay { get; set; }
+    public decimal DoubleLegalNDPay { get; set; }
+    public decimal DoubleLegalNDOTPay { get; set; }
+
+    public decimal RestDoubleLegalPay { get; set; }
+    public decimal RestDoubleLegalOTPay { get; set; }
+    public decimal RestDoubleLegalNDPay { get; set; }
+    public decimal RestDoubleLegalNDOTPay { get; set; }
+
+    public decimal TotalOT { get; set; }
+    public decimal TotalND { get; set; }
+    public decimal TotalNDOT  { get; set; }
 
 }

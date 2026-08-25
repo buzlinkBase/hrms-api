@@ -37,9 +37,15 @@ public static class DutyTypeMapFactory
     };
 }
 
-public static class DTRDetailColumnDisplayProcessor
+public interface IDTRDetailColumnDisplayProcessor
 {
-    public static NightDiffEvaluationResult ComputeNightDiff(EvaluatedColumnResult evaluated, DisplayContext dContext)
+    EvaluatedColumnResult DisplayRule(DisplayContext displayContext);
+    NightDiffEvaluationResult ComputeNightDiff(EvaluatedColumnResult evaluated, DisplayContext dContext);
+}
+
+public class DTRDetailColumnDisplayProcessor : IDTRDetailColumnDisplayProcessor
+{
+    public NightDiffEvaluationResult ComputeNightDiff(EvaluatedColumnResult evaluated, DisplayContext dContext)
     {
         var nightDiffThresholdEvaluator = DutyTypeMapFactory.Create[DayType.NIGHT_DIFF];
         var ndlh = new ColumnDisplayEvaluator(new LegalNightDiffRule(evaluated)).Handle(dContext);
@@ -67,7 +73,7 @@ public static class DTRDetailColumnDisplayProcessor
         };
     }
 
-    public static EvaluatedColumnResult DisplayRule(DisplayContext displayContext)
+    public EvaluatedColumnResult DisplayRule(DisplayContext displayContext)
     {
         var evaluators = DutyTypeMapFactory.Create;
         var LegalHolidayRange = new ColumnDisplayEvaluator(new LegalHolidayRule()).Handle(displayContext);

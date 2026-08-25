@@ -1,36 +1,4 @@
-﻿public class AbsentInfo
-{
-    public DateOnly PayrollDate { get; set; }
-    public int Count { get; set; }
-    public decimal Amount { get; set; }
-}
-public class TimeInfo
-{
-    public DateOnly PayrollDate { get; set; }
-    public decimal Hour { get; set; }
-    public decimal Amount { get; set; }
-}
-public class UnderTimeInfo : TimeInfo
-{
-    public DateOnly PayrollDate { get; set; }
-    public decimal Hour { get; set; }
-    public decimal Amount { get; set; }
-}
-public class LateInfo : TimeInfo
-{
-}
-public class OvertimeInfo : TimeInfo
-{
-    public string Handler { get; set; }
-}
-public class NightDiffInfo : OvertimeInfo;
-public class LeaveInfo
-{
-    public Guid LeaveId { get; set; }
-    public double ConsumeCredit { get; set; }
-    //public decimal leaveFraction { get; set; }
-}
-public enum DeductionInfoType
+﻿public enum DeductionInfoType
 {
     Others
 }

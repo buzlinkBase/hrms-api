@@ -1,74 +1,190 @@
-﻿namespace Hrms.Core.Calculators;
+namespace Hrms.Core.Calculators;
 
 public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext>
 {
+    private readonly RegularPipeline _regularPipeline;
+    private readonly RestDayPipeLine _restDayPipeline;
+    private readonly RegularHolidayPipeLine _legalPipeline;
+    private readonly SpecialWorkDayPipeLine _specialPipeline;
+    private readonly RestLegalDayPipeLine _restLegalPipeline;
+    private readonly RestSpecialDayPipeLine _restSpecialPipeline;
+    private readonly DoubleLegalPipeLine _doubleLegalPipeline;
+    private readonly RestDoubleLegalPipeLine _restDoubleLegalPipeline;
+
+    private readonly RegularOTPipeLine _regularOTPipeline;
+    private readonly RestDayOTPipeLine _restOTPipeline;
+    private readonly LegalHolOTPipeLine _legalOTPipeline;
+    private readonly SpecialNonWorkingOTPipeLine _specialOTPipeline;
+    private readonly RestLegalDayOTPipeLine _restLegalOTPipeline;
+    private readonly RestSpecialDayOTPipeLine _restSpecialOTPipeline;
+    private readonly DoubleLegalOTPipeLine _doubleLegalOTPipeline;
+    private readonly RestDoubleLegalOTPipeLine _restDoubleLegalOTPipeline;
+
+    private readonly RegularNDPipeLine _regularNDPipeline;
+    private readonly RestDayNDPipeLine _restNDPipeline;
+    private readonly LegalHolNDPipeLine _legalNDPipeline;
+    private readonly SpecialNonWorkingNDPipeLine _specialNDPipeline;
+    private readonly RestLegalDayNDPipeLine _restLegalNDPipeline;
+    private readonly RestSpecialDayNDPipeLine _restSpecialNDPipeline;
+    private readonly DoubleLegalNDPipeLine _doubleLegalNDPipeline;
+    private readonly RestDoubleLegalNDPipeLine _restDoubleLegalNDPipeline;
+
+    private readonly RegularNDOTPipeLine _regularNDOTPipeline;
+    private readonly RestDayNDOTPipeLine _restNDOTPipeline;
+    private readonly LegalHolNDOTPipeLine _legalNDOTPipeline;
+    private readonly RestLegalDayNDOTPipeLine _restLegalNDOTPipeline;
+    private readonly SpecialNonWorkingNDOTPipeLine _specialNDOTPipeline;
+    private readonly RestSpecialDayNDOTPipeLine _restSpecialNDOTPipeline;
+    private readonly DoubleLegalNDOTPipeLine _doubleLegalNDOTPipeline;
+    private readonly RestDoubleLegalNDOTPipeLine _restDoubleLegalNDOTPipeline;
+
+    private readonly AbsentPipeline _absentPipeline;
+    private readonly LatesPipeLine _latesPipeline;
+    private readonly UnderTimePipeLine _underTimePipeline;
+    private readonly LeavePipeline _leavePipeline;
+
+    public BasicPayrollCalculator(
+        RegularPipeline regularPipeline,
+        RestDayPipeLine restDayPipeline,
+        RegularHolidayPipeLine legalPipeline,
+        SpecialWorkDayPipeLine specialPipeline,
+        RestLegalDayPipeLine restLegalPipeline,
+        RestSpecialDayPipeLine restSpecialPipeline,
+        DoubleLegalPipeLine doubleLegalPipeline,
+        RestDoubleLegalPipeLine restDoubleLegalPipeline,
+        RegularOTPipeLine regularOTPipeline,
+        RestDayOTPipeLine restOTPipeline,
+        LegalHolOTPipeLine legalOTPipeline,
+        SpecialNonWorkingOTPipeLine specialOTPipeline,
+        RestLegalDayOTPipeLine restLegalOTPipeline,
+        RestSpecialDayOTPipeLine restSpecialOTPipeline,
+        DoubleLegalOTPipeLine doubleLegalOTPipeline,
+        RestDoubleLegalOTPipeLine restDoubleLegalOTPipeline,
+        RegularNDPipeLine regularNDPipeline,
+        RestDayNDPipeLine restNDPipeline,
+        LegalHolNDPipeLine legalNDPipeline,
+        SpecialNonWorkingNDPipeLine specialNDPipeline,
+        RestLegalDayNDPipeLine restLegalNDPipeline,
+        RestSpecialDayNDPipeLine restSpecialNDPipeline,
+        DoubleLegalNDPipeLine doubleLegalNDPipeline,
+        RestDoubleLegalNDPipeLine restDoubleLegalNDPipeline,
+        RegularNDOTPipeLine regularNDOTPipeline,
+        RestDayNDOTPipeLine restNDOTPipeline,
+        LegalHolNDOTPipeLine legalNDOTPipeline,
+        RestLegalDayNDOTPipeLine restLegalNDOTPipeline,
+        SpecialNonWorkingNDOTPipeLine specialNDOTPipeline,
+        RestSpecialDayNDOTPipeLine restSpecialNDOTPipeline,
+        DoubleLegalNDOTPipeLine doubleLegalNDOTPipeline,
+        RestDoubleLegalNDOTPipeLine restDoubleLegalNDOTPipeline,
+        AbsentPipeline absentPipeline,
+        LatesPipeLine latesPipeline,
+        UnderTimePipeLine underTimePipeline,
+        LeavePipeline leavePipeline)
+    {
+        _regularPipeline = regularPipeline;
+        _restDayPipeline = restDayPipeline;
+        _legalPipeline = legalPipeline;
+        _specialPipeline = specialPipeline;
+        _restLegalPipeline = restLegalPipeline;
+        _restSpecialPipeline = restSpecialPipeline;
+        _doubleLegalPipeline = doubleLegalPipeline;
+        _restDoubleLegalPipeline = restDoubleLegalPipeline;
+
+        _regularOTPipeline = regularOTPipeline;
+        _restOTPipeline = restOTPipeline;
+        _legalOTPipeline = legalOTPipeline;
+        _specialOTPipeline = specialOTPipeline;
+        _restLegalOTPipeline = restLegalOTPipeline;
+        _restSpecialOTPipeline = restSpecialOTPipeline;
+        _doubleLegalOTPipeline = doubleLegalOTPipeline;
+        _restDoubleLegalOTPipeline = restDoubleLegalOTPipeline;
+
+        _regularNDPipeline = regularNDPipeline;
+        _restNDPipeline = restNDPipeline;
+        _legalNDPipeline = legalNDPipeline;
+        _specialNDPipeline = specialNDPipeline;
+        _restLegalNDPipeline = restLegalNDPipeline;
+        _restSpecialNDPipeline = restSpecialNDPipeline;
+        _doubleLegalNDPipeline = doubleLegalNDPipeline;
+        _restDoubleLegalNDPipeline = restDoubleLegalNDPipeline;
+
+        _regularNDOTPipeline = regularNDOTPipeline;
+        _restNDOTPipeline = restNDOTPipeline;
+        _legalNDOTPipeline = legalNDOTPipeline;
+        _restLegalNDOTPipeline = restLegalNDOTPipeline;
+        _specialNDOTPipeline = specialNDOTPipeline;
+        _restSpecialNDOTPipeline = restSpecialNDOTPipeline;
+        _doubleLegalNDOTPipeline = doubleLegalNDOTPipeline;
+        _restDoubleLegalNDOTPipeline = restDoubleLegalNDOTPipeline;
+
+        _absentPipeline = absentPipeline;
+        _latesPipeline = latesPipeline;
+        _underTimePipeline = underTimePipeline;
+        _leavePipeline = leavePipeline;
+    }
+
     public BasicRateModel Calculate(PayrollContext context)
     {
-        var regularResult = new RegularPipeline().Run(context).Value;
-        var restResult = new RestDayPipeLine().Run(context).Value;
-        var legalHolResult = new RegularHolidayPipeLine().Run(context).Value;
-        var specialWorkDayResult = new SpecialWorkDayPipeLine().Run(context).Value;
-        var restLegalDayResult = new RestLegalDayPipeLine().Run(context).Value;
-        var restSpecialDayResult = new RestSpecialDayPipeLine().Run(context).Value;
-        var doubleLegalResult = new DoubleLegalPipeLine().Run(context).Value;
-        var restDoubleLegalResult = new RestDoubleLegalPipeLine().Run(context).Value;
+        var regular = _regularPipeline.Run(context).Value;
+        var restday = _restDayPipeline.Run(context).Value;
+        var legal = _legalPipeline.Run(context).Value;
+        var special = _specialPipeline.Run(context).Value;
+        var restlegal = _restLegalPipeline.Run(context).Value;
+        var restSpecial = _restSpecialPipeline.Run(context).Value;
+        var doubleLegal = _doubleLegalPipeline.Run(context).Value;
+        var restDoubleLegal = _restDoubleLegalPipeline.Run(context).Value;
 
-        var regularOT = new RegularOTPipeLine().Run(context).Value;
-        var restDayOT = new RestDayOTPipeLine().Run(context).Value;
-        var legalHolOT = new LegalHolOTPipeLine().Run(context).Value;
-        var specialNonWorkingOT = new SpecialNonWorkingOTPipeLine().Run(context).Value;
-        var restLegalDayOT = new RestLegalDayOTPipeLine().Run(context).Value;
-        var restSpecialDayOT = new RestSpecialDayOTPipeLine().Run(context).Value;
-        var doubleLegalOT = new DoubleLegalOTPipeLine().Run(context).Value;
-        var restDoubleLegalOT = new RestDoubleLegalOTPipeLine().Run(context).Value;
+        var regularOT = _regularOTPipeline.Run(context).Value;
+        var restOT = _restOTPipeline.Run(context).Value;
+        var legalOT = _legalOTPipeline.Run(context).Value;
+        var specialOT = _specialOTPipeline.Run(context).Value;
+        var restLegalOT = _restLegalOTPipeline.Run(context).Value;
+        var restSpecialOT = _restSpecialOTPipeline.Run(context).Value;
+        var doubleLegalOT = _doubleLegalOTPipeline.Run(context).Value;
+        var restDoubleLegalOT = _restDoubleLegalOTPipeline.Run(context).Value;
 
         var otTotal = regularOT
-            + restDayOT
-            + legalHolOT
-            + restLegalDayOT
-            + specialNonWorkingOT
-            + restSpecialDayOT
+            + restOT
+            + legalOT
+            + restLegalOT
+            + specialOT
+            + restSpecialOT
             + doubleLegalOT
             + restDoubleLegalOT;
-
-        var otHours = (decimal)(context.DailyRecord.RegularOTHours + context.DailyRecord.RestDayOTHours
-            + context.DailyRecord.LegalHolOTHours + context.DailyRecord.RestLegalDayOTHours
-            + context.DailyRecord.SpecialHolOTHours + context.DailyRecord.RestSpecialDayOTHours
-            + context.DailyRecord.DoubleLegalOTHours + context.DailyRecord.RestDoubleLegalOTHours);
-
-        var regularND = new RegularNDPipeLine().Run(context).Value;
-        var restDayND = new RestDayNDPipeLine().Run(context).Value;
-        var legalHolND = new LegalHolNDPipeLine().Run(context).Value;
-        var specialNonWorkingND = new SpecialNonWorkingNDPipeLine().Run(context).Value;
-        var restLegalDayND = new RestLegalDayNDPipeLine().Run(context).Value;
-        var restSpecialDayND = new RestSpecialDayNDPipeLine().Run(context).Value;
-        var doubleLegalND = new DoubleLegalNDPipeLine().Run(context).Value;
-        var restDoubleLegalND = new RestDoubleLegalNDPipeLine().Run(context).Value;
+    
+        var regularND = _regularNDPipeline.Run(context).Value;
+        var restND = _restNDPipeline.Run(context).Value;
+        var legalND = _legalNDPipeline.Run(context).Value;
+        var specialND = _specialNDPipeline.Run(context).Value;
+        var restLegalND = _restLegalNDPipeline.Run(context).Value;
+        var restSpecialND = _restSpecialNDPipeline.Run(context).Value;
+        var doubleLegalND = _doubleLegalNDPipeline.Run(context).Value;
+        var restDoubleLegalND = _restDoubleLegalNDPipeline.Run(context).Value;
 
         var ndTotal = regularND
-            + restDayND
-            + legalHolND
-            + restLegalDayND
-            + specialNonWorkingND
-            + restSpecialDayND
+            + restND
+            + legalND
+            + restLegalND
+            + specialND
+            + restSpecialND
             + doubleLegalND
             + restDoubleLegalND;
 
-        var regularNDOT = new RegularNDOTPipeLine().Run(context).Value;
-        var restDayNDOT = new RestDayNDOTPipeLine().Run(context).Value;
-        var legalHolNDOT = new LegalHolNDOTPipeLine().Run(context).Value;
-        var restLegalDayNDOT = new RestLegalDayNDOTPipeLine().Run(context).Value;
-        var specialNonWorkingNDOT = new SpecialNonWorkingNDOTPipeLine().Run(context).Value;
-        var restSpecialDayNDOT = new RestSpecialDayNDOTPipeLine().Run(context).Value;
-        var doubleLegalNDOT = new DoubleLegalNDOTPipeLine().Run(context).Value;
-        var restDoubleLegalNDOT = new RestDoubleLegalNDOTPipeLine().Run(context).Value;
+        var regularNDOT = _regularNDOTPipeline.Run(context).Value;
+        var restNDOT = _restNDOTPipeline.Run(context).Value;
+        var legalNDOT = _legalNDOTPipeline.Run(context).Value;
+        var restLegalNDOT = _restLegalNDOTPipeline.Run(context).Value;
+        var specialNDOT = _specialNDOTPipeline.Run(context).Value;
+        var restSpecialNDOT = _restSpecialNDOTPipeline.Run(context).Value;
+        var doubleLegalNDOT = _doubleLegalNDOTPipeline.Run(context).Value;
+        var restDoubleLegalNDOT = _restDoubleLegalNDOTPipeline.Run(context).Value;
 
         var ndotTotal = regularNDOT
-            + restDayNDOT
-            + legalHolNDOT
-            + restLegalDayNDOT
-            + specialNonWorkingNDOT
-            + restSpecialDayNDOT
+            + restNDOT
+            + legalNDOT
+            + restLegalNDOT
+            + specialNDOT
+            + restSpecialNDOT
             + doubleLegalNDOT
             + restDoubleLegalNDOT;
 
@@ -81,91 +197,82 @@ public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext
             + context.DailyRecord.DoubleLegalNDHours + context.DailyRecord.DoubleLegalNDOTHours
             + context.DailyRecord.RestDoubleLegalNDHours + context.DailyRecord.RestDoubleLegalNDOTHours);
 
-        var absentResult = new AbsentPipeline().Run(context);
-        var lateResult = new LatesPipeLine().Run(context);
-        var utResult = new UnderTimePipeLine().Run(context);
-        //var leaveResult = new LeavePipeline().Run(context);
-        //var lwop = leaveResult.Where(x => x.PayType == PayType.WithoutPay).Sum(x => x.Value);
-        //var leaveWithPay = leaveResult.Where(x => x.PayType == PayType.WithPay).Sum(x => x.Value);
-        var leaveWithPay = (decimal)context.DailyRecord.PaidLeaveHours;
+        var absentResult = _absentPipeline.Run(context);
+        var lateResult = _latesPipeline.Run(context);
+        var utResult = _underTimePipeline.Run(context);
+        var leaveResult = _leavePipeline.Run(context);
+
+        var paid = leaveResult.Where(x => x.PayType == PayType.WithPay).Sum(x => x.Value);
+        var unpaid = leaveResult.Where(x => x.PayType == PayType.WithoutPay).Sum(x => x.Value);
+
         return new BasicRateModel
         {
             DtrId = context.DailyRecord.Id,
             DTRRef = context.DailyRecord.BatchCode,
             Date = context.PayrollDate,
             EmployeeId = context.Employee.Id,
-            LWOP = (decimal)context.DailyRecord.UnpaidLeaveHours ,
-            LeaveWithPay = leaveWithPay,
-            AbsentInfo = absentResult.AbsentInfo,
-            BasicPay = regularResult + leaveWithPay,
-            RegularDuty = regularResult,
-            RegularOT = regularOT,
-            RegularND = regularND,
-            RegularNDOT = regularNDOT,
 
-            RestDayDuty = restResult,
-            RestDayOT = restDayOT,
-            RestDayND = restDayND,
-            RestDayNDOT = restDayNDOT,
+            UnpaidLeave = unpaid,
+            PaidLeave = paid,
+            AbsentAmount = absentResult.Value,
+            LateAmount = lateResult.Value,
+            UTAmount = utResult.Value,
+            BasicPay = regular,
 
-            LegalHoliday = legalHolResult,
-            LegalHolOT = legalHolOT,
-            LegalHolND = legalHolND,
-            LegalHolNDOT = legalHolNDOT,
+            RegularDayPay = regular,
+            RegularOTPay = regularOT,
+            RegularNDPay = regularND,
+            RegularNDOTPay = regularNDOT,
 
-            SpecialWorkDay = specialWorkDayResult,
-            SpecialNonWorkingOT = specialNonWorkingOT,
-            SpecialNonWorkingND = specialNonWorkingND,
-            SpecialNonWorkingNDOT = specialNonWorkingNDOT,
+            RestDayPay = restday,
+            RestDayOTPay = restOT,
+            RestDayNDPay = restND,
+            RestDayNDOTPay = restNDOT,
 
-            RestSpecialDay = restSpecialDayResult,
-            RestSpecialDayOT = restSpecialDayOT,
-            RestSpecialDayND = restSpecialDayND,
-            RestSpecialDayNDOT = restSpecialDayNDOT,
+            LegalPay = legal,
+            LegalOTPay = legalOT,
+            LegalNDPay = legalND,
+            LegalNDOTPay = legalNDOT,
 
-            RestLegalDay = restLegalDayResult,
-            RestLegalDayND = restLegalDayND,
-            RestLegalDayOT = restLegalDayOT,
-            RestLegalDayNDOT = restLegalDayNDOT,
+            SpecialPay = special,
+            SpecialOTPay = specialOT,
+            SpecialNDPay = specialND,
+            SpecialNDOTPay = specialNDOT,
 
-            DoubleLegal = doubleLegalResult,
-            DoubleLegalOT = doubleLegalOT,
-            DoubleLegalND = doubleLegalND,
-            DoubleLegalNDOT = doubleLegalNDOT,
+            RestSpecialPay = restSpecial,
+            RestSpecialOTPay = restSpecialOT,
+            RestSpecialNDPay = restSpecialND,
+            RestSpecialNDOTPay = restSpecialNDOT,
 
-            RestDoubleLegal = restDoubleLegalResult,
-            RestDoubleLegalOT = restDoubleLegalOT,
-            RestDoubleLegalND = restDoubleLegalND,
-            RestDoubleLegalNDOT = restDoubleLegalNDOT,
+            RestLegalPay = restlegal,
+            RestLegalOTPay = restLegalOT,
+            RestLegalNDPay = restLegalND,
+            RestLegalNDOTPay = restLegalNDOT,
 
-            LateHourInfo = lateResult.LateInfo,
-            UTHourInfo = utResult.UTInfo,
-            OTHourInfo = new OvertimeInfo
-            {
-                PayrollDate = context.PayrollDate,
-                Hour = otHours,
-                Amount = otTotal,
-                Handler = "PerCategoryOT",
-            },
-            NightDiffInfo = new NightDiffInfo
-            {
-                PayrollDate = context.PayrollDate,
-                Hour = ndAndNdotHours,
-                Amount = ndTotal + ndotTotal,
-                Handler = "PerCategoryND+NDOT",
-            },
-            //Leaves = leaveResult.Select(x => x.LeaveInfo).ToList(),
-            TimeBaseGross = regularResult + leaveWithPay
-                             + restResult
-                             + otTotal
-                             + ndTotal
-                             + ndotTotal
-                             + legalHolResult
-                             + specialWorkDayResult
-                             + restLegalDayResult
-                             + restSpecialDayResult
-                             + doubleLegalResult
-                             + restDoubleLegalResult
+            DoubleLegalPay = doubleLegal,
+            DoubleLegalOTPay = doubleLegalOT,
+            DoubleLegalNDPay = doubleLegalND,
+            DoubleLegalNDOTPay = doubleLegalNDOT,
+
+            RestDoubleLegalPay = restDoubleLegal,
+            RestDoubleLegalOTPay = restDoubleLegalOT,
+            RestDoubleLegalNDPay = restDoubleLegalND,
+            RestDoubleLegalNDOTPay = restDoubleLegalNDOT,
+
+            TotalOT=otTotal,
+            TotalND=ndTotal,    
+            TotalNDOT=ndTotal,
+            Gross = regular
+                    + restday
+                    + otTotal
+                    + ndTotal
+                    + ndotTotal
+                    + legal
+                    + special
+                    + restlegal
+                    + restSpecial
+                    + doubleLegal
+                    + restDoubleLegal
         };
     }
 }

@@ -75,8 +75,8 @@ public class DTRDetailModel
     public double RestDoubleLegalNDHours { get; set; }
     public double RestDoubleLegalNDOTHours { get; set; }
 
-
     public string Note { get; set; } = string.Empty;
+    public string? PostingDescription { get; set; }
     public Guid? UserId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? DepartmentId { get; set; }
@@ -159,6 +159,7 @@ public class BatchesModel
     public DateOnly ToDate { get; set; }
     public int EmployeeCount { get; set; }
     public bool IsPosted { get; set; }
+    public string? PostingDescription { get; set; }
 }
 
 public class TardinessReportModel

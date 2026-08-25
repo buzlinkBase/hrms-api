@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using QuestPDF.Infrastructure;
 using Serilog;
+using DTR.Core.Extensions;
 
 internal class Program
 {

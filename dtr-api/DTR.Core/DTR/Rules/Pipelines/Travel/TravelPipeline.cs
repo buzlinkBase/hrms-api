@@ -1,27 +1,20 @@
-﻿using DTR.Core.DTR.Rules.Policies;
-using Elastic.Clients.Elasticsearch.MachineLearning;
+using DTR.Core.DTR.Rules.Policies;
 
 namespace DTR.Core;
 
-public class TravelPipeline
+public class TravelPipeline : IDTRTimePipeline
 {
-    private readonly TimeContext _context;
-    public TravelPipeline(TimeContext context)
+    public TimeRange Apply(TimeContext context, TimeRange cannonicalTimeRange)
     {
-        _context = context;
-    }
-
-    public TimeRange Apply(TimeRange cannonicalTimeRange)
-    {
-        var ledgerKey = TimeRangeLedger.CreateKey("travel", _context);
-        var cached = _context.Payload.Ledger.GetByKey(ledgerKey);
+        var ledgerKey = TimeRangeLedger.CreateKey("travel", context);
+        var cached = context.Payload.Ledger.GetByKey(ledgerKey);
         if (cached.Found)
         {
             return cached.Value;
         }
         var pipeline = new TravelPolicy(new IsTravelOrder());
-        var resultRange = pipeline.Apply(cannonicalTimeRange, _context);
-        _context.Payload.Ledger.RecordByTag("travel", _context, resultRange);
+        var resultRange = pipeline.Apply(cannonicalTimeRange, context);
+        context.Payload.Ledger.RecordByTag("travel", context, resultRange);
         return resultRange;
     }
 }

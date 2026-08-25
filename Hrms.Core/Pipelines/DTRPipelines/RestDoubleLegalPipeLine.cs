@@ -2,11 +2,8 @@ namespace Hrms.Core.Pipelines;
 
 public class RestDoubleLegalPipeLine : BasicPipelineBase
 {
-    public override BasicPipelineData Run(PayrollContext context)
+    protected override void ConfigurePolicies(PayrollPipeLine<PayrollContext, BasicPipelineData> pipeline)
     {
-        pipeline
-            .AddPolicy(new RestDoubleLegalPolicy())
-            ;
-        return pipeline.Execute(new BasicPipelineData(), context);
+        pipeline.AddPolicy(new RestDoubleLegalPolicy());
     }
 }

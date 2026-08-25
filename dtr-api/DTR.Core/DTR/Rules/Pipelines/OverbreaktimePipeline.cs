@@ -1,15 +1,8 @@
-﻿namespace DTR.Core;
+namespace DTR.Core;
 
-public class OverbreaktimePipeline
+public class OverbreaktimePipeline : IDTRTimePipeline
 {
-    private readonly TimeContext _context;
-
-    public OverbreaktimePipeline(TimeContext context)
-    {
-        _context = context;
-    }
-
-    public TimeRange Apply(TimeRange cannonicalTimeRange)
+    public TimeRange Apply(TimeContext context, TimeRange cannonicalTimeRange)
     {
 
         var spec = new IsOverbreaktimeSpec();
@@ -20,7 +13,7 @@ public class OverbreaktimePipeline
         var pipeline = new PolicyPipeline()
           .AddPolicy(overBreakPolicy);
 
-        var result = pipeline.Execute(cannonicalTimeRange, _context);
+        var result = pipeline.Execute(cannonicalTimeRange, context);
 
         return result;
     }

@@ -21,7 +21,7 @@ internal class RestSpecialDayPolicy : PayrollPolicyBase<BasicPipelineData, Payro
             return line;
         }
 
-        var hourlyRate = context.Employee.DailyRate / (decimal)dailyRecord.ShiftWorkingHour;
+        var hourlyRate = RateHelper.GetHourlyRate(context);
         var workedHours = (decimal)Math.Max(0, dailyRecord.RestSpecialDayHours);
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
@@ -57,10 +57,11 @@ public class RestSpecialDayPayCalculator
     public RestSpecialDayPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
     {
         if (workedHours <= 0) return this;
-        // Ineligible: Earns 1.0x standard rate
+
+        // Ineligible: Earns 1.0x standard hourly rate
         // Eligible & Pre-Funded (rest day AND special holiday both already covered by base pay):
-        //   Earns delta premium above 1.0
-        // Eligible & Not Pre-Funded: Earns full configured combo multiplier
+        //   Earns delta premium above 1.0x base pay (e.g., 1.50 - 1.00 = 0.50)
+        // Eligible & Not Pre-Funded: Earns full configured combo multiplier (e.g., 1.50)
         var multiplier = !_isEligible
             ? 1.0m
             : (_isBasePayPreFunded ? Math.Max(0m, _totalRateMultiplier - 1.0m) : _totalRateMultiplier);
@@ -71,11 +72,13 @@ public class RestSpecialDayPayCalculator
 
     public RestSpecialDayPayCalculator CalculateUnworkedPay(decimal hourlyRate, decimal unworkedHours)
     {
-        if (unworkedHours <= 0 || !_isEligible || _isBasePayPreFunded) return this;
+        if (unworkedHours <= 0 || !_isEligible) return this;
 
-        // Matches SpecialWorkDayPolicy's SpecialHolidayPayCalculator — unworked-but-eligible
-        // credit is paid at 100% (1.0x) base rate.
-        _total += hourlyRate * unworkedHours * 1.0m;
+        // Eligible & Pre-Funded (Fixed): Base pay is already included in base salary, so delta is 0.0x
+        // Eligible & Not Pre-Funded (Daily): Unworked rest day + special holiday credit is paid at 100% (1.0x) base rate
+        var multiplier = _isBasePayPreFunded ? 0.0m : 1.0m;
+
+        _total += hourlyRate * unworkedHours * multiplier;
         return this;
     }
 

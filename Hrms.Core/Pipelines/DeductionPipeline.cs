@@ -5,9 +5,8 @@ namespace Hrms.Core.Pipelines;
 
 public class DeductionPipeline : BasePipelineBase<DeductionPayloadContext, DeductionPipeData>
 {
-    public override DeductionPipeData Run(DeductionPayloadContext context)
+    protected override void ConfigurePolicies(PayrollPipeLine<DeductionPayloadContext, DeductionPipeData> pipeline)
     {
-
         pipeline
             .AddPolicy(new SSSPolicy())
             .AddPolicy(new PHICPolicy())
@@ -15,7 +14,8 @@ public class DeductionPipeline : BasePipelineBase<DeductionPayloadContext, Deduc
             .AddPolicy(new WTaxPolicy())
             .AddPolicy(new ScheduledDeductionPolicy())
             ;
-
-        return pipeline.Execute(new DeductionPipeData() { RemainingGrossBalance = context.PayrollLine.GrossIncome }, context);
     }
+
+    protected override DeductionPipeData CreateSeed(DeductionPayloadContext context) =>
+        new DeductionPipeData { RemainingGrossBalance = context.PayrollLine.GrossIncome };
 }

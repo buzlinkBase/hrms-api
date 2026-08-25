@@ -5,19 +5,14 @@ public class UndertimePolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
         var dailyRecord = context.DailyRecord;
-        if (dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.LateMinutes <= 0)
+        // Fixed guard clause to check UTMinutes instead of LateMinutes
+        if (dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.UTMinutes <= 0)
         {
             return line;
         }
-        var hr = (decimal)context.DailyRecord.UTMinutes / 60m;
-        var hrRate = context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
-        line.UTInfo = new UnderTimeInfo
-        {
-            PayrollDate = context.PayrollDate,
-            Hour = hr,
-            Amount = hrRate * hr
-        };
-        line.Value += hrRate * hr;
+        var undertimeHours = (decimal)dailyRecord.UTMinutes / 60m;
+        var hourlyRate = RateHelper.GetHourlyRate(context);
+        line.Value += hourlyRate * undertimeHours;
         return line;
     }
 }
