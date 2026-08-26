@@ -1,14 +1,13 @@
 ﻿
 namespace Hrms.Core.Calculators.Payloads;
 
-public class BasicRateModel
+public class DTRPayModel
 {
     public Guid? DtrId { get; set; }
     public string? DTRRef { get; set; }
-    public DateOnly Date { get; set; } 
+    public DateOnly Date { get; set; }
+    public Guid EmployeeId  { get; set; }
 
-    public decimal BasicPay { get; set; }
-    public decimal Gross { get; set; }
     public decimal LateAmount { get; set; }
     public decimal UTAmount { get; set; }
     public decimal AbsentAmount { get; set; }
@@ -55,8 +54,13 @@ public class BasicRateModel
     public decimal RestDoubleLegalNDPay { get; set; }
     public decimal RestDoubleLegalNDOTPay { get; set; }
 
+    public decimal LegalWorked { get; set; }
+    public decimal LegalUnWorked { get; set; } 
+    public decimal DoubleLegalWorked { get; set; }
+    public decimal DoubleLegalUnworked { get; set; }
+
     public decimal TotalOT { get; set; }
     public decimal TotalND { get; set; }
     public decimal TotalNDOT  { get; set; }
-
+     
 }

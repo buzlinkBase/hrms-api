@@ -30,6 +30,22 @@ public class DailyRecordService : BaseService<DailyRecord>
         await Uow.SaveChangesAsync(token);
         await CommitChangesAsync(token);
     }
+    public async Task<string> BuildBatchCodeAsync(DateOnly rangeFrom, DateOnly rangeTo, Guid? payrollGroupId, CancellationToken token)
+    {
+        TimeZoneInfo manilaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+        DateTime localTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, manilaTimeZone);
+        var ts = localTime.ToString("MM.dd.yyyy.HH:mm");
+
+        var payrollGroupCode = payrollGroupId.HasValue
+            ? await Context.PayrollGroups
+                .Where(x => x.Id == payrollGroupId.Value)
+                .Select(x => x.Code)
+                .FirstOrDefaultAsync(token)
+            : null;
+
+        var pgSegment = string.IsNullOrWhiteSpace(payrollGroupCode) ? "" : $" PG:{payrollGroupCode}";
+        return $"DTR{rangeFrom.ToString("MMMddyyyy")}-{rangeTo.ToString("MMMddyyyy")}{pgSegment} TS:{ts}";
+    }
     public async Task DeleteAsync(string batchCode, CancellationToken token)
     {
         await ExecuteDeleteAsync(x =>

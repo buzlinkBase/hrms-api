@@ -1,4 +1,5 @@
 ﻿using Hrms.Core;
+using NPOI.OpenXmlFormats.Vml;
 
 namespace Hrms.Core.Policies.DTRPolicies;
 
@@ -18,12 +19,14 @@ public class RegularHolidayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
         var earnings = HolidayPayCalculator
-            .ForContext(context)
+            .ForContext(context, line)
             .CalculateWorkedPay(hourlyRate, workedHours)
             .CalculateUnworkedPay(hourlyRate, unworkedHours)
             .Total;
 
         line.Value += earnings;
+
+        line.Worked = earnings;
         return line;
     }
 }
@@ -34,17 +37,16 @@ public class HolidayPayCalculator
     private readonly bool _isEligible;
     private readonly bool _isBasePayPreFunded;
     private readonly decimal _totalRateMultiplier;
-
-    private HolidayPayCalculator(PayrollContext context)
+    private readonly BasicPipelineData _line;
+    private HolidayPayCalculator(PayrollContext context, BasicPipelineData line)
     {
         _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
         _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
                               context.Employee.IsRegularHolidayIncluded;
         _totalRateMultiplier = PremiumRateHelper.GetRate(context, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);
+        _line = line;
     }
-
-    public static HolidayPayCalculator ForContext(PayrollContext context) => new(context);
-
+    public static HolidayPayCalculator ForContext(PayrollContext context, BasicPipelineData line) => new(context,line);
     public HolidayPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
     {
         if (workedHours <= 0) return this;
@@ -59,6 +61,7 @@ public class HolidayPayCalculator
                 : _totalRateMultiplier);
 
         _total += hourlyRate * workedHours * multiplier;
+        _line.Worked = _total;
         return this;
     }
 
@@ -69,10 +72,10 @@ public class HolidayPayCalculator
         // Eligible & Pre-Funded (Fixed): Unworked hours base pay (1.0x) is already included in monthly base salary, so delta is 0
         // Eligible & Not Pre-Funded (Daily): Unworked regular holiday hours receive 100% (1.0x) base rate
         var multiplier = _isBasePayPreFunded ? 0.0m : 1.0m;
-
         _total += hourlyRate * unworkedHours * multiplier;
+        _line.UnWork = _total;
         return this;
-    }
+    } 
 
     public decimal Total => _total;
 }

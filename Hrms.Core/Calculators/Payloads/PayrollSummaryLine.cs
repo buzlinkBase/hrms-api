@@ -74,7 +74,6 @@ public class PayrollSummaryLine
     public decimal PagIbigContribution { get; set; }
     public decimal OtherDeductions { get; set; }   // Loans, union dues, etc.
     public decimal TotalDeductions { get; set; }
-
     //leaves
     public decimal UnpaidLeaves { get; set; }
     public decimal PaidLeaves { get; set; }
@@ -99,7 +98,7 @@ public class PayrollSummaryLine
 
     public decimal NonTaxableBenefits { get; set; }
     public decimal TaxableBenefits { get; set; }
-    public List<BasicRateModel> TimeHourPayResults { get; set; } = new();
+    public List<DTRPayModel> TimeHourPayResults { get; set; } = new();
     public List<OtherIncomeInfo> OtherIncomeCollection { get; set; } = new();
     public List<DeductionInfo> DeductionCollection { get; set; } = new();
 }

@@ -10,6 +10,9 @@ public class BasicPipelineData : IPipeData
 {
     public decimal Value { get; set; }
     public PayType PayType { get; set; }
+    public decimal Worked { get; set; }
+    public decimal UnWork { get; set; }
+
 }
 public class AllowancePipeData : IPipeData
 {

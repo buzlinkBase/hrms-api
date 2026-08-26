@@ -1,4 +1,5 @@
 ﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services;
 
@@ -8,7 +9,7 @@ public class PayrollProcessorService
     private readonly PayrollRangeContextComposerService _payloadComposer;
     private readonly PayrollService _payrollService;
     private readonly IMapper _mapper;
-    private readonly ICalculator<BasicRateModel, PayrollContext> _basicPayrollCalculator;
+    private readonly ICalculator<DTRPayModel, PayrollContext> _basicPayrollCalculator;
     private readonly ICalculator<AllowancePipeData, PayrollContext> _allowancesCalculator;
     private readonly ICalculator<DeductionPipeData, DeductionPayloadContext> _deductionCalculator;
     private readonly IDailyRateResolver _dailyRateResolver;
@@ -18,7 +19,7 @@ public class PayrollProcessorService
         DailyRecordService dtrServie,
         PayrollService payrollService,
         IMapper mapper,
-        ICalculator<BasicRateModel, PayrollContext> basicPayrollCalculator,
+        ICalculator<DTRPayModel, PayrollContext> basicPayrollCalculator,
         ICalculator<AllowancePipeData, PayrollContext> allowancesCalculator,
         ICalculator<DeductionPipeData, DeductionPayloadContext> deductionCalculator,
         IDailyRateResolver dailyRateResolver)
@@ -106,9 +107,10 @@ public class PayrollProcessorService
         CalculatorPayload rangePayload,
         PayrollSummaryLine payrollLine)
     {
-        var employeeBasicCalc = CalculateBasicRate(payload, dtrs, employee, rangePayload);
+        var employeeBasicCalc = CalculateDTRTimePay(payload, dtrs, employee, rangePayload);
+        CalcBasicRate(payrollLine, employeeBasicCalc,employee);
         payrollLine.TimeHourPayResults = employeeBasicCalc;
-        payrollLine.BasicSalary = employeeBasicCalc.Sum(x => x.BasicPay);
+
         payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateAmount);
         payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.TotalOT);
         payrollLine.UnderTimeAmount = employeeBasicCalc.Sum(x => x.UTAmount);
@@ -165,14 +167,14 @@ public class PayrollProcessorService
         //    + payrollLine.RestDoubleLegalPay; 
     }
 
-    private List<BasicRateModel> CalculateBasicRate(
+    private List<DTRPayModel> CalculateDTRTimePay(
         DateRangePayload payload,
         List<DailyRecordRunModel> dtrs,
         EmployeeModelPayrollRun employee,
         CalculatorPayload calcPayload)
     {
 
-        var basicResultMoel = new List<BasicRateModel>();
+        var basicResultMoel = new List<DTRPayModel>();
         for (var date = payload.FromDate; date <= payload.ToDate; date = date.AddDays(1))
         {
             var record = dtrs.FirstOrDefault(x => x.WorkDate == date && x.EmployeeId == employee.Id);
@@ -195,6 +197,39 @@ public class PayrollProcessorService
         return basicResultMoel;
     }
 
+    private void CalcBasicRate(PayrollSummaryLine payrollLine , List<DTRPayModel> TimeCalcResult, EmployeeModelPayrollRun employee)
+    {
+        if (employee.SalaryType != SalaryType.FIXED)
+        {
+            payrollLine.BasicSalary = TimeCalcResult.Sum(x => x.RegularDayPay);
+            return;
+        }
+        var divisor= GetDivisor(payrollLine.PayPeriodStart, employee);
+        payrollLine.BasicSalary = employee.MonthlyRate / divisor;
+    }
+
+    private int GetDivisor( DateOnly fromDate,  EmployeeModelPayrollRun employee)
+    {
+        if (employee.PayrollGroup == null) return 2; 
+        switch (employee.PayrollGroup.PayrollFrequency)
+        {
+            case PayrollFrequency.DAILY:
+                var days = DateTime.DaysInMonth(fromDate.Year, fromDate.Month);
+                return days; 
+            case PayrollFrequency.WEEKLY:
+                return 4;
+            case PayrollFrequency.SEMI_MONTHLY:
+                return 2;
+            case PayrollFrequency.MONTHLY:
+                return 1;
+            default:
+                return 2;
+        }
+
+
+
+    }
+
     private void ComputeAllowances(
         DateRangePayload payload,
         CalculatorPayload rangePayload,
@@ -213,7 +248,7 @@ public class PayrollProcessorService
         payrollLine.TotalRegularAllowances = IncomeCalcResult.RegularAllowances.Sum(x => x.Amount);
         payrollLine.OtherIncomeCollection = IncomeCalcResult.AllIncome;
         payrollLine.RegularAllowanceProrated = CaptureProratedAllowance(pp, payrollLine.TotalRegularAllowances);
-        payrollLine.GrossIncome = PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.BasicSalaryItems);
+        payrollLine.GrossIncome = PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.BasicSalary);
         IdentifyTaxableIncome(payrollLine, IncomeCalcResult);
 
     }
@@ -340,7 +375,7 @@ public class PayrollProcessorUtil
 {
     public static decimal GetGrossIncome(
         AllowancePipeData incomes,
-        List<BasicRateModel> basics)
+        List<DTRPayModel> basics)
     {
         return basics.Sum(x => x.Gross) + incomes.RunningTotal;
     }

@@ -1,6 +1,6 @@
 namespace Hrms.Core.Calculators;
 
-public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext>
+public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
 {
     private readonly RegularPipeline _regularPipeline;
     private readonly RestDayPipeLine _restDayPipeline;
@@ -123,7 +123,7 @@ public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext
         _leavePipeline = leavePipeline;
     }
 
-    public BasicRateModel Calculate(PayrollContext context)
+    public DTRPayModel Calculate(PayrollContext context)
     {
         var regular = _regularPipeline.Run(context).Value;
         var restday = _restDayPipeline.Run(context).Value;
@@ -187,16 +187,7 @@ public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext
             + restSpecialNDOT
             + doubleLegalNDOT
             + restDoubleLegalNDOT;
-
-        var ndAndNdotHours = (decimal)(context.DailyRecord.RegularNDHours + context.DailyRecord.RegularNDOTHours
-            + context.DailyRecord.RestDayNDHours + context.DailyRecord.RestDayNDOTHours
-            + context.DailyRecord.LegalHolNightDiffHours + context.DailyRecord.LegalHolNightDiffOTHours
-            + context.DailyRecord.RestLegalDayNDHours + context.DailyRecord.RestLegalDayNDOTHours
-            + context.DailyRecord.SpecialHolNightDiffHours + context.DailyRecord.SpecialHolNightDiffOTHours
-            + context.DailyRecord.RestSpecialDayNDHours + context.DailyRecord.RestSpecialDayNDOTHours
-            + context.DailyRecord.DoubleLegalNDHours + context.DailyRecord.DoubleLegalNDOTHours
-            + context.DailyRecord.RestDoubleLegalNDHours + context.DailyRecord.RestDoubleLegalNDOTHours);
-
+ 
         var absentResult = _absentPipeline.Run(context);
         var lateResult = _latesPipeline.Run(context);
         var utResult = _underTimePipeline.Run(context);
@@ -205,19 +196,18 @@ public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext
         var paid = leaveResult.Where(x => x.PayType == PayType.WithPay).Sum(x => x.Value);
         var unpaid = leaveResult.Where(x => x.PayType == PayType.WithoutPay).Sum(x => x.Value);
 
-        return new BasicRateModel
+        return new DTRPayModel
         {
             DtrId = context.DailyRecord.Id,
             DTRRef = context.DailyRecord.BatchCode,
             Date = context.PayrollDate,
-            EmployeeId = context.Employee.Id,
+            EmployeeId = context.DailyRecord.EmployeeId,
 
             UnpaidLeave = unpaid,
             PaidLeave = paid,
             AbsentAmount = absentResult.Value,
             LateAmount = lateResult.Value,
             UTAmount = utResult.Value,
-            BasicPay = regular,
 
             RegularDayPay = regular,
             RegularOTPay = regularOT,
@@ -262,17 +252,8 @@ public class BasicPayrollCalculator : ICalculator<BasicRateModel, PayrollContext
             TotalOT=otTotal,
             TotalND=ndTotal,    
             TotalNDOT=ndTotal,
-            Gross = regular
-                    + restday
-                    + otTotal
-                    + ndTotal
-                    + ndotTotal
-                    + legal
-                    + special
-                    + restlegal
-                    + restSpecial
-                    + doubleLegal
-                    + restDoubleLegal
+            g
+            
         };
     }
 }

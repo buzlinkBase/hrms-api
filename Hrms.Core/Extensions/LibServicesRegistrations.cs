@@ -19,7 +19,7 @@ public static class LibServicesRegistrations
         services.AddScoped<Messaging.DedicatedProvisioner>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.
-        services.AddSingleton<ICalculator<BasicRateModel, PayrollContext>, BasicPayrollCalculator>();
+        services.AddSingleton<ICalculator<DTRPayModel, PayrollContext>, BasicPayrollCalculator>();
         services.AddSingleton<ICalculator<AllowancePipeData, PayrollContext>, AllowancesCalculator>();
         services.AddSingleton<ICalculator<DeductionPipeData, DeductionPayloadContext>, DeductionCalculator>();
         services.AddSingleton<IDailyRateResolver, DailyRateResolver>();

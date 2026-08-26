@@ -21,9 +21,9 @@ public class StatutoryTestContextBase
             BasicSalary = monthlyRate,
             GrossIncome = grossPay,
             PayrollDate = toDate,
-            BasicSalaryItems = new List<BasicRateModel>
+            BasicSalaryItems = new List<DTRPayModel>
             {
-                new BasicRateModel {
+                new DTRPayModel {
                     BasicPay = monthlyRate ,
                     TimeBaseGross = grossPay,
                 },

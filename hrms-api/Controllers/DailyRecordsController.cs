@@ -29,14 +29,15 @@ public class DailyRecordsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
     public async Task<IActionResult> Post([FromBody] List<DTRDetailModel> model, CancellationToken token)
     {
+        var payrollGroupId = model.Select(x => x.PayrollGroupId).FirstOrDefault(x => x.HasValue);
+        if (!payrollGroupId.HasValue)
+            return BadRequest("Payroll Group is required to post DTR.");
+
         var rangeFrom = model.Min(x => x.WorkDate);
         var RangeTo = model.Max(x => x.WorkDate);
-        TimeZoneInfo manilaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
-        DateTime localTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, manilaTimeZone);
-        var ts = localTime.ToString("MM.dd.yyyy.HH:mm");
+        var batchCode = await _service.BuildBatchCodeAsync(rangeFrom, RangeTo, payrollGroupId, token);
         var models = _mapper.Map<List<DailyRecord>>(model);
         var userId = User.GetRequiredUserId();
-        var batchCode = $"DTR{rangeFrom.ToString("MMMddyyyy")}-{RangeTo.ToString("MMMddyyyy")} TS:{ts}";
         foreach (var item in models)
         {
             item.UserId = userId;
