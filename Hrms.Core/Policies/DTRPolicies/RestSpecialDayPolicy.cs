@@ -69,7 +69,6 @@ public class RestSpecialDayPayCalculator
         _total += hourlyRate * workedHours * multiplier;
         return this;
     }
-
     public RestSpecialDayPayCalculator CalculateUnworkedPay(decimal hourlyRate, decimal unworkedHours)
     {
         if (unworkedHours <= 0 || !_isEligible) return this;
@@ -81,6 +80,5 @@ public class RestSpecialDayPayCalculator
         _total += hourlyRate * unworkedHours * multiplier;
         return this;
     }
-
     public decimal Total => _total;
 }

@@ -7,27 +7,70 @@ internal abstract class SingleCategoryOTPolicy : PayrollPolicyBase<BasicPipeline
     protected abstract double Hours(DailyRecordRunModel r);
     protected abstract RateType[] PolicyRateTypes { get; }
 
+    //public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
+    //{
+    //    var isOTEligible = new IsEligibleForOvertime().IsSatisfiedBy(context);
+    //    if (!isOTEligible) return line;
+
+    //    var hours = (decimal)Hours(context.DailyRecord);
+    //    if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
+
+    //    var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
+
+    //    decimal combinedRateMultiplier = 1.0m;
+    //    foreach (var rateType in PolicyRateTypes)
+    //    {
+    //        var rate = PremiumRateHelper.GetRate(context, rateType, 1.0m);
+    //        combinedRateMultiplier *= rate;
+    //    }
+
+    //    var effectiveMultiplier =  combinedRateMultiplier;
+    //    line.Value += hours * baseHourlyRate * effectiveMultiplier;
+    //    return line;
+    //}
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
+        var isOTEligible = new IsEligibleForOvertime().IsSatisfiedBy(context);
+        if (!isOTEligible) return line;
+
         var hours = (decimal)Hours(context.DailyRecord);
         if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
 
         var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
+        var basePayForHours = hours * baseHourlyRate;
 
-        decimal combinedRateMultiplier = 1.0m;
+        // 1. Establish the Day-Type Base Multiplier (e.g., Regular = 1.0, RestDay = 1.3, Legal = 2.0)
+        decimal dayTypeMultiplier = 1.0m;
         foreach (var rateType in PolicyRateTypes)
         {
-            var rate = PremiumRateHelper.GetRate(context, rateType, 1.0m);
-            combinedRateMultiplier *= rate;
+            if (rateType != RateType.HOLIDAY_OT && rateType != RateType.OVERTIME)
+            {
+                // Multiplies out compound day bases like Rest Day + Legal Day (1.30 * 2.00 = 2.60)
+                dayTypeMultiplier *= PremiumRateHelper.GetRate(context, rateType, 1.0m);
+            }
         }
 
-        var isPreFunded = context.Employee.SalaryType == SalaryType.FIXED;
+        // 2. Fetch the standard operational Overtime multiplier from your helper
+        // Typically defaults to 1.25 (25% premium)
+        var otRateMultiplier = PolicyRateTypes.Contains(RateType.HOLIDAY_OT) || PolicyRateTypes.Contains(RateType.OVERTIME)
+            ? PremiumRateHelper.GetRate(context, PolicyRateTypes.Contains(RateType.HOLIDAY_OT) ? RateType.HOLIDAY_OT : RateType.OVERTIME, 1.25m)
+            : 1.0m;
 
-        var effectiveMultiplier = isPreFunded
-            ? Math.Max(0m, combinedRateMultiplier - 1.00m)
-            : combinedRateMultiplier;
+        // 3. Compute tiered compounding multipliers dynamically
+        decimal coreDayRate = dayTypeMultiplier;                         // Tier 1: Basic day rate (e.g., 2.60 for Rest Legal)
+        decimal fullyCompoundedRate = coreDayRate * otRateMultiplier;    // Tier 2: Day rate + OT (e.g., 2.60 * 1.30 = 3.38)
 
-        line.Value += hours * baseHourlyRate * effectiveMultiplier;
+        // 4. Extract pure premiums by calculating the differences between mathematical tiers
+        // Since this is pure OT, NdPremium remains untouched (0), and OT captures the exact variance.
+        decimal pureOtPremiumMultiplier = fullyCompoundedRate - coreDayRate;
+
+        // 5. Apply the effective multiplier to gross value
+        decimal effectiveTotalMultiplier = fullyCompoundedRate;
+
+        // 6. Allocate values cleanly to the tracking pipeline instance
+        line.Value += basePayForHours * effectiveTotalMultiplier;
+        line.OTPremium += basePayForHours * pureOtPremiumMultiplier;
+        // line.NdPremium is intentionally not altered here because no ND hours exist in this pipeline category.
         return line;
     }
 }

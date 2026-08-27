@@ -12,7 +12,8 @@ public class BasicPipelineData : IPipeData
     public PayType PayType { get; set; }
     public decimal Worked { get; set; }
     public decimal UnWork { get; set; }
-
+    public decimal OTPremium   { get; set; }
+    public decimal NDPremium   { get; set; }
 }
 public class AllowancePipeData : IPipeData
 {

@@ -64,7 +64,7 @@ public class OtherIncomeInfo
 {
     public Guid Id { get; set; }
     public Guid IncomeId { get; set; }
-    public IncomeClassType Type { get; set; }
+    public IncomeClassType? Type { get; set; }
     public DateOnly PayrollDate { get; set; }
     public decimal Amount { get; set; }
     public bool Taxable { get; set; }

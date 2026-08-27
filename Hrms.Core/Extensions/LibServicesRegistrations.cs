@@ -15,6 +15,7 @@ public static class LibServicesRegistrations
         AddLibraryAssemblyDependencies(services, "DTR.Core");
         services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
         services.AddScoped<IMigrationService, EvolveMigrationService>();
+        services.AddScoped<EmployeePayrollInclusionResolver>();
         services.AddScoped<Messaging.InstanceProvisioner>();
         services.AddScoped<Messaging.DedicatedProvisioner>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never

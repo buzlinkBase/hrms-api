@@ -28,8 +28,13 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
         builder.Property(x => x.JobLevel)
           .HasConversion(
                 v => v.ToString(),
-                v => (JobLevelOption)Enum.Parse(typeof(JobLevelOption), v)
+                v => EnumParserConfig.SafeParseEnum(v, JobLevelOption.RankandFile)
             );
+        // Explicit SQL DEFAULT — a C# property initializer alone doesn't produce one, and
+        // without it the migration would add this NOT NULL column with no default, which
+        // would either fail against existing rows or silently backfill false (inverting the
+        // intended backward-compatible behavior: existing employees keep their own toggles).
+        builder.Property(x => x.UseEmployeeOverride).HasDefaultValue(true);
 
         builder
             .HasOne(e => e.Department)

@@ -59,7 +59,7 @@ public class PayrollRangeContextComposerService
         _payrollService = payrollService;
         _salaryAdjService = salaryAdjService;
     }
-    public async Task<CalculatorPayload?> ComposeAsync(
+    public async Task<CalculatorPayload?> ComposePayload(
    DateRangePayload dtrPayload,
    List<EmployeeModelPayrollRun> employees,
    CancellationToken token)

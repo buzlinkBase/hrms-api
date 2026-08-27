@@ -50,6 +50,11 @@ public class Employee : BaseEntity
     public bool IsSpecialNonWorkingIncluded { get; set; }
     public bool IsNightDiffIncluded { get; set; }
 
+    // When true, use this employee's own IsXxxIncluded toggles above for Fixed-salary
+    // payroll. When false, fall back to the tenant-wide PayrollInclusionDefaults.
+    // See EmployeePayrollInclusionResolver.
+    public bool UseEmployeeOverride { get; set; } = true;
+
     public DateTime? DOB { get; set; }
     public string BloodType { get; set; } = string.Empty;
 

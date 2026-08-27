@@ -18,7 +18,7 @@ public class StatutoryTestContextBase
     {
         var payrollLine = new PayrollSummaryLine
         {
-            BasicSalary = monthlyRate,
+            BasicPay = monthlyRate,
             GrossIncome = grossPay,
             PayrollDate = toDate,
             BasicSalaryItems = new List<DTRPayModel>

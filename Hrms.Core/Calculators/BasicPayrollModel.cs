@@ -1,3 +1,5 @@
+using NpgsqlTypes;
+
 namespace Hrms.Core.Calculators;
 
 public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
@@ -127,23 +129,33 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
     {
         var regular = _regularPipeline.Run(context).Value;
         var restday = _restDayPipeline.Run(context).Value;
-        var legal = _legalPipeline.Run(context).Value;
+        var legal = _legalPipeline.Run(context);
         var special = _specialPipeline.Run(context).Value;
         var restlegal = _restLegalPipeline.Run(context).Value;
         var restSpecial = _restSpecialPipeline.Run(context).Value;
-        var doubleLegal = _doubleLegalPipeline.Run(context).Value;
-        var restDoubleLegal = _restDoubleLegalPipeline.Run(context).Value;
+        var doubleLegal = _doubleLegalPipeline.Run(context);
+        var restDoubleLegal = _restDoubleLegalPipeline.Run(context);
 
-        var regularOT = _regularOTPipeline.Run(context).Value;
-        var restOT = _restOTPipeline.Run(context).Value;
-        var legalOT = _legalOTPipeline.Run(context).Value;
-        var specialOT = _specialOTPipeline.Run(context).Value;
-        var restLegalOT = _restLegalOTPipeline.Run(context).Value;
-        var restSpecialOT = _restSpecialOTPipeline.Run(context).Value;
-        var doubleLegalOT = _doubleLegalOTPipeline.Run(context).Value;
-        var restDoubleLegalOT = _restDoubleLegalOTPipeline.Run(context).Value;
+        var regularOTResult = _regularOTPipeline.Run(context);
+        var restOTResult = _restOTPipeline.Run(context);
+        var legalOTResult = _legalOTPipeline.Run(context);
+        var specialOTResult = _specialOTPipeline.Run(context);
+        var restLegalOTResult = _restLegalOTPipeline.Run(context);
+        var restSpecialOTResult = _restSpecialOTPipeline.Run(context);
+        var doubleLegalOTResult = _doubleLegalOTPipeline.Run(context);
+        var restDoubleLegalOTResult = _restDoubleLegalOTPipeline.Run(context);
 
-        var otTotal = regularOT
+        var regularOT = regularOTResult.Value;
+        var restOT = restOTResult.Value;
+        var legalOT = legalOTResult.Value;
+        var specialOT = specialOTResult.Value;
+        var restLegalOT = restLegalOTResult.Value;
+        var restSpecialOT = restSpecialOTResult.Value;
+        var doubleLegalOT = doubleLegalOTResult.Value;
+        var restDoubleLegalOT = restDoubleLegalOTResult.Value;
+
+        var otTotal =
+            regularOT
             + restOT
             + legalOT
             + restLegalOT
@@ -151,15 +163,24 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             + restSpecialOT
             + doubleLegalOT
             + restDoubleLegalOT;
-    
-        var regularND = _regularNDPipeline.Run(context).Value;
-        var restND = _restNDPipeline.Run(context).Value;
-        var legalND = _legalNDPipeline.Run(context).Value;
-        var specialND = _specialNDPipeline.Run(context).Value;
-        var restLegalND = _restLegalNDPipeline.Run(context).Value;
-        var restSpecialND = _restSpecialNDPipeline.Run(context).Value;
-        var doubleLegalND = _doubleLegalNDPipeline.Run(context).Value;
-        var restDoubleLegalND = _restDoubleLegalNDPipeline.Run(context).Value;
+
+        var regularNDResult = _regularNDPipeline.Run(context);
+        var restNDResult = _restNDPipeline.Run(context);
+        var legalNDResult = _legalNDPipeline.Run(context);
+        var specialNDResult = _specialNDPipeline.Run(context);
+        var restLegalNDResult = _restLegalNDPipeline.Run(context);
+        var restSpecialNDResult = _restSpecialNDPipeline.Run(context);
+        var doubleLegalNDResult = _doubleLegalNDPipeline.Run(context);
+        var restDoubleLegalNDResult = _restDoubleLegalNDPipeline.Run(context);
+
+        var regularND = regularNDResult.Value;
+        var restND = restNDResult.Value;
+        var legalND = legalNDResult.Value;
+        var specialND = specialNDResult.Value;
+        var restLegalND = restLegalNDResult.Value;
+        var restSpecialND = restSpecialNDResult.Value;
+        var doubleLegalND = doubleLegalNDResult.Value;
+        var restDoubleLegalND = restDoubleLegalNDResult.Value;
 
         var ndTotal = regularND
             + restND
@@ -170,14 +191,23 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             + doubleLegalND
             + restDoubleLegalND;
 
-        var regularNDOT = _regularNDOTPipeline.Run(context).Value;
-        var restNDOT = _restNDOTPipeline.Run(context).Value;
-        var legalNDOT = _legalNDOTPipeline.Run(context).Value;
-        var restLegalNDOT = _restLegalNDOTPipeline.Run(context).Value;
-        var specialNDOT = _specialNDOTPipeline.Run(context).Value;
-        var restSpecialNDOT = _restSpecialNDOTPipeline.Run(context).Value;
-        var doubleLegalNDOT = _doubleLegalNDOTPipeline.Run(context).Value;
-        var restDoubleLegalNDOT = _restDoubleLegalNDOTPipeline.Run(context).Value;
+        var regularNDOTResult = _regularNDOTPipeline.Run(context);
+        var restNDOTResult = _restNDOTPipeline.Run(context);
+        var legalNDOTResult = _legalNDOTPipeline.Run(context);
+        var restLegalNDOTResult = _restLegalNDOTPipeline.Run(context);
+        var specialNDOTResult = _specialNDOTPipeline.Run(context);
+        var restSpecialNDOTResult = _restSpecialNDOTPipeline.Run(context);
+        var doubleLegalNDOTResult = _doubleLegalNDOTPipeline.Run(context);
+        var restDoubleLegalNDOTResult = _restDoubleLegalNDOTPipeline.Run(context);
+
+        var regularNDOT = regularNDOTResult.Value;
+        var restNDOT = restNDOTResult.Value;
+        var legalNDOT = legalNDOTResult.Value;
+        var restLegalNDOT = restLegalNDOTResult.Value;
+        var specialNDOT = specialNDOTResult.Value;
+        var restSpecialNDOT = restSpecialNDOTResult.Value;
+        var doubleLegalNDOT = doubleLegalNDOTResult.Value;
+        var restDoubleLegalNDOT = restDoubleLegalNDOTResult.Value;
 
         var ndotTotal = regularNDOT
             + restNDOT
@@ -187,12 +217,50 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             + restSpecialNDOT
             + doubleLegalNDOT
             + restDoubleLegalNDOT;
- 
+
+        // Each OT/ND/NDOT policy already isolates its own premium delta (the amount above
+        // the plain day-type rate) onto BasicPipelineData.OTPremium/.NDPremium — sum those
+        // directly instead of deriving premiums from unrelated totals.
+        var otPremiumTotal =
+            regularOTResult.OTPremium
+            + restOTResult.OTPremium
+            + legalOTResult.OTPremium
+            + restLegalOTResult.OTPremium
+            + specialOTResult.OTPremium
+            + restSpecialOTResult.OTPremium
+            + doubleLegalOTResult.OTPremium
+            + restDoubleLegalOTResult.OTPremium
+            + regularNDOTResult.OTPremium
+            + restNDOTResult.OTPremium
+            + legalNDOTResult.OTPremium
+            + restLegalNDOTResult.OTPremium
+            + specialNDOTResult.OTPremium
+            + restSpecialNDOTResult.OTPremium
+            + doubleLegalNDOTResult.OTPremium
+            + restDoubleLegalNDOTResult.OTPremium;
+
+        var ndPremiumTotal =
+            regularNDResult.NDPremium
+            + restNDResult.NDPremium
+            + legalNDResult.NDPremium
+            + restLegalNDResult.NDPremium
+            + specialNDResult.NDPremium
+            + restSpecialNDResult.NDPremium
+            + doubleLegalNDResult.NDPremium
+            + restDoubleLegalNDResult.NDPremium
+            + regularNDOTResult.NDPremium
+            + restNDOTResult.NDPremium
+            + legalNDOTResult.NDPremium
+            + restLegalNDOTResult.NDPremium
+            + specialNDOTResult.NDPremium
+            + restSpecialNDOTResult.NDPremium
+            + doubleLegalNDOTResult.NDPremium
+            + restDoubleLegalNDOTResult.NDPremium;
+
         var absentResult = _absentPipeline.Run(context);
         var lateResult = _latesPipeline.Run(context);
         var utResult = _underTimePipeline.Run(context);
         var leaveResult = _leavePipeline.Run(context);
-
         var paid = leaveResult.Where(x => x.PayType == PayType.WithPay).Sum(x => x.Value);
         var unpaid = leaveResult.Where(x => x.PayType == PayType.WithoutPay).Sum(x => x.Value);
 
@@ -202,6 +270,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             DTRRef = context.DailyRecord.BatchCode,
             Date = context.PayrollDate,
             EmployeeId = context.DailyRecord.EmployeeId,
+            DailyRate = context.Employee.DailyRate,
 
             UnpaidLeave = unpaid,
             PaidLeave = paid,
@@ -219,7 +288,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             RestDayNDPay = restND,
             RestDayNDOTPay = restNDOT,
 
-            LegalPay = legal,
+            LegalPay = legal.Value,
             LegalOTPay = legalOT,
             LegalNDPay = legalND,
             LegalNDOTPay = legalNDOT,
@@ -239,21 +308,39 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             RestLegalNDPay = restLegalND,
             RestLegalNDOTPay = restLegalNDOT,
 
-            DoubleLegalPay = doubleLegal,
+            DoubleLegalPay = doubleLegal.Value,
             DoubleLegalOTPay = doubleLegalOT,
             DoubleLegalNDPay = doubleLegalND,
             DoubleLegalNDOTPay = doubleLegalNDOT,
 
-            RestDoubleLegalPay = restDoubleLegal,
+            RestDoubleLegalPay = restDoubleLegal.Value,
             RestDoubleLegalOTPay = restDoubleLegalOT,
             RestDoubleLegalNDPay = restDoubleLegalND,
             RestDoubleLegalNDOTPay = restDoubleLegalNDOT,
 
-            TotalOT=otTotal,
-            TotalND=ndTotal,    
-            TotalNDOT=ndTotal,
-            g
-            
+            LegalWorked = legal.Worked,
+            LegalUnWorked = legal.UnWork,
+            DoubleLegalUnworked = doubleLegal.UnWork,
+            DoubleLegalWorked = doubleLegal.Worked,
+            RestDoubleLegalUnworked = restDoubleLegal.UnWork,
+            RestDoubleLegalWorked = restDoubleLegal.Worked,
+
+            TotalOT = otTotal,
+            TotalND = ndTotal,
+            TotalNDOT = ndotTotal,
+            NDPremiumPay = ndPremiumTotal,
+            OTPremiumPay = otPremiumTotal,
+            Gross = paid
+            + otTotal
+            + ndTotal
+            + ndotTotal
+            + restday
+            + legal.Value
+            + special
+            + restlegal
+            + restSpecial
+            + doubleLegal.Value
+            + restDoubleLegal.Value
         };
     }
 }

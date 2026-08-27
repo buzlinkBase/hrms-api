@@ -12,7 +12,6 @@ internal class LeavePolicy : PayrollPolicyBase<LineCollection<BasicPipelineData>
     public override LineCollection<BasicPipelineData> ApplyIfSatisfied(LineCollection<BasicPipelineData> linecollection, PayrollContext context)
     {
         var dailyRecord = context.DailyRecord;
-
         // Ensure valid shift hours and that there are actual leave hours recorded
         if (dailyRecord.ShiftWorkingHour <= 0 ||
            (dailyRecord.UnpaidLeaveHours <= 0 && dailyRecord.PaidLeaveHours <= 0))
@@ -31,7 +30,6 @@ internal class LeavePolicy : PayrollPolicyBase<LineCollection<BasicPipelineData>
                 Value = hourlyRate * (decimal)dailyRecord.UnpaidLeaveHours,
             });
         }
-
         if (dailyRecord.PaidLeaveHours > 0)
         {
             linecollection.Add(new BasicPipelineData

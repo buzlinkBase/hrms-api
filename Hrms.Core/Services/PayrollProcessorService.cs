@@ -13,6 +13,7 @@ public class PayrollProcessorService
     private readonly ICalculator<AllowancePipeData, PayrollContext> _allowancesCalculator;
     private readonly ICalculator<DeductionPipeData, DeductionPayloadContext> _deductionCalculator;
     private readonly IDailyRateResolver _dailyRateResolver;
+    private readonly EmployeePayrollInclusionResolver _inclusionResolver;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
@@ -22,7 +23,8 @@ public class PayrollProcessorService
         ICalculator<DTRPayModel, PayrollContext> basicPayrollCalculator,
         ICalculator<AllowancePipeData, PayrollContext> allowancesCalculator,
         ICalculator<DeductionPipeData, DeductionPayloadContext> deductionCalculator,
-        IDailyRateResolver dailyRateResolver)
+        IDailyRateResolver dailyRateResolver,
+        EmployeePayrollInclusionResolver inclusionResolver)
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
@@ -32,14 +34,15 @@ public class PayrollProcessorService
         _allowancesCalculator = allowancesCalculator;
         _deductionCalculator = deductionCalculator;
         _dailyRateResolver = dailyRateResolver;
+        _inclusionResolver = inclusionResolver;
     }
 
-    public async Task<List<Payroll>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
     {
         var lines = await CalculateAsync(payload, token);
         var payrolls = _mapper.Map<List<Payroll>>(lines);
-        await _payrollService.SavePayrollsAsync(payrolls, token);
-        return payrolls;
+        //await _payrollService.SavePayrollsAsync(payrolls, token);
+        return lines;
     }
 
     public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload, CancellationToken token)
@@ -56,9 +59,15 @@ public class PayrollProcessorService
             .DistinctBy(x => x.Id)
             .ToList();
 
-        if (!employees.Any()) return payrollLines;
+        if (employees == null || !employees.Any())
+        {
+            return payrollLines;
+        }
 
-        var rangePayload = await _payloadComposer.ComposeAsync(dateRange, employees, token)
+        // Resolve tenant-vs-employee Fixed-salary inclusion settings once, upstream —
+        // every downstream DTR pay policy keeps reading employee.IsXxxIncluded unchanged.
+        await _inclusionResolver.ApplyAsync(employees!, token);
+        var rangePayload = await _payloadComposer.ComposePayload(dateRange, employees, token)
                           ?? throw new Exception("Unable to load range payload");
 
         foreach (var employee in employees)
@@ -76,10 +85,14 @@ public class PayrollProcessorService
         return payrollLines;
     }
 
-    private static string BuildPayrollPeriod(DateRangePayload payload) => string.Concat(
-             payload.FromDate.ToString("MMM-dd-YY"), " ",
-             payload.ToDate.ToString("MMM-dd-YY"),
-             string.Empty);
+    private static string BuildPayrollPeriod(DateRangePayload payload)
+    {
+
+        return string.Concat(
+               payload.FromDate.ToString("MMM-dd-yyyy"), " ",
+               payload.ToDate.ToString("MMM-dd-yyyy"),
+               string.Empty);
+    }
 
     private static PayrollSummaryLine InitializePayrollLine(
         DateRangePayload payload,
@@ -108,13 +121,16 @@ public class PayrollProcessorService
         PayrollSummaryLine payrollLine)
     {
         var employeeBasicCalc = CalculateDTRTimePay(payload, dtrs, employee, rangePayload);
-        CalcBasicRate(payrollLine, employeeBasicCalc,employee);
         payrollLine.TimeHourPayResults = employeeBasicCalc;
+        CalcBasicRate(payrollLine, employeeBasicCalc, employee);
 
         payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateAmount);
         payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.TotalOT);
         payrollLine.UnderTimeAmount = employeeBasicCalc.Sum(x => x.UTAmount);
         payrollLine.NightDifferentialPay = employeeBasicCalc.Sum(x => x.TotalND);
+        payrollLine.NightDifferentialOTPay = employeeBasicCalc.Sum(x => x.TotalNDOT);
+        payrollLine.OTPremiumPay = employeeBasicCalc.Sum(x => x.OTPremiumPay);
+        payrollLine.NDPremiumPay = employeeBasicCalc.Sum(x => x.NDPremiumPay);
         payrollLine.AbsencesAmount = employeeBasicCalc.Sum(x => x.AbsentAmount);
 
         payrollLine.RegularDayPay = employeeBasicCalc.Sum(x => x.RegularDayPay);
@@ -157,14 +173,14 @@ public class PayrollProcessorService
         payrollLine.RestDoubleLegalNDPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDPay);
         payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPay);
 
-        //payrollLine.HolidayPay = 
+        //payrollLine.HolidayPay =
         //      payrollLine.LegalPay
         //    + payrollLine.SpecialPay
         //    + payrollLine.SpecialPay
         //    + payrollLine.RestSpecialPay
         //    + payrollLine.RestLegalPay
         //    + payrollLine.DoubleLegalPay
-        //    + payrollLine.RestDoubleLegalPay; 
+        //    + payrollLine.RestDoubleLegalPay;
     }
 
     private List<DTRPayModel> CalculateDTRTimePay(
@@ -197,25 +213,30 @@ public class PayrollProcessorService
         return basicResultMoel;
     }
 
-    private void CalcBasicRate(PayrollSummaryLine payrollLine , List<DTRPayModel> TimeCalcResult, EmployeeModelPayrollRun employee)
+    private void CalcBasicRate(PayrollSummaryLine payrollLine,
+        List<DTRPayModel> TimeCalcResult,
+        EmployeeModelPayrollRun employee)
     {
         if (employee.SalaryType != SalaryType.FIXED)
         {
-            payrollLine.BasicSalary = TimeCalcResult.Sum(x => x.RegularDayPay);
+            payrollLine.BasicPay = TimeCalcResult.Sum(x => x.RegularDayPay);
             return;
         }
-        var divisor= GetDivisor(payrollLine.PayPeriodStart, employee);
-        payrollLine.BasicSalary = employee.MonthlyRate / divisor;
+        var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
+        var basicTotal = employee.MonthlyRate / divisor;
+        basicTotal = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));
+        payrollLine.BasicPay = basicTotal;
     }
 
-    private int GetDivisor( DateOnly fromDate,  EmployeeModelPayrollRun employee)
+
+    private int GetDivisor(DateOnly fromDate, EmployeeModelPayrollRun employee)
     {
-        if (employee.PayrollGroup == null) return 2; 
+        if (employee.PayrollGroup == null) return 2;
         switch (employee.PayrollGroup.PayrollFrequency)
         {
             case PayrollFrequency.DAILY:
                 var days = DateTime.DaysInMonth(fromDate.Year, fromDate.Month);
-                return days; 
+                return days;
             case PayrollFrequency.WEEKLY:
                 return 4;
             case PayrollFrequency.SEMI_MONTHLY:
@@ -225,9 +246,6 @@ public class PayrollProcessorService
             default:
                 return 2;
         }
-
-
-
     }
 
     private void ComputeAllowances(
@@ -237,7 +255,11 @@ public class PayrollProcessorService
         PayrollSummaryLine payrollLine)
     {
         var pp = new PayrollCalcPayload(payload.FromDate, payload.ToDate, null, null, null, null);
-        var context = new PayrollContextBuilder().SetEmployee(employee).SetPayload(rangePayload).Build();
+        var context = new PayrollContextBuilder()
+            .SetEmployee(employee)
+            .SetPayload(rangePayload)
+            .Build();
+
         var IncomeCalcResult = _allowancesCalculator.Calculate(context);
         payrollLine.Cola = IncomeCalcResult.Cola;
         payrollLine.TotalDeminimises = IncomeCalcResult.Deminimises.Sum(x => x.Amount);
@@ -248,7 +270,7 @@ public class PayrollProcessorService
         payrollLine.TotalRegularAllowances = IncomeCalcResult.RegularAllowances.Sum(x => x.Amount);
         payrollLine.OtherIncomeCollection = IncomeCalcResult.AllIncome;
         payrollLine.RegularAllowanceProrated = CaptureProratedAllowance(pp, payrollLine.TotalRegularAllowances);
-        payrollLine.GrossIncome = PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.BasicSalary);
+        payrollLine.GrossIncome = PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.TimeHourPayResults);
         IdentifyTaxableIncome(payrollLine, IncomeCalcResult);
 
     }
@@ -293,7 +315,7 @@ public class PayrollProcessorService
             switch (adj.AdjustmentType)
             {
                 case SalaryAdjustmentType.Salary:
-                    payrollLine.BasicSalary += adj.Amount;
+                    payrollLine.BasicPay += adj.Amount;
                     payrollLine.GrossIncome += adj.Amount;
                     payrollLine.NetPay += adj.Amount;
                     break;

@@ -53,10 +53,12 @@ public class DoubleLegalPayCalculator
     public DoubleLegalPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
     {
         if (workedHours <= 0) return this;
+
         // DOLE Worked Double Holiday: 300% (3.0x)
         // If ineligible: Earns 1.0x basic hourly rate
         // If eligible & pre-funded (fixed monthly): Earns 2.0x additional premium (3.0 - 1.0 pre-funded)
         // If eligible & not pre-funded (daily): Earns full 3.0x
+
         var multiplier = !_isEligible
             ? 1.0m
             : (_isBasePayPreFunded ? (DOLE_WORKED_MULTIPLIER - 1.0m) : DOLE_WORKED_MULTIPLIER);
@@ -68,15 +70,12 @@ public class DoubleLegalPayCalculator
     public DoubleLegalPayCalculator CalculateUnworkedPay(decimal hourlyRate, decimal unworkedHours)
     {
         if (unworkedHours <= 0 || !_isEligible) return this;
-
         // DOLE Unworked Double Holiday: 200% (2.0x)
         // If eligible & pre-funded (fixed monthly): Earns 1.0x additional premium (2.0 - 1.0 pre-funded)
         // If eligible & not pre-funded (daily): Earns full 2.0x
         var multiplier = _isBasePayPreFunded ? (DOLE_UNWORKED_MULTIPLIER - 1.0m) : DOLE_UNWORKED_MULTIPLIER;
-
         _total += hourlyRate * unworkedHours * multiplier;
         return this;
     }
-
     public decimal Total => _total;
 }

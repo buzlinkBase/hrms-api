@@ -50,6 +50,7 @@ public class HrmsContext : DbContext, IDbContext
 
     #region "dbsets" 
     public DbSet<Company> Companies { get; set; }
+    public DbSet<PayrollInclusionDefaults> PayrollInclusionDefaults { get; set; }
     public DbSet<Branch> Branches { get; set; }
     public DbSet<Client> Clients { get; set; }
     public DbSet<CostCenters> Areas { get; set; }

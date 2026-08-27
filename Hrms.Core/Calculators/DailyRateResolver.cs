@@ -24,7 +24,6 @@ public class DailyRateResolver : IDailyRateResolver
     public decimal Resolve(EmployeeModelPayrollRun employee, DateOnly referenceDate = default)
     {
         if (employee.SalaryType != SalaryType.FIXED) return employee.DailyRate;
-
         switch (employee.DailyRateMode)
         {
             case DailyRateMode.CalculatedEDR:

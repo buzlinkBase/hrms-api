@@ -1,4 +1,7 @@
 ﻿
+using DocumentFormat.OpenXml.Math;
+using Hrms.Domain.Entities.EmployeeEntities;
+
 namespace Hrms.Core.Calculators.Payloads;
 
 public class PayrollSummaryLine
@@ -12,9 +15,12 @@ public class PayrollSummaryLine
     public string PayrollPeriod { get; set; } = string.Empty;
 
     // Earnings
-    public decimal BasicSalary { get; set; }
+    public decimal BasicPay { get; set; }
     public decimal OvertimePay { get; set; }
     public decimal NightDifferentialPay { get; set; }
+    public decimal NightDifferentialOTPay { get; set; }
+    public decimal OTPremiumPay { get; set; }
+    public decimal NDPremiumPay { get; set; }
     //public decimal HolidayPay { get; set; }
 
     public decimal RegularDayPay { get; set; }
@@ -98,6 +104,30 @@ public class PayrollSummaryLine
 
     public decimal NonTaxableBenefits { get; set; }
     public decimal TaxableBenefits { get; set; }
+
+
+    public decimal TotalHoursWorked { get; set; }
+    public decimal TotalDaysWorked { get; set; }
+    public decimal LateMinutes { get; set; }
+    public decimal UnderTimeMinutes { get; set; }
+    public decimal AbsentDays { get; set; }
+    public decimal OvertimeHours { get; set; }
+
+    public decimal TaxableIncome { get; set; }
+    //(Gross less non-taxable allowances/contributions before BIR tax lookup)
+    public decimal NonTaxableIncome { get; set; }
+    public decimal SSSMandatoryProvidentFund { get; set; }
+    //(SSS WISP contribution -employee share)
+    public decimal EmployerSSSMandatoryProvidentFund { get; set; }
+    //(SSS WISP contribution -employer share)
+    public decimal PagIbig2Contribution { get; set; }
+
+    public DateTime ProcessedAt { get; set; }
+    public string? ProcessedBy { get; set; }
+    public string DepartmentName { get; set; } = string.Empty;
+    public string PositionName { get; set; } = string.Empty;
+    public string EmployeeCode { get; set; } = string.Empty;
+
     public List<DTRPayModel> TimeHourPayResults { get; set; } = new();
     public List<OtherIncomeInfo> OtherIncomeCollection { get; set; } = new();
     public List<DeductionInfo> DeductionCollection { get; set; } = new();

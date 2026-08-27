@@ -7,6 +7,8 @@ public class DTRPayModel
     public string? DTRRef { get; set; }
     public DateOnly Date { get; set; }
     public Guid EmployeeId  { get; set; }
+    public decimal DailyRate  { get; set; }
+
 
     public decimal LateAmount { get; set; }
     public decimal UTAmount { get; set; }
@@ -58,6 +60,12 @@ public class DTRPayModel
     public decimal LegalUnWorked { get; set; } 
     public decimal DoubleLegalWorked { get; set; }
     public decimal DoubleLegalUnworked { get; set; }
+    public decimal RestDoubleLegalWorked { get; set; }
+    public decimal RestDoubleLegalUnworked { get; set; }
+    public decimal Gross { get; set; }
+
+    public decimal NDPremiumPay   { get; set; }
+    public decimal OTPremiumPay   { get; set; } 
 
     public decimal TotalOT { get; set; }
     public decimal TotalND { get; set; }

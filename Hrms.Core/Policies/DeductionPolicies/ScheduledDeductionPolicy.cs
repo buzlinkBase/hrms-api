@@ -21,7 +21,6 @@ internal class ScheduledDeductionPolicy : PayrollPolicyBase<DeductionPipeData, D
 
             line.RemainingGrossBalance -= deduction.Amount;
             processDeductions.Add(deduction);
-
         }
 
         line.RunningTotal += processDeductions.Sum(x => x.Amount);

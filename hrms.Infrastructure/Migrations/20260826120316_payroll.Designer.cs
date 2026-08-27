@@ -4,6 +4,7 @@ using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    partial class HrmsContextModelSnapshot : ModelSnapshot
+    [Migration("20260826120316_payroll")]
+    partial class payroll
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1505,11 +1508,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<bool>("UseActualMonthDays")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<bool>("UseEmployeeOverride")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("tinyint(1)")
-                        .HasDefaultValue(true);
-
                     b.Property<Guid?>("UserId")
                         .HasColumnType("char(36)");
 
@@ -2965,8 +2963,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IncomeId");
-
                     b.HasIndex("OtherIncomeApplicationId");
 
                     b.HasIndex("TenantId", "DeletedAt");
@@ -3322,16 +3318,10 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("NDPay")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<decimal>("NDPremiumPay")
-                        .HasColumnType("decimal(65,30)");
-
                     b.Property<decimal>("NetPay")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("NonTaxableBenefits")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<decimal>("OTPremiumPay")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("OtherDeductions")
@@ -3525,47 +3515,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("PayrollGroups");
-                });
-
-            modelBuilder.Entity("Hrms.Domain.Entities.PayrollInclusionDefaults", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("DefaultNightDiffIncluded")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("DefaultRegularHolidayIncluded")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("DefaultRestDayPaid")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("DefaultSpecialNonWorkingIncluded")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "DeletedAt");
-
-                    b.ToTable("PayrollInclusionDefaults");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Position", b =>
@@ -4871,17 +4820,9 @@ namespace Hrms.Infrastructure.Migrations
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncomeSchedules", b =>
                 {
-                    b.HasOne("Hrms.Domain.Entities.OtherIncome", "Income")
-                        .WithMany()
-                        .HasForeignKey("IncomeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("Hrms.Domain.Entities.OtherIncomeApplication", null)
                         .WithMany("Schedule")
                         .HasForeignKey("OtherIncomeApplicationId");
-
-                    b.Navigation("Income");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OverTimeApplication", b =>

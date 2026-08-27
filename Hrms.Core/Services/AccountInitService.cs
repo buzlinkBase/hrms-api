@@ -25,6 +25,7 @@ public class AccountInitService : BaseService<Company>
         await SetDefaultAnnualTaxTable(token);
         await SetDefaultPayrollGroups(token);
         await PayrollSettings(token);
+        await SetDefaultPayrollInclusionDefaults(token);
     }
 
     private async Task PayrollSettings(CancellationToken token)
@@ -671,6 +672,29 @@ public class AccountInitService : BaseService<Company>
             },
         };
         await _uow.Repository.AddRangeAsync(groups, token);
+    }
+
+    /// <summary>
+    /// Seeds the single per-tenant Fixed Salary Inclusion Defaults row (Company Policy >
+    /// Fixed Salary Defaults) so every tenant starts with a real, editable row instead of
+    /// relying on the GET endpoint's transient all-false fallback. All-false matches that
+    /// same fallback, so this seed is a no-op for actual payroll behavior until an admin
+    /// changes the settings.
+    /// </summary>
+    private async Task SetDefaultPayrollInclusionDefaults(CancellationToken token)
+    {
+        var defaults = new List<PayrollInclusionDefaults>
+        {
+            new PayrollInclusionDefaults
+            {
+                Id = Guid.CreateVersion7(),
+                DefaultRestDayPaid = false,
+                DefaultRegularHolidayIncluded = true,
+                DefaultSpecialNonWorkingIncluded = false,
+                DefaultNightDiffIncluded = false,
+            },
+        };
+        await _uow.Repository.AddRangeAsync(defaults, token);
     }
 
     private async Task SetDefaultDeductionTypes(CancellationToken token)

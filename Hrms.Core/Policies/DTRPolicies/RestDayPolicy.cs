@@ -4,6 +4,10 @@ internal class RestDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
+        if (context.DailyRecord.RestDayHours == 0 || context.DailyRecord.ShiftWorkingHour >= 0)
+            return line;
+
+
         var dailyRecord = context.DailyRecord;
         var employee = context.Employee;
 
