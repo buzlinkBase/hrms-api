@@ -122,8 +122,9 @@ public class PayrollProcessorService
     {
         var employeeBasicCalc = CalculateDTRTimePay(payload, dtrs, employee, rangePayload);
         payrollLine.TimeHourPayResults = employeeBasicCalc;
+        payrollLine.SalaryType = employee.SalaryType;
+        payrollLine.DailyRate = employee.DailyRate;
         CalcBasicRate(payrollLine, employeeBasicCalc, employee);
-
         payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateAmount);
         payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.TotalOT);
         payrollLine.UnderTimeAmount = employeeBasicCalc.Sum(x => x.UTAmount);
@@ -172,6 +173,8 @@ public class PayrollProcessorService
         payrollLine.RestDoubleLegalOTPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalOTPay);
         payrollLine.RestDoubleLegalNDPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDPay);
         payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPay);
+        payrollLine.UnpaidLeaves = employeeBasicCalc.Sum(x => x.UnpaidLeave);
+        payrollLine.PaidLeaves = employeeBasicCalc.Sum(x => x.PaidLeave);
 
         //payrollLine.HolidayPay =
         //      payrollLine.LegalPay
@@ -208,6 +211,7 @@ public class PayrollProcessorService
             result.Date = date;
             result.DTRRef = record.BatchCode;
             result.DtrId = record.Id;
+            result.SalaryType = employee.SalaryType;
             basicResultMoel.Add(result);
         }
         return basicResultMoel;
@@ -222,10 +226,14 @@ public class PayrollProcessorService
             payrollLine.BasicPay = TimeCalcResult.Sum(x => x.RegularDayPay);
             return;
         }
+
+
         var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
         var basicTotal = employee.MonthlyRate / divisor;
-        basicTotal = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));
+        var deductions = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));
+        basicTotal = basicTotal - deductions;
         payrollLine.BasicPay = basicTotal;
+
     }
 
 
@@ -270,7 +278,7 @@ public class PayrollProcessorService
         payrollLine.TotalRegularAllowances = IncomeCalcResult.RegularAllowances.Sum(x => x.Amount);
         payrollLine.OtherIncomeCollection = IncomeCalcResult.AllIncome;
         payrollLine.RegularAllowanceProrated = CaptureProratedAllowance(pp, payrollLine.TotalRegularAllowances);
-        payrollLine.GrossIncome = PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.TimeHourPayResults);
+        payrollLine.GrossIncome = payrollLine.BasicPay +  PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.TimeHourPayResults);
         IdentifyTaxableIncome(payrollLine, IncomeCalcResult);
 
     }

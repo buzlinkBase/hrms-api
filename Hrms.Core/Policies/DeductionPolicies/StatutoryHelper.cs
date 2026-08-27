@@ -237,14 +237,12 @@ public class StatutoryHelper
     {
         //prior payroll
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
-        var PostedAbsent = 0;// payrol.Sum(x => x.Absences);
-
+        var PostedAbsent = payrol.Sum(x => x.AbsencesAmount);
         //current
         if (!context.Payload.CompanyPolicy.ApplyStatutoryOnActualMonth)
         {
             return context.PayrollLine.TimeHourPayResults.Sum(x => x.AbsentAmount) + PostedAbsent;
         }
-
 
         //TODO add up here the data already in the db outside the range with same month as the from date
         //return context.PayrollLine.TimeHourPayResults

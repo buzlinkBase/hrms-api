@@ -299,9 +299,18 @@ public class EmployeeService : BaseService<Employee>
         return result;
     }
 
+    private static readonly EmploymentStatus[] SeparatedStatuses =
+    [
+        EmploymentStatus.Terminated,
+        EmploymentStatus.Resigned,
+        EmploymentStatus.Retired,
+        EmploymentStatus.Deceased,
+    ];
+
     public async Task<List<EmployeeFilterResponseModel>> Filter(EmployeeFilter filter, CancellationToken token)
     {
         var result = await GetQueryable(x =>
+            !SeparatedStatuses.Contains(x.EmploymentStatus) &&
             (filter.DayName == null || x.RestDays.Any(xx => xx.DayName == filter.DayName)) &&
             (filter.BranchId == null || x.BranchId == filter.BranchId.Value) &&
             (filter.EmployeeId == null || x.Id == filter.EmployeeId.Value) &&

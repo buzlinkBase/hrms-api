@@ -8,6 +8,7 @@ public class DTRPayModel
     public DateOnly Date { get; set; }
     public Guid EmployeeId  { get; set; }
     public decimal DailyRate  { get; set; }
+    public SalaryType SalaryType { get; set; }
 
 
     public decimal LateAmount { get; set; }

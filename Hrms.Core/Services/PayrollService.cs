@@ -18,9 +18,9 @@ public class PayrollService : BaseService<Payroll>
         //    .AndNot(new IsDateWithinRangeSpec<Payroll>(fromDate, toDate))
         //    ;
         return await GetQueryable(x =>
-                x.PayrollDate >= fromDate && x.PayrollDate <= toDate &&
-                x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year &&
-                x.IsPosted)
+                 //x.PayrollDate >= fromDate && x.PayrollDate <= toDate &&
+                 x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year  &&
+                 x.IsPosted)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
         ;

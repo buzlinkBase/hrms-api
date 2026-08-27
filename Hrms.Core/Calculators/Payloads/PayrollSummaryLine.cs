@@ -13,6 +13,8 @@ public class PayrollSummaryLine
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;
+    public SalaryType SalaryType { get; set; }
+    public decimal DailyRate { get; set; }
 
     // Earnings
     public decimal BasicPay { get; set; }

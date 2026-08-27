@@ -39,8 +39,11 @@ public class TaxContributionService : BaseService<WTaxContribution>
     {
 
         return await GetQueryable()
-            .Where(x => (x.Date.Month == fromDate.Month && x.Date.Year == fromDate.Year) ||
-                (x.Date.Month == toDate.Month && x.Date.Year == toDate.Year))
+            .Where(x =>
+                    (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year)
+                    //(x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year)
+                    )
+            //.Where(x => !(x.PayrollDate >= fromDate && x.PayrollDate <= toDate))
             .ProjectToType<WTaxContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)

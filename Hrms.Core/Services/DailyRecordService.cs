@@ -208,7 +208,8 @@ public class DailyRecordService : BaseService<DailyRecord>
                 FromDate = g.Min(x => x.WorkDate),
                 ToDate = g.Max(x => x.WorkDate),
                 EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
-                IsPosted = g.All(x => x.Posted)
+                IsPosted = g.All(x => x.Posted),
+                PostingDescription = g.Select(x => x.PostingDescription).FirstOrDefault(x => x != null)
             })
             .OrderByDescending(x => x.FromDate)
             .ToListAsync(token);

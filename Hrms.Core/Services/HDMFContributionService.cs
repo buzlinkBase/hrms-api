@@ -34,8 +34,11 @@ public class HDMFContributionService : BaseService<HDMFContribution>
         CancellationToken token)
     {
         return await GetQueryable()
-            .Where(x => (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year) ||
-                (x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year))
+            .Where(x =>
+                    (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year)
+                    //(x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year)
+                    )
+            //.Where(x => !(x.PayrollDate >= fromDate && x.PayrollDate <= toDate))
             .ProjectToType<HDMFContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
