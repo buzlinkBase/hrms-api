@@ -23,10 +23,12 @@ public class HolidayPlus8TimePipeline : IDTRTimePipeline
         if (!holidays.Any()) return TimeRange.Empty;
         var satisfied = specification.IsSatisfiedBy(cannonicalTimeRange, context);
         if (!satisfied) return TimeRange.Empty;
+
         var defaultMinutes = satisfied
             ? (context.Payload.Data.CurrentShift.MaxWorkingMinutes)
             : 0;
         var multiplier = holidays.Count();
+
         //var totalMinutes = defaultMinutes * multiplier;
         //var finalRange = new TimeRange(totalMinutes);
         //var holCreditOption = _context.Payload.Data.CompanyPolicy.HolidayColumnPresentation;

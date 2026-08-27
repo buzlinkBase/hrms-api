@@ -16,6 +16,7 @@ public class CompanyPolicyRule
     public double TimeInAllowance { get; set; } = -120;
     public double DoublePunchGap { get; set; } = 5;
     public bool CheckAfterHoliday { get; set; } = false;
+    public bool WaivePriorDayRequirement { get; set; } = false;
 
 }
 
@@ -35,6 +36,7 @@ public class CompanyPolicyService
         SetTimeInAllowance(policy, data);
         SetDoublePunchGap(policy, data);
         SetCheckAfterHoliday(policy, data);
+        SetWaivePriorDayRequirement(policy, data);
         return policy;
     }
 
@@ -152,6 +154,16 @@ public class CompanyPolicyService
         {
             var settingvalue = GeneralSettingsUtil.ParseBool(CheckAfterHoliday.Value, false);
             policy.CheckAfterHoliday = settingvalue;
+        }
+    }
+
+    private void SetWaivePriorDayRequirement(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.WaivePriorDayRequirement = false;
+        if (data.TryGetValue(SettingKey.WaivePriorDayRequirement.ToString(), out GeneralSettingModel? WaivePriorDayRequirement))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseBool(WaivePriorDayRequirement.Value, false);
+            policy.WaivePriorDayRequirement = settingvalue;
         }
     }
 }

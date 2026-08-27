@@ -4,9 +4,10 @@ internal class RestDoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, Payr
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
+        //TODO must consider Holiday Hours Basis
         var dailyRecord = context.DailyRecord;
         if (dailyRecord.WorkTypeEnum is not (WorkType.RestDayDoubleLegal or WorkType.RestDayDoubleLegalDuty) ||
-            dailyRecord.ShiftWorkingHour <= 0)
+            dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.HolCount == 0)
         {
             return line;
         }
@@ -75,6 +76,5 @@ public class RestDoubleLegalPayCalculator
         _line.UnWork = _total;
         return this;
     }
-
     public decimal Total => _total;
 }

@@ -49,6 +49,9 @@ public class SpecialHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
 ///      must have worked it, been on paid leave, or otherwise had a qualifying day.
 ///      Non-qualifying days (rest day, skipped, special-non-working with no pay) are
 ///      skipped over when searching backward for that qualifying day.
+///      This prior-day requirement can be waived company-wide via
+///      <see cref="CompanyPolicyRule.WaivePriorDayRequirement"/> — when enabled,
+///      the employee is eligible regardless of attendance on the day before.
 ///   3. If <see cref="TimeAllowance.CheckAfterHoliday"/> is enabled, eligibility is
 ///      additionally conditioned on the employee having a qualifying day *after*
 ///      the holiday too (same search, run forward).
@@ -65,6 +68,7 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
             return cached.Value;
 
         bool isEligible = WorkedHolidayItself(context)
+            || context.Payload.Data.CompanyPolicy.WaivePriorDayRequirement
             || HasQualifyingDayLookingBack(context);
 
         //TODO get this setting from company db TimeAllowance.CheckAfterHoliday

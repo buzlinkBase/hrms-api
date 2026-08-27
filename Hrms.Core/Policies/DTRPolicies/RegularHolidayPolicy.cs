@@ -7,9 +7,10 @@ public class RegularHolidayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
+        //TODO must consider Holiday Hours Basis
         var dailyRecord = context.DailyRecord;
         if (dailyRecord.WorkTypeEnum is not (WorkType.LegalHoliday or WorkType.LegalHolidayDuty) ||
-            dailyRecord.ShiftWorkingHour <= 0)
+            dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.HolCount == 0)
         {
             return line;
         }
@@ -25,8 +26,6 @@ public class RegularHolidayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
             .Total;
 
         line.Value += earnings;
-
-        line.Worked = earnings;
         return line;
     }
 }
@@ -46,7 +45,7 @@ public class HolidayPayCalculator
         _totalRateMultiplier = PremiumRateHelper.GetRate(context, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);
         _line = line;
     }
-    public static HolidayPayCalculator ForContext(PayrollContext context, BasicPipelineData line) => new(context,line);
+    public static HolidayPayCalculator ForContext(PayrollContext context, BasicPipelineData line) => new(context, line);
     public HolidayPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
     {
         if (workedHours <= 0) return this;
@@ -75,7 +74,7 @@ public class HolidayPayCalculator
         _total += hourlyRate * unworkedHours * multiplier;
         _line.UnWork = _total;
         return this;
-    } 
+    }
 
     public decimal Total => _total;
 }

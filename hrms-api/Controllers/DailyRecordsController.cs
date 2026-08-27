@@ -73,7 +73,7 @@ public class DailyRecordsController : ControllerBase
     {
         var fromDate = from.HasValue
             ? DateOnly.FromDateTime(from.Value)
-            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-6));
+            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-5));
         var toDate = to.HasValue
             ? DateOnly.FromDateTime(to.Value)
             : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));

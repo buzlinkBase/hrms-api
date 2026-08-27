@@ -395,7 +395,8 @@ public enum SettingKey
     HolidayColumnPresentation,
     TimeInAllowance,
     DoublePunchGap,
-    CheckAfterHoliday, 
+    CheckAfterHoliday,
+    WaivePriorDayRequirement,
 }
 
 public enum IncludeNullResponse

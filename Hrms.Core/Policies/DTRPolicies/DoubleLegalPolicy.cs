@@ -11,9 +11,10 @@ internal class DoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, PayrollC
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
+        //TODO must consider Holiday Hours Basis
         var dailyRecord = context.DailyRecord;
         if (dailyRecord.WorkTypeEnum is not (WorkType.DoubleLegal or WorkType.DoubleLegalDuty) ||
-            dailyRecord.ShiftWorkingHour <= 0)
+            dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.HolCount == 0)
         {
             return line;
         }

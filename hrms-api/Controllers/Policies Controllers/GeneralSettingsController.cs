@@ -44,6 +44,7 @@ public class GeneralSettingsController : ControllerBase
             TimeInAllowance = policy.TimeInAllowance,
             DoublePunchGap = policy.DoublePunchGap,
             CheckAfterHoliday = policy.CheckAfterHoliday,
+            WaivePriorDayRequirement = policy.WaivePriorDayRequirement,
         };
         return Ok(response);
     }
@@ -69,6 +70,7 @@ public class GeneralSettingsController : ControllerBase
             new() { IdentityType = "Company", Description = SettingKey.TimeInAllowance.ToString(), Value = request.TimeInAllowance.ToString() },
             new() { IdentityType = "Company", Description = SettingKey.DoublePunchGap.ToString(), Value = request.DoublePunchGap.ToString() },
             new() { IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = request.CheckAfterHoliday.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.WaivePriorDayRequirement.ToString(), Value = request.WaivePriorDayRequirement.ToString().ToLower() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync("Company", settings, null, token);
@@ -120,6 +122,7 @@ public class UpdateCompanyPolicyRequest
     public double TimeInAllowance { get; set; }
     public double DoublePunchGap { get; set; }
     public bool CheckAfterHoliday { get; set; }
+    public bool WaivePriorDayRequirement { get; set; }
 }
 public class CompanyPolicyResponse
 {
@@ -136,6 +139,7 @@ public class CompanyPolicyResponse
     public required double TimeInAllowance { get; set; }
     public required double DoublePunchGap { get; set; }
     public required bool CheckAfterHoliday { get; set; }
+    public required bool WaivePriorDayRequirement { get; set; }
 }
 public class ClientPolicyDto
 {

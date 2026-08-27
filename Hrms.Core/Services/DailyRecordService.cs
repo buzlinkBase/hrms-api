@@ -19,13 +19,38 @@ public class DailyRecordService : BaseService<DailyRecord>
         ILogger<DailyRecordService> logger,
         LeaveDtrReconciliationService reconciliation) : base(uow)
     {
-        _config         = config;
-        _mapper         = mapper;
-        _logger         = logger;
+        _config = config;
+        _mapper = mapper;
+        _logger = logger;
         _reconciliation = reconciliation;
     }
     public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token)
     {
+        var employeeIds = records.Select(x => x.EmployeeId).Distinct().ToList();
+        var minDate = records.Min(x => x.WorkDate);
+        var maxDate = records.Max(x => x.WorkDate);
+
+        var existing = await _uow.Repository
+            .Find<DailyRecord>(x => employeeIds.Contains(x.EmployeeId)
+                && x.WorkDate >= minDate && x.WorkDate <= maxDate)
+            .Select(x => new { x.EmployeeId, x.WorkDate, x.FullName })
+            .ToListAsync(token);
+
+        var existingKeys = existing.Select(x => (x.EmployeeId, x.WorkDate)).ToHashSet();
+        var duplicates = records
+            .Where(x => existingKeys.Contains((x.EmployeeId, x.WorkDate)))
+            .ToList();
+
+        if (duplicates.Count > 0)
+        {
+            var names = string.Join(", ", duplicates
+                .Select(d => d.FullName ?? d.EmployeeId.ToString())
+                .Distinct());
+            throw new ValidationException(
+                $"DTR already exists for {duplicates.Count} employee-date(s) in this range ({names}). " +
+                "Delete the existing batch first if you need to repost.");
+        }
+
         await Uow.Repository.AddRangeAsync(records, token);
         await Uow.SaveChangesAsync(token);
         await CommitChangesAsync(token);
@@ -48,6 +73,12 @@ public class DailyRecordService : BaseService<DailyRecord>
     }
     public async Task DeleteAsync(string batchCode, CancellationToken token)
     {
+        var hasPosted = await _uow.Repository
+            .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
+            .AnyAsync(token);
+        if (hasPosted)
+            throw new ValidationException("Cannot delete this DTR batch — payroll has already been generated and saved from it.");
+
         await ExecuteDeleteAsync(x =>
         x.BatchCode == batchCode, token);
         await CommitChangesAsync(token);
@@ -161,7 +192,7 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         foreach (var r in records)
         {
-            r.Posted         = false;
+            r.Posted = false;
             r.PaidLeaveHours = 0;
         }
 
@@ -179,8 +210,8 @@ public class DailyRecordService : BaseService<DailyRecord>
         var records = await _uow.Repository
             .Find<DailyRecord>(x =>
                 x.EmployeeId == employeeId &&
-                x.WorkDate   >= from        &&
-                x.WorkDate   <= to          &&
+                x.WorkDate >= from &&
+                x.WorkDate <= to &&
                 x.Posted)
             .ToListAsync(token);
 
@@ -188,7 +219,7 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         foreach (var r in records)
         {
-            r.Posted         = false;
+            r.Posted = false;
             r.PaidLeaveHours = 0;
         }
 
@@ -199,20 +230,33 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     public async Task<List<BatchesModel>> GetBatches(DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
-        return await Context.DailyTimeRecords
+        var records = await Context.DailyTimeRecords
             .Where(x => x.WorkDate >= fromDate && x.WorkDate <= toDate && x.BatchCode != null)
             .GroupBy(x => x.BatchCode)
-            .Select(g => new BatchesModel
+            .Select(x => new
             {
-                Code = g.Key,
-                FromDate = g.Min(x => x.WorkDate),
-                ToDate = g.Max(x => x.WorkDate),
-                EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
-                IsPosted = g.All(x => x.Posted),
-                PostingDescription = g.Select(x => x.PostingDescription).FirstOrDefault(x => x != null)
+                x.Key,
+                x.First().WorkDate,
+                x.First().EmployeeId,
+                x.First().Posted,
+                x.First().PostingDescription,
+                x.First().CreatedAt
             })
-            .OrderByDescending(x => x.FromDate)
+            .OrderByDescending(x=>x.CreatedAt)
             .ToListAsync(token);
+
+        return records
+         .GroupBy(x => x.Key)
+         .Select(g => new BatchesModel
+         {
+             Code = g.Key,
+             FromDate = g.Min(x => x.WorkDate),
+             ToDate = g.Max(x => x.WorkDate),
+             EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
+             IsPosted = g.All(x => x.Posted),
+             PostingDescription = g.FirstOrDefault()?.PostingDescription ?? ""
+         })
+         .ToList();
     }
 
     public async Task<List<DTRSummaryModel>> DTRSummaryQuery(string BatchCode, CancellationToken token)
