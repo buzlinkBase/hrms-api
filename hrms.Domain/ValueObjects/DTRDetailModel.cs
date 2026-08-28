@@ -176,6 +176,28 @@ public class TardinessReportModel
     public bool IsWithinGracePeriod => TardinessMinutes > 0 && DeductibleMinutes == 0;
 }
 
+public class RosterReportModel
+{
+    public DateOnly WorkDate { get; set; }
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Department { get; set; }
+    public Guid? ShiftId { get; set; }
+    public string ShiftName { get; set; } = string.Empty;
+    public DateTime? ShiftStart { get; set; }
+    public DateTime? ShiftEnd { get; set; }
+    public bool IsRestDay { get; set; }
+    // Which WorkScheduleResolver tier produced ShiftId — Override, FixedSchedule,
+    // Permanent, or OpenShift (see ScheduleSource).
+    public ScheduleSource ScheduleSource { get; set; }
+    // Set only when the shift shown comes from a Work Rotation Plan override for this
+    // exact date — the Id of that override row, deletable via WorkSchedulePlansController.
+    // Null when the shift instead resolved from Fixed Schedule or the employee's
+    // Permanent Shift, which have no per-date row here to remove.
+    public Guid? OverrideId { get; set; }
+}
+
 public class LeaveMetaDataModel
 {
     public Guid LeaveId { get; set; }

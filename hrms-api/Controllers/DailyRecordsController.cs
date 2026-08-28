@@ -15,13 +15,16 @@ public class DailyRecordsController : ControllerBase
 {
     private readonly DailyRecordService _service;
     private readonly DTRCalcService _dTRCalcService;
+    private readonly RosterReportService _rosterReportService;
     private readonly IMapper _mapper;
     public DailyRecordsController(DailyRecordService service,
         DTRCalcService dTRCalcService,
+        RosterReportService rosterReportService,
         IMapper mapper)
     {
         _service = service;
         _dTRCalcService = dTRCalcService;
+        _rosterReportService = rosterReportService;
         _mapper = mapper;
     }
 
@@ -102,6 +105,14 @@ public class DailyRecordsController : ControllerBase
     public async Task<IActionResult> TardinessReport([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _service.TardinessReportQuery(payload, token);
+        return Ok(result);
+    }
+
+    [HttpGet("roster-report")]
+    [ProducesResponseType(typeof(ResponseModel<List<RosterReportModel>>), 200)]
+    public async Task<IActionResult> RosterReport([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _rosterReportService.RosterReportQuery(payload, token);
         return Ok(result);
     }
 

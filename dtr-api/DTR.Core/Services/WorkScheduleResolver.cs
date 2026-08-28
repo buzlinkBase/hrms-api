@@ -110,6 +110,8 @@ public class OverrideSchedule : WorkScheduleHandler
             ShiftDate = result.PayrollDate,
             StartTime = startTime,
             EndTime = endTime,
+            Source = ScheduleSource.Override,
+            OverrideId = result.Id,
 
             //PunchMode = shift.PunchMode,
 
@@ -197,6 +199,7 @@ public class FixedScheduleHandler : WorkScheduleHandler
             ShiftDate = date,
             StartTime = startTime,
             EndTime = endTime,
+            Source = ScheduleSource.FixedSchedule,
 
             GracePeriodMinutes = shift.GracePeriodMinutes,
             LunchBreakDurationMinutes = shift.BreakDurationMinutes,
@@ -259,6 +262,7 @@ public class FallbackSchedule : WorkScheduleHandler
     protected override CurrentShift GetCurrentShift(EmployeeDTRRun employee, DateOnly date)
     {
         var shift = _allShifts.FirstOrDefault(x => x.Id == employee.TimeShiftId);
+        var source = shift != null ? ScheduleSource.Permanent : ScheduleSource.OpenShift;
         if (shift == null)
         {
             shift = getDefaultShift(date);
@@ -274,6 +278,7 @@ public class FallbackSchedule : WorkScheduleHandler
             ShiftDate = date,
             StartTime = startTime,
             EndTime = endTime,
+            Source = source,
 
             //PunchMode = shift.PunchMode,
 

@@ -147,7 +147,7 @@ public class EmployeeService : BaseService<Employee>
         {
             throw new NotFoundException("Record not found");
         }
-         
+
         var incomingRestDays = payload.RestDays?.ToList() ?? new List<RestDayModel>();
         var incomingFixedSchedule = payload.FixedSchedule?.ToList() ?? new List<EmployeeFixedScheduleDayModel>();
         payload.RestDays = new List<RestDayModel>();
@@ -189,7 +189,7 @@ public class EmployeeService : BaseService<Employee>
         await CommitChangesAsync(token);
     }
 
- 
+
 
     public async Task<Employee?> FindOne(Guid id, CancellationToken token)
     {
@@ -330,6 +330,45 @@ public class EmployeeService : BaseService<Employee>
             .ToListAsync(token);
 
         return result;
+    }
+
+    // Single source of truth for "which employees does this DTR-shaped request cover" —
+    // shared by the live DTR run (CurrentRangeDTRPayloadService) and the Roster Report,
+    // so both feed WorkScheduleResolver/RestDayResolver the exact same employee set
+    // instead of maintaining two independently-drifting copies of this filter.
+    public async Task<List<EmployeeDTRRun>> GetForDTRRunAsync(DTRRequestPayload payload, CancellationToken token)
+    {
+        return await GetQueryable(x =>
+            //!SeparatedStatuses.Contains(x.EmploymentStatus) &&
+            (payload.EmployeeId != null
+                ? x.Id == payload.EmployeeId.Value
+                : (payload.BranchId == null || x.BranchId == payload.BranchId.Value) &&
+                  (payload.ClientId == null || x.ClientId == payload.ClientId.Value) &&
+                  (payload.PayrollGroupId == null || x.PayrollGroupId == payload.PayrollGroupId.Value) &&
+                  (payload.DepartmentId == null || x.DepartmentId == payload.DepartmentId.Value) &&
+                  (payload.OperationAreaId == null || x.AreaId == payload.OperationAreaId.Value)))
+            .Include(x => x.RestDays)
+            .Select(x => new EmployeeDTRRun
+            {
+                Id = x.Id,
+                AreaId = x.AreaId,
+                ClientId = x.ClientId,
+                FirstName = x.FirstName,
+                LastName = x.LastName,
+                MiddleName = x.MiddleName,
+                Suffix = x.Suffix,
+                TimeShiftId = x.TimeShiftId,
+                BioId = x.BioId,
+                EmpNo = x.EmployeeNo,
+                PayrollGroupId = x.PayrollGroupId,
+                DepartmentId = x.DepartmentId,
+                DepartmentName = x.Department != null ? x.Department.Name : null,
+                RestDays = x.RestDays.Select(r => new RestDayModel
+                {
+                    DayName = r.DayName,
+                    Id = r.Id,
+                }).ToList()
+            }).ToListAsync(token);
     }
 
 

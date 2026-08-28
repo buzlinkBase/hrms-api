@@ -449,6 +449,17 @@ public enum IncludeNullResponse
     Ignore
 }
 
+// Which tier of WorkScheduleResolver's priority chain produced an employee's shift for a
+// given date: a date-specific Work Rotation Plan override, the day-of-week Fixed Schedule
+// default, the employee's Permanent Shift, or no shift configured at all (Open Shift).
+public enum ScheduleSource
+{
+    Override,
+    FixedSchedule,
+    Permanent,
+    OpenShift,
+}
+
 public enum OutBoxState
 {
     PENDING,      // Newly created, awaiting processing
