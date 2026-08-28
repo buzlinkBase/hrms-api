@@ -4,7 +4,7 @@
     {
         public DeductionPipeData Calculate(DeductionPayloadContext context, DeductionPipeData line)
         {
-            //var resolver = new CutoffPolicyResolver();
+            var resolver = new CutoffPolicyResolver();
             if (line.IsLimit) return line;
 
             var baseRate = StatutoryHelper.GetWeeklyGrossBaseRate(context);
@@ -15,6 +15,9 @@
 
             if (balances.EEBalance == 0) return line;
             if (line.RemainingGrossBalance < balances.EEBalance) return line;
+
+            var scheduleAction = StatutoryScheduleResolver.Resolve(context, resolver);
+            if (scheduleAction == StatutoryReleaseAction.ReleaseNothing) return line;
 
             int divisor = 1;
             int? daysWorked = null;
@@ -37,10 +40,11 @@
                 }
                 else
                 {
-                    if (table.EE == balances.EEBalance)
-                    {
-                        divisor = context.Payload.FromDate.GetNumberOfWeeksInMonth();
-                    }
+                    // Recompute the remaining-weeks-in-month divisor every time (not just
+                    // "if nothing withheld yet") so it decreases correctly week over week
+                    // once prior withholding is actually persisted, instead of sweeping the
+                    // entire remaining balance the first time the ledger isn't empty.
+                    divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
 
                     if (StatutoryHelper.IsHiredThisMonth(context))
                     {
@@ -60,6 +64,15 @@
             {
                 //AuditLogger.Warn(ex.Message);
                 divisor = 1;
+            }
+
+            // FirstHalfMonth/SecondHalfMonth on their matching cutoff — release the full
+            // remaining balance now instead of spreading it across the remaining weeks.
+            if (scheduleAction == StatutoryReleaseAction.ReleaseFullBalanceNow)
+            {
+                divisor = 1;
+                daysWorked = null;
+                totalDaysInMonth = null;
             }
 
             //// Audit clarity

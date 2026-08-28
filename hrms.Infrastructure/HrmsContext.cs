@@ -60,6 +60,8 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<CutoffDay> CutoffDays { get; set; }
     public DbSet<Section> Sections { get; set; }
     public DbSet<RateTable> PremiumRates { get; set; }
+    public DbSet<ClientRateTable> ClientRateTables { get; set; }
+    public DbSet<ClientBillingInfo> ClientBillingInfos { get; set; }
     public DbSet<EmployeeSetting> EmployeeSettings { get; set; }
 
     public DbSet<DailyRecord> DailyTimeRecords { get; set; }

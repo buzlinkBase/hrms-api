@@ -330,6 +330,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             TotalNDOT = ndotTotal,
             NDPremiumPay = ndPremiumTotal,
             OTPremiumPay = otPremiumTotal,
+            Holiday = legal.Value + special + restlegal + restSpecial + doubleLegal.Value + restDoubleLegal.Value,
             Gross = paid
             + otTotal
             + ndTotal

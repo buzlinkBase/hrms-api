@@ -39,6 +39,8 @@ public class PayrollService : BaseService<Payroll>
     public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token)
     {
         await Uow.Repository.AddRangeAsync(payrolls, token);
+        await Uow.SaveChangesAsync(token);
+        await CommitChangesAsync(token);
     }
 
     public async Task<List<Payroll>> GetAsync(

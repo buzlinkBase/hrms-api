@@ -19,6 +19,9 @@ public class TableHDMFSemiMonthlyCalculator : IDeductionCalculator
         if (balances.EEBalance == 0) return line;
         if (line.RemainingGrossBalance < balances.EEBalance) return line;
 
+        var scheduleAction = StatutoryScheduleResolver.Resolve(context, resolver);
+        if (scheduleAction == StatutoryReleaseAction.ReleaseNothing) return line;
+
         int divisor = 2; // default semi-monthly split
 
         // Cross-month payroll → deduct all remaining immediately
@@ -36,6 +39,10 @@ public class TableHDMFSemiMonthlyCalculator : IDeductionCalculator
                 divisor = 2;
             }
         }
+
+        // FirstHalfMonth/SecondHalfMonth on their matching cutoff — release the full
+        // remaining balance now instead of splitting it.
+        if (scheduleAction == StatutoryReleaseAction.ReleaseFullBalanceNow) divisor = 1;
 
         var date = context.Payload.FromDate;
 

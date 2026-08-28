@@ -9,6 +9,17 @@ public class PayrollSummaryLine
     public DateOnly PayPeriodStart { get; set; }
     public DateOnly PayPeriodEnd { get; set; }
     public DateOnly PayrollDate { get; set; }
+    // Which calendar month this line's SSS/PhilHealth/Pag-IBIG withholding is credited
+    // against, per CrossMonthStatutoryCreditPolicy — see StatutoryCreditDateResolver.
+    public DateOnly StatutoryCreditDate { get; set; }
+    // The BIR reporting period this payroll posts its withholding tax against, per
+    // WTaxCrossMonthCreditPolicy — independently configurable from the statutory credit
+    // date above, since tax is conventionally reported against the payout month rather
+    // than the period earned. Persisted onto Payroll so WTax reports can filter/group by
+    // it directly instead of joining through the WTaxContribution ledger.
+    public DateOnly PostingPeriod { get; set; }
+    // Raw admin-entered Pay/Release Date from the payroll run request — see Payroll.PayDate.
+    public DateOnly? PayDate { get; set; }
     public Guid BatchCode { get; set; }
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
@@ -23,7 +34,7 @@ public class PayrollSummaryLine
     public decimal NightDifferentialOTPay { get; set; }
     public decimal OTPremiumPay { get; set; }
     public decimal NDPremiumPay { get; set; }
-    //public decimal HolidayPay { get; set; }
+    public decimal HolidayPay { get; set; }
 
     public decimal RegularDayPay { get; set; }
     public decimal RegularOTPay { get; set; }

@@ -65,6 +65,7 @@ public class DTRPayModel
     public decimal RestDoubleLegalUnworked { get; set; }
     public decimal Gross { get; set; }
 
+    public decimal Holiday { get; set; }
     public decimal NDPremiumPay   { get; set; }
     public decimal OTPremiumPay   { get; set; } 
 

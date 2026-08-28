@@ -1,10 +1,13 @@
-﻿using Hrms.Domain.Entities;
+﻿using DTR.Core;
+using Hrms.Core.Policies.DeductionPolicies;
+using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Calculators.Payloads;
 
 public class PayrollRangeContextComposerService
 {
     private readonly RateTableService _rateTableService;
+    private readonly ClientRateTableService _clientRateTableService;
     private readonly LeaveApplicationService _leaveService;
     private readonly LeaveLedgerService _leaveLedgerService;
     private readonly IncomeAplDtlService _otherIncomeService;
@@ -21,8 +24,10 @@ public class PayrollRangeContextComposerService
     private readonly HolidayService _holidayService;
     private readonly PayrollService _payrollService;
     private readonly SalaryAdjustmentService _salaryAdjService;
+    private readonly GeneralSettingService _generalSettingService;
 
     public PayrollRangeContextComposerService(RateTableService rateTableService,
+        ClientRateTableService clientRateTableService,
         LeaveApplicationService leaveService,
         LeaveLedgerService leaveLedgerService,
         IncomeAplDtlService otherIncomeService,
@@ -38,10 +43,12 @@ public class PayrollRangeContextComposerService
         CompanyService companyService,
         HolidayService holidayService,
         PayrollService payrollService,
-        SalaryAdjustmentService salaryAdjService
+        SalaryAdjustmentService salaryAdjService,
+        GeneralSettingService generalSettingService
         )
     {
         _rateTableService = rateTableService;
+        _clientRateTableService = clientRateTableService;
         _leaveService = leaveService;
         _leaveLedgerService = leaveLedgerService;
         _otherIncomeService = otherIncomeService;
@@ -58,11 +65,13 @@ public class PayrollRangeContextComposerService
         _holidayService = holidayService;
         _payrollService = payrollService;
         _salaryAdjService = salaryAdjService;
+        _generalSettingService = generalSettingService;
     }
     public async Task<CalculatorPayload?> ComposePayload(
    DateRangePayload dtrPayload,
    List<EmployeeModelPayrollRun> employees,
-   CancellationToken token)
+   CancellationToken token,
+   DateOnly? payDate = null)
     {
         // 1. Validate inputs early to avoid unnecessary DB calls
         if (employees == null || !employees.Any()) return null;
@@ -72,18 +81,49 @@ public class PayrollRangeContextComposerService
             var empIds = hasEmpIds.ToList();
             // 2. Start all tasks in parallel (I/O Bound)
             var ratesTask = await _rateTableService.FindAllAsync(token);
+            var clientIds = employees.Where(e => e.ClientId.HasValue).Select(e => e.ClientId!.Value).ToHashSet();
+            var clientRatesTask = await _clientRateTableService.FindByClientsAsync(clientIds, token);
             var leavesTask = await _leaveService.FindByDateRangeAsync(dtrPayload.FromDate, dtrPayload.ToDate, hasEmpIds, token);
             var leaveCreditsTask = await _leaveLedgerService.LoadCreditsAsync(empIds, token);
             var otherIncomeTask = await _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var deductionsTask = await _deductionService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var salaryAdjTask = await _salaryAdjService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var companyTask = await _companyService.FineOneAsync(token);
+            var companySettings = await _generalSettingService.GetSettingsAsync("Company");
+            var crossMonthCreditPolicy = companySettings.TryGetValue(SettingKey.CrossMonthStatutoryCreditPolicy.ToString(), out var creditPolicySetting)
+                ? GeneralSettingsUtil.ParseEnum(creditPolicySetting.Value, CrossMonthStatutoryCreditPolicy.CutoffStartMonth)
+                : CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
+            // The same date the ledger was WRITTEN against (PayrollProcessorService.InitializePayrollLine's
+            // StatutoryCreditDate) must be used here to read it back, or a cross-month cutoff's prior
+            // withholding silently falls out of the balance-netting query.
+            var creditDate = StatutoryCreditDateResolver.Resolve(dtrPayload.FromDate, dtrPayload.ToDate, crossMonthCreditPolicy, payDate);
+
+            // WTax defaults to (and is independently configurable from) the SSS/PhilHealth/
+            // Pag-IBIG policy above — BIR Form 1601-C reports withholding tax against the
+            // payout month, not the period earned, so the default diverges (CutoffEndMonth).
+            var wtaxCreditPolicy = companySettings.TryGetValue(SettingKey.WTaxCrossMonthCreditPolicy.ToString(), out var wtaxCreditPolicySetting)
+                ? GeneralSettingsUtil.ParseEnum(wtaxCreditPolicySetting.Value, CrossMonthStatutoryCreditPolicy.CutoffEndMonth)
+                : CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
+            var wtaxCreditDate = StatutoryCreditDateResolver.Resolve(dtrPayload.FromDate, dtrPayload.ToDate, wtaxCreditPolicy, payDate);
+
+            var treatNdotAsNdOnly = companySettings.TryGetValue(SettingKey.TreatNdotAsNdOnly.ToString(), out var treatNdotAsNdOnlySetting)
+                && GeneralSettingsUtil.ParseBool(treatNdotAsNdOnlySetting.Value, false);
+
+            // Per-client override for the same flag — clients without an explicit row inherit
+            // the company default above (see CompanyPolicyHelper.ShouldTreatNdotAsNdOnly).
+            var clientNdotSettingsTask = await _generalSettingService.GetSettingsAsync("Client", clientIds.Select(id => id.ToString()).ToHashSet());
+            var clientTreatNdotAsNdOnlyOverrides = clientNdotSettingsTask
+                .Where(kv => kv.Value.TryGetValue(SettingKey.TreatNdotAsNdOnly.ToString(), out _))
+                .ToDictionary(
+                    kv => kv.Key.IdentityId,
+                    kv => GeneralSettingsUtil.ParseBool(kv.Value[SettingKey.TreatNdotAsNdOnly.ToString()].Value, false));
+
             // Contributions
             var payrollsTask = await _payrollService.LoadPostedPayrollAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var sssContriTask = await _ssscontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var phicContriTask = await _phiccontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var hdmfContriTask = await _hdmfcontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var taxContriTask = await _taxcontriService.LoadContributionsAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var sssContriTask = await _ssscontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
+            var phicContriTask = await _phiccontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
+            var hdmfContriTask = await _hdmfcontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
+            var taxContriTask = await _taxcontriService.LoadContributionsAsync(wtaxCreditDate, dtrPayload.ToDate, token);
 
             // Gov Tables & Holidays
             var sssTableTask = await _govSSSService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
@@ -107,6 +147,11 @@ public class PayrollRangeContextComposerService
                 FromDate = dtrPayload.FromDate,
                 ToDate = dtrPayload.ToDate,
                 PremiumRates = ratesTask.GroupBy(x => x.Type).ToDictionary(g => g.Key, g => g.FirstOrDefault()?.Rate ?? 0m),
+                ClientPremiumRates = clientRatesTask.Values
+                    .SelectMany(rows => rows)
+                    .GroupBy(x => new ClientRateKey(x.ClientId, x.Type))
+                    .ToDictionary(g => g.Key, g => g.First().Rate),
+                ClientTreatNdotAsNdOnlyOverrides = clientTreatNdotAsNdOnlyOverrides,
                 PostedPriorPayrolls = payrollsTask,
                 Leaves = leavesTask,
                 LeaveCredits = leaveCreditsTask,
@@ -128,6 +173,9 @@ public class PayrollRangeContextComposerService
                     RequiredTakehomePercentage = companyTask?.TakehomePercentage ?? 10,
                     RequiredWorkingDays = companyTask?.TotalWorkingDays ?? 26,
                     ApplyStatutoryOnActualMonth = companyTask?.ApplyStatutoryOnActualMonth ?? true,
+                    CrossMonthStatutoryCreditPolicy = crossMonthCreditPolicy,
+                    WTaxCrossMonthCreditPolicy = wtaxCreditPolicy,
+                    TreatNdotAsNdOnly = treatNdotAsNdOnly,
                 }
             };
         }

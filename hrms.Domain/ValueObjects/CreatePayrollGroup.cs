@@ -28,6 +28,14 @@ public class CreatePayrollGroup
     public string Name { get; set; } = string.Empty;
     public PayrollFrequency PayrollFrequency { get; set; }
     /// <summary>
+    /// When SSS/PHIC/HDMF are withheld across a payroll group's cutoffs: PerPayroll
+    /// prorates across every cutoff (today's default behavior); FirstHalfMonth withholds
+    /// the full monthly amount on the first cutoff only; SecondHalfMonth withholds it on
+    /// the last cutoff of the month only. No effect for MONTHLY/DAILY frequencies, which
+    /// only ever have one release point.
+    /// </summary>
+    public StatutoryDeductionSchedule StatutoryDeductionSchedule { get; set; } = StatutoryDeductionSchedule.PerPayroll;
+    /// <summary>
     /// List of cutoff days for this payroll group.
     /// Example: Semi-monthly → [15, EndOfMonth]; Bi-weekly → [10, 25].
     /// </summary>

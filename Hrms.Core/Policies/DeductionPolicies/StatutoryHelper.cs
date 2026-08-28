@@ -16,7 +16,6 @@ public class StatutoryHelper
     }
     public static decimal GetSemiMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
-        var day = context.Payload.FromDate.Day;
         if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             return context.Employee.MonthlyRate
@@ -24,21 +23,18 @@ public class StatutoryHelper
               - RateDeductions(context);
         }
 
+        // Variable: bracket lookup uses actual resolved gross (this cutoff's + prior
+        // cutoffs' this month), never MonthlyRate — that field is disabled/unpopulated
+        // for Variable employees, so falling back to it silently zeroed the bracket on
+        // every cutoff except the last. Interim cutoffs under-bracket until the month's
+        // full gross has accumulated; the balance-netting ledger corrects the running
+        // total by the final cutoff, same as it already did for the final-cutoff case.
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
         var prioGross = payrol.Sum(x => x.GrossIncome);
-
-        return day <= 15
-            ? context.Employee.MonthlyRate
-            : (context.PayrollLine.GrossIncome + prioGross)
-            ;
+        return context.PayrollLine.GrossIncome + prioGross;
     }
     public static decimal GetWeeklyGrossBaseRate(DeductionPayloadContext context)
     {
-        var day = context.Payload.FromDate.Day;
-        var final = new IsCrossMonth().IsSatisfiedBy(context.Payload) ||
-         context.Payload.FromDate.IsLastWeekOfMonth() ||
-         context.Payload.ToDate.IsLastWeekOfMonth();
-
         if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             return context.Employee.MonthlyRate
@@ -46,10 +42,11 @@ public class StatutoryHelper
                 - RateDeductions(context);
         }
 
-        return !final
-            ? context.Employee.MonthlyRate
-            : context.PayrollLine.GrossIncome
-            ;
+        // Variable: same actual-gross-to-date basis as the Semi-Monthly case above, every
+        // week rather than only the final one of the month.
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        var prioGross = payrol.Sum(x => x.GrossIncome);
+        return context.PayrollLine.GrossIncome + prioGross;
     }
     public static bool IsHiredThisMonth(DeductionPayloadContext context)
     {

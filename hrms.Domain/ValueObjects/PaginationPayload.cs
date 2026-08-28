@@ -11,12 +11,20 @@ public record PayrollCalcPayload(DateOnly FromDate, DateOnly ToDate, Guid? Depar
 
 // Payload for the UI-driven payroll run — only the selected posted batch codes.
 // Date range and employees are derived from the actual DTR records in those batches.
-public record PayrollRunPayload(List<string> BatchCodes);
+public record PayrollRunPayload(List<string> BatchCodes)
+{
+    // Explicit Pay/Release Date, required only when CrossMonthStatutoryCreditPolicy or
+    // WTaxCrossMonthCreditPolicy is set to PayDate — see PayrollProcessorService.CalculateAsync.
+    public DateOnly? PayDate { get; init; }
+}
 public class CompanyPolicyRule
 {
     public OvertimeInclusionPolicy OTInclusionPolicy { get; set; }
     public OvertimeEligibilityRule OTEligibility { get; set; }
     public bool ApplyStatutoryOnActualMonth { get; set; }
+    public CrossMonthStatutoryCreditPolicy CrossMonthStatutoryCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
+    public CrossMonthStatutoryCreditPolicy WTaxCrossMonthCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
+    public bool TreatNdotAsNdOnly { get; set; } = false;
     public decimal RequiredTakehomePercentage { get; set; } = 10;
     public int RequiredWorkingDays { get; set; } = 22;
     public int TotalDaysInaYear { get; set; } = 264;//22*12 use for daily rate computation for fix rate

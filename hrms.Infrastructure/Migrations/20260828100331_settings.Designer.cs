@@ -13,7 +13,7 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    [Migration("20260827161252_settings")]
+    [Migration("20260828100331_settings")]
     partial class settings
     {
         /// <inheritdoc />
@@ -335,7 +335,15 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ContactPerson")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -345,7 +353,15 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Phone")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -364,6 +380,75 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Clients");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.ClientBillingInfo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("BillingAddress")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("BillingContactName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("BillingCycle")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("BillingEmail")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("BillingPhone")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("PaymentTermsDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Tin")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("ClientBillingInfos");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ClientHoliday", b =>
@@ -420,6 +505,49 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("ClientHolidays");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.ClientRateTable", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Rate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId", "Type")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("ClientRateTables");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Company", b =>
@@ -2199,6 +2327,28 @@ namespace Hrms.Infrastructure.Migrations
                             TenantId = new Guid("00000000-0000-0000-0000-000000000000"),
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "False"
+                        },
+                        new
+                        {
+                            Id = new Guid("4567d8e9-f0a1-4678-bcde-0123456789de"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "CrossMonthStatutoryCreditPolicy",
+                            IdentityType = "Company",
+                            Status = "Active",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000"),
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "CutoffStartMonth"
+                        },
+                        new
+                        {
+                            Id = new Guid("5678e9f0-a1b2-4789-cdef-1234567890ef"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "WTaxCrossMonthCreditPolicy",
+                            IdentityType = "Company",
+                            Status = "Active",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000"),
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "CutoffEndMonth"
                         });
                 });
 
@@ -3350,6 +3500,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("PaidLeaves")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<DateOnly?>("PayDate")
+                        .HasColumnType("date");
+
                     b.Property<DateOnly>("PayPeriodEnd")
                         .HasColumnType("date");
 
@@ -3368,6 +3521,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<decimal>("PhilHealthContribution")
                         .HasColumnType("decimal(65,30)");
+
+                    b.Property<DateOnly>("PostingPeriod")
+                        .HasColumnType("date");
 
                     b.Property<decimal>("RegularNDOTPay")
                         .HasColumnType("decimal(65,30)");
@@ -3517,6 +3673,11 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<int>("StatutoryDeductionSchedule")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("char(36)");

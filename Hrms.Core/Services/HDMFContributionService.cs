@@ -29,6 +29,13 @@ public class HDMFContributionService : BaseService<HDMFContribution>
         await CreateOrUpdateAsync(model, token);
     }
 
+    public async Task AddRangeAsync(List<HDMFContribution> models, CancellationToken token)
+    {
+        await Uow.Repository.AddRangeAsync(models, token);
+        await Uow.SaveChangesAsync(token);
+        await CommitChangesAsync(token);
+    }
+
     public async Task<Dictionary<EmployeeKey, List<HDMFContributionModel>>> LoadContributionsAsync(DateOnly fromDate,
         DateOnly toDate,
         CancellationToken token)

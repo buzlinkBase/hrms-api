@@ -253,6 +253,11 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateRateTable, RateTable>();
         config.NewConfig<RateTable, RateTableModel>();
 
+        config.NewConfig<ClientRateTable, ClientRateTableModel>();
+
+        config.NewConfig<CreateClientBillingInfo, ClientBillingInfo>();
+        config.NewConfig<ClientBillingInfo, ClientBillingInfoModel>();
+
         config.NewConfig<CreateSSSRate, SSSRate>().TwoWays();
         config.NewConfig<CreatePHICRate, PHICRate>().TwoWays();
         config.NewConfig<CreateHDMFRate, HDMFRate>().TwoWays();

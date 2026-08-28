@@ -5,6 +5,15 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     public DateOnly PayPeriodStart { get; set; }
     public DateOnly PayPeriodEnd { get; set; }
     public DateOnly PayrollDate { get; set; }
+    // The BIR reporting period this record's withholding tax posts against, per
+    // Company Policy > WTaxCrossMonthCreditPolicy (defaults to the payout month; can
+    // instead follow the period-earned month, same as SSS/PhilHealth/Pag-IBIG, per client
+    // preference). Use this for WTax remittance reports rather than PayrollDate/ToDate.
+    public DateOnly PostingPeriod { get; set; }
+    // Raw admin-entered Pay/Release Date from the payroll run request, kept for audit even
+    // though PostingPeriod already holds the resolved credit date — null unless the
+    // WTaxCrossMonthCreditPolicy/CrossMonthStatutoryCreditPolicy PayDate option was used.
+    public DateOnly? PayDate { get; set; }
     public Guid BatchCode { get; set; }
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;

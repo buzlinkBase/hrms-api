@@ -216,9 +216,16 @@ public class EmployeeService : BaseService<Employee>
         return data;
     }
 
-    public async Task<List<EmployeeModel>> GetAll(CancellationToken token)
+    public async Task<List<EmployeeModel>> GetAll(string? keyword, CancellationToken token)
     {
-        var query = GetQueryable();
+        Expression<Func<Employee, bool>> exp = x => string.IsNullOrWhiteSpace(keyword)
+            || x.FirstName.Contains(keyword!)
+            || x.LastName.Contains(keyword!)
+            || x.MiddleName.Contains(keyword!)
+            || x.Suffix.Contains(keyword!)
+            || x.EmployeeNo.Contains(keyword!);
+
+        var query = GetQueryable(exp);
         var employees = await query
             .ProjectToType<EmployeeModel>(_config)
             .ToListAsync(token);
@@ -231,7 +238,8 @@ public class EmployeeService : BaseService<Employee>
         Expression<Func<Employee, bool>> exp = x => string.IsNullOrWhiteSpace(payload.Keyword) || x.FirstName.Contains(payload.Keyword)
             || x.LastName.Contains(payload.Keyword)
             || x.MiddleName.Contains(payload.Keyword)
-            || x.Suffix.Contains(payload.Keyword);
+            || x.Suffix.Contains(payload.Keyword)
+            || x.EmployeeNo.Contains(payload.Keyword);
 
         var query = GetQueryable(exp);
         var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit)
@@ -329,6 +337,21 @@ public class EmployeeService : BaseService<Employee>
     {
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
+    }
+
+    // Hard-deletes every employee whose EmployeeNo starts with the given prefix, plus
+    // every row in any table that references them — used to clean up
+    // EmployeeSeederService-generated test data (including whatever DTR/attendance/payroll
+    // records testing against those employees produced). See EntityCascadeCleanupHelper
+    // for how dependent tables are discovered and cleared.
+    public async Task<int> RemoveByEmployeeNoPrefixAsync(string prefix, CancellationToken token)
+    {
+        var seededIds = await Context.Employees
+            .Where(x => x.EmployeeNo.StartsWith(prefix))
+            .Select(x => x.Id)
+            .ToListAsync(token);
+
+        return await EntityCascadeCleanupHelper.RemoveWithDependentsAsync<Employee>(Context, seededIds, token);
     }
 }
 

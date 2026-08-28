@@ -24,7 +24,9 @@ public class AccountInitService : BaseService<Company>
         await SetDefaultWTaxTable(token);
         await SetDefaultAnnualTaxTable(token);
         await SetDefaultPayrollGroups(token);
+        await SetDefaultTimeShifts(token);
         await PayrollSettings(token);
+        await SetDefaultStatutoryCreditPolicy(token);
         await SetDefaultPayrollInclusionDefaults(token);
     }
 
@@ -39,6 +41,48 @@ public class AccountInitService : BaseService<Company>
             new() { IdentityType = IdentityType, Description = KeyThirteenthMonthExemptionCeiling, Value = "90000" },
         };
         await _settingService.ReplaceByIdentityTypeAsync(IdentityType, incoming, null, token);
+    }
+
+    /// <summary>
+    /// Seeds the Company-identity default for the cross-month statutory credit policy so
+    /// every new tenant starts with an explicit, editable row (CutoffStartMonth — standard
+    /// Philippine payroll practice: contributions credited to the month the cutoff starts)
+    /// instead of relying solely on the GeneralSettingsEfConfig migration seed, which is a
+    /// single global row and does not reach tenants provisioned after it applies. Uses a
+    /// direct insert (not GeneralSettingService.ReplaceByIdentityTypeAsync) because that
+    /// method replaces every "Company"-identity row wholesale, and no other Company setting
+    /// is seeded here today.
+    /// </summary>
+    private async Task SetDefaultStatutoryCreditPolicy(CancellationToken token)
+    {
+        var settings = new List<GeneralSetting>
+        {
+            new()
+            {
+                Id = Guid.CreateVersion7(),
+                IdentityType = "Company",
+                Description = SettingKey.CrossMonthStatutoryCreditPolicy.ToString(),
+                Value = CrossMonthStatutoryCreditPolicy.CutoffStartMonth.ToString(),
+            },
+            // WTax defaults to the month the cutoff ENDS in (payout month) — BIR Form
+            // 1601-C reports withholding tax against the month compensation was actually
+            // paid, unlike SSS/PhilHealth/Pag-IBIG's period-earned convention above.
+            new()
+            {
+                Id = Guid.CreateVersion7(),
+                IdentityType = "Company",
+                Description = SettingKey.WTaxCrossMonthCreditPolicy.ToString(),
+                Value = CrossMonthStatutoryCreditPolicy.CutoffEndMonth.ToString(),
+            },
+            new()
+            {
+                Id = Guid.CreateVersion7(),
+                IdentityType = "Company",
+                Description = SettingKey.TreatNdotAsNdOnly.ToString(),
+                Value = false.ToString(),
+            },
+        };
+        await _uow.Repository.AddRangeAsync(settings, token);
     }
     private async Task SetDefaultLeaves(CancellationToken token)
     {
@@ -672,6 +716,45 @@ public class AccountInitService : BaseService<Company>
             },
         };
         await _uow.Repository.AddRangeAsync(groups, token);
+    }
+
+    /// <summary>
+    /// Seeds a small set of starter TimeShift schedules so a new tenant has real shifts to
+    /// assign employees to immediately. Day/Morning/Night are Fixed shifts (a single
+    /// continuous span with a 1-hour unpaid lunch); Split Shift uses a 2-hour midday gap
+    /// instead of a 1-hour lunch to represent the two work blocks (TimeShiftType has no
+    /// separate schedule-block entity — Split shifts reuse the same AM/Lunch/PM fields as
+    /// Fixed ones). TimeShiftType.FLEXI is commented out in the enum today even though the
+    /// frontend's Flexi Shift form already posts it — not seeded here since the type
+    /// doesn't exist yet; that's a separate pre-existing gap.
+    /// </summary>
+    private async Task SetDefaultTimeShifts(CancellationToken token)
+    {
+        var shifts = new List<TimeShift>
+        {
+            new TimeShift
+            {
+                Id = Guid.CreateVersion7(),
+                ShiftName = "Day Shift",
+                ShiftType = TimeShiftType.FIXED,
+                StartTime = new TimeSpan(8, 0, 0),
+                EndTime = new TimeSpan(17, 0, 0),
+                WithAMBreak = BreakMode.NONE,
+                WithLunchBreak = BreakMode.UNPAID_BREAK,
+                LunchStartTime = new TimeSpan(12, 0, 0),
+                LunchEndTime = new TimeSpan(13, 0, 0),
+                WithPMBreak = BreakMode.NONE,
+                GracePeriodMinutes = 0,
+                BreakDurationMinutes = 60,
+                WithOT = true,
+                OTRequireTimeIn = false,
+                OTStart = new TimeSpan(17, 0, 0),
+                OverTimeThreshold = 60,
+                MinimumWorkMinutes = 240,
+                MaxWorkingMinutes = 480,
+            }
+        };
+        await _uow.Repository.AddRangeAsync(shifts, token);
     }
 
     /// <summary>

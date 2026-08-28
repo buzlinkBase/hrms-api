@@ -31,15 +31,21 @@ public class SSSContributionService : BaseService<SSSContribution>
         await CommitChangesAsync(token);
     }
 
-    public async Task<Dictionary<EmployeeKey, List<SSSContributionModel>>> LoadContributionsAsync(DateOnly fromDate, DateOnly toDate,
-        CancellationToken token)
+    public async Task AddRangeAsync(List<SSSContribution> models, CancellationToken token)
+    {
+        await Uow.Repository.AddRangeAsync(models, token);
+        await Uow.SaveChangesAsync(token);
+        await CommitChangesAsync(token);
+    }
+
+    public async Task<Dictionary<EmployeeKey, List<SSSContributionModel>>> LoadContributionsAsync(DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
         var data = await GetQueryable()
                 .Where(x =>
-                    (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year)  
+                    (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year)
                     //(x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year)
                     )
-                //.Where(x => !(x.PayrollDate >= fromDate && x.PayrollDate <= toDate))
+            //.Where(x => !(x.PayrollDate >= fromDate && x.PayrollDate <= toDate))
             .ProjectToType<SSSContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)

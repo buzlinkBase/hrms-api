@@ -28,6 +28,12 @@ public class TaxContributionService : BaseService<WTaxContribution>
         await CommitChangesAsync(token);
 
     }
+    public async Task AddRangeAsync(List<WTaxContribution> models, CancellationToken token)
+    {
+        await Uow.Repository.AddRangeAsync(models, token);
+        await Uow.SaveChangesAsync(token);
+        await CommitChangesAsync(token);
+    }
     //public async Task AddOrUpdateAsync(WTaxContribution model, CancellationToken token)
     //{
     //    await CreateOrUpdateAsync(model, token);

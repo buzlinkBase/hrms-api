@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Core.Policies.DeductionPolicies;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services;
@@ -14,6 +15,10 @@ public class PayrollProcessorService
     private readonly ICalculator<DeductionPipeData, DeductionPayloadContext> _deductionCalculator;
     private readonly IDailyRateResolver _dailyRateResolver;
     private readonly EmployeePayrollInclusionResolver _inclusionResolver;
+    private readonly SSSContributionService _sssContributionService;
+    private readonly PHICContributionService _phicContributionService;
+    private readonly HDMFContributionService _hdmfContributionService;
+    private readonly TaxContributionService _taxContributionService;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
@@ -24,7 +29,11 @@ public class PayrollProcessorService
         ICalculator<AllowancePipeData, PayrollContext> allowancesCalculator,
         ICalculator<DeductionPipeData, DeductionPayloadContext> deductionCalculator,
         IDailyRateResolver dailyRateResolver,
-        EmployeePayrollInclusionResolver inclusionResolver)
+        EmployeePayrollInclusionResolver inclusionResolver,
+        SSSContributionService sssContributionService,
+        PHICContributionService phicContributionService,
+        HDMFContributionService hdmfContributionService,
+        TaxContributionService taxContributionService)
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
@@ -35,14 +44,90 @@ public class PayrollProcessorService
         _deductionCalculator = deductionCalculator;
         _dailyRateResolver = dailyRateResolver;
         _inclusionResolver = inclusionResolver;
+        _sssContributionService = sssContributionService;
+        _phicContributionService = phicContributionService;
+        _hdmfContributionService = hdmfContributionService;
+        _taxContributionService = taxContributionService;
     }
 
     public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
     {
         var lines = await CalculateAsync(payload, token);
         var payrolls = _mapper.Map<List<Payroll>>(lines);
-        //await _payrollService.SavePayrollsAsync(payrolls, token);
+        foreach (var payroll in payrolls)
+        {
+            payroll.IsPosted = true;
+        }
+        await _payrollService.SavePayrollsAsync(payrolls, token);
+        await SaveStatutoryContributionsAsync(lines, token);
         return lines;
+    }
+
+    // Persists one SSS/PHIC/HDMF ledger row per employee for this cutoff, so the next
+    // cutoff's balance-netting (SSSHelper/PHICHelper/HDMFHelper.GetBalance) can see what's
+    // already been withheld this month instead of always treating the target as untouched.
+    private async Task SaveStatutoryContributionsAsync(List<PayrollSummaryLine> lines, CancellationToken token)
+    {
+        var sssRows = lines
+            .Where(l => l.SSSContribution > 0 || l.EmployerSSSContribution > 0)
+            .Select(l => new SSSContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.StatutoryCreditDate,
+                EE = l.SSSContribution,
+                ER = l.EmployerSSSContribution - l.EmployerECContribution,
+                EC = l.EmployerECContribution,
+                TotalContibution = l.SSSContribution + l.EmployerSSSContribution,
+            })
+            .ToList();
+
+        var phicRows = lines
+            .Where(l => l.PhilHealthContribution > 0 || l.EmployerPhilHealthContribution > 0)
+            .Select(l => new PHICContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.StatutoryCreditDate,
+                EmployeeShare = l.PhilHealthContribution,
+                EmployerShare = l.EmployerPhilHealthContribution,
+                TotalContribution = l.PhilHealthContribution + l.EmployerPhilHealthContribution,
+            })
+            .ToList();
+
+        var hdmfRows = lines
+            .Where(l => l.PagIbigContribution > 0 || l.EmployerPagIbigContribution > 0)
+            .Select(l => new HDMFContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.StatutoryCreditDate,
+                EmployeeShare = l.PagIbigContribution,
+                EmployerShare = l.EmployerPagIbigContribution,
+                TotalContribution = l.PagIbigContribution + l.EmployerPagIbigContribution,
+            })
+            .ToList();
+
+        var taxRows = lines
+            .Where(l => l.WithholdingTax > 0)
+            .Select(l => new WTaxContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.PostingPeriod,
+                Date = l.PayPeriodEnd,
+                Amount = l.WithholdingTax,
+            })
+            .ToList();
+
+        if (sssRows.Count > 0) await _sssContributionService.AddRangeAsync(sssRows, token);
+        if (phicRows.Count > 0) await _phicContributionService.AddRangeAsync(phicRows, token);
+        if (hdmfRows.Count > 0) await _hdmfContributionService.AddRangeAsync(hdmfRows, token);
+        if (taxRows.Count > 0) await _taxContributionService.AddRangeAsync(taxRows, token);
     }
 
     public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload, CancellationToken token)
@@ -67,15 +152,28 @@ public class PayrollProcessorService
         // Resolve tenant-vs-employee Fixed-salary inclusion settings once, upstream —
         // every downstream DTR pay policy keeps reading employee.IsXxxIncluded unchanged.
         await _inclusionResolver.ApplyAsync(employees!, token);
-        var rangePayload = await _payloadComposer.ComposePayload(dateRange, employees, token)
+        var rangePayload = await _payloadComposer.ComposePayload(dateRange, employees, token, payload.PayDate)
                           ?? throw new Exception("Unable to load range payload");
+
+        // PayDate is user-supplied input, not a config fallback — silently defaulting to
+        // ToDate here would quietly violate the company's chosen posting policy, so this
+        // fails loudly instead (StatutoryCreditDateResolver's own fallback is defense in
+        // depth only).
+        var needsPayDate = rangePayload.CompanyPolicy.CrossMonthStatutoryCreditPolicy == CrossMonthStatutoryCreditPolicy.PayDate
+            || rangePayload.CompanyPolicy.WTaxCrossMonthCreditPolicy == CrossMonthStatutoryCreditPolicy.PayDate;
+        if (needsPayDate && payload.PayDate == null)
+            throw new ValidationException("A Pay/Release Date is required to generate this payroll under the configured statutory posting policy.");
 
         foreach (var employee in employees)
         {
             if (employee == null) continue;
             if (!dtrRecords.Records.TryGetValue(new EmployeeKey(employee.Id), out var empDtr)) continue;
             employee.DailyRate = _dailyRateResolver.Resolve(employee, dateRange.FromDate);
-            var payrollLine = InitializePayrollLine(dateRange, employee, batch, period);
+            var payrollLine = InitializePayrollLine(
+                dateRange, employee, batch, period,
+                rangePayload.CompanyPolicy.CrossMonthStatutoryCreditPolicy,
+                rangePayload.CompanyPolicy.WTaxCrossMonthCreditPolicy,
+                payload.PayDate);
             ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine);
             ComputeAllowances(dateRange, rangePayload, employee, payrollLine);
             ComputeDeductions(rangePayload, employee, payrollLine);
@@ -98,7 +196,10 @@ public class PayrollProcessorService
         DateRangePayload payload,
         EmployeeModelPayrollRun employee,
         Guid batch,
-        string period) =>
+        string period,
+        CrossMonthStatutoryCreditPolicy creditPolicy,
+        CrossMonthStatutoryCreditPolicy wtaxCreditPolicy,
+        DateOnly? payDate) =>
         new PayrollSummaryLine
         {
             PayrollPeriod = period,
@@ -108,6 +209,9 @@ public class PayrollProcessorService
             FullName = employee.FullName,
             BatchCode = batch,
             PayrollDate = payload.ToDate,
+            StatutoryCreditDate = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, creditPolicy, payDate),
+            PostingPeriod = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, wtaxCreditPolicy, payDate),
+            PayDate = payDate,
             PayrollGroupId = employee.PayrollGroupId,
             AreaId = employee.AreaId,
             ClientId = employee.ClientId
@@ -175,15 +279,8 @@ public class PayrollProcessorService
         payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPay);
         payrollLine.UnpaidLeaves = employeeBasicCalc.Sum(x => x.UnpaidLeave);
         payrollLine.PaidLeaves = employeeBasicCalc.Sum(x => x.PaidLeave);
+        payrollLine.HolidayPay = employeeBasicCalc.Sum(x => x.Holiday);
 
-        //payrollLine.HolidayPay =
-        //      payrollLine.LegalPay
-        //    + payrollLine.SpecialPay
-        //    + payrollLine.SpecialPay
-        //    + payrollLine.RestSpecialPay
-        //    + payrollLine.RestLegalPay
-        //    + payrollLine.DoubleLegalPay
-        //    + payrollLine.RestDoubleLegalPay;
     }
 
     private List<DTRPayModel> CalculateDTRTimePay(
@@ -226,8 +323,6 @@ public class PayrollProcessorService
             payrollLine.BasicPay = TimeCalcResult.Sum(x => x.RegularDayPay);
             return;
         }
-
-
         var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
         var basicTotal = employee.MonthlyRate / divisor;
         var deductions = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));

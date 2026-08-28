@@ -18,7 +18,7 @@ public class SSSService : BaseService<SSSTable>
     }
     public async Task AddAsync(SSSTable model, CancellationToken token)
     {
-        model.TotalContibution = model.ER + model.ER + model.EC;
+        model.TotalContibution = model.EE + model.ER + model.EC;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
@@ -32,7 +32,7 @@ public class SSSService : BaseService<SSSTable>
         payload.Adapt(existing);
         if (existing != null)
         {
-            existing.TotalContibution = existing.ER + existing.ER + existing.EC;
+            existing.TotalContibution = existing.EE + existing.ER + existing.EC;
         }
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

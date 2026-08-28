@@ -110,12 +110,53 @@ public enum ComputationBasis
     Table
 }
 
-//public enum StatutoryDeductionSchedule
-//{
-//    PerPayroll,
-//    FirstHalfMonth,
-//    SecondHalfMonth,
-//}
+public enum StatutoryDeductionSchedule
+{
+    PerPayroll,
+    FirstHalfMonth,
+    SecondHalfMonth,
+}
+
+public enum BillingCycle
+{
+    Monthly,
+    SemiMonthly,
+    PerCutoff,
+}
+
+/// <summary>
+/// For a payroll cutoff spanning two calendar months (e.g. Dec 26-Jan 10), which month's
+/// remittance the withheld amount is credited against. Shared enum, used by two independent
+/// settings: SSS/PhilHealth/Pag-IBIG (CompanyPolicyRule.CrossMonthStatutoryCreditPolicy,
+/// default CutoffStartMonth - period-earned convention) and BIR withholding tax
+/// (CompanyPolicyRule.WTaxCrossMonthCreditPolicy, default CutoffEndMonth - BIR Form 1601-C
+/// reports tax against the month compensation was actually paid/released, not earned).
+/// </summary>
+public enum CrossMonthStatutoryCreditPolicy
+{
+    /// <summary>
+    /// Credit to the month the cutoff STARTS in. Standard Philippine payroll practice:
+    /// contributions are recorded against the month the compensation period covers, so a
+    /// cutoff spanning two months is credited to the earlier one. Also matches every
+    /// statutory calculator's existing hire-date/proration logic, which already keys off
+    /// the cutoff's start date.
+    /// </summary>
+    CutoffStartMonth,
+    /// <summary>
+    /// Credit to the month the cutoff ENDS in - i.e. the month payroll is actually
+    /// released. For companies that align statutory remittance with the payout date
+    /// instead of the period worked.
+    /// </summary>
+    CutoffEndMonth,
+    /// <summary>
+    /// Credit to the explicit Pay/Release Date supplied on the payroll run request
+    /// (PayrollRunPayload.PayDate) - not derived from the cutoff dates or the system
+    /// clock. For companies whose actual payout date routinely differs from the cutoff's
+    /// end date (processing lag). Generating payroll without a PayDate while this option
+    /// is active fails validation rather than silently falling back to CutoffEndMonth.
+    /// </summary>
+    PayDate,
+}
 
 public enum EmploymentStatus
 {
@@ -397,6 +438,9 @@ public enum SettingKey
     DoublePunchGap,
     CheckAfterHoliday,
     WaivePriorDayRequirement,
+    CrossMonthStatutoryCreditPolicy,
+    WTaxCrossMonthCreditPolicy,
+    TreatNdotAsNdOnly,
 }
 
 public enum IncludeNullResponse

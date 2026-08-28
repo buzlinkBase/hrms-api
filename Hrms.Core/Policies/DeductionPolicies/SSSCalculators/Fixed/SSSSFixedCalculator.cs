@@ -6,9 +6,11 @@
         {
             var rate = context.Employee?.SSSRate;
             if (rate == null) return line;
-
-            var payload = new SSSTablePayload(rate.EE + rate.AddOns, rate.ER, rate.EC);
-            return SSSHelper.ApplyTable(context, line, payload, context.Payload.FromDate);
+            line.SSS.EE = rate.EE;
+            line.SSS.ER = rate.ER + rate.EC;
+            return line;
+            //var payload = new SSSTablePayload(rate.EE + rate.AddOns, rate.ER, rate.EC);
+            //return SSSHelper.ApplyTable(context, line, payload, context.Payload.FromDate);
         }
     }
 
@@ -59,6 +61,9 @@
             int divisor = 1;
             var resolver = new CutoffPolicyResolver();
 
+            var scheduleAction = StatutoryScheduleResolver.Resolve(context, resolver);
+            if (scheduleAction == StatutoryReleaseAction.ReleaseNothing) return line;
+
             try
             {
                 var firstCutoff = resolver.GetFirstCutoff(context);
@@ -84,6 +89,10 @@
                 divisor = 1;
             }
 
+            // FirstHalfMonth/SecondHalfMonth on their matching cutoff — release the full
+            // remaining balance now instead of splitting it.
+            if (scheduleAction == StatutoryReleaseAction.ReleaseFullBalanceNow) divisor = 1;
+
             var payload = new SSSTablePayload(
                 StatutoryHelper.CalcRemainingBalance(rate.EE, balances.EEBalance, divisor),
                 StatutoryHelper.CalcRemainingBalance(rate.ER, balances.ERBalance, divisor),
@@ -101,6 +110,11 @@
             if (rate == null) return line;
 
             var balances = SSSHelper.GetBalance(context, rate.EE, rate.ER, rate.EC);
+
+            var resolver = new CutoffPolicyResolver();
+            var scheduleAction = StatutoryScheduleResolver.Resolve(context, resolver);
+            if (scheduleAction == StatutoryReleaseAction.ReleaseNothing) return line;
+
             int divisor = 1;
             // Cross-month or last week → deduct all remaining balance
             if (StatutoryHelper.IsCrossMonh(context) ||
@@ -109,10 +123,13 @@
             {
                 divisor = 1;
             }
-            else if (balances.EEBalance == rate.EE)
+            else
             {
-                // Default: spread across all weeks in the month
-                divisor = context.Payload.FromDate.GetNumberOfWeeksInMonth();
+                // Recompute the remaining-weeks-in-month divisor every time (not just "if
+                // nothing withheld yet") so it decreases correctly week over week once prior
+                // withholding is actually persisted, instead of sweeping the entire
+                // remaining balance the first time the ledger isn't empty.
+                divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
             }
 
             //  Mid-month hire logic: only remaining weeks count
@@ -170,8 +187,9 @@
                 StatutoryHelper.CalcRemainingBalance(rate.EE, balances.EEBalance, daysInMonth) * effectiveDaysWorked,
                 StatutoryHelper.CalcRemainingBalance(rate.ER, balances.ERBalance, daysInMonth) * effectiveDaysWorked,
                 StatutoryHelper.CalcRemainingBalance(rate.EC, balances.ECBalance, daysInMonth) * effectiveDaysWorked);
-
             return SSSHelper.ApplyTable(context, line, payload, context.Payload.FromDate);
+
         }
     }
+
 }

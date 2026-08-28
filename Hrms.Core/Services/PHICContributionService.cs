@@ -26,6 +26,13 @@ public class PHICContributionService : BaseService<PHICContribution>
         await CommitChangesAsync(token);
     }
 
+    public async Task AddRangeAsync(List<PHICContribution> models, CancellationToken token)
+    {
+        await Uow.Repository.AddRangeAsync(models, token);
+        await Uow.SaveChangesAsync(token);
+        await CommitChangesAsync(token);
+    }
+
 
     public async Task<Dictionary<EmployeeKey, List<PHICContributionModel>>> LoadContributionsAsync(DateOnly fromDate, DateOnly toDate,
         CancellationToken token)
