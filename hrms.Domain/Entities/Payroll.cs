@@ -15,19 +15,36 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     // WTaxCrossMonthCreditPolicy/CrossMonthStatutoryCreditPolicy PayDate option was used.
     public DateOnly? PayDate { get; set; }
     public Guid BatchCode { get; set; }
+    // Comma-separated DTR batch code(s) (DailyRecord.BatchCode) this payroll run was
+    // generated from — lets PayrollService.GetUsedDtrBatchCodesAsync block re-generating
+    // payroll from a DTR batch that's already been posted here.
+    public string? DtrBatchCodes { get; set; }
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;
+    // Snapshot of the employee's rate/salary type at the time this payroll ran — see
+    // PayrollProcessorService.InitializePayrollLine. Not sourced from the live Employee
+    // record so a later rate change doesn't retroactively change a past payslip.
+    public decimal DailyRate { get; set; }
+    public SalaryType SalaryType { get; set; }
+    // Sum of scheduled deductions classified as a loan (DeductionType.Code containing
+    // "LOAN") — a subset of OtherDeductions, kept separately so a payslip can show Loans
+    // as its own line without changing what OtherDeductions means to existing consumers.
+    public decimal TotalLoans { get; set; }
 
     // Earnings
     public decimal OTPremiumPay { get; set; }
     public decimal NDPremiumPay { get; set; }
 
     public decimal OvertimePay { get; set; }
-    public decimal NDPay { get; set; }
-    public decimal NDOTPay { get; set; }
+    // Renamed to match PayrollSummaryLine.NightDifferentialPay/NightDifferentialOTPay exactly
+    // — Mapster's convention mapping only maps same-named members, so the old NDPay/NDOTPay
+    // names silently never received a value from a generated payroll run.
+    public decimal NightDifferentialPay { get; set; }
+    public decimal NightDifferentialOTPay { get; set; }
 
-    public decimal BasicSalary { get; set; }
+    // Renamed from BasicSalary to match PayrollSummaryLine.BasicPay — same reason as above.
+    public decimal BasicPay { get; set; }
     public decimal RegularOTPay { get; set; }
     public decimal RegularNDPay { get; set; }
     public decimal RegularNDOTPay { get; set; }
@@ -66,6 +83,14 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     public decimal RestDoubleLegalOTPay { get; set; }
     public decimal RestDoubleLegalNDPay { get; set; }
     public decimal RestDoubleLegalNDOTPay { get; set; }
+    // Combined base (no OT/ND) subtotal across ALL holiday-type days — Legal, Special,
+    // RestLegal, RestSpecial, DoubleLegal, RestDoubleLegal — worked AND unworked merged
+    // together. A rollup, not an "unworked only" figure — see LegalHolidayUnworkedPay.
+    public decimal HolidayPay { get; set; }
+    // The unworked/no-work portion of Legal Holiday pay only — the one holiday category
+    // where "unworked" is meaningfully separate (Special/RestLegal/RestSpecial pay nothing
+    // when unworked, per DOLE's "no work, no pay" rule for non-legal holidays).
+    public decimal LegalHolidayUnworkedPay { get; set; }
     //public virtual List<ProratedAllowanceForSSS> RegularAllowanceProrated { get; set; } = new(); //For SSS
     public decimal Cola { get; set; }
     public decimal TotalRegularAllowances { get; set; }

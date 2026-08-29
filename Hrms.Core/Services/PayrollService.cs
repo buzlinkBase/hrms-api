@@ -43,6 +43,19 @@ public class PayrollService : BaseService<Payroll>
         await CommitChangesAsync(token);
     }
 
+    // Every DTR batch code that has already been used to generate a payroll, across all
+    // past runs — used to block re-generating payroll from a batch that's already posted.
+    public async Task<HashSet<string>> GetUsedDtrBatchCodesAsync(CancellationToken token)
+    {
+        var raw = await GetQueryable(x => x.DtrBatchCodes != null && x.DtrBatchCodes != "")
+            .Select(x => x.DtrBatchCodes)
+            .Distinct()
+            .ToListAsync(token);
+        return raw
+            .SelectMany(x => x!.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            .ToHashSet();
+    }
+
     public async Task<List<Payroll>> GetAsync(
         DateOnly from, DateOnly to,
         Guid? employeeId, Guid? clientId, Guid? payrollGroupId,

@@ -52,6 +52,15 @@ public class PayrollProcessorService
 
     public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
     {
+        var usedBatchCodes = await _payrollService.GetUsedDtrBatchCodesAsync(token);
+        var alreadyPosted = payload.BatchCodes.Where(usedBatchCodes.Contains).ToList();
+        if (alreadyPosted.Count > 0)
+        {
+            throw new ValidationException(
+                $"Payroll has already been generated for DTR batch(es): {string.Join(", ", alreadyPosted)}. " +
+                "Delete the existing payroll run first if you need to regenerate it.");
+        }
+
         var lines = await CalculateAsync(payload, token);
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)
@@ -173,7 +182,7 @@ public class PayrollProcessorService
                 dateRange, employee, batch, period,
                 rangePayload.CompanyPolicy.CrossMonthStatutoryCreditPolicy,
                 rangePayload.CompanyPolicy.WTaxCrossMonthCreditPolicy,
-                payload.PayDate);
+                payload.PayDate, payload.BatchCodes);
             ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine);
             ComputeAllowances(dateRange, rangePayload, employee, payrollLine);
             ComputeDeductions(rangePayload, employee, payrollLine);
@@ -199,7 +208,8 @@ public class PayrollProcessorService
         string period,
         CrossMonthStatutoryCreditPolicy creditPolicy,
         CrossMonthStatutoryCreditPolicy wtaxCreditPolicy,
-        DateOnly? payDate) =>
+        DateOnly? payDate,
+        List<string> dtrBatchCodes) =>
         new PayrollSummaryLine
         {
             PayrollPeriod = period,
@@ -208,6 +218,7 @@ public class PayrollProcessorService
             EmployeeId = employee.Id,
             FullName = employee.FullName,
             BatchCode = batch,
+            DtrBatchCodes = string.Join(",", dtrBatchCodes),
             PayrollDate = payload.ToDate,
             StatutoryCreditDate = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, creditPolicy, payDate),
             PostingPeriod = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, wtaxCreditPolicy, payDate),
@@ -280,6 +291,7 @@ public class PayrollProcessorService
         payrollLine.UnpaidLeaves = employeeBasicCalc.Sum(x => x.UnpaidLeave);
         payrollLine.PaidLeaves = employeeBasicCalc.Sum(x => x.PaidLeave);
         payrollLine.HolidayPay = employeeBasicCalc.Sum(x => x.Holiday);
+        payrollLine.LegalHolidayUnworkedPay = employeeBasicCalc.Sum(x => x.LegalUnWorked);
 
     }
 
@@ -397,6 +409,9 @@ public class PayrollProcessorService
         payrollLine.PagIbigContribution = deductionPipeLine.HDMF.EE;
         payrollLine.WithholdingTax = deductionPipeLine.TaxInfo.TaxDue;
         payrollLine.OtherDeductions = deductionPipeLine.ScheduledDeductions.Sum(x => x.Amount);
+        payrollLine.TotalLoans = deductionPipeLine.ScheduledDeductions
+            .Where(x => x.Type == DeductionInfoType.Loan)
+            .Sum(x => x.Amount);
         payrollLine.TotalDeductions = deductionPipeLine.RunningTotal;
         payrollLine.EmployerSSSContribution = deductionPipeLine.SSS.TotalER;
         payrollLine.EmployerPhilHealthContribution = deductionPipeLine.PHIC.Total;

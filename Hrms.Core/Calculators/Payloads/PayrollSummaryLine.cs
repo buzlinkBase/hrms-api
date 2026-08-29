@@ -21,6 +21,8 @@ public class PayrollSummaryLine
     // Raw admin-entered Pay/Release Date from the payroll run request — see Payroll.PayDate.
     public DateOnly? PayDate { get; set; }
     public Guid BatchCode { get; set; }
+    // Comma-separated DTR batch code(s) this line was generated from — see Payroll.DtrBatchCodes.
+    public string? DtrBatchCodes { get; set; }
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;
@@ -34,7 +36,16 @@ public class PayrollSummaryLine
     public decimal NightDifferentialOTPay { get; set; }
     public decimal OTPremiumPay { get; set; }
     public decimal NDPremiumPay { get; set; }
+    // Combined base (no OT/ND) subtotal across ALL holiday-type days — Legal, Special,
+    // RestLegal, RestSpecial, DoubleLegal, RestDoubleLegal — worked AND unworked portions
+    // merged together (mirrors DTRPayModel.Holiday exactly). This is a rollup, not an
+    // "unworked only" figure — see LegalHolidayUnworkedPay for that.
     public decimal HolidayPay { get; set; }
+    // The unworked/no-work portion of Legal Holiday pay only (DTRPayModel.LegalUnWorked,
+    // summed for the period) — the one holiday category where "unworked" is a meaningful,
+    // separately-tracked figure (Special/RestLegal/RestSpecial pay nothing when unworked
+    // per DOLE's "no work, no pay" rule for non-legal holidays).
+    public decimal LegalHolidayUnworkedPay { get; set; }
 
     public decimal RegularDayPay { get; set; }
     public decimal RegularOTPay { get; set; }
@@ -93,6 +104,8 @@ public class PayrollSummaryLine
     public decimal PagIbigContribution { get; set; }
     public decimal OtherDeductions { get; set; }   // Loans, union dues, etc.
     public decimal TotalDeductions { get; set; }
+    // Subset of OtherDeductions classified as a loan — see Payroll.TotalLoans.
+    public decimal TotalLoans { get; set; }
     //leaves
     public decimal UnpaidLeaves { get; set; }
     public decimal PaidLeaves { get; set; }

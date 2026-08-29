@@ -1,6 +1,7 @@
 ﻿public enum DeductionInfoType
 {
-    Others
+    Others,
+    Loan
 }
 public class DeductionInfo
 {

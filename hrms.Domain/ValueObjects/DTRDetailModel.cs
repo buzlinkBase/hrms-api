@@ -160,6 +160,10 @@ public class BatchesModel
     public int EmployeeCount { get; set; }
     public bool IsPosted { get; set; }
     public string? PostingDescription { get; set; }
+    // True once a payroll has already been generated from this DTR batch — see
+    // Payroll.DtrBatchCodes / PayrollService.GetUsedDtrBatchCodesAsync. Used by the
+    // Payroll Run screen to block re-selecting a batch that was already posted.
+    public bool IsPayrollGenerated { get; set; }
 }
 
 public class TardinessReportModel

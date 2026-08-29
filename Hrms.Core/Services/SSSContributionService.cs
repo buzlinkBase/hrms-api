@@ -1,4 +1,6 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Core.Extensions;
+using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 using Mapster;
 
 namespace Hrms.Core.Services;
@@ -7,13 +9,38 @@ public class SSSContributionService : BaseService<SSSContribution>
 {
     private readonly TypeAdapterConfig _config;
     private readonly IMapper _mapper;
+    private readonly EmployeeService _employeeService;
 
     public SSSContributionService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
-        IMapper mapper) : base(uow)
+        IMapper mapper,
+        EmployeeService employeeService) : base(uow)
     {
         _config = config;
         _mapper = mapper;
+        _employeeService = employeeService;
+    }
+
+    // Remittance report — proper from/to range (unlike LoadContributionsAsync below, whose
+    // toDate filter is dead code), joined with Employee for name/SSS No.
+    public async Task<List<ContributionRemittanceModel>> GetRemittanceReportAsync(DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => x.PayrollDate >= from && x.PayrollDate <= to).ToListAsync(token);
+        var employees = await _employeeService.FindByIds(rows.Select(x => x.EmployeeId).Distinct().ToList(), token);
+        var employeeMap = employees.ToDictionary(x => x.Id);
+        return rows.Select(r => new ContributionRemittanceModel
+        {
+            EmployeeId = r.EmployeeId,
+            EmployeeNo = employeeMap.TryGetValue(r.EmployeeId, out var e) ? e.EmployeeNo : "",
+            FullName = employeeMap.TryGetValue(r.EmployeeId, out var e2) ? e2.FullName() : "",
+            GovIdNumber = employeeMap.TryGetValue(r.EmployeeId, out var e3) ? e3.SSSNo : "",
+            PayrollFrom = r.PayrollFrom,
+            PayrollTo = r.PayrollTo,
+            PayrollDate = r.PayrollDate,
+            EmployeeShare = r.EE,
+            EmployerShare = r.ER + r.EC,
+            TotalContribution = r.TotalContibution,
+        }).OrderBy(x => x.FullName).ToList();
     }
     public async Task AddAsync(SSSContribution model, CancellationToken token)
     {
