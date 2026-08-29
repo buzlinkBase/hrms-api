@@ -1,4 +1,6 @@
-﻿namespace DTR.Core;
+﻿using Microsoft.Extensions.DependencyInjection;
+
+namespace DTR.Core;
 
 public interface IDTRProcessor<T>
 {
@@ -8,7 +10,6 @@ public interface IDTRProcessor<T>
 public enum ProcessorType
 {
     DTRDetail,
-    Form48,
     Incomplete,
     CleanColumnarLog,
     RawColumnarLog,
@@ -18,14 +19,12 @@ public enum ProcessorType
 
 public class DTRProcessorFactory
 {
-    public static IDTRProcessor<T> Create<T>(ProcessorType type)
+    public static IDTRProcessor<T> Create<T>(ProcessorType type, IServiceProvider serviceProvider)
     {
         switch (type)
         {
             case ProcessorType.DTRDetail:
-                return (IDTRProcessor<T>)new CleanDTRDetailProcessor();
-            case ProcessorType.Form48:
-                return (IDTRProcessor<T>)new CleanForm48Processor();
+                return (IDTRProcessor<T>)serviceProvider.GetRequiredService<CleanDTRDetailProcessor>();
             case ProcessorType.Incomplete:
                 return (IDTRProcessor<T>)new CleanIncompleteLogsProcessor();
             case ProcessorType.RawColumnarLog:

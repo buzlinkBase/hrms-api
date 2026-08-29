@@ -10,13 +10,10 @@ public class BasicPipelineData : IPipeData
 {
     public decimal Value { get; set; }
     public PayType PayType { get; set; }
-    public LeaveInfo LeaveInfo { get; set; } = new();
-    public AbsentInfo AbsentInfo { get; set; } = new();
-    public UnderTimeInfo UTInfo { get; set; } = new();
-    public OvertimeInfo OTInfo { get; set; } = new();
-    public NightDiffInfo NightDiffInfo { get; set; } = new();
-    public LateInfo LateInfo { get; set; } = new();
-
+    public decimal Worked { get; set; }
+    public decimal UnWork { get; set; }
+    public decimal OTPremium   { get; set; }
+    public decimal NDPremium   { get; set; }
 }
 public class AllowancePipeData : IPipeData
 {

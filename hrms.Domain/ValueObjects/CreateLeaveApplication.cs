@@ -15,12 +15,12 @@ public class CreateLeaveApplication
     public int? TotalMinutes { get; set; }
     public string? ApplicationRemarks { get; set; }
     public string? SupportingDocumentUrl { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.ForApproval;
 }
 
 public class UpdateLeaveApplication : CreateLeaveApplication
 {
     public Guid Id { get; set; }
-    public ApprovalStatus ApprovalStatus { get; set; }
 }
 
 public class LeaveApplicationModel : UpdateLeaveApplication

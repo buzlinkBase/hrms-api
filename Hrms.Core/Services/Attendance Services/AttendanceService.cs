@@ -265,6 +265,12 @@ public class AttendanceService : BaseService<Attendance>
     }
     public async Task Remove(Guid Id, CancellationToken token)
     {
+        var attendance = await Context.Attendances.FirstOrDefaultAsync(x => x.Id == Id, token);
+        if (attendance == null)
+            throw new NotFoundException("Attendance log not found.");
+        if (attendance.LogSource != LOGSOURCE.MANUAL)
+            throw new ValidationException("Only manually entered attendance logs can be deleted.");
+
         await RemoveAsync(Id, token);
 
     }

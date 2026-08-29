@@ -15,13 +15,16 @@ public class DailyRecordsController : ControllerBase
 {
     private readonly DailyRecordService _service;
     private readonly DTRCalcService _dTRCalcService;
+    private readonly RosterReportService _rosterReportService;
     private readonly IMapper _mapper;
     public DailyRecordsController(DailyRecordService service,
         DTRCalcService dTRCalcService,
+        RosterReportService rosterReportService,
         IMapper mapper)
     {
         _service = service;
         _dTRCalcService = dTRCalcService;
+        _rosterReportService = rosterReportService;
         _mapper = mapper;
     }
 
@@ -29,14 +32,15 @@ public class DailyRecordsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
     public async Task<IActionResult> Post([FromBody] List<DTRDetailModel> model, CancellationToken token)
     {
+        var payrollGroupId = model.Select(x => x.PayrollGroupId).FirstOrDefault(x => x.HasValue);
+        if (!payrollGroupId.HasValue)
+            return BadRequest("Payroll Group is required to post DTR.");
+
         var rangeFrom = model.Min(x => x.WorkDate);
         var RangeTo = model.Max(x => x.WorkDate);
-        TimeZoneInfo manilaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
-        DateTime localTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, manilaTimeZone);
-        var ts = localTime.ToString("MM.dd.yyyy.HH:mm");
+        var batchCode = await _service.BuildBatchCodeAsync(rangeFrom, RangeTo, payrollGroupId, token);
         var models = _mapper.Map<List<DailyRecord>>(model);
         var userId = User.GetRequiredUserId();
-        var batchCode = $"DTR{rangeFrom.ToString("MMMddyyyy")}-{RangeTo.ToString("MMMddyyyy")} TS:{ts}";
         foreach (var item in models)
         {
             item.UserId = userId;
@@ -72,7 +76,7 @@ public class DailyRecordsController : ControllerBase
     {
         var fromDate = from.HasValue
             ? DateOnly.FromDateTime(from.Value)
-            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-6));
+            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-5));
         var toDate = to.HasValue
             ? DateOnly.FromDateTime(to.Value)
             : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));
@@ -101,6 +105,14 @@ public class DailyRecordsController : ControllerBase
     public async Task<IActionResult> TardinessReport([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _service.TardinessReportQuery(payload, token);
+        return Ok(result);
+    }
+
+    [HttpGet("roster-report")]
+    [ProducesResponseType(typeof(ResponseModel<List<RosterReportModel>>), 200)]
+    public async Task<IActionResult> RosterReport([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _rosterReportService.RosterReportQuery(payload, token);
         return Ok(result);
     }
 

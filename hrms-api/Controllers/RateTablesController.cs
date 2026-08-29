@@ -14,14 +14,17 @@ namespace Hrms.Api.Controllers
     public class RateTablesController : ControllerBase
     {
         private readonly RateTableService _service;
+        private readonly ClientRateTableService _clientRateService;
         private readonly AccountInitService _accountInitService;
         private readonly IMapper _mapper;
 
         public RateTablesController(RateTableService service,
+            ClientRateTableService clientRateService,
             AccountInitService accountInitService,
             IMapper mapper)
         {
             _service = service;
+            _clientRateService = clientRateService;
             _accountInitService = accountInitService;
             _mapper = mapper;
         }
@@ -95,6 +98,23 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> ClearAll(CancellationToken token)
         {
             await _service.ClearAllAsync(token);
+            return NoContent();
+        }
+
+        [HttpGet("client/{clientId:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<List<ClientRateTableModel>>), 200)]
+        public async Task<IActionResult> GetClientRates(Guid clientId, CancellationToken token)
+        {
+            var data = await _clientRateService.FindByClientAsync(clientId, token);
+            return Ok(_mapper.Map<List<ClientRateTableModel>>(data));
+        }
+
+        [HttpPost("client/{clientId:guid}/bulk")]
+        [ProducesResponseType(204)]
+        public async Task<IActionResult> BulkReplaceClientRates(Guid clientId, [FromBody] List<ClientRateEntry> payload, CancellationToken token)
+        {
+            var entities = payload.Select(p => new ClientRateTable { ClientId = clientId, Type = p.Type, Rate = p.Rate }).ToList();
+            await _clientRateService.BulkReplaceForClientAsync(clientId, entities, token);
             return NoContent();
         }
     }

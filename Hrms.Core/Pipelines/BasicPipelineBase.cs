@@ -7,12 +7,15 @@ public abstract class BasePipelineBase<Context, lineData> : IPipeLine<Context, l
     where lineData : IPipeData, new()
     where Context : IPayloadContext
 {
-    protected PayrollPipeLine<Context, lineData> pipeline;
-    protected BasePipelineBase()
+    protected abstract void ConfigurePolicies(PayrollPipeLine<Context, lineData> pipeline);
+    protected virtual lineData CreateSeed(Context context) => new lineData();
+
+    public lineData Run(Context context)
     {
-        pipeline = new PayrollPipeLine<Context, lineData>();
+        var pipeline = new PayrollPipeLine<Context, lineData>();
+        ConfigurePolicies(pipeline);
+        return pipeline.Execute(CreateSeed(context), context);
     }
-    public abstract lineData Run(Context context);
 }
 
 

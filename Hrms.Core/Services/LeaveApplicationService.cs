@@ -38,6 +38,12 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         var model = _mapper.Map<LeaveApplication>(payload);
         if (model == null) return null;
         await CreateAsync(model, token);
+
+        // A leave application can be filed directly in a non-default status (e.g. backfilling
+        // an already-approved leave) — apply the same credit/DTR side effects that would fire
+        // had it been created ForApproval and then transitioned via UpdateAsync.
+        await ApplyStatusTransitionSideEffectsAsync(model, ApprovalStatus.ForApproval, token);
+
         await CommitChangesAsync(token);
 
         await _publisher.Publish(new LeaveApplicationCreated(model.Id, model.EmployeeId, model.LeaveId), token);
@@ -159,15 +165,24 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         var previousStatus = existing.ApprovalStatus;
         payload.Adapt(existing);
 
-        var statusChanged = payload.ApprovalStatus != previousStatus;
+        await ApplyStatusTransitionSideEffectsAsync(existing, previousStatus, token);
 
-        if (payload.ApprovalStatus == ApprovalStatus.Approved &&
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
+
+    private async Task ApplyStatusTransitionSideEffectsAsync(
+        LeaveApplication existing, ApprovalStatus previousStatus, CancellationToken token)
+    {
+        var statusChanged = existing.ApprovalStatus != previousStatus;
+
+        if (existing.ApprovalStatus == ApprovalStatus.Approved &&
             previousStatus != ApprovalStatus.Approved)
         {
             await DeductCreditsAsync(existing, token);
         }
         else if (previousStatus == ApprovalStatus.Approved &&
-                 payload.ApprovalStatus is ApprovalStatus.Cancelled or ApprovalStatus.Declined)
+                 existing.ApprovalStatus is ApprovalStatus.Cancelled or ApprovalStatus.Declined)
         {
             await RestoreCreditsAsync(existing, token);
         }
@@ -175,11 +190,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         // Any status change that affects leave hours (approve, cancel, decline) invalidates
         // any DTR rows in the leave's date range that were already posted, so they get
         // re-run and reflect the updated leave state.
-        if (statusChanged && payload.ApprovalStatus != ApprovalStatus.ForApproval)
+        if (statusChanged && existing.ApprovalStatus != ApprovalStatus.ForApproval)
             await InvalidatePostedDtrAsync(existing, token);
-
-        await ModifyAsync(existing, token);
-        await CommitChangesAsync(token);
     }
 
     private async Task InvalidatePostedDtrAsync(LeaveApplication app, CancellationToken token)

@@ -2,6 +2,11 @@ using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
+public interface IWorkTypeResolver
+{
+    WorkType Resolve(TimeContext context);
+}
+
 /// <summary>
 /// Resolves the <see cref="WorkType"/> for a shift against a fixed priority order:
 ///
@@ -15,9 +20,9 @@ namespace DTR.Core;
 ///   8. On leave (no duty, regular day).
 ///   9. Special working / travel / absent — fallbacks.
 /// </summary>
-public static class WorkTypeResolver
+public class WorkTypeResolver : IWorkTypeResolver
 {
-    public static WorkType Resolve(TimeContext context)
+    public WorkType Resolve(TimeContext context)
     {
         var attendance = context.Payload.Provider.AttendanceProvider.CurrentShiftAttendance();
         var hasAttendance = attendance.Any();

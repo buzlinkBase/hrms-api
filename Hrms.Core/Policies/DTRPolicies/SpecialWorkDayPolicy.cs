@@ -1,6 +1,5 @@
 namespace Hrms.Core.Policies.DTRPolicies;
 
- 
 internal class SpecialWorkDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
@@ -12,11 +11,11 @@ internal class SpecialWorkDayPolicy : PayrollPolicyBase<BasicPipelineData, Payro
             return line;
         }
 
-        var hourlyRate = context.Employee.DailyRate / (decimal)dailyRecord.ShiftWorkingHour;
+        var hourlyRate = RateHelper.GetHourlyRate(context);
         var workedHours = (decimal)Math.Max(0, dailyRecord.SpecialHolHours);
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
-        var earnings = HolidayPayCalculator
+        var earnings = SpecialHolidayPayCalculator
             .ForContext(context)
             .CalculateWorkedPay(hourlyRate, workedHours)
             .CalculateUnworkedPay(hourlyRate, unworkedHours)
@@ -47,9 +46,10 @@ public class SpecialHolidayPayCalculator
     public SpecialHolidayPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
     {
         if (workedHours <= 0) return this;
-        // Ineligible: Earns 1.0x standard rate
-        // Eligible & Pre-Funded: Earns delta premium above 1.0 (e.g., 2.60 - 1.00 = 1.60)
-        // Eligible & Not Pre-Funded: Earns full configured rate multiplier (e.g., 2.60)
+
+        // Ineligible: Earns 1.0x standard hourly rate
+        // Eligible & Pre-Funded (Fixed Salary): Earns delta premium above 1.0x base pay (e.g., 1.30 - 1.00 = 0.30)
+        // Eligible & Not Pre-Funded (Daily Salary): Earns full configured special holiday rate multiplier (1.30x)
         var multiplier = !_isEligible
             ? 1.0m
             : (_isBasePayPreFunded ? Math.Max(0m, _totalRateMultiplier - 1.0m) : _totalRateMultiplier);
@@ -60,10 +60,13 @@ public class SpecialHolidayPayCalculator
 
     public SpecialHolidayPayCalculator CalculateUnworkedPay(decimal hourlyRate, decimal unworkedHours)
     {
-        if (unworkedHours <= 0 || !_isEligible || _isBasePayPreFunded) return this;
+        if (unworkedHours <= 0 || !_isEligible) return this;
 
-        // Unworked regular holiday pay is paid at 100% (1.0x) base rate
-        _total += hourlyRate * unworkedHours * 1.0m;
+        // DOLE Standard: "No Work, No Pay" applies to Special Non-Working Holidays.
+        // Unworked hours receive 0.0x unless pre-funded base pay covers it via monthly salary.
+        var multiplier = 0.0m;
+
+        _total += hourlyRate * unworkedHours * multiplier;
         return this;
     }
 

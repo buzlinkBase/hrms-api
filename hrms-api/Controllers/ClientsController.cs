@@ -13,10 +13,12 @@ namespace Hrms.Api.Controllers
     public class ClientsController : ControllerBase
     {
         private readonly ClientService _service;
+        private readonly ClientBillingInfoService _billingService;
         private readonly IMapper _mapper;
-        public ClientsController(ClientService service, IMapper mapper)
+        public ClientsController(ClientService service, ClientBillingInfoService billingService, IMapper mapper)
         {
             _service = service;
+            _billingService = billingService;
             _mapper = mapper;
         }
 
@@ -61,6 +63,22 @@ namespace Hrms.Api.Controllers
         {
             await _service.DeleteAsync(id, token);
             return Ok();
+        }
+
+        [HttpGet("{clientId:guid}/billing-info")]
+        [ProducesResponseType(typeof(ResponseModel<ClientBillingInfoModel>), 200)]
+        public async Task<IActionResult> GetBillingInfo(Guid clientId, CancellationToken token)
+        {
+            var data = await _billingService.FindByClientIdAsync(clientId, token);
+            return Ok(data == null ? new ClientBillingInfoModel() : _mapper.Map<ClientBillingInfoModel>(data));
+        }
+
+        [HttpPut("{clientId:guid}/billing-info")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UpdateBillingInfo(Guid clientId, [FromBody] UpdateClientBillingInfo payload, CancellationToken token)
+        {
+            await _billingService.SaveAsync(clientId, payload, token);
+            return Ok("success");
         }
     }
 }

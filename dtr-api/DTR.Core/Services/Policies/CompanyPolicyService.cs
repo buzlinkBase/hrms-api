@@ -16,6 +16,10 @@ public class CompanyPolicyRule
     public double TimeInAllowance { get; set; } = -120;
     public double DoublePunchGap { get; set; } = 5;
     public bool CheckAfterHoliday { get; set; } = false;
+    public bool WaivePriorDayRequirement { get; set; } = false;
+    public CrossMonthStatutoryCreditPolicy CrossMonthStatutoryCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
+    public CrossMonthStatutoryCreditPolicy WTaxCrossMonthCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
+    public bool TreatNdotAsNdOnly { get; set; } = false;
 
 }
 
@@ -35,6 +39,10 @@ public class CompanyPolicyService
         SetTimeInAllowance(policy, data);
         SetDoublePunchGap(policy, data);
         SetCheckAfterHoliday(policy, data);
+        SetWaivePriorDayRequirement(policy, data);
+        SetCrossMonthStatutoryCreditPolicy(policy, data);
+        SetWTaxCrossMonthCreditPolicy(policy, data);
+        SetTreatNdotAsNdOnly(policy, data);
         return policy;
     }
 
@@ -152,6 +160,46 @@ public class CompanyPolicyService
         {
             var settingvalue = GeneralSettingsUtil.ParseBool(CheckAfterHoliday.Value, false);
             policy.CheckAfterHoliday = settingvalue;
+        }
+    }
+
+    private void SetWaivePriorDayRequirement(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.WaivePriorDayRequirement = false;
+        if (data.TryGetValue(SettingKey.WaivePriorDayRequirement.ToString(), out GeneralSettingModel? WaivePriorDayRequirement))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseBool(WaivePriorDayRequirement.Value, false);
+            policy.WaivePriorDayRequirement = settingvalue;
+        }
+    }
+
+    private void SetCrossMonthStatutoryCreditPolicy(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.CrossMonthStatutoryCreditPolicy = CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
+        if (data.TryGetValue(SettingKey.CrossMonthStatutoryCreditPolicy.ToString(), out GeneralSettingModel? creditPolicy))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseEnum(creditPolicy.Value, CrossMonthStatutoryCreditPolicy.CutoffStartMonth);
+            policy.CrossMonthStatutoryCreditPolicy = settingvalue;
+        }
+    }
+
+    private void SetWTaxCrossMonthCreditPolicy(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.WTaxCrossMonthCreditPolicy = CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
+        if (data.TryGetValue(SettingKey.WTaxCrossMonthCreditPolicy.ToString(), out GeneralSettingModel? creditPolicy))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseEnum(creditPolicy.Value, CrossMonthStatutoryCreditPolicy.CutoffEndMonth);
+            policy.WTaxCrossMonthCreditPolicy = settingvalue;
+        }
+    }
+
+    private void SetTreatNdotAsNdOnly(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.TreatNdotAsNdOnly = false;
+        if (data.TryGetValue(SettingKey.TreatNdotAsNdOnly.ToString(), out GeneralSettingModel? treatNdotAsNd))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseBool(treatNdotAsNd.Value, false);
+            policy.TreatNdotAsNdOnly = settingvalue;
         }
     }
 }

@@ -33,6 +33,7 @@ public class OtherIncomeSchedules : BaseEntity
     public Guid EmployeeId { get; set; }
     public Guid ApplicationId { get; set; }
     public Guid IncomeId { get; set; }
+    public virtual OtherIncome? Income { get; set; } 
     public DateOnly Date { get; set; }
     public decimal Amount { get; set; }
     public bool IsTaxable { get; set; }

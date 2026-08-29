@@ -11,7 +11,6 @@ internal class ScheduledDeductionPolicy : PayrollPolicyBase<DeductionPipeData, D
         var processDeductions = new List<DeductionInfo>();
         foreach (var deduction in deductions)
         {
-            deduction.Type = DeductionInfoType.Others;
             var MinimumTakeHomeAmount = context.Payload.CompanyPolicy.RequiredTakehomePercentage;
             if (!DeductionValidator.CanApply(deduction.Amount, line, context))
             {
@@ -21,7 +20,6 @@ internal class ScheduledDeductionPolicy : PayrollPolicyBase<DeductionPipeData, D
 
             line.RemainingGrossBalance -= deduction.Amount;
             processDeductions.Add(deduction);
-
         }
 
         line.RunningTotal += processDeductions.Sum(x => x.Amount);

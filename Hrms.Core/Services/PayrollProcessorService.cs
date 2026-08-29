@@ -1,4 +1,6 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Core.Policies.DeductionPolicies;
+using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services;
 
@@ -8,61 +10,180 @@ public class PayrollProcessorService
     private readonly PayrollRangeContextComposerService _payloadComposer;
     private readonly PayrollService _payrollService;
     private readonly IMapper _mapper;
+    private readonly ICalculator<DTRPayModel, PayrollContext> _basicPayrollCalculator;
+    private readonly ICalculator<AllowancePipeData, PayrollContext> _allowancesCalculator;
+    private readonly ICalculator<DeductionPipeData, DeductionPayloadContext> _deductionCalculator;
+    private readonly IDailyRateResolver _dailyRateResolver;
+    private readonly EmployeePayrollInclusionResolver _inclusionResolver;
+    private readonly SSSContributionService _sssContributionService;
+    private readonly PHICContributionService _phicContributionService;
+    private readonly HDMFContributionService _hdmfContributionService;
+    private readonly TaxContributionService _taxContributionService;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
         DailyRecordService dtrServie,
         PayrollService payrollService,
-        IMapper mapper)
+        IMapper mapper,
+        ICalculator<DTRPayModel, PayrollContext> basicPayrollCalculator,
+        ICalculator<AllowancePipeData, PayrollContext> allowancesCalculator,
+        ICalculator<DeductionPipeData, DeductionPayloadContext> deductionCalculator,
+        IDailyRateResolver dailyRateResolver,
+        EmployeePayrollInclusionResolver inclusionResolver,
+        SSSContributionService sssContributionService,
+        PHICContributionService phicContributionService,
+        HDMFContributionService hdmfContributionService,
+        TaxContributionService taxContributionService)
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
         _payrollService = payrollService;
         _mapper = mapper;
+        _basicPayrollCalculator = basicPayrollCalculator;
+        _allowancesCalculator = allowancesCalculator;
+        _deductionCalculator = deductionCalculator;
+        _dailyRateResolver = dailyRateResolver;
+        _inclusionResolver = inclusionResolver;
+        _sssContributionService = sssContributionService;
+        _phicContributionService = phicContributionService;
+        _hdmfContributionService = hdmfContributionService;
+        _taxContributionService = taxContributionService;
     }
 
-    public async Task<List<Payroll>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
     {
+        var usedBatchCodes = await _payrollService.GetUsedDtrBatchCodesAsync(token);
+        var alreadyPosted = payload.BatchCodes.Where(usedBatchCodes.Contains).ToList();
+        if (alreadyPosted.Count > 0)
+        {
+            throw new ValidationException(
+                $"Payroll has already been generated for DTR batch(es): {string.Join(", ", alreadyPosted)}. " +
+                "Delete the existing payroll run first if you need to regenerate it.");
+        }
+
         var lines = await CalculateAsync(payload, token);
         var payrolls = _mapper.Map<List<Payroll>>(lines);
+        foreach (var payroll in payrolls)
+        {
+            payroll.IsPosted = true;
+        }
         await _payrollService.SavePayrollsAsync(payrolls, token);
-        return payrolls;
+        await SaveStatutoryContributionsAsync(lines, token);
+        return lines;
+    }
+
+    // Persists one SSS/PHIC/HDMF ledger row per employee for this cutoff, so the next
+    // cutoff's balance-netting (SSSHelper/PHICHelper/HDMFHelper.GetBalance) can see what's
+    // already been withheld this month instead of always treating the target as untouched.
+    private async Task SaveStatutoryContributionsAsync(List<PayrollSummaryLine> lines, CancellationToken token)
+    {
+        var sssRows = lines
+            .Where(l => l.SSSContribution > 0 || l.EmployerSSSContribution > 0)
+            .Select(l => new SSSContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.StatutoryCreditDate,
+                EE = l.SSSContribution,
+                ER = l.EmployerSSSContribution - l.EmployerECContribution,
+                EC = l.EmployerECContribution,
+                TotalContibution = l.SSSContribution + l.EmployerSSSContribution,
+            })
+            .ToList();
+
+        var phicRows = lines
+            .Where(l => l.PhilHealthContribution > 0 || l.EmployerPhilHealthContribution > 0)
+            .Select(l => new PHICContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.StatutoryCreditDate,
+                EmployeeShare = l.PhilHealthContribution,
+                EmployerShare = l.EmployerPhilHealthContribution,
+                TotalContribution = l.PhilHealthContribution + l.EmployerPhilHealthContribution,
+            })
+            .ToList();
+
+        var hdmfRows = lines
+            .Where(l => l.PagIbigContribution > 0 || l.EmployerPagIbigContribution > 0)
+            .Select(l => new HDMFContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.StatutoryCreditDate,
+                EmployeeShare = l.PagIbigContribution,
+                EmployerShare = l.EmployerPagIbigContribution,
+                TotalContribution = l.PagIbigContribution + l.EmployerPagIbigContribution,
+            })
+            .ToList();
+
+        var taxRows = lines
+            .Where(l => l.WithholdingTax > 0)
+            .Select(l => new WTaxContribution
+            {
+                EmployeeId = l.EmployeeId,
+                PayrollFrom = l.PayPeriodStart,
+                PayrollTo = l.PayPeriodEnd,
+                PayrollDate = l.PostingPeriod,
+                Date = l.PayPeriodEnd,
+                Amount = l.WithholdingTax,
+            })
+            .ToList();
+
+        if (sssRows.Count > 0) await _sssContributionService.AddRangeAsync(sssRows, token);
+        if (phicRows.Count > 0) await _phicContributionService.AddRangeAsync(phicRows, token);
+        if (hdmfRows.Count > 0) await _hdmfContributionService.AddRangeAsync(hdmfRows, token);
+        if (taxRows.Count > 0) await _taxContributionService.AddRangeAsync(taxRows, token);
     }
 
     public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload, CancellationToken token)
     {
         var payrollLines = new List<PayrollSummaryLine>();
-
-        var (dtrs, fromDate, toDate) = await _dtrServie.LoadForPayrollRunAsync(payload.BatchCodes, token);
-        if (dtrs == null || !dtrs.Any()) return payrollLines;
-
-        var dateRange = new DateRangePayload(fromDate, toDate);
+        var dtrRecords = await _dtrServie.LoadForPayrollRunAsync(payload.BatchCodes, token);
+        if (dtrRecords.Records == null || !dtrRecords.Records.Any()) return payrollLines;
+        var dateRange = new DateRangePayload(dtrRecords.FromDate, dtrRecords.ToDate);
         var period = BuildPayrollPeriod(dateRange);
         var batch = Guid.CreateVersion7();
 
-        var employees = dtrs.Values
+        var employees = dtrRecords.Records.Values
             .SelectMany(x => x.Select(y => y.Employee))
             .DistinctBy(x => x.Id)
             .ToList();
 
-        if (!employees.Any()) return payrollLines;
+        if (employees == null || !employees.Any())
+        {
+            return payrollLines;
+        }
 
-        var rangePayload = await _payloadComposer.ComposeAsync(dateRange, employees, token)
+        // Resolve tenant-vs-employee Fixed-salary inclusion settings once, upstream —
+        // every downstream DTR pay policy keeps reading employee.IsXxxIncluded unchanged.
+        await _inclusionResolver.ApplyAsync(employees!, token);
+        var rangePayload = await _payloadComposer.ComposePayload(dateRange, employees, token, payload.PayDate)
                           ?? throw new Exception("Unable to load range payload");
+
+        // PayDate is user-supplied input, not a config fallback — silently defaulting to
+        // ToDate here would quietly violate the company's chosen posting policy, so this
+        // fails loudly instead (StatutoryCreditDateResolver's own fallback is defense in
+        // depth only).
+        var needsPayDate = rangePayload.CompanyPolicy.CrossMonthStatutoryCreditPolicy == CrossMonthStatutoryCreditPolicy.PayDate
+            || rangePayload.CompanyPolicy.WTaxCrossMonthCreditPolicy == CrossMonthStatutoryCreditPolicy.PayDate;
+        if (needsPayDate && payload.PayDate == null)
+            throw new ValidationException("A Pay/Release Date is required to generate this payroll under the configured statutory posting policy.");
 
         foreach (var employee in employees)
         {
             if (employee == null) continue;
-            // Resolve once per employee per run — every downstream policy that reads
-            // employee.DailyRate (rest day, holiday, statutory basis, etc.) gets the
-            // resolved value without needing to call the resolver itself. FromDate anchors
-            // MonthlyTotalDays+UseActualMonthDays to the payroll period's calendar month.
-            employee.DailyRate = DailyRateResolver.Resolve(employee, dateRange.FromDate);
-            var payrollLine = InitializePayrollLine(dateRange, employee, batch, period);
-            if (dtrs.TryGetValue(new EmployeeKey(employee.Id), out var empDtr))
-            {
-                ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine);
-            }
+            if (!dtrRecords.Records.TryGetValue(new EmployeeKey(employee.Id), out var empDtr)) continue;
+            employee.DailyRate = _dailyRateResolver.Resolve(employee, dateRange.FromDate);
+            var payrollLine = InitializePayrollLine(
+                dateRange, employee, batch, period,
+                rangePayload.CompanyPolicy.CrossMonthStatutoryCreditPolicy,
+                rangePayload.CompanyPolicy.WTaxCrossMonthCreditPolicy,
+                payload.PayDate, payload.BatchCodes);
+            ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine);
             ComputeAllowances(dateRange, rangePayload, employee, payrollLine);
             ComputeDeductions(rangePayload, employee, payrollLine);
             ApplySalaryAdjustments(rangePayload, employee, payrollLine);
@@ -71,16 +192,24 @@ public class PayrollProcessorService
         return payrollLines;
     }
 
-    private static string BuildPayrollPeriod(DateRangePayload payload) => string.Concat(
-             payload.FromDate.ToString("MMM-dd-YY"), " ",
-             payload.ToDate.ToString("MMM-dd-YY"),
-             string.Empty);
+    private static string BuildPayrollPeriod(DateRangePayload payload)
+    {
+
+        return string.Concat(
+               payload.FromDate.ToString("MMM-dd-yyyy"), " ",
+               payload.ToDate.ToString("MMM-dd-yyyy"),
+               string.Empty);
+    }
 
     private static PayrollSummaryLine InitializePayrollLine(
         DateRangePayload payload,
         EmployeeModelPayrollRun employee,
         Guid batch,
-        string period) =>
+        string period,
+        CrossMonthStatutoryCreditPolicy creditPolicy,
+        CrossMonthStatutoryCreditPolicy wtaxCreditPolicy,
+        DateOnly? payDate,
+        List<string> dtrBatchCodes) =>
         new PayrollSummaryLine
         {
             PayrollPeriod = period,
@@ -89,7 +218,11 @@ public class PayrollProcessorService
             EmployeeId = employee.Id,
             FullName = employee.FullName,
             BatchCode = batch,
+            DtrBatchCodes = string.Join(",", dtrBatchCodes),
             PayrollDate = payload.ToDate,
+            StatutoryCreditDate = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, creditPolicy, payDate),
+            PostingPeriod = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, wtaxCreditPolicy, payDate),
+            PayDate = payDate,
             PayrollGroupId = employee.PayrollGroupId,
             AreaId = employee.AreaId,
             ClientId = employee.ClientId
@@ -102,118 +235,74 @@ public class PayrollProcessorService
         CalculatorPayload rangePayload,
         PayrollSummaryLine payrollLine)
     {
-        var employeeBasicCalc = CalculateBasicRate(payload, dtrs, employee, rangePayload);
-        payrollLine.BasicSalary = employeeBasicCalc.Sum(x => x.BasicPay);
-        payrollLine.BasicSalaryItems = employeeBasicCalc;
-        payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateHourInfo.Amount);
-        payrollLine.LateHours = employeeBasicCalc.Sum(x => x.LateHourInfo.Hour);
-        payrollLine.OvertimeHour = employeeBasicCalc.Sum(x => x.OTHourInfo.Hour);
-        payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.OTHourInfo.Amount);
-        payrollLine.UnderTimeAmount = employeeBasicCalc.Sum(x => x.UTHourInfo.Amount);
-        payrollLine.UnderTimeHours = employeeBasicCalc.Sum(x => x.UTHourInfo.Hour);
-        payrollLine.NightDifferentialHour = employeeBasicCalc.Sum(x => x.NightDiffInfo.Hour);
-        payrollLine.NightDifferentialPay = employeeBasicCalc.Sum(x => x.NightDiffInfo.Amount);
-        payrollLine.Absences = employeeBasicCalc.Sum(x => x.AbsentInfo.Amount);
-        payrollLine.AbsentCount = employeeBasicCalc.Sum(x => x.AbsentInfo.Count);
+        var employeeBasicCalc = CalculateDTRTimePay(payload, dtrs, employee, rangePayload);
+        payrollLine.TimeHourPayResults = employeeBasicCalc;
+        payrollLine.SalaryType = employee.SalaryType;
+        payrollLine.DailyRate = employee.DailyRate;
+        CalcBasicRate(payrollLine, employeeBasicCalc, employee);
+        payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateAmount);
+        payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.TotalOT);
+        payrollLine.UnderTimeAmount = employeeBasicCalc.Sum(x => x.UTAmount);
+        payrollLine.NightDifferentialPay = employeeBasicCalc.Sum(x => x.TotalND);
+        payrollLine.NightDifferentialOTPay = employeeBasicCalc.Sum(x => x.TotalNDOT);
+        payrollLine.OTPremiumPay = employeeBasicCalc.Sum(x => x.OTPremiumPay);
+        payrollLine.NDPremiumPay = employeeBasicCalc.Sum(x => x.NDPremiumPay);
+        payrollLine.AbsencesAmount = employeeBasicCalc.Sum(x => x.AbsentAmount);
 
-        payrollLine.RegularPay = employeeBasicCalc.Sum(x => x.RegularDuty);
-        payrollLine.RestDayPay = employeeBasicCalc.Sum(x => x.RestDayDuty);
-        payrollLine.LegalHolidayPay = employeeBasicCalc.Sum(x => x.LegalHoliday);
-        payrollLine.RestLegalDayPay = employeeBasicCalc.Sum(x => x.RestLegalDay);
-        payrollLine.RestSpecialDayPay = employeeBasicCalc.Sum(x => x.RestSpecialDay);
-        payrollLine.SpecialWorkDayPay = employeeBasicCalc.Sum(x => x.SpecialWorkDay);
-        payrollLine.DoubleLegalPay = employeeBasicCalc.Sum(x => x.DoubleLegal);
-        payrollLine.RestDoubleLegalPay = employeeBasicCalc.Sum(x => x.RestDoubleLegal);
-        payrollLine.HolidayPay = payrollLine.LegalHolidayPay
-            + payrollLine.RestLegalDayPay
-            + payrollLine.RestSpecialDayPay
-            + payrollLine.SpecialWorkDayPay
-            + payrollLine.DoubleLegalPay
-            + payrollLine.RestDoubleLegalPay;
+        payrollLine.RegularDayPay = employeeBasicCalc.Sum(x => x.RegularDayPay);
+        payrollLine.RegularOTPay = employeeBasicCalc.Sum(x => x.RegularOTPay);
+        payrollLine.RegularNDPay = employeeBasicCalc.Sum(x => x.RegularNDPay);
+        payrollLine.RegularNDOTPay = employeeBasicCalc.Sum(x => x.RegularNDOTPay);
 
-        // Per-category OT/ND/NDOT pay, individually traceable (sum of each group equals
-        // the OvertimeHour/OvertimePay/NightDifferentialHour/NightDifferentialPay above)
-        payrollLine.RegularOTPay = employeeBasicCalc.Sum(x => x.RegularOT);
-        payrollLine.RestDayOTPay = employeeBasicCalc.Sum(x => x.RestDayOT);
-        payrollLine.LegalHolOTPay = employeeBasicCalc.Sum(x => x.LegalHolOT);
-        payrollLine.RestLegalDayOTPay = employeeBasicCalc.Sum(x => x.RestLegalDayOT);
-        payrollLine.SpecialWorkingOTPay = 0;
-        payrollLine.SpecialWorkDayOTPay = 0;
-        payrollLine.SpecialNonWorkingOTPay = employeeBasicCalc.Sum(x => x.SpecialNonWorkingOT);
-        payrollLine.RestSpecialDayOTPay = employeeBasicCalc.Sum(x => x.RestSpecialDayOT);
-        payrollLine.DoubleLegalOTPay = employeeBasicCalc.Sum(x => x.DoubleLegalOT);
-        payrollLine.RestDoubleLegalOTPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalOT);
+        payrollLine.RestDayPay = employeeBasicCalc.Sum(x => x.RestDayPay);
+        payrollLine.RestDayOTPay = employeeBasicCalc.Sum(x => x.RestDayOTPay);
+        payrollLine.RestDayNDPay = employeeBasicCalc.Sum(x => x.RestDayNDPay);
+        payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPay);
 
-        payrollLine.RegularNDPay = employeeBasicCalc.Sum(x => x.RegularND);
-        payrollLine.RestDayNDPay = employeeBasicCalc.Sum(x => x.RestDayND);
-        payrollLine.LegalHolNDPay = employeeBasicCalc.Sum(x => x.LegalHolND);
-        payrollLine.RestLegalDayNDPay = employeeBasicCalc.Sum(x => x.RestLegalDayND);
-        payrollLine.SpecialNonWorkingNDPay = employeeBasicCalc.Sum(x => x.SpecialNonWorkingND);
-        payrollLine.RestSpecialDayNDPay = employeeBasicCalc.Sum(x => x.RestSpecialDayND);
-        payrollLine.DoubleLegalNDPay = employeeBasicCalc.Sum(x => x.DoubleLegalND);
-        payrollLine.RestDoubleLegalNDPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalND);
+        payrollLine.LegalPay = employeeBasicCalc.Sum(x => x.LegalPay);
+        payrollLine.LegalOTPay = employeeBasicCalc.Sum(x => x.LegalOTPay);
+        payrollLine.LegalNDPay = employeeBasicCalc.Sum(x => x.LegalNDPay);
+        payrollLine.LegalNDOTPay = employeeBasicCalc.Sum(x => x.LegalNDOTPay);
 
-        payrollLine.RegularNDOTPay = employeeBasicCalc.Sum(x => x.RegularNDOT);
-        payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOT);
-        payrollLine.LegalHolNDOTPay = employeeBasicCalc.Sum(x => x.LegalHolNDOT);
-        payrollLine.RestLegalDayNDOTPay = employeeBasicCalc.Sum(x => x.RestLegalDayNDOT);
-        payrollLine.SpecialNonWorkingNDOTPay = employeeBasicCalc.Sum(x => x.SpecialNonWorkingNDOT);
-        payrollLine.RestSpecialDayNDOTPay = employeeBasicCalc.Sum(x => x.RestSpecialDayNDOT);
-        payrollLine.DoubleLegalNDOTPay = employeeBasicCalc.Sum(x => x.DoubleLegalNDOT);
-        payrollLine.RestDoubleLegalNDOTPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDOT);
+        payrollLine.SpecialPay = employeeBasicCalc.Sum(x => x.SpecialPay);
+        payrollLine.SpecialOTPay = employeeBasicCalc.Sum(x => x.SpecialOTPay);
+        payrollLine.SpecialNDPay = employeeBasicCalc.Sum(x => x.SpecialNDPay);
+        payrollLine.SpecialNDOTPay = employeeBasicCalc.Sum(x => x.SpecialNDOTPay);
 
-        // Aggregate per-type DTR hours directly from raw records
-        payrollLine.RegularNetHours = dtrs.Sum(x => x.RegularNetHours);
-        payrollLine.RegularOTHours = dtrs.Sum(x => x.RegularOTHours);
-        payrollLine.RegularNDHours = dtrs.Sum(x => x.RegularNDHours);
-        payrollLine.RegularNDOTHours = dtrs.Sum(x => x.RegularNDOTHours);
+        payrollLine.RestLegalPay = employeeBasicCalc.Sum(x => x.RestLegalPay);
+        payrollLine.RestLegalOTPay = employeeBasicCalc.Sum(x => x.RestLegalOTPay);
+        payrollLine.RestLegalNDPay = employeeBasicCalc.Sum(x => x.RestLegalNDPay);
+        payrollLine.RestLegalNDOTPay = employeeBasicCalc.Sum(x => x.RestLegalNDOTPay);
 
-        payrollLine.RestDayHours = dtrs.Sum(x => x.RestDayHours);
-        payrollLine.RestDayOTHours = dtrs.Sum(x => x.RestDayOTHours);
-        payrollLine.RestDayNDHours = dtrs.Sum(x => x.RestDayNDHours);
-        payrollLine.RestDayNDOTHours = dtrs.Sum(x => x.RestDayNDOTHours);
+        payrollLine.RestSpecialPay = employeeBasicCalc.Sum(x => x.RestSpecialPay);
+        payrollLine.RestSpecialOTPay = employeeBasicCalc.Sum(x => x.RestSpecialOTPay);
+        payrollLine.RestSpecialNDPay = employeeBasicCalc.Sum(x => x.RestSpecialNDPay);
+        payrollLine.RestSpecialNDOTPay = employeeBasicCalc.Sum(x => x.RestSpecialNDOTPay);
 
-        payrollLine.LegalHolHours = dtrs.Sum(x => x.LegalHolHours);
-        payrollLine.LegalHolOTHours = dtrs.Sum(x => x.LegalHolOTHours);
-        payrollLine.LegalHolNightDiffHours = dtrs.Sum(x => x.LegalHolNightDiffHours);
-        payrollLine.LegalHolNightDiffOTHours = dtrs.Sum(x => x.LegalHolNightDiffOTHours);
+        payrollLine.DoubleLegalPay = employeeBasicCalc.Sum(x => x.DoubleLegalPay);
+        payrollLine.DoubleLegalOTPay = employeeBasicCalc.Sum(x => x.DoubleLegalOTPay);
+        payrollLine.DoubleLegalNDPay = employeeBasicCalc.Sum(x => x.DoubleLegalNDPay);
+        payrollLine.DoubleLegalNDOTPay = employeeBasicCalc.Sum(x => x.DoubleLegalNDOTPay);
 
-        payrollLine.SpecialHolHours = dtrs.Sum(x => x.SpecialHolHours);
-        payrollLine.SpecialHolOTHours = dtrs.Sum(x => x.SpecialHolOTHours);
-        payrollLine.SpecialHolNightDiffHours = dtrs.Sum(x => x.SpecialHolNightDiffHours);
-        payrollLine.SpecialHolNightDiffOTHours = dtrs.Sum(x => x.SpecialHolNightDiffOTHours);
-
-        payrollLine.RestLegalDayHours = dtrs.Sum(x => x.RestLegalDayHours);
-        payrollLine.RestLegalDayOTHours = dtrs.Sum(x => x.RestLegalDayOTHours);
-        payrollLine.RestLegalDayNDHours = dtrs.Sum(x => x.RestLegalDayNDHours);
-        payrollLine.RestLegalDayNDOTHours = dtrs.Sum(x => x.RestLegalDayNDOTHours);
-
-        payrollLine.RestSpecialDayHours = dtrs.Sum(x => x.RestSpecialDayHours);
-        payrollLine.RestSpecialDayOTHours = dtrs.Sum(x => x.RestSpecialDayOTHours);
-        payrollLine.RestSpecialDayNDHours = dtrs.Sum(x => x.RestSpecialDayNDHours);
-        payrollLine.RestSpecialDayNDOTHours = dtrs.Sum(x => x.RestSpecialDayNDOTHours);
-
-        payrollLine.DoubleLegalHours = dtrs.Sum(x => x.DoubleLegalHours);
-        payrollLine.DoubleLegalOTHours = dtrs.Sum(x => x.DoubleLegalOTHours);
-        payrollLine.DoubleLegalNDHours = dtrs.Sum(x => x.DoubleLegalNDHours);
-        payrollLine.DoubleLegalNDOTHours = dtrs.Sum(x => x.DoubleLegalNDOTHours);
-
-        payrollLine.RestDoubleLegalHours = dtrs.Sum(x => x.RestDoubleLegalHours);
-        payrollLine.RestDoubleLegalOTHours = dtrs.Sum(x => x.RestDoubleLegalOTHours);
-        payrollLine.RestDoubleLegalNDHours = dtrs.Sum(x => x.RestDoubleLegalNDHours);
-        payrollLine.RestDoubleLegalNDOTHours = dtrs.Sum(x => x.RestDoubleLegalNDOTHours);
+        payrollLine.RestDoubleLegalPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalPay);
+        payrollLine.RestDoubleLegalOTPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalOTPay);
+        payrollLine.RestDoubleLegalNDPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDPay);
+        payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPay);
+        payrollLine.UnpaidLeaves = employeeBasicCalc.Sum(x => x.UnpaidLeave);
+        payrollLine.PaidLeaves = employeeBasicCalc.Sum(x => x.PaidLeave);
+        payrollLine.HolidayPay = employeeBasicCalc.Sum(x => x.Holiday);
+        payrollLine.LegalHolidayUnworkedPay = employeeBasicCalc.Sum(x => x.LegalUnWorked);
 
     }
 
-    private List<BasicRateModel> CalculateBasicRate(
+    private List<DTRPayModel> CalculateDTRTimePay(
         DateRangePayload payload,
         List<DailyRecordRunModel> dtrs,
         EmployeeModelPayrollRun employee,
         CalculatorPayload calcPayload)
     {
-        var processor = new BasicPayrollCalculator();
-        var basicResultMoel = new List<BasicRateModel>();
 
+        var basicResultMoel = new List<DTRPayModel>();
         for (var date = payload.FromDate; date <= payload.ToDate; date = date.AddDays(1))
         {
             var record = dtrs.FirstOrDefault(x => x.WorkDate == date && x.EmployeeId == employee.Id);
@@ -226,12 +315,52 @@ public class PayrollProcessorService
                 .SetPayload(calcPayload)
                 .Build();
 
-            var result = processor.Calculate(context);
+            var result = _basicPayrollCalculator.Calculate(context);
             if (result == null) continue;
             result.Date = date;
+            result.DTRRef = record.BatchCode;
+            result.DtrId = record.Id;
+            result.SalaryType = employee.SalaryType;
             basicResultMoel.Add(result);
         }
         return basicResultMoel;
+    }
+
+    private void CalcBasicRate(PayrollSummaryLine payrollLine,
+        List<DTRPayModel> TimeCalcResult,
+        EmployeeModelPayrollRun employee)
+    {
+        if (employee.SalaryType != SalaryType.FIXED)
+        {
+            payrollLine.BasicPay = TimeCalcResult.Sum(x => x.RegularDayPay);
+            return;
+        }
+        var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
+        var basicTotal = employee.MonthlyRate / divisor;
+        var deductions = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));
+        basicTotal = basicTotal - deductions;
+        payrollLine.BasicPay = basicTotal;
+
+    }
+
+
+    private int GetDivisor(DateOnly fromDate, EmployeeModelPayrollRun employee)
+    {
+        if (employee.PayrollGroup == null) return 2;
+        switch (employee.PayrollGroup.PayrollFrequency)
+        {
+            case PayrollFrequency.DAILY:
+                var days = DateTime.DaysInMonth(fromDate.Year, fromDate.Month);
+                return days;
+            case PayrollFrequency.WEEKLY:
+                return 4;
+            case PayrollFrequency.SEMI_MONTHLY:
+                return 2;
+            case PayrollFrequency.MONTHLY:
+                return 1;
+            default:
+                return 2;
+        }
     }
 
     private void ComputeAllowances(
@@ -241,9 +370,12 @@ public class PayrollProcessorService
         PayrollSummaryLine payrollLine)
     {
         var pp = new PayrollCalcPayload(payload.FromDate, payload.ToDate, null, null, null, null);
-        var context = new PayrollContextBuilder().SetEmployee(employee).SetPayload(rangePayload).Build();
-        var IncomeCalculator = new AllowancesCalculator();
-        var IncomeCalcResult = IncomeCalculator.Calculate(context);
+        var context = new PayrollContextBuilder()
+            .SetEmployee(employee)
+            .SetPayload(rangePayload)
+            .Build();
+
+        var IncomeCalcResult = _allowancesCalculator.Calculate(context);
         payrollLine.Cola = IncomeCalcResult.Cola;
         payrollLine.TotalDeminimises = IncomeCalcResult.Deminimises.Sum(x => x.Amount);
         payrollLine.TotalOtherIncome = IncomeCalcResult.OtherIncome.Sum(x => x.Amount);
@@ -253,7 +385,7 @@ public class PayrollProcessorService
         payrollLine.TotalRegularAllowances = IncomeCalcResult.RegularAllowances.Sum(x => x.Amount);
         payrollLine.OtherIncomeCollection = IncomeCalcResult.AllIncome;
         payrollLine.RegularAllowanceProrated = CaptureProratedAllowance(pp, payrollLine.TotalRegularAllowances);
-        payrollLine.GrossIncome = PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.BasicSalaryItems);
+        payrollLine.GrossIncome = payrollLine.BasicPay +  PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.TimeHourPayResults);
         IdentifyTaxableIncome(payrollLine, IncomeCalcResult);
 
     }
@@ -269,7 +401,7 @@ public class PayrollProcessorService
             .SetPayrollLine(payrollLine)
             .Build();
 
-        var deductionPipeLine = new DeductionCalculator().Calculate(deductionContext);
+        var deductionPipeLine = _deductionCalculator.Calculate(deductionContext);
         payrollLine.DeductionCollection = deductionPipeLine.ScheduledDeductions;
         payrollLine.NetPay = PayrollProcessorUtil.GetNetPay(payrollLine, deductionPipeLine);
         payrollLine.SSSContribution = deductionPipeLine.SSS.EE;
@@ -277,6 +409,9 @@ public class PayrollProcessorService
         payrollLine.PagIbigContribution = deductionPipeLine.HDMF.EE;
         payrollLine.WithholdingTax = deductionPipeLine.TaxInfo.TaxDue;
         payrollLine.OtherDeductions = deductionPipeLine.ScheduledDeductions.Sum(x => x.Amount);
+        payrollLine.TotalLoans = deductionPipeLine.ScheduledDeductions
+            .Where(x => x.Type == DeductionInfoType.Loan)
+            .Sum(x => x.Amount);
         payrollLine.TotalDeductions = deductionPipeLine.RunningTotal;
         payrollLine.EmployerSSSContribution = deductionPipeLine.SSS.TotalER;
         payrollLine.EmployerPhilHealthContribution = deductionPipeLine.PHIC.Total;
@@ -294,10 +429,11 @@ public class PayrollProcessorService
 
         foreach (var adj in adjustments)
         {
+            //TODO add other salary type adjustment here
             switch (adj.AdjustmentType)
             {
                 case SalaryAdjustmentType.Salary:
-                    payrollLine.BasicSalary += adj.Amount;
+                    payrollLine.BasicPay += adj.Amount;
                     payrollLine.GrossIncome += adj.Amount;
                     payrollLine.NetPay += adj.Amount;
                     break;
@@ -379,9 +515,9 @@ public class PayrollProcessorUtil
 {
     public static decimal GetGrossIncome(
         AllowancePipeData incomes,
-        List<BasicRateModel> basics)
+        List<DTRPayModel> basics)
     {
-        return basics.Sum(x => x.TimeBaseGross) + incomes.RunningTotal;
+        return basics.Sum(x => x.Gross) + incomes.RunningTotal;
     }
     public static decimal GetNetPay(PayrollSummaryLine payrollLine, DeductionPipeData deductionPipeLine)
     {

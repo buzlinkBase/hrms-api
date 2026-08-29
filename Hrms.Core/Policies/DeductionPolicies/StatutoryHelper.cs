@@ -16,7 +16,6 @@ public class StatutoryHelper
     }
     public static decimal GetSemiMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
-        var day = context.Payload.FromDate.Day;
         if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             return context.Employee.MonthlyRate
@@ -24,21 +23,18 @@ public class StatutoryHelper
               - RateDeductions(context);
         }
 
+        // Variable: bracket lookup uses actual resolved gross (this cutoff's + prior
+        // cutoffs' this month), never MonthlyRate — that field is disabled/unpopulated
+        // for Variable employees, so falling back to it silently zeroed the bracket on
+        // every cutoff except the last. Interim cutoffs under-bracket until the month's
+        // full gross has accumulated; the balance-netting ledger corrects the running
+        // total by the final cutoff, same as it already did for the final-cutoff case.
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
         var prioGross = payrol.Sum(x => x.GrossIncome);
-
-        return day <= 15
-            ? context.Employee.MonthlyRate
-            : (context.PayrollLine.GrossIncome + prioGross)
-            ;
+        return context.PayrollLine.GrossIncome + prioGross;
     }
     public static decimal GetWeeklyGrossBaseRate(DeductionPayloadContext context)
     {
-        var day = context.Payload.FromDate.Day;
-        var final = new IsCrossMonth().IsSatisfiedBy(context.Payload) ||
-         context.Payload.FromDate.IsLastWeekOfMonth() ||
-         context.Payload.ToDate.IsLastWeekOfMonth();
-
         if (context.Employee.SalaryType == SalaryType.FIXED)
         {
             return context.Employee.MonthlyRate
@@ -46,10 +42,11 @@ public class StatutoryHelper
                 - RateDeductions(context);
         }
 
-        return !final
-            ? context.Employee.MonthlyRate
-            : context.PayrollLine.GrossIncome
-            ;
+        // Variable: same actual-gross-to-date basis as the Semi-Monthly case above, every
+        // week rather than only the final one of the month.
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        var prioGross = payrol.Sum(x => x.GrossIncome);
+        return context.PayrollLine.GrossIncome + prioGross;
     }
     public static bool IsHiredThisMonth(DeductionPayloadContext context)
     {
@@ -138,7 +135,7 @@ public class StatutoryHelper
             {
                 startDay = context.Employee.HireDate.Day;
             }
-            var totalAbsent = (int)payrolls.Sum(x => x.AbsentCount);
+            var totalAbsent = 0;// (int)payrolls.Sum(x => x.AbsentCount);
             int workedDays = daysInMonth - totalAbsent - startDay + 1;
             var totalDaysInaMonthAve = context.Payload.CompanyPolicy.TotalDaysInaYear / 12;
 
@@ -237,20 +234,20 @@ public class StatutoryHelper
     {
         //prior payroll
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
-        var PostedAbsent = payrol.Sum(x => x.Absences);
-
+        var PostedAbsent = payrol.Sum(x => x.AbsencesAmount);
         //current
         if (!context.Payload.CompanyPolicy.ApplyStatutoryOnActualMonth)
         {
-            return context.PayrollLine.BasicSalaryItems.Sum(x => x.AbsentInfo.Amount) + PostedAbsent;
+            return context.PayrollLine.TimeHourPayResults.Sum(x => x.AbsentAmount) + PostedAbsent;
         }
 
-
         //TODO add up here the data already in the db outside the range with same month as the from date
-        return context.PayrollLine.BasicSalaryItems
-             .Where(x => x.AbsentInfo.PayrollDate.Month == context.Payload.FromDate.Month && x.AbsentInfo.PayrollDate.Year <= context.Payload.FromDate.Year)
-             .Sum(x => x.AbsentInfo.Amount)
-             + PostedAbsent;
+        //return context.PayrollLine.TimeHourPayResults
+        //     .Where(x => x.AbsentAmount.PayrollDate.Month == context.Payload.FromDate.Month && x.AbsentInfo.PayrollDate.Year <= context.Payload.FromDate.Year)
+        //     .Sum(x => x.AbsentInfo.Amount)
+        //     + PostedAbsent;
+
+        return 0;
 
     }
     private static decimal GetLWOP(DeductionPayloadContext context)
@@ -264,7 +261,7 @@ public class StatutoryHelper
         if (!setting.IsEligibleForLeaveCredits) return 0;
 
         var prioLwop = payrol.Sum(x => x.UnpaidLeaves);
-        return context.PayrollLine.BasicSalaryItems.Sum(x => x.LWOP) + prioLwop;
+        return context.PayrollLine.TimeHourPayResults.Sum(x => x.UnpaidLeave) + prioLwop;
 
         //if (!context.Payload.CompanyPolicy.ApplyStatutoryOnActualMonth)
         //    return context.PayrollLine.BasicSalaryItems.Sum(x => x.LWOP) + prioLwop;
@@ -278,7 +275,7 @@ public class StatutoryHelper
         var priorLates = payrol.Sum(x => x.LateAmount + x.UnderTimeAmount);
 
         //if (!context.Payload.CompanyPolicy.ApplyStatutoryOnActualMonth)
-        return context.PayrollLine.BasicSalaryItems.Sum(x => x.LateHourInfo.Amount + x.UTHourInfo.Amount) + priorLates;
+        return context.PayrollLine.TimeHourPayResults.Sum(x => x.LateAmount + x.UTAmount) + priorLates;
 
         // //TODO add up here the data already in the db outside the range with same month as the from date
         // var late = context.PayrollLine.BasicSalaryItems

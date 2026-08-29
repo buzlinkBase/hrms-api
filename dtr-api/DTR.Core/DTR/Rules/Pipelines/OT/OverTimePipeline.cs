@@ -1,25 +1,20 @@
-﻿namespace DTR.Core;
+namespace DTR.Core;
 
-public class OverTimePipeline
+public class OverTimePipeline : IDTRTimePipeline
 {
-    private readonly TimeContext _context;
-    public OverTimePipeline(TimeContext context)
+    public TimeRange Apply(TimeContext context, TimeRange cannonicalTimeRange)
     {
-        _context = context;
-    }
-    public TimeRange Apply(TimeRange cannonicalTimeRange)
-    {
-        var ledger = _context.Payload.Ledger;
-        var key = TimeRangeLedger.CreateKey("FinalOT", _context);
-        var cached = _context.Payload.Ledger.GetByKey(key);
+        var ledger = context.Payload.Ledger;
+        var key = TimeRangeLedger.CreateKey("FinalOT", context);
+        var cached = context.Payload.Ledger.GetByKey(key);
         if (cached.Found)
         {
             return cached.Value ?? TimeRange.Empty;
         }
-        if (IsRequire8HourWork())
+        if (IsRequire8HourWork(context))
         {
-            var workTime = _context.Payload.Ledger.GetByTag("work_time", _context);
-            var reach8hr = workTime.TotalMinutes >= _context.Payload.Data.CurrentShift.MaxWorkingMinutes;
+            var workTime = context.Payload.Ledger.GetByTag("work_time", context);
+            var reach8hr = workTime.TotalMinutes >= context.Payload.Data.CurrentShift.MaxWorkingMinutes;
             if (!reach8hr)
             {
                 return TimeRange.Empty;
@@ -27,16 +22,16 @@ public class OverTimePipeline
         }
 
         //get actual OT
-        return new OverTimeHandlerProcessor(_context).Handle(cannonicalTimeRange);
+        return new OverTimeHandlerProcessor(context).Handle(cannonicalTimeRange);
     }
 
-    private bool IsRequire8HourWork()
+    private bool IsRequire8HourWork(TimeContext context)
     {
-        var restrictOt = _context.Payload.Data.CompanyPolicy.OTEligibility == OvertimeEligibilityRule.RequireFullRegularHours;
-        if (_context.Payload.Data.Employee.ClientId.HasValue)
+        var restrictOt = context.Payload.Data.CompanyPolicy.OTEligibility == OvertimeEligibilityRule.RequireFullRegularHours;
+        if (context.Payload.Data.Employee.ClientId.HasValue)
         {
-            var clientPolicy = _context.Payload.Provider.ClientPolicyProvider
-                .GetPolicy(_context.Payload.Data.Employee.ClientId);
+            var clientPolicy = context.Payload.Provider.ClientPolicyProvider
+                .GetPolicy(context.Payload.Data.Employee.ClientId);
             if (clientPolicy != null)
             {
                 restrictOt = clientPolicy.OvertimeEligibilityRule == OvertimeEligibilityRule.RequireFullRegularHours;
@@ -45,4 +40,3 @@ public class OverTimePipeline
         return restrictOt;
     }
 }
-

@@ -18,28 +18,47 @@ namespace Hrms.Api.Controllers
     {
         private readonly EmployeeService _service;
         private readonly EmployeeImportService _employeeImportService;
+        private readonly EmployeeSeederService _seederService;
         private readonly TemplateDownloaderService _templateService;
         private readonly IWebHostEnvironment _hostEnvironment;
         private readonly IMapper _mapper;
 
         public EmployeesController(EmployeeService service,
             EmployeeImportService employeeImportService,
+            EmployeeSeederService seederService,
             TemplateDownloaderService templateService,
             IWebHostEnvironment hostEnvironment,
             IMapper mapper)
         {
             _service = service;
             _employeeImportService = employeeImportService;
+            _seederService = seederService;
             _templateService = templateService;
             _hostEnvironment = hostEnvironment;
             _mapper = mapper;
         }
 
+        [HttpPost("seed/{count:int}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Seed(int count, CancellationToken token)
+        {
+            var seeded = await _seederService.SeedAsync(count, token);
+            return Ok(new { seeded });
+        }
+
+        [HttpDelete("seed")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> RemoveSeeded(CancellationToken token)
+        {
+            var removed = await _seederService.RemoveSeededAsync(token);
+            return Ok(new { removed });
+        }
+
         [HttpGet("all")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeModel>>), 200)]
-        public async Task<IActionResult> GetAll(CancellationToken token)
+        public async Task<IActionResult> GetAll([FromQuery] string? keyword, CancellationToken token)
         {
-            var data = await _service.GetAll(token);
+            var data = await _service.GetAll(keyword, token);
             return Ok(data);
         }
 

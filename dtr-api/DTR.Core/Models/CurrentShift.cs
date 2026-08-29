@@ -9,6 +9,12 @@ public class CurrentShift
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
 
+    // Which WorkScheduleResolver tier produced this shift. OverrideId is only set
+    // when Source == Override — the Work Rotation Plan row backing it, so callers
+    // (e.g. the roster report) can offer to delete that specific override.
+    public ScheduleSource Source { get; set; }
+    public Guid? OverrideId { get; set; }
+
     //morning
     public BreakMode WithAMBreak { get; set; }
     public DateTime? AMBreakStartTime { get; set; }

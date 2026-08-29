@@ -44,6 +44,10 @@ public class GeneralSettingsController : ControllerBase
             TimeInAllowance = policy.TimeInAllowance,
             DoublePunchGap = policy.DoublePunchGap,
             CheckAfterHoliday = policy.CheckAfterHoliday,
+            WaivePriorDayRequirement = policy.WaivePriorDayRequirement,
+            CrossMonthStatutoryCreditPolicy = policy.CrossMonthStatutoryCreditPolicy.ToString(),
+            WTaxCrossMonthCreditPolicy = policy.WTaxCrossMonthCreditPolicy.ToString(),
+            TreatNdotAsNdOnly = policy.TreatNdotAsNdOnly,
         };
         return Ok(response);
     }
@@ -69,6 +73,10 @@ public class GeneralSettingsController : ControllerBase
             new() { IdentityType = "Company", Description = SettingKey.TimeInAllowance.ToString(), Value = request.TimeInAllowance.ToString() },
             new() { IdentityType = "Company", Description = SettingKey.DoublePunchGap.ToString(), Value = request.DoublePunchGap.ToString() },
             new() { IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = request.CheckAfterHoliday.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.WaivePriorDayRequirement.ToString(), Value = request.WaivePriorDayRequirement.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.CrossMonthStatutoryCreditPolicy.ToString(), Value = request.CrossMonthStatutoryCreditPolicy },
+            new() { IdentityType = "Company", Description = SettingKey.WTaxCrossMonthCreditPolicy.ToString(), Value = request.WTaxCrossMonthCreditPolicy },
+            new() { IdentityType = "Company", Description = SettingKey.TreatNdotAsNdOnly.ToString(), Value = request.TreatNdotAsNdOnly.ToString().ToLower() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync("Company", settings, null, token);
@@ -88,6 +96,9 @@ public class GeneralSettingsController : ControllerBase
         {
             OtEligibility = dict.TryGetValue(SettingKey.OTEligibility.ToString(), out var e) ? e.Value : null,
             OtInclusionPolicy = dict.TryGetValue(SettingKey.OTInclusion.ToString(), out var i) ? i.Value : null,
+            TreatNdotAsNdOnly = dict.TryGetValue(SettingKey.TreatNdotAsNdOnly.ToString(), out var n)
+                ? GeneralSettingsUtil.ParseBool(n.Value, false)
+                : null,
         });
     }
 
@@ -100,6 +111,8 @@ public class GeneralSettingsController : ControllerBase
             settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTEligibility.ToString(), Value = request.OtEligibility });
         if (!string.IsNullOrWhiteSpace(request.OtInclusionPolicy))
             settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTInclusion.ToString(), Value = request.OtInclusionPolicy });
+        if (request.TreatNdotAsNdOnly.HasValue)
+            settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.TreatNdotAsNdOnly.ToString(), Value = request.TreatNdotAsNdOnly.Value.ToString().ToLower() });
         await _settingService.ReplaceByIdentityTypeAsync("Client", settings, clientId.ToString(), token);
         return Ok("success");
     }
@@ -120,6 +133,10 @@ public class UpdateCompanyPolicyRequest
     public double TimeInAllowance { get; set; }
     public double DoublePunchGap { get; set; }
     public bool CheckAfterHoliday { get; set; }
+    public bool WaivePriorDayRequirement { get; set; }
+    public string CrossMonthStatutoryCreditPolicy { get; set; } = "";
+    public string WTaxCrossMonthCreditPolicy { get; set; } = "";
+    public bool TreatNdotAsNdOnly { get; set; }
 }
 public class CompanyPolicyResponse
 {
@@ -136,14 +153,20 @@ public class CompanyPolicyResponse
     public required double TimeInAllowance { get; set; }
     public required double DoublePunchGap { get; set; }
     public required bool CheckAfterHoliday { get; set; }
+    public required bool WaivePriorDayRequirement { get; set; }
+    public required string CrossMonthStatutoryCreditPolicy { get; set; } = "";
+    public required string WTaxCrossMonthCreditPolicy { get; set; } = "";
+    public required bool TreatNdotAsNdOnly { get; set; }
 }
 public class ClientPolicyDto
 {
     public string? OtEligibility { get; set; }
     public string? OtInclusionPolicy { get; set; }
+    public bool? TreatNdotAsNdOnly { get; set; }
 }
 public class ClientPolicyRequest
 {
     public string? OtEligibility { get; set; }
     public string? OtInclusionPolicy { get; set; }
+    public bool? TreatNdotAsNdOnly { get; set; }
 }

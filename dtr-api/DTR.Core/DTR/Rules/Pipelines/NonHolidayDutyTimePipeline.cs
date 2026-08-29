@@ -1,34 +1,27 @@
-﻿namespace DTR.Core;
+namespace DTR.Core;
 
-public class NonHolidayDutyTimePipeline
+public class NonHolidayDutyTimePipeline : IDTRTimePipeline
 {
-    private readonly TimeContext _context;
-
-    public NonHolidayDutyTimePipeline(TimeContext context)
-    {
-        _context = context;
-    }
-
-    public TimeRange Apply(TimeRange cannonicalTimeRange)
+    public TimeRange Apply(TimeContext context, TimeRange cannonicalTimeRange)
     {
         var isHoliday = new IsHolidaySpec(HolidayType.LEGAL)
         .Or(new IsHolidaySpec(HolidayType.SPECIAL));
 
         var spec = new IsEligibleWorkHours();
-        var workRange = new WorkTimePipeline(_context, spec)
+        var workRange = new WorkTimePipeline(context, spec)
             .Apply(cannonicalTimeRange);
 
 
-        if (isHoliday.IsSatisfiedBy(cannonicalTimeRange, _context)) 
+        if (isHoliday.IsSatisfiedBy(cannonicalTimeRange, context))
         {
             //if holiday return only nonholiday
-            //we may also check the   new IsHolTimeInDayType() here 
-            var regKey = TimeRangeLedger.CreateKey("non_holiday_portion", _context);
-            var cached = _context.Payload.Ledger.GetByKey(regKey);
+            //we may also check the   new IsHolTimeInDayType() here
+            var regKey = TimeRangeLedger.CreateKey("non_holiday_portion", context);
+            var cached = context.Payload.Ledger.GetByKey(regKey);
             if (cached.Found)
             {
                 var value = cached.Value ?? TimeRange.Empty;
-                _context.Payload.Ledger.RecordByTag("final_RegularTime", _context, value);
+                context.Payload.Ledger.RecordByTag("final_RegularTime", context, value);
                 return value;
             }
             else
@@ -37,7 +30,7 @@ public class NonHolidayDutyTimePipeline
             }
         }
         //non holiday
-        _context.Payload.Ledger.RecordByTag("final_RegularTime", _context, workRange);
+        context.Payload.Ledger.RecordByTag("final_RegularTime", context, workRange);
         return workRange;
     }
 }

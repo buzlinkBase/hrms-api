@@ -111,6 +111,36 @@ internal class GeneralSettingsEfConfig : IEntityTypeConfiguration<GeneralSetting
                 Status = "Active",
                 CreatedAt = seedDate,
                 UpdatedAt = seedDate
+            },
+            new GeneralSetting
+            {
+                Id = Guid.Parse("4567D8E9-F0A1-4678-BCDE-0123456789DE"),
+                IdentityType = "Company",
+                Description = SettingKey.CrossMonthStatutoryCreditPolicy.ToString(),
+                Value = CrossMonthStatutoryCreditPolicy.CutoffStartMonth.ToString(),
+                Status = "Active",
+                CreatedAt = seedDate,
+                UpdatedAt = seedDate
+            },
+            new GeneralSetting
+            {
+                Id = Guid.Parse("5678E9F0-A1B2-4789-CDEF-1234567890EF"),
+                IdentityType = "Company",
+                Description = SettingKey.WTaxCrossMonthCreditPolicy.ToString(),
+                Value = CrossMonthStatutoryCreditPolicy.CutoffEndMonth.ToString(),
+                Status = "Active",
+                CreatedAt = seedDate,
+                UpdatedAt = seedDate
+            },
+            new GeneralSetting
+            {
+                Id = Guid.Parse("6789F0A1-B2C3-489A-DEFA-2345678901FA"),
+                IdentityType = "Company",
+                Description = SettingKey.TreatNdotAsNdOnly.ToString(),
+                Value = false.ToString(),
+                Status = "Active",
+                CreatedAt = seedDate,
+                UpdatedAt = seedDate
             }
         );
     }

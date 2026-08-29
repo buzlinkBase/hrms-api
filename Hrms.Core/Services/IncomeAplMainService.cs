@@ -138,13 +138,13 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
 public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
 {
     public IncomeAplDtlService(IUnitOfWorkService uow) : base(uow) { }
-    public Task<Dictionary<EmployeeKey, List<OtherIncomeInfo>>> LoadAsync(List<Guid> employeeIds,
-         DateOnly fromDate, DateOnly toDate,
-         CancellationToken token)
+    public Task<Dictionary<EmployeeKey, List<OtherIncomeInfo>>> LoadAsync(List<Guid> employeeIds, DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
         return GetQueryable()
             .AsNoTracking()
-            .Where(x => x.Date >= fromDate && x.Date <= toDate && employeeIds.Contains(x.EmployeeId))
+            .Where(x => x.Status == "Active"
+                        && x.Date >= fromDate && x.Date <= toDate
+                        && employeeIds.Contains(x.EmployeeId))
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x
                 .Select(x => new OtherIncomeInfo
@@ -153,7 +153,8 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                     PayrollDate = x.Date,
                     Amount = x.Amount,
                     IncomeId = x.IncomeId,
-                    Taxable = x.IsTaxable
+                    Taxable = x.IsTaxable,
+                    Type = x.Income?.IncomeClass
                 }).ToList(), token)
         ;
     }

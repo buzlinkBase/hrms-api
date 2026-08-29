@@ -1,29 +1,89 @@
 namespace Hrms.Core.Policies.DTRPolicies;
 
-/// <summary>
-/// One dedicated policy per WorkType/NDOT-hours column (overtime hours that were also
-/// worked at night) — replaces the OT+ND handlers that used to live inside the
-/// consolidated NightDiffPolicy. Formula (nd - 1.00) is unchanged from the original
-/// handlers — the OT rate was never actually applied to the ND premium there either,
-/// only the ND rate; NDOT differs from plain ND only in which raw hours column it reads.
-/// </summary>
 internal abstract class SingleCategoryNDOTPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
     protected SingleCategoryNDOTPolicy() : base(new IsEligibleForNightDifferential(), SpecFailBehaviour.ReturnInput) { }
 
     protected abstract double Hours(DailyRecordRunModel r);
+    protected abstract RateType[] PolicyRateTypes { get; }
 
+    //public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
+    //{
+    //    var hours = (decimal)Hours(context.DailyRecord);
+    //    if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
+
+    //    var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
+
+    //    decimal combinedRateMultiplier = 1.0m;
+    //    foreach (var rateType in PolicyRateTypes)
+    //    {
+    //        var rate = PremiumRateHelper.GetRate(context, rateType, 1.0m);
+    //        combinedRateMultiplier *= rate;
+    //    }
+
+    //    var isPreFunded = context.Employee.IsNightDiffIncluded ||
+    //                      context.Employee.SalaryType == SalaryType.FIXED;
+
+    //    var effectiveMultiplier = isPreFunded
+    //        ? Math.Max(0m, combinedRateMultiplier - 1.00m)
+    //        : combinedRateMultiplier;
+
+    //    line.Value += hours * baseHourlyRate * effectiveMultiplier;
+    //    return line;
+    //}
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        var dailyRecord = context.DailyRecord;
-     
-        var hours = (decimal)Hours(dailyRecord);
-        if (hours <= 0) return line;
+        var hours = (decimal)Hours(context.DailyRecord);
+        if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
 
-        var hourlyRate = PremiumRateHelper.GetHourlyRate(context);
-        var nd = PremiumRateHelper.GetRate(context, RateType.NIGHTDIFF, RATE_DEFAULT.NIGHTDIFF);
+        var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
+        var basePayForHours = hours * baseHourlyRate;
 
-        line.Value += hours * hourlyRate * (nd - 1.00m);
+        // 1. Establish the Day-Type Base Multiplier (e.g., Regular = 1.0, RestDay = 1.3, Legal = 2.0)
+        decimal dayTypeMultiplier = 1.0m;
+        foreach (var rateType in PolicyRateTypes)
+        {
+            if (rateType != RateType.HOLIDAY_OT && rateType != RateType.OVERTIME && rateType != RateType.NIGHTDIFF)
+            {
+                // Multiplies out compound day bases like Rest Day + Legal Day (1.30 * 2.00 = 2.60)
+                dayTypeMultiplier *= PremiumRateHelper.GetRate(context, rateType, 1.0m);
+            }
+        }
+
+        // 2. Fetch the standard operational premiums from your helper
+        // Typically: OVERTIME/HOLIDAY_OT = 1.25, NIGHTDIFF = 1.10
+        var otRateMultiplier = PolicyRateTypes.Contains(RateType.HOLIDAY_OT) || PolicyRateTypes.Contains(RateType.OVERTIME)
+            ? PremiumRateHelper.GetRate(context, PolicyRateTypes.Contains(RateType.HOLIDAY_OT) ? RateType.HOLIDAY_OT : RateType.OVERTIME, 1.25m)
+            : 1.0m;
+
+        var ndRateMultiplier = PolicyRateTypes.Contains(RateType.NIGHTDIFF)
+            ? PremiumRateHelper.GetRate(context, RateType.NIGHTDIFF, 1.10m)
+            : 1.0m;
+
+        // 3. Compute tiered compounding multipliers dynamically
+        // When TreatNdotAsNdOnly is on, the OT tier is skipped entirely — these hours are
+        // paid at the same rate as plain night differential, identical to SingleCategoryNDPolicy.
+        var treatAsNdOnly = CompanyPolicyHelper.ShouldTreatNdotAsNdOnly(context);
+        decimal coreDayRate = dayTypeMultiplier;                         // Tier 1: Day rate (e.g., 1.30)
+        decimal overtimeRate = treatAsNdOnly ? coreDayRate : coreDayRate * otRateMultiplier;           // Tier 2: Day rate + OT (e.g., 1.30 * 1.25 = 1.625)
+        decimal fullyCompoundedRate = overtimeRate * ndRateMultiplier;    // Tier 3: Day rate + OT + ND (e.g., 1.625 * 1.10 = 1.7875)
+
+        // 4. Extract pure premiums by calculating the differences between mathematical tiers
+        decimal pureOtPremiumMultiplier = treatAsNdOnly ? 0m : overtimeRate - coreDayRate;
+        decimal pureNdPremiumMultiplier = fullyCompoundedRate - overtimeRate;
+
+        // 5. Handle Pre-Funded / Fixed salary configurations gracefully
+        var isPreFunded = context.Employee.IsNightDiffIncluded ||
+                          context.Employee.SalaryType == SalaryType.FIXED;
+
+        decimal effectiveTotalMultiplier = isPreFunded
+            ? Math.Max(0m, fullyCompoundedRate - 1.00m)
+            : fullyCompoundedRate;
+
+        // 6. Allocate values cleanly to the tracking pipeline instance
+        line.Value += basePayForHours * effectiveTotalMultiplier;
+        line.OTPremium += basePayForHours * pureOtPremiumMultiplier;
+        line.NDPremium += basePayForHours * pureNdPremiumMultiplier;
         return line;
     }
 }
@@ -31,38 +91,44 @@ internal abstract class SingleCategoryNDOTPolicy : PayrollPolicyBase<BasicPipeli
 internal class RegularNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RegularNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.OVERTIME, RateType.NIGHTDIFF };
 }
 
 internal class RestDayNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestDayNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
-
 internal class LegalHolNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.LegalHolNightDiffOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
 
 internal class RestLegalDayNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestLegalDayNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
+
 internal class SpecialNonWorkingNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.SpecialHolNightDiffOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.SPECIAL_NON_WORKING, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
 
 internal class RestSpecialDayNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestSpecialDayNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_SPECIAL, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
-
 internal class DoubleLegalNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.DoubleLegalNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.LEGAL_HOLIDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }
-
 internal class RestDoubleLegalNDOTPolicy : SingleCategoryNDOTPolicy
 {
     protected override double Hours(DailyRecordRunModel r) => r.RestDoubleLegalNDOTHours;
+    protected override RateType[] PolicyRateTypes => new[] { RateType.RESTDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY, RateType.HOLIDAY_OT, RateType.NIGHTDIFF };
 }

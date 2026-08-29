@@ -98,62 +98,11 @@ public class CurrentRangeDTRPayloadService
         return util.RemoveDoublePunch(DoublePunchGap);
     }
 
-    private async Task<List<EmployeeDTRRun>> ExtractEmployees(DTRRequestPayload payload, CancellationToken token)
-    {
-        var query = _employeeService
-            .GetQueryable(x => x.EmploymentStatus != EmploymentStatus.Retired ||
-            x.EmploymentStatus != EmploymentStatus.Terminated ||
-            x.EmploymentStatus != EmploymentStatus.Deceased ||
-            x.EmploymentStatus != EmploymentStatus.Resigned)
-            .Include(x => x.RestDays)
-            .Include(x => x.Settings)
-            .AsQueryable()
-            ;
-        if (payload.EmployeeId.HasValue)
-        {
-            query = query
-                .Where(x => x.Id == payload.EmployeeId.Value);
-        }
-        else
-        {
-            if (payload.BranchId.HasValue)
-                query = query.Where(x => x.BranchId == payload.BranchId);
-
-            if (payload.ClientId.HasValue)
-                query = query.Where(x => x.ClientId == payload.ClientId);
-
-            if (payload.PayrollGroupId.HasValue)
-                query = query.Where(x => x.PayrollGroupId == payload.PayrollGroupId);
-
-            if (payload.DepartmentId.HasValue)
-                query = query.Where(x => x.DepartmentId == payload.DepartmentId);
-
-            if (payload.OperationAreaId.HasValue)
-                query = query.Where(x => x.AreaId == payload.OperationAreaId);
-        }
-
-        return await query.Select(x => new EmployeeDTRRun
-        {
-            Id = x.Id,
-            AreaId = x.AreaId,
-            ClientId = x.ClientId,
-            FirstName = x.FirstName,
-            LastName = x.LastName,
-            MiddleName = x.MiddleName,
-            Suffix = x.Suffix,
-            TimeShiftId = x.TimeShiftId,
-            BioId = x.BioId,
-            EmpNo = x.EmployeeNo,
-            PayrollGroupId = x.PayrollGroupId,
-            DepartmentId = x.DepartmentId,
-            DepartmentName = x.Department != null ? x.Department.Name : null,
-            RestDays = x.RestDays.Select(r => new RestDayModel
-            {
-                DayName = r.DayName,
-                Id = r.Id,
-            }).ToList()
-        }).ToListAsync(token);
-    }
+    // Delegates to EmployeeService.GetForDTRRunAsync — the single source of truth for
+    // "which employees does this DTR-shaped request cover", shared with the Roster Report
+    // so both resolve schedules for the exact same employee set.
+    private Task<List<EmployeeDTRRun>> ExtractEmployees(DTRRequestPayload payload, CancellationToken token)
+        => _employeeService.GetForDTRRunAsync(payload, token);
 
     private static List<Guid?> ExtractClientIds(List<EmployeeDTRRun> employees)
     {

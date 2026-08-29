@@ -141,22 +141,45 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
 public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
 {
     public DeductionAplDtlService(IUnitOfWorkService uow) : base(uow) { }
-    public Task<Dictionary<EmployeeKey, List<DeductionInfo>>>
+    public async Task<Dictionary<EmployeeKey, List<DeductionInfo>>>
         LoadAsync(List<Guid> employeeIds, DateOnly fromDate, DateOnly toDate,
         CancellationToken token)
     {
-        return GetQueryable()
-            .AsNoTracking()
-            .Where(x => x.Date <= toDate && employeeIds.Contains(x.EmployeeId) && x.Balance > 0)
+        // "LOAN"-coded DeductionTypes (COLOAN/SSSLOAN/HDMFLOAN/SALLOAN/CALLOAN, seeded in
+        // AccountInitService.SetDefaultDeductionTypes) are surfaced as their own payslip line —
+        // everything else (cash advance, medical/dental, etc.) stays "Others".
+        var rows = await (
+            from detail in GetQueryable().AsNoTracking()
+            join deduction in Context.Deductions.AsNoTracking()
+                on detail.DeductionId equals deduction.Id into deductionJoin
+            from deduction in deductionJoin.DefaultIfEmpty()
+            join category in Context.DeductionTypes.AsNoTracking()
+                on deduction!.CategoryId equals category.Id into categoryJoin
+            from category in categoryJoin.DefaultIfEmpty()
+            where detail.Date <= toDate && employeeIds.Contains(detail.EmployeeId) && detail.Balance > 0
+            select new
+            {
+                detail.Id,
+                detail.EmployeeId,
+                detail.Date,
+                detail.Balance,
+                detail.DeductionId,
+                DeductionTypeCode = category != null ? category.Code : null,
+            })
+            .ToListAsync(token);
+
+        return rows
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
-            .ToDictionaryAsync(x => x.Key, x => x
+            .ToDictionary(g => g.Key, g => g
                 .Select(x => new DeductionInfo
                 {
                     Id = x.Id,
                     PayrollDate = x.Date,
                     Amount = x.Balance,
                     DeductionId = x.DeductionId,
-                }).ToList(), token)
-            ;
+                    Type = x.DeductionTypeCode != null && x.DeductionTypeCode.Contains("LOAN")
+                        ? DeductionInfoType.Loan
+                        : DeductionInfoType.Others,
+                }).ToList());
     }
 }

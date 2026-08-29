@@ -147,7 +147,7 @@ public class EmployeeService : BaseService<Employee>
         {
             throw new NotFoundException("Record not found");
         }
-         
+
         var incomingRestDays = payload.RestDays?.ToList() ?? new List<RestDayModel>();
         var incomingFixedSchedule = payload.FixedSchedule?.ToList() ?? new List<EmployeeFixedScheduleDayModel>();
         payload.RestDays = new List<RestDayModel>();
@@ -189,7 +189,7 @@ public class EmployeeService : BaseService<Employee>
         await CommitChangesAsync(token);
     }
 
- 
+
 
     public async Task<Employee?> FindOne(Guid id, CancellationToken token)
     {
@@ -216,9 +216,16 @@ public class EmployeeService : BaseService<Employee>
         return data;
     }
 
-    public async Task<List<EmployeeModel>> GetAll(CancellationToken token)
+    public async Task<List<EmployeeModel>> GetAll(string? keyword, CancellationToken token)
     {
-        var query = GetQueryable();
+        Expression<Func<Employee, bool>> exp = x => string.IsNullOrWhiteSpace(keyword)
+            || x.FirstName.Contains(keyword!)
+            || x.LastName.Contains(keyword!)
+            || x.MiddleName.Contains(keyword!)
+            || x.Suffix.Contains(keyword!)
+            || x.EmployeeNo.Contains(keyword!);
+
+        var query = GetQueryable(exp);
         var employees = await query
             .ProjectToType<EmployeeModel>(_config)
             .ToListAsync(token);
@@ -231,7 +238,8 @@ public class EmployeeService : BaseService<Employee>
         Expression<Func<Employee, bool>> exp = x => string.IsNullOrWhiteSpace(payload.Keyword) || x.FirstName.Contains(payload.Keyword)
             || x.LastName.Contains(payload.Keyword)
             || x.MiddleName.Contains(payload.Keyword)
-            || x.Suffix.Contains(payload.Keyword);
+            || x.Suffix.Contains(payload.Keyword)
+            || x.EmployeeNo.Contains(payload.Keyword);
 
         var query = GetQueryable(exp);
         var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit)
@@ -299,9 +307,18 @@ public class EmployeeService : BaseService<Employee>
         return result;
     }
 
+    private static readonly EmploymentStatus[] SeparatedStatuses =
+    [
+        EmploymentStatus.Terminated,
+        EmploymentStatus.Resigned,
+        EmploymentStatus.Retired,
+        EmploymentStatus.Deceased,
+    ];
+
     public async Task<List<EmployeeFilterResponseModel>> Filter(EmployeeFilter filter, CancellationToken token)
     {
         var result = await GetQueryable(x =>
+            !SeparatedStatuses.Contains(x.EmploymentStatus) &&
             (filter.DayName == null || x.RestDays.Any(xx => xx.DayName == filter.DayName)) &&
             (filter.BranchId == null || x.BranchId == filter.BranchId.Value) &&
             (filter.EmployeeId == null || x.Id == filter.EmployeeId.Value) &&
@@ -315,11 +332,65 @@ public class EmployeeService : BaseService<Employee>
         return result;
     }
 
+    // Single source of truth for "which employees does this DTR-shaped request cover" —
+    // shared by the live DTR run (CurrentRangeDTRPayloadService) and the Roster Report,
+    // so both feed WorkScheduleResolver/RestDayResolver the exact same employee set
+    // instead of maintaining two independently-drifting copies of this filter.
+    public async Task<List<EmployeeDTRRun>> GetForDTRRunAsync(DTRRequestPayload payload, CancellationToken token)
+    {
+        return await GetQueryable(x =>
+            //!SeparatedStatuses.Contains(x.EmploymentStatus) &&
+            (payload.EmployeeId != null
+                ? x.Id == payload.EmployeeId.Value
+                : (payload.BranchId == null || x.BranchId == payload.BranchId.Value) &&
+                  (payload.ClientId == null || x.ClientId == payload.ClientId.Value) &&
+                  (payload.PayrollGroupId == null || x.PayrollGroupId == payload.PayrollGroupId.Value) &&
+                  (payload.DepartmentId == null || x.DepartmentId == payload.DepartmentId.Value) &&
+                  (payload.OperationAreaId == null || x.AreaId == payload.OperationAreaId.Value)))
+            .Include(x => x.RestDays)
+            .Select(x => new EmployeeDTRRun
+            {
+                Id = x.Id,
+                AreaId = x.AreaId,
+                ClientId = x.ClientId,
+                FirstName = x.FirstName,
+                LastName = x.LastName,
+                MiddleName = x.MiddleName,
+                Suffix = x.Suffix,
+                TimeShiftId = x.TimeShiftId,
+                BioId = x.BioId,
+                EmpNo = x.EmployeeNo,
+                PayrollGroupId = x.PayrollGroupId,
+                DepartmentId = x.DepartmentId,
+                DepartmentName = x.Department != null ? x.Department.Name : null,
+                RestDays = x.RestDays.Select(r => new RestDayModel
+                {
+                    DayName = r.DayName,
+                    Id = r.Id,
+                }).ToList()
+            }).ToListAsync(token);
+    }
+
 
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
+    }
+
+    // Hard-deletes every employee whose EmployeeNo starts with the given prefix, plus
+    // every row in any table that references them — used to clean up
+    // EmployeeSeederService-generated test data (including whatever DTR/attendance/payroll
+    // records testing against those employees produced). See EntityCascadeCleanupHelper
+    // for how dependent tables are discovered and cleared.
+    public async Task<int> RemoveByEmployeeNoPrefixAsync(string prefix, CancellationToken token)
+    {
+        var seededIds = await Context.Employees
+            .Where(x => x.EmployeeNo.StartsWith(prefix))
+            .Select(x => x.Id)
+            .ToListAsync(token);
+
+        return await EntityCascadeCleanupHelper.RemoveWithDependentsAsync<Employee>(Context, seededIds, token);
     }
 }
 

@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Domain;
+using Hrms.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,6 +9,10 @@ public class PayrollGroupConfig : IEntityTypeConfiguration<PayrollGroup>
 {
     public void Configure(EntityTypeBuilder<PayrollGroup> builder)
     {
+        // Explicit default so the migration backfills existing rows to PerPayroll — the
+        // hardcoded split behavior every payroll group had before this setting existed.
+        builder.Property(x => x.StatutoryDeductionSchedule).HasDefaultValue(StatutoryDeductionSchedule.PerPayroll);
+
         //builder.HasData(
         //    new PayrollGroup
         //    {

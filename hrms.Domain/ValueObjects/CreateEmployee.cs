@@ -57,6 +57,10 @@ public class CreateEmployee
     public bool IsRegularHolidayIncluded { get; set; }
     public bool IsSpecialNonWorkingIncluded { get; set; }
     public bool IsNightDiffIncluded { get; set; }
+    // New employees default to the tenant-wide Fixed Salary Defaults (Company Policy)
+    // until an admin explicitly opts them into their own overrides. Existing employees
+    // (migration-backfilled) keep defaulting to true — see EmployeeConfig.cs.
+    public bool UseEmployeeOverride { get; set; } = false;
 
     public DateTime? DOB { get; set; }
     public string BloodType { get; set; } = string.Empty;
@@ -127,6 +131,7 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public bool IsRegularHolidayIncluded { get; set; }
     [IgnoreMember] public bool IsSpecialNonWorkingIncluded { get; set; }
     [IgnoreMember] public bool IsNightDiffIncluded { get; set; }
+    [IgnoreMember] public bool UseEmployeeOverride { get; set; } = true;
     [IgnoreMember] public DateTime? DOB { get; set; }
     [IgnoreMember] public string BloodType { get; set; } = string.Empty;
     [IgnoreMember] public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
@@ -200,6 +205,7 @@ public class EmployeeFullModel
     public bool IsRegularHolidayIncluded { get; set; }
     public bool IsSpecialNonWorkingIncluded { get; set; }
     public bool IsNightDiffIncluded { get; set; }
+    public bool UseEmployeeOverride { get; set; } = true;
 
     public DateTime? DOB { get; set; }
     public string BloodType { get; set; } = string.Empty;
@@ -276,6 +282,7 @@ public class EmployeeModelPayrollRun
     public bool IsRegularHolidayIncluded { get; set; }
     public bool IsSpecialNonWorkingIncluded { get; set; }
     public bool IsNightDiffIncluded { get; set; }
+    public bool UseEmployeeOverride { get; set; } = true;
     public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
     public string BankName { get; set; } = string.Empty;

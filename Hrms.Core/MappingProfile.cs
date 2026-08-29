@@ -209,6 +209,10 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateCompany, Company>();
         config.NewConfig<Company, CompanyModel>();
 
+        config.NewConfig<CreatePayrollInclusionDefaults, PayrollInclusionDefaults>();
+        config.NewConfig<UpdatePayrollInclusionDefaults, PayrollInclusionDefaults>();
+        config.NewConfig<PayrollInclusionDefaults, PayrollInclusionDefaultsModel>();
+
         config.NewConfig<CreateOtherIncomeType, OtherIncomeType>();
         config.NewConfig<UpdateOtherIncome, OtherIncomeType>();
         config.NewConfig<OtherIncomeType, OtherIncomeTypeModel>();
@@ -248,6 +252,11 @@ public class MappingProfile : IRegister
         config.NewConfig<CreateRateTable, RateTable>();
         config.NewConfig<UpdateRateTable, RateTable>();
         config.NewConfig<RateTable, RateTableModel>();
+
+        config.NewConfig<ClientRateTable, ClientRateTableModel>();
+
+        config.NewConfig<CreateClientBillingInfo, ClientBillingInfo>();
+        config.NewConfig<ClientBillingInfo, ClientBillingInfoModel>();
 
         config.NewConfig<CreateSSSRate, SSSRate>().TwoWays();
         config.NewConfig<CreatePHICRate, PHICRate>().TwoWays();

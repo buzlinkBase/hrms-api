@@ -75,8 +75,8 @@ public class DTRDetailModel
     public double RestDoubleLegalNDHours { get; set; }
     public double RestDoubleLegalNDOTHours { get; set; }
 
-
     public string Note { get; set; } = string.Empty;
+    public string? PostingDescription { get; set; }
     public Guid? UserId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? DepartmentId { get; set; }
@@ -159,6 +159,11 @@ public class BatchesModel
     public DateOnly ToDate { get; set; }
     public int EmployeeCount { get; set; }
     public bool IsPosted { get; set; }
+    public string? PostingDescription { get; set; }
+    // True once a payroll has already been generated from this DTR batch — see
+    // Payroll.DtrBatchCodes / PayrollService.GetUsedDtrBatchCodesAsync. Used by the
+    // Payroll Run screen to block re-selecting a batch that was already posted.
+    public bool IsPayrollGenerated { get; set; }
 }
 
 public class TardinessReportModel
@@ -173,6 +178,28 @@ public class TardinessReportModel
     public double TardinessMinutes { get; set; }
     public double DeductibleMinutes { get; set; }
     public bool IsWithinGracePeriod => TardinessMinutes > 0 && DeductibleMinutes == 0;
+}
+
+public class RosterReportModel
+{
+    public DateOnly WorkDate { get; set; }
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Department { get; set; }
+    public Guid? ShiftId { get; set; }
+    public string ShiftName { get; set; } = string.Empty;
+    public DateTime? ShiftStart { get; set; }
+    public DateTime? ShiftEnd { get; set; }
+    public bool IsRestDay { get; set; }
+    // Which WorkScheduleResolver tier produced ShiftId — Override, FixedSchedule,
+    // Permanent, or OpenShift (see ScheduleSource).
+    public ScheduleSource ScheduleSource { get; set; }
+    // Set only when the shift shown comes from a Work Rotation Plan override for this
+    // exact date — the Id of that override row, deletable via WorkSchedulePlansController.
+    // Null when the shift instead resolved from Fixed Schedule or the employee's
+    // Permanent Shift, which have no per-date row here to remove.
+    public Guid? OverrideId { get; set; }
 }
 
 public class LeaveMetaDataModel

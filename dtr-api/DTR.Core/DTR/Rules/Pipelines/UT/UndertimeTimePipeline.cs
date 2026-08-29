@@ -1,21 +1,12 @@
-﻿namespace DTR.Core;
+namespace DTR.Core;
 
-public class UndertimeTimePipeline
+public class UndertimeTimePipeline : IDTRTimePipeline
 {
-    private readonly TimeContext _context;
-
-    public UndertimeTimePipeline(TimeContext context)
+    public TimeRange Apply(TimeContext context, TimeRange cannonicalTimeRange)
     {
-        _context = context;
-    }
-
-    public TimeRange Apply(TimeRange cannonicalTimeRange)
-    {
-        var applied = new AppliedUnderTimeHandler(cannonicalTimeRange, _context);
-        var actual = new ActualUnderTimeHandler(cannonicalTimeRange, _context);
+        var applied = new AppliedUnderTimeHandler(cannonicalTimeRange, context);
+        var actual = new ActualUnderTimeHandler(cannonicalTimeRange, context);
         applied.SetNext(actual);
         return applied.Handle();
     }
 }
-
-
