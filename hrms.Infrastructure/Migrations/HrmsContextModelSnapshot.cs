@@ -590,6 +590,10 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("TIN")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<int>("TakehomePercentage")
                         .HasColumnType("int");
 
@@ -2381,6 +2385,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("EmployerShare")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<Guid>("PayrollBatchId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateOnly>("PayrollDate")
                         .HasColumnType("date");
 
@@ -2404,6 +2411,10 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PayrollBatchId");
+
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -2704,6 +2715,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<int?>("AuditTrailId")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("CompanyAmount")
+                        .HasColumnType("decimal(65,30)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -2722,6 +2736,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<decimal?>("GovernmentAmount")
+                        .HasColumnType("decimal(65,30)");
+
                     b.Property<bool>("IsManualEntry")
                         .HasColumnType("tinyint(1)");
 
@@ -2736,6 +2753,12 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<int>("PayType")
                         .HasColumnType("int");
+
+                    b.Property<int>("PayoutMode")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("ReleasePayrollDate")
+                        .HasColumnType("date");
 
                     b.Property<int?>("ReviewedBy")
                         .HasColumnType("int");
@@ -3249,6 +3272,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("EmployerShare")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<Guid>("PayrollBatchId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateOnly>("PayrollDate")
                         .HasColumnType("date");
 
@@ -3272,6 +3298,10 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PayrollBatchId");
+
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -3408,13 +3438,17 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("BasicPay")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<Guid>("BatchCode")
-                        .HasColumnType("char(36)");
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<Guid?>("ClientId")
                         .HasColumnType("char(36)");
 
                     b.Property<decimal>("Cola")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("CompanyFundedLeavePay")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -3438,9 +3472,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("DoubleLegalPay")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<string>("DtrBatchCodes")
-                        .HasColumnType("longtext");
-
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
@@ -3459,6 +3490,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<decimal>("GovernmentFundedLeavePay")
+                        .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("GrossIncome")
                         .HasColumnType("decimal(65,30)");
@@ -3529,6 +3563,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateOnly>("PayPeriodStart")
                         .HasColumnType("date");
 
+                    b.Property<Guid>("PayrollBatchId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateOnly>("PayrollDate")
                         .HasColumnType("date");
 
@@ -3556,6 +3593,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<decimal>("Reimbursement")
                         .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("longtext");
 
                     b.Property<decimal>("RestDayNDOTPay")
                         .HasColumnType("decimal(65,30)");
@@ -3671,6 +3711,59 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Payrolls");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.PayrollBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DtrBatchCodes")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsPosted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateOnly?>("PayDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PayPeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PayPeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("PostedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("PayrollBatches");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PayrollGroup", b =>
@@ -3916,6 +4009,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid>("PayrollBatchId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateOnly>("PayrollDate")
                         .HasColumnType("date");
 
@@ -3943,6 +4039,10 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PayrollBatchId");
+
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -4219,6 +4319,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<TimeSpan?>("LunchStartTime")
                         .HasColumnType("time(6)");
 
+                    b.Property<double?>("MaxOvertimeHours")
+                        .HasColumnType("double");
+
                     b.Property<double>("MaxWorkingMinutes")
                         .HasColumnType("double");
 
@@ -4425,6 +4528,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid>("PayrollBatchId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateOnly>("PayrollDate")
                         .HasColumnType("date");
 
@@ -4445,6 +4551,10 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PayrollBatchId");
+
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 

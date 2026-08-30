@@ -11,7 +11,6 @@ public class HDMFCalculatorFactory
         {
             ComputationBasis.None => new NoHDMFDeductionCalculator(),
             ComputationBasis.FixedPerPayroll => HDMFFixSalaryFrequencyFactory.Create(context),
-            ComputationBasis.FixedMonthly => HDMFFixSalaryFrequencyFactory.Create(context),
             ComputationBasis.Table => HDMFTableSalaryFrequencyFactory.Create(context),
             _ => throw new NotImplementedException()
         };
@@ -39,27 +38,7 @@ public class HDMFFixSalaryFrequencyFactory
     {
         var config = context.Employee.HDMFRate;
         if (config == null) return new NoHDMFDeductionCalculator();
-
-        if (config.ComputationType == ComputationBasis.FixedPerPayroll)
-        {
-            return new FixedHDMFPerPayroll();
-        }
-
-        if (config.ComputationType == ComputationBasis.FixedMonthly)
-        {
-            return context.Employee.PayrollFrequency switch
-            {
-                PayrollFrequency.DAILY => new FixedHDMFDailyCalculator(),
-                PayrollFrequency.WEEKLY => new FixedHDMFWeeklyCalculator(),
-                PayrollFrequency.SEMI_MONTHLY => new FixedHDMFSemiMonthlyCalculator(),
-                PayrollFrequency.MONTHLY => new FixedHDMFMonthlyCalculator(),
-                _ => throw new NotImplementedException()
-            };
-        }
-        else
-        {
-            throw new NotImplementedException();
-        }
+        return new FixedHDMFPerPayroll();
     }
 }
 

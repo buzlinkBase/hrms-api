@@ -10,6 +10,7 @@ public class PayrollSummaryReportDocument : IDocument
     private readonly List<Payroll> _rows;
     private readonly DateOnly _from;
     private readonly DateOnly _to;
+    private readonly Company? _company;
 
     private static readonly string Primary = "#1DA081";
     private static readonly string TableHeaderBg = "#e8f5f1";
@@ -17,17 +18,21 @@ public class PayrollSummaryReportDocument : IDocument
     private static readonly string LabelColor = "#666666";
     private static readonly string TextColor = "#1a1a1a";
 
-    public PayrollSummaryReportDocument(List<Payroll> rows, DateOnly from, DateOnly to)
+    // Falls back to the product name until the tenant fills in Company Setup.
+    private string CompanyName => string.IsNullOrWhiteSpace(_company?.Description) ? "One Punch HRIS" : _company.Description;
+
+    public PayrollSummaryReportDocument(List<Payroll> rows, DateOnly from, DateOnly to, Company? company = null)
     {
         _rows = rows;
         _from = from;
         _to = to;
+        _company = company;
     }
 
     public DocumentMetadata GetMetadata() => new DocumentMetadata
     {
         Title = $"Payroll Summary - {_from:MMM dd} to {_to:MMM dd, yyyy}",
-        Author = "One Punch HRIS",
+        Author = CompanyName,
         CreationDate = DateTimeOffset.UtcNow,
     };
 
@@ -62,8 +67,14 @@ public class PayrollSummaryReportDocument : IDocument
         {
             row.RelativeItem().Column(col =>
             {
-                col.Item().Text("ONE PUNCH HRIS").Bold().FontSize(12).FontColor(Primary);
+                col.Item().Text(CompanyName).Bold().FontSize(12).FontColor(Primary);
                 col.Item().Text("PAYROLL SUMMARY REPORT").FontSize(9).FontColor(LabelColor).LetterSpacing(1);
+                if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
+                {
+                    col.Item().Text(string.Join("  •  ", new[] { _company?.Address, _company?.Contact }
+                        .Where(s => !string.IsNullOrWhiteSpace(s))))
+                        .FontSize(7.5f).FontColor(LabelColor);
+                }
             });
             row.ConstantItem(220).AlignRight().Column(col =>
             {

@@ -25,6 +25,7 @@ public class CreateDeductionType
 public class UpdateDeductionType : CreateDeductionType
 {
     public Guid Id { get; set; }
+    public string? Status { get; set; }
 }
 
 public class DeductionTypeModel : UpdateDeductionType

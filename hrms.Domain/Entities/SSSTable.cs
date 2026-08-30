@@ -19,8 +19,14 @@ public class SSSTable : BaseEntity
 
 }
 
+[DisableSoftDelete]
 public class SSSContribution : BaseEntity, IDateFilter
 {
+    // Real FK to PayrollBatch.Id, mirroring Payroll.PayrollBatchId — lets a whole run's
+    // contribution rows be deleted in one statement instead of looping per employee, and
+    // removes the ambiguity of matching on EmployeeId+PayrollFrom+PayrollTo alone (two
+    // different batches covering the same employee+period would otherwise collide on delete).
+    public Guid PayrollBatchId { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }

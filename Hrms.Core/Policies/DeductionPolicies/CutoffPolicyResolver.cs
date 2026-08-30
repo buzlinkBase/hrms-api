@@ -6,17 +6,26 @@ public class CutoffPolicyResolver : ICutoffPolicyResolver
     {
         var frequency = context.Employee.PayrollFrequency;
         var cutoffDays = ResolveCutoffModels(context);
+        // Deliberately the period's own start day, not GetReferenceDate's cross-month-
+        // adjusted day — First/Second cutoff answer "which bracket did this period begin
+        // in", while IsLastCutoff/GetCurrentCutoff answer "where does it end up relative
+        // to month-end", which is a different question needing the adjusted date.
         var currentDay = context.Payload.FromDate.Day;
 
-        return frequency switch
-        {
-            PayrollFrequency.MONTHLY => true,
-            PayrollFrequency.DAILY => true,
-            PayrollFrequency.SEMI_MONTHLY => currentDay <= cutoffDays.First(),
-            // For Weekly, we define "First Cutoff" as the first payroll occurrence of the month
-            PayrollFrequency.WEEKLY => currentDay <= cutoffDays.First(),
-            _ => currentDay <= cutoffDays.First()
-        };
+        if (frequency == PayrollFrequency.MONTHLY || frequency == PayrollFrequency.DAILY)
+            return true;
+
+        // No usable cutoff configuration — throw the same exception GetCurrentCutoff does
+        // rather than letting cutoffDays.First() throw InvalidOperationException, which
+        // callers (StatutoryScheduleResolver, the Table*SemiMonthlyCalculator classes) don't
+        // catch and would otherwise crash payroll processing instead of failing open.
+        if (cutoffDays.Count == 0)
+            throw new CutoffMismatchException($"No cutoff days defined for {context.Employee.PayrollGroup?.Code}");
+
+        // Works for Semi-Monthly's usual two cutoffs and for a Weekly/custom schedule with
+        // any number of configured cutoffs — "first" is just "on or before the first
+        // configured cutoff day".
+        return currentDay <= cutoffDays.First();
     }
 
     public bool IsSecondCutoff(DeductionPayloadContext context)
@@ -26,6 +35,7 @@ public class CutoffPolicyResolver : ICutoffPolicyResolver
             frequency == PayrollFrequency.DAILY) return false;
 
         var cutoffDays = ResolveCutoffModels(context);
+        // See IsFirstCutoff — deliberately FromDate.Day, not the cross-month reference date.
         var currentDay = context.Payload.FromDate.Day;
 
         if (frequency == PayrollFrequency.WEEKLY)
@@ -88,15 +98,12 @@ public class CutoffPolicyResolver : ICutoffPolicyResolver
 
         // If Monthly, return the only cutoff available (usually end of month)
         if (frequency == PayrollFrequency.MONTHLY) return cutoffModels.First();
-        if (frequency == PayrollFrequency.SEMI_MONTHLY)
-        {
-            // Specifically look for the two brackets
-            var firstCutoff = cutoffModels.First();
 
-            // If we are even one day past the first cutoff, we belong to the second
-            return currentDay <= firstCutoff.Day ? firstCutoff : cutoffModels.Last();
-        }
-
+        // Find the first configured cutoff on or after the reference day — the bracket the
+        // reference day currently falls into. Works for any number of cutoffs (the usual
+        // two for Semi-Monthly, or however many a Weekly/custom schedule defines), rather
+        // than assuming Semi-Monthly is always exactly two rows — payroll groups are no
+        // longer locked to a fixed cutoff count.
         var match = cutoffModels.FirstOrDefault(cd => currentDay <= cd.Day);
         return match ?? cutoffModels.Last();
     }
@@ -135,7 +142,9 @@ public class CutoffPolicyResolver : ICutoffPolicyResolver
     {
 
         var referenceDate = GetReferenceDate(context);
-        return context.Employee.PayrollGroup.CutoffDays
+        // CutoffDays is a nullable navigation — payroll groups saved before cutoff-day
+        // configuration was validated could still have none.
+        return (context.Employee.PayrollGroup.CutoffDays ?? [])
             .Select(cd => cd.IsEndOfMonth
                 ? DateTime.DaysInMonth(referenceDate.Year, referenceDate.Month)
                 : cd.Day)
@@ -146,7 +155,7 @@ public class CutoffPolicyResolver : ICutoffPolicyResolver
     private List<CutoffModel> ResolveCutoffModelsAsModels(DeductionPayloadContext context)
     {
         var referenceDate = GetReferenceDate(context);
-        return context.Employee.PayrollGroup.CutoffDays
+        return (context.Employee.PayrollGroup.CutoffDays ?? [])
             .Select(cd => new CutoffModel
             {
                 Day = cd.IsEndOfMonth ? DateTime.DaysInMonth(referenceDate.Year, referenceDate.Month) : cd.Day,

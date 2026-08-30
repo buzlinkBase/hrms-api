@@ -137,6 +137,7 @@ public class OverrideSchedule : WorkScheduleHandler
             OTRequireTimeIn = shift.OTRequireTimeIn,
             OTStartTime = shift.OTStart,
             OverTimeThreshold = shift.OverTimeThreshold,
+            MaxOvertimeHours = shift.MaxOvertimeHours,
             ShiftType = shift.ShiftType,
             MinimumWorkingMinutes = shift.MinimumWorkMinutes,
             MaxWorkingMinutes = shift.MaxWorkingMinutes,
@@ -220,6 +221,7 @@ public class FixedScheduleHandler : WorkScheduleHandler
             OTRequireTimeIn = shift.OTRequireTimeIn,
             OTStartTime = shift.OTStart,
             OverTimeThreshold = shift.OverTimeThreshold,
+            MaxOvertimeHours = shift.MaxOvertimeHours,
             ShiftType = shift.ShiftType,
             MinimumWorkingMinutes = shift.MinimumWorkMinutes,
             MaxWorkingMinutes = shift.MaxWorkingMinutes,
@@ -257,6 +259,10 @@ public class FallbackSchedule : WorkScheduleHandler
             MaxWorkingMinutes = 480,
             WithOT = true,
             ShiftType = TimeShiftType.SPLIT,
+            MaxOvertimeHours = null,
+            GracePeriodMinutes = 0,
+            OTRequireTimeIn = false,
+            OverTimeThreshold = 0
         };
     }
     protected override CurrentShift GetCurrentShift(EmployeeDTRRun employee, DateOnly date)
@@ -304,6 +310,7 @@ public class FallbackSchedule : WorkScheduleHandler
             OTRequireTimeIn = shift.OTRequireTimeIn,
             OTStartTime = shift.OTStart,
             OverTimeThreshold = shift.OverTimeThreshold,
+            MaxOvertimeHours = shift.MaxOvertimeHours,
             ShiftType = shift.ShiftType,
             MinimumWorkingMinutes = shift.MinimumWorkMinutes,
             MaxWorkingMinutes = shift.MaxWorkingMinutes,

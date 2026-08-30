@@ -36,6 +36,9 @@ public class CurrentShift
     public bool OTRequireTimeIn { get; set; } = true;
     public double OverTimeThreshold { get; set; } = 60;
     public TimeSpan? OTStartTime { get; set; }
+    // Null or 0 = no limit; otherwise the max OT hours creditable for a day on this shift —
+    // see OvertimeCapper, applied after both auto-computed and manually-filed OT.
+    public double? MaxOvertimeHours { get; set; }
 
     public bool IsCrossDate => CrossDateChecker.IsCrossDate(StartTime, EndTime);
     public double GracePeriodMinutes { get; set; } = 0;

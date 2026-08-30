@@ -16,6 +16,10 @@ public record PayrollRunPayload(List<string> BatchCodes)
     // Explicit Pay/Release Date, required only when CrossMonthStatutoryCreditPolicy or
     // WTaxCrossMonthCreditPolicy is set to PayDate — see PayrollProcessorService.CalculateAsync.
     public DateOnly? PayDate { get; init; }
+    // Free-text identity for this run — captured once at Generate time (see the frontend's
+    // Generate Payroll confirmation dialog) and stamped onto every Payroll row it produces,
+    // so Post/Delete Payroll Run can show which run is which.
+    public string? Remarks { get; init; }
 }
 public class CompanyPolicyRule
 {

@@ -58,9 +58,10 @@
             else
                 line.Metadata["Divisor"] = divisor;
 
+            var strategy = CutoffAllocationStrategyFactory.Resolve(context.Employee.SalaryType);
             var payload = new HDMFTablePayload(
-                StatutoryHelper.CalcRemainingBalance(rate.EmployeeShare, balances.EEBalance, divisor, daysWorked, totalDaysInMonth),
-                StatutoryHelper.CalcRemainingBalance(rate.EmployerShare, balances.ERBalance, divisor, daysWorked, totalDaysInMonth));
+                strategy.AllocateFirstCutoffShare(rate.EmployeeShare, balances.EEBalance, context, divisor, daysWorked, totalDaysInMonth),
+                strategy.AllocateFirstCutoffShare(rate.EmployerShare, balances.ERBalance, context, divisor, daysWorked, totalDaysInMonth));
 
             return HDMFHelper.ApplyTable(context, line, payload, context.Payload.FromDate);
         }

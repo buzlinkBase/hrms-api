@@ -36,24 +36,38 @@ public class PayrollService : BaseService<Payroll>
         await RemoveAsync(Id, token);
     }
 
+    // Every row from one Generate run — all rows written by a single PayrollProcessorService
+    // .CalculateAsync call share the same PayrollBatchId (assigned once per run, the id of
+    // the PayrollBatch header row, not per employee).
+    public async Task<List<Payroll>> GetByBatchIdAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        return await GetQueryable(x => x.PayrollBatchId == payrollBatchId).ToListAsync(token);
+    }
+
+    public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
+    }
+
+    // Mirrors PayrollBatch.IsPosted onto every child row of the batch — PayrollBatch is the
+    // canonical source for Post/Delete decisions, but the child rows keep their own copy so
+    // hot-path report filters (PayrollReportService, LoadPostedPayrollAsync above) don't
+    // need to join PayrollBatch. See PayrollProcessorService.PostBatchAsync, which calls
+    // this alongside PayrollBatchService.PostAsync.
+    public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        var payrolls = await GetQueryable(x => x.PayrollBatchId == payrollBatchId).ToListAsync(token);
+        if (payrolls.Count == 0) throw new ValidationException("Payroll batch not found.");
+        foreach (var payroll in payrolls) payroll.IsPosted = true;
+        await ModifyRangeAsync(payrolls, token);
+        await CommitChangesAsync(token);
+    }
+
     public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token)
     {
         await Uow.Repository.AddRangeAsync(payrolls, token);
         await Uow.SaveChangesAsync(token);
         await CommitChangesAsync(token);
-    }
-
-    // Every DTR batch code that has already been used to generate a payroll, across all
-    // past runs — used to block re-generating payroll from a batch that's already posted.
-    public async Task<HashSet<string>> GetUsedDtrBatchCodesAsync(CancellationToken token)
-    {
-        var raw = await GetQueryable(x => x.DtrBatchCodes != null && x.DtrBatchCodes != "")
-            .Select(x => x.DtrBatchCodes)
-            .Distinct()
-            .ToListAsync(token);
-        return raw
-            .SelectMany(x => x!.Split(',', StringSplitOptions.RemoveEmptyEntries))
-            .ToHashSet();
     }
 
     public async Task<List<Payroll>> GetAsync(

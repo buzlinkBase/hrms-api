@@ -25,7 +25,6 @@ public static class LibDTRServicesRegistrations
         services.AddSingleton<IWorkTypeResolver, WorkTypeResolver>();
         services.AddSingleton<IDTRDetailColumnDisplayProcessor, DTRDetailColumnDisplayProcessor>();
         services.AddSingleton<IDailyRecordBuilder, DailyRecordBuilder>();
-
         services.AddSingleton<CleanDTRDetailProcessor>();
     }
 }

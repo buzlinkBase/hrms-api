@@ -17,7 +17,8 @@ public class ApprovalBasedOTHandler : OverTimeHandler
         var pipeline = new PolicyPipeline()
              .AddPolicy(new AppliedOvertimePolicy(spec))
              ;
-        return pipeline.Execute(Input, Context);
+        var result = pipeline.Execute(Input, Context);
+        return OvertimeCapper.Cap(result, Context);
     }
 }
 

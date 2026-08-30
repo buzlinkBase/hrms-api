@@ -24,6 +24,8 @@ public partial class CreateTimeShift
     public bool OTRequireTimeIn { get; set; } = false;
     public TimeSpan OTStart { get; set; }
     public double OverTimeThreshold { get; set; } = 60;
+    // Null or 0 = no limit; otherwise the max OT hours creditable for a day on this shift.
+    public double? MaxOvertimeHours { get; set; } = null;
     public double MinimumWorkMinutes { get; set; } = 0;
     public double MaxWorkingMinutes { get; set; } = 480;
 }

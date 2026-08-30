@@ -29,8 +29,10 @@ public class PHICTable : BaseEntity
 }
 
 
+[DisableSoftDelete]
 public class PHICContribution : BaseEntity, IDateFilter
 {
+    public Guid PayrollBatchId { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }

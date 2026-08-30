@@ -24,6 +24,9 @@ public class CalculatorPayload : BasePayloadContext
     public Dictionary<EmployeeKey, List<OtherIncomeInfo>> Incomes { get; set; } = new();
     public Dictionary<EmployeeKey, List<DeductionInfo>> Deductions { get; set; } = new();
     public Dictionary<EmployeeKey, List<SalaryAdjustment>> SalaryAdjustments { get; set; } = new();
+    // Approved LeaveApplications with PayoutMode.OneTime whose ReleasePayrollDate falls
+    // within this run's date range — see PayrollProcessorService.ApplyOneTimeLeavePayouts.
+    public Dictionary<EmployeeKey, List<LeaveApplication>> OneTimeLeavePayouts { get; set; } = new();
     public Dictionary<EmployeeKey, List<SSSContributionModel>> SSSContribution { get; set; } = new();
     public Dictionary<EmployeeKey, List<PHICContributionModel>> PHICContribution { get; set; } = new();
     public Dictionary<EmployeeKey, List<HDMFContributionModel>> HDMFContribution { get; set; } = new();

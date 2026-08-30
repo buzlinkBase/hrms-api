@@ -39,6 +39,10 @@ public class TimeShift : BaseEntity
 
     //Minimum extra hours before overtime applies.
     public double OverTimeThreshold { get; set; } = 60;
+    // Ceiling on how much OT a day on this shift can credit, in hours — null or 0 means no
+    // limit; any other value is the cap. Enforced in dtr-api's OT pipeline
+    // (OvertimeCapper), applied after both auto-computed and manually-filed OT.
+    public double? MaxOvertimeHours { get; set; } = null;
     //public bool PaidByNetDutyTime { get; set; }
     //split
     public double MinimumWorkMinutes { get; set; } = 0;

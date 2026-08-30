@@ -60,6 +60,18 @@ public class LeaveApplication : BaseEntity
     public DateOnly LeaveDateTo { get; set; }
     public DayFraction DayFraction { get; set; } = DayFraction.FullDay;
     public PayType PayType { get; set; } = PayType.WithPay;
+    // Only meaningful when PayType == WithPay. PerDay (default) pays through the normal
+    // DTR/payroll pipeline; OneTime pays a lump sum (GovernmentAmount + CompanyAmount) during
+    // the payroll run matching ReleasePayrollDate instead, and the leave's DTR days carry
+    // zero PaidLeaveHours (see dtr-api LeavePolicy) — flagged as on-leave but not paid per day.
+    public PayoutMode PayoutMode { get; set; } = PayoutMode.PerDay;
+    // Government-released and company-funded (variance) portions of a OneTime lump sum.
+    // Required together with ReleasePayrollDate when PayoutMode == OneTime.
+    public decimal? GovernmentAmount { get; set; }
+    public decimal? CompanyAmount { get; set; }
+    // Which payroll run releases the OneTime lump sum — matched the same way
+    // SalaryAdjustment.PayrollDate is matched against a run's [FromDate, ToDate].
+    public DateOnly? ReleasePayrollDate { get; set; }
     public bool IsManualEntry { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }

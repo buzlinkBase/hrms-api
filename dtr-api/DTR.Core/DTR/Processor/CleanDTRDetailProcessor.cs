@@ -226,6 +226,7 @@ public class DailyRecordBuilder : IDailyRecordBuilder
                 Trc.SelectMany(x => x.TimeRecords.Select(x => x))).ToTimeRange();
         finalResult.SetMetaData("UnpaidLeave", metas);
         return finalResult;
+
     }
 
     private static List<LeaveMetaDataModel>? GetLeaveInfo (TimeRange timeRange,string tag)

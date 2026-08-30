@@ -136,7 +136,7 @@ public class PayrollReportService : BaseService<Payroll>
 
     public async Task<List<CostSummaryModel>> GetCostSummaryAsync(DateOnly from, DateOnly to, string groupBy, CancellationToken token)
     {
-        var payrolls = await GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to).ToListAsync(token);
+        var payrolls = await GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted).ToListAsync(token);
 
         if (groupBy == "client")
         {
@@ -193,7 +193,7 @@ public class PayrollReportService : BaseService<Payroll>
 
     public async Task<List<YtdPayrollSummaryModel>> GetYtdSummaryAsync(int year, Guid? employeeId, CancellationToken token)
     {
-        var rows = await GetQueryable(x => x.PayPeriodStart.Year == year && (employeeId == null || x.EmployeeId == employeeId)).ToListAsync(token);
+        var rows = await GetQueryable(x => x.PayPeriodStart.Year == year && x.IsPosted && (employeeId == null || x.EmployeeId == employeeId)).ToListAsync(token);
         var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
 
         return rows.GroupBy(x => x.EmployeeId).Select(g =>
@@ -227,7 +227,7 @@ public class PayrollReportService : BaseService<Payroll>
     // for employees hired/separated mid-year beyond that.
     public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token)
     {
-        var rows = await GetQueryable(x => x.PayPeriodStart.Year == year).ToListAsync(token);
+        var rows = await GetQueryable(x => x.PayPeriodStart.Year == year && x.IsPosted).ToListAsync(token);
         var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
 
         return rows.GroupBy(x => x.EmployeeId).Select(g =>

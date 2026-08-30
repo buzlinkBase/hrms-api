@@ -49,13 +49,15 @@ public class InstanceProvisioner : ITenantProvisioner
     private readonly TenantConnectionStringInfo _tenantInfo;
     private readonly ITenantProvider _tenantProvider;
     private readonly IUnitOfWorkService _uow;
+    private readonly CompanyService _companyService;
 
     public InstanceProvisioner(
         IConfiguration configuration,
         IMigrationService migrationService,
         TenantConnectionStringInfo tenantInfo,
         ITenantProvider tenantProvider,
-        IUnitOfWorkService uow
+        IUnitOfWorkService uow,
+        CompanyService companyService
         )
     {
         _configuration = configuration;
@@ -63,6 +65,7 @@ public class InstanceProvisioner : ITenantProvisioner
         _tenantInfo = tenantInfo;
         _tenantProvider = tenantProvider;
         _uow = uow;
+        _companyService = companyService;
     }
 
     public async Task ProvisionAsync(ConsumeContext<TenantCreationCompleted> context)
@@ -78,6 +81,11 @@ public class InstanceProvisioner : ITenantProvisioner
 
         // Execute migrations on shared DB
         //_migrationService.Migrate(connectionString);
+
+        // Seed the tenant's Company record — defaults the company name from the tenant
+        // name entered at signup, editable later via Setup > Company Settings.
+        await _companyService.SeedDefaultAsync(message.TenantName, context.CancellationToken);
+
         // Publish completion event (Flow C: consumed by Auth's HrDbCreatedWorker to push the
         // "tenant-added" SignalR notification back to the waiting client)
         await context.Publish(new HrisOrgProvisionedPayload
@@ -111,19 +119,22 @@ public class DedicatedProvisioner : ITenantProvisioner
     private readonly IMigrationService _migrationService;
     private readonly TenantConnectionStringInfo _tenantInfo;
     private readonly ITenantProvider _tenantProvider;
+    private readonly CompanyService _companyService;
 
     public DedicatedProvisioner(
         IConfiguration configuration,
         IDbService dbService,
         IMigrationService migrationService,
         TenantConnectionStringInfo tenantInfo,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        CompanyService companyService)
     {
         _configuration = configuration;
         _dbService = dbService;
         _migrationService = migrationService;
         _tenantInfo = tenantInfo;
         _tenantProvider = tenantProvider;
+        _companyService = companyService;
     }
 
     public async Task ProvisionAsync(ConsumeContext<TenantCreationCompleted> context)
@@ -149,6 +160,11 @@ public class DedicatedProvisioner : ITenantProvisioner
 
             // Migrate database schema
             _migrationService.Migrate(connectionModel.ConnectionString);
+
+            // Seed the tenant's Company record — defaults the company name from the tenant
+            // name entered at signup, editable later via Setup > Company Settings. Must run
+            // after the migration above, since the Companies table doesn't exist until then.
+            await _companyService.SeedDefaultAsync(message.TenantName, context.CancellationToken);
 
             // Publish domain events via ConsumeContext pipeline
             await context.Publish(new ConnectionStringPayload

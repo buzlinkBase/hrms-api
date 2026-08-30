@@ -79,10 +79,11 @@
             //line.Metadata["Divisor"] = divisor;
             //if (daysWorked.HasValue) line.Metadata["Proration"] = $"{daysWorked}/{totalDaysInMonth}";
 
+            var strategy = CutoffAllocationStrategyFactory.Resolve(context.Employee.SalaryType);
             var payload = new SSSTablePayload(
-                StatutoryHelper.CalcRemainingBalance(table.EE, balances.EEBalance, divisor, daysWorked, totalDaysInMonth),
-                StatutoryHelper.CalcRemainingBalance(table.ER, balances.ERBalance, divisor, daysWorked, totalDaysInMonth),
-                StatutoryHelper.CalcRemainingBalance(table.EC, balances.ECBalance, divisor, daysWorked, totalDaysInMonth));
+                strategy.AllocateFirstCutoffShare(table.EE, balances.EEBalance, context, divisor, daysWorked, totalDaysInMonth),
+                strategy.AllocateFirstCutoffShare(table.ER, balances.ERBalance, context, divisor, daysWorked, totalDaysInMonth),
+                strategy.AllocateFirstCutoffShare(table.EC, balances.ECBalance, context, divisor, daysWorked, totalDaysInMonth));
 
             return SSSHelper.ApplyTable(context, line, payload, context.Payload.FromDate);
         }

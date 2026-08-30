@@ -106,7 +106,6 @@ public enum ComputationBasis
 {
     None,
     FixedPerPayroll,
-    FixedMonthly,
     Table
 }
 
@@ -306,6 +305,13 @@ public enum PaySource
     Shared,        // employer advances, government reimburses (e.g. SSS Maternity)
     Unpaid,        // no pay
     Other
+}
+
+public enum PayoutMode
+{
+    PerDay,   // paid through the normal daily DTR/payroll pipeline
+    OneTime   // released as a single lump sum during a specific payroll run — see
+              // LeaveApplication.ReleasePayrollDate/GovernmentAmount/CompanyAmount
 }
 
 public enum AccrualBasis

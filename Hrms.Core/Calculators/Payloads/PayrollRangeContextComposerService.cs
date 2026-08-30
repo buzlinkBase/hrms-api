@@ -88,6 +88,7 @@ public class PayrollRangeContextComposerService
             var otherIncomeTask = await _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var deductionsTask = await _deductionService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var salaryAdjTask = await _salaryAdjService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var oneTimeLeavePayoutsTask = await _leaveService.LoadOneTimePayoutsAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var companyTask = await _companyService.FineOneAsync(token);
             var companySettings = await _generalSettingService.GetSettingsAsync("Company");
             var crossMonthCreditPolicy = companySettings.TryGetValue(SettingKey.CrossMonthStatutoryCreditPolicy.ToString(), out var creditPolicySetting)
@@ -158,6 +159,7 @@ public class PayrollRangeContextComposerService
                 Deductions = deductionsTask,
                 Incomes = otherIncomeTask,
                 SalaryAdjustments = salaryAdjTask,
+                OneTimeLeavePayouts = oneTimeLeavePayoutsTask,
                 SSSTableModel = sssTableTask,
                 PHICTableModel = phicTableTask,
                 HDMFTableModel = hdmfTableTask,

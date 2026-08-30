@@ -91,5 +91,10 @@ public class TaxContributionService : BaseService<WTaxContribution>
     //{
     //    await RemoveAsync(Id);
     //}
+
+    // Cascade cleanup for PayrollProcessorService.DeleteBatchAsync — see
+    // SSSContributionService.DeleteByBatchIdAsync for why this must mirror it.
+    public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
+        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
 }
 

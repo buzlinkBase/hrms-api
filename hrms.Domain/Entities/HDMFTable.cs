@@ -32,8 +32,10 @@ public class HDMFTable : BaseEntity
 
 }
 
+[DisableSoftDelete]
 public class HDMFContribution : BaseEntity, IDateFilter
 {
+    public Guid PayrollBatchId { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }

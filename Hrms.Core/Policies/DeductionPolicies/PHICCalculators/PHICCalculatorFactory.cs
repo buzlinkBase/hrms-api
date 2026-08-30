@@ -11,7 +11,6 @@ public class PHICCalculatorFactory
         {
             ComputationBasis.None => new NoPHICDeductionCalculator(),
             ComputationBasis.FixedPerPayroll => PHICFixSalaryFrequencyFactory.Create(context),
-            ComputationBasis.FixedMonthly => PHICFixSalaryFrequencyFactory.Create(context),
             ComputationBasis.Table => PHICTableSalaryFrequencyFactory.Create(context),
             _ => throw new NotImplementedException()
         };
@@ -39,27 +38,7 @@ public class PHICFixSalaryFrequencyFactory
     {
         var config = context.Employee.PHICRate;
         if (config == null) return new NoPHICDeductionCalculator();
-
-        if (config.ComputationType == ComputationBasis.FixedPerPayroll)
-        {
-            return new FixedPHICPerPayroll();
-        }
-
-        if (config.ComputationType == ComputationBasis.FixedMonthly)
-        {
-            return context.Employee.PayrollFrequency switch
-            {
-                PayrollFrequency.DAILY => new FixedPHICDailyCalculator(),
-                PayrollFrequency.WEEKLY => new FixedPHICWeeklyCalculator(),
-                PayrollFrequency.SEMI_MONTHLY => new FixedPHICSemiMonthlyCalculator(),
-                PayrollFrequency.MONTHLY => new FixedPHICMonthlyCalculator(),
-                _ => throw new NotImplementedException()
-            };
-        }
-        else
-        {
-            throw new NotImplementedException();
-        }
+        return new FixedPHICPerPayroll();
     }
 }
 

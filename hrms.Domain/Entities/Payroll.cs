@@ -2,6 +2,7 @@
 
 public class Payroll : BaseEntity, IPostedFilter, IDateFilter
 {
+    public string BatchCode { get; set; } = string.Empty;
     public DateOnly PayPeriodStart { get; set; }
     public DateOnly PayPeriodEnd { get; set; }
     public DateOnly PayrollDate { get; set; }
@@ -10,15 +11,20 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     // instead follow the period-earned month, same as SSS/PhilHealth/Pag-IBIG, per client
     // preference). Use this for WTax remittance reports rather than PayrollDate/ToDate.
     public DateOnly PostingPeriod { get; set; }
-    // Raw admin-entered Pay/Release Date from the payroll run request, kept for audit even
-    // though PostingPeriod already holds the resolved credit date — null unless the
-    // WTaxCrossMonthCreditPolicy/CrossMonthStatutoryCreditPolicy PayDate option was used.
+    // The PayrollBatch (header/master row for this Generate run) this row belongs to — a
+    // real FK, not just a shared Guid, so the whole run's Payroll rows can be looked up or
+    // deleted by it directly. See PayrollBatch for the batch-level facts (period, pay date,
+    // remarks, posted status) that used to be duplicated per row here.
+    public Guid PayrollBatchId { get; set; }
+    // Denormalized copies of PayrollBatch.PayDate/Remarks/IsPosted, kept in sync by
+    // PayrollProcessorService — cheap to read per row (payslip header, Payroll Summary
+    // grid) without joining PayrollBatch. PayrollBatch is the canonical source for
+    // Post/Delete decisions. Raw admin-entered Pay/Release Date from the payroll run
+    // request, kept for audit even though PostingPeriod already holds the resolved credit
+    // date — null unless the WTaxCrossMonthCreditPolicy/CrossMonthStatutoryCreditPolicy
+    // PayDate option was used.
     public DateOnly? PayDate { get; set; }
-    public Guid BatchCode { get; set; }
-    // Comma-separated DTR batch code(s) (DailyRecord.BatchCode) this payroll run was
-    // generated from — lets PayrollService.GetUsedDtrBatchCodesAsync block re-generating
-    // payroll from a DTR batch that's already been posted here.
-    public string? DtrBatchCodes { get; set; }
+    public string? Remarks { get; set; }
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;
@@ -111,6 +117,12 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     //leaves
     public decimal UnpaidLeaves { get; set; }
     public decimal PaidLeaves { get; set; }
+    // OneTime leave payout (see LeaveApplication.PayoutMode) released this run.
+    // GovernmentFundedLeavePay is deliberately excluded from GrossIncome/statutory bases
+    // (a government benefit pass-through, not compensation); CompanyFundedLeavePay is
+    // included, so it is taxed and factored into SSS/PHIC/HDMF like regular compensation.
+    public decimal GovernmentFundedLeavePay { get; set; }
+    public decimal CompanyFundedLeavePay { get; set; }
     public decimal AbsencesAmount { get; set; }
     public decimal LateAmount { get; set; }
     public decimal UnderTimeAmount { get; set; }

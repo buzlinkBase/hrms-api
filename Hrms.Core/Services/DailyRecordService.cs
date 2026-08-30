@@ -12,20 +12,20 @@ public class DailyRecordService : BaseService<DailyRecord>
     private readonly IMapper _mapper;
     private readonly ILogger<DailyRecordService> _logger;
     private readonly LeaveDtrReconciliationService _reconciliation;
-    private readonly PayrollService _payrollService;
+    private readonly PayrollBatchService _payrollBatchService;
 
     public DailyRecordService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
         IMapper mapper,
         ILogger<DailyRecordService> logger,
         LeaveDtrReconciliationService reconciliation,
-        PayrollService payrollService) : base(uow)
+        PayrollBatchService payrollBatchService) : base(uow)
     {
         _config = config;
         _mapper = mapper;
         _logger = logger;
         _reconciliation = reconciliation;
-        _payrollService = payrollService;
+        _payrollBatchService = payrollBatchService;
     }
     public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token)
     {
@@ -248,7 +248,7 @@ public class DailyRecordService : BaseService<DailyRecord>
             .OrderByDescending(x=>x.CreatedAt)
             .ToListAsync(token);
 
-        var usedBatchCodes = await _payrollService.GetUsedDtrBatchCodesAsync(token);
+        var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
 
         return records
          .GroupBy(x => x.Key)

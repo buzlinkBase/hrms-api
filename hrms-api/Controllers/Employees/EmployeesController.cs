@@ -20,6 +20,7 @@ namespace Hrms.Api.Controllers
         private readonly EmployeeImportService _employeeImportService;
         private readonly EmployeeSeederService _seederService;
         private readonly TemplateDownloaderService _templateService;
+        private readonly CompanyService _companyService;
         private readonly IWebHostEnvironment _hostEnvironment;
         private readonly IMapper _mapper;
 
@@ -27,6 +28,7 @@ namespace Hrms.Api.Controllers
             EmployeeImportService employeeImportService,
             EmployeeSeederService seederService,
             TemplateDownloaderService templateService,
+            CompanyService companyService,
             IWebHostEnvironment hostEnvironment,
             IMapper mapper)
         {
@@ -34,6 +36,7 @@ namespace Hrms.Api.Controllers
             _employeeImportService = employeeImportService;
             _seederService = seederService;
             _templateService = templateService;
+            _companyService = companyService;
             _hostEnvironment = hostEnvironment;
             _mapper = mapper;
         }
@@ -154,7 +157,8 @@ namespace Hrms.Api.Controllers
         {
             var employee = await _service.GetFullByIdAsync(id, token);
             if (employee == null) return NotFound();
-            var document = new Employee201Document(employee);
+            var company = await _companyService.FineOneAsync(token);
+            var document = new Employee201Document(employee, company);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"201-{employee.EmployeeNo}.pdf");
         }

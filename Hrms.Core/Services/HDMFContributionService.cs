@@ -76,5 +76,10 @@ public class HDMFContributionService : BaseService<HDMFContribution>
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
             ;
     }
+
+    // Cascade cleanup for PayrollProcessorService.DeleteBatchAsync — see
+    // SSSContributionService.DeleteByBatchIdAsync for why this must mirror it.
+    public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
+        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
 }
 

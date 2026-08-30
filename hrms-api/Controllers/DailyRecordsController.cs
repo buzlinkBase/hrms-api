@@ -32,6 +32,7 @@ public class DailyRecordsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
     public async Task<IActionResult> Post([FromBody] List<DTRDetailModel> model, CancellationToken token)
     {
+
         var payrollGroupId = model.Select(x => x.PayrollGroupId).FirstOrDefault(x => x.HasValue);
         if (!payrollGroupId.HasValue)
             return BadRequest("Payroll Group is required to post DTR.");
@@ -49,6 +50,7 @@ public class DailyRecordsController : ControllerBase
         await _service.AddRangeAsync(models, token);
         var respModel = _mapper.Map<List<DTRDetailModel>>(models);
         return Ok(respModel);
+
     }
 
     [HttpPost("load-summary")]

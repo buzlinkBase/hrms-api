@@ -11,7 +11,6 @@ public class WTaxCalculatorFactory
         {
             ComputationBasis.None => new NoWTaxDeductionCalculator(),
             ComputationBasis.FixedPerPayroll => WTaxFixSalaryFrequencyFactory.Create(context),
-            ComputationBasis.FixedMonthly => WTaxFixSalaryFrequencyFactory.Create(context),
             ComputationBasis.Table => WTaxTableSalaryFrequencyFactory.Create(context),
             _ => throw new NotImplementedException()
         };
@@ -40,27 +39,7 @@ public class WTaxFixSalaryFrequencyFactory
     {
         var config = context.Employee.TaxRate;
         if (config == null) return new NoWTaxDeductionCalculator();
-
-        if (config.ComputationType == ComputationBasis.FixedPerPayroll)
-        {
-            return new FixedWTaxPerPayroll();
-        }
-
-        if (config.ComputationType == ComputationBasis.FixedMonthly)
-        {
-            return context.Employee.PayrollFrequency switch
-            {
-                PayrollFrequency.DAILY => new FixedWTaxDailyCalculator(),
-                PayrollFrequency.WEEKLY => new FixedWTaxWeeklyCalculator(),
-                PayrollFrequency.SEMI_MONTHLY => new FixedWTaxSemiMonthlyCalculator(),
-                PayrollFrequency.MONTHLY => new FixedWTaxMonthlyCalculator(),
-                _ => throw new NotImplementedException()
-            };
-        }
-        else
-        {
-            throw new NotImplementedException();
-        }
+        return new FixedWTaxPerPayroll();
     }
 }
 

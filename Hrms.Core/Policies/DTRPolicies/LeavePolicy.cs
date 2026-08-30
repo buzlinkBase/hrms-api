@@ -30,6 +30,8 @@ internal class LeavePolicy : PayrollPolicyBase<LineCollection<BasicPipelineData>
                 Value = hourlyRate * (decimal)dailyRecord.UnpaidLeaveHours,
             });
         }
+
+
         if (dailyRecord.PaidLeaveHours > 0)
         {
             linecollection.Add(new BasicPipelineData

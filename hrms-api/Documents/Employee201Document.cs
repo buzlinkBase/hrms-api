@@ -1,3 +1,4 @@
+using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -8,6 +9,7 @@ namespace Hrms.Api.Documents;
 public class Employee201Document : IDocument
 {
     private readonly EmployeeFullModel _e;
+    private readonly Company? _company;
 
     private static readonly string Primary = "#1DA081";
     private static readonly string SectionHeaderBg = "#f5f5f5";
@@ -16,12 +18,19 @@ public class Employee201Document : IDocument
     private static readonly string LabelColor = "#666666";
     private static readonly string TextColor = "#1a1a1a";
 
-    public Employee201Document(EmployeeFullModel employee) => _e = employee;
+    // Falls back to the product name until the tenant fills in Company Setup.
+    private string CompanyName => string.IsNullOrWhiteSpace(_company?.Description) ? "One Punch HRIS" : _company.Description;
+
+    public Employee201Document(EmployeeFullModel employee, Company? company = null)
+    {
+        _e = employee;
+        _company = company;
+    }
 
     public DocumentMetadata GetMetadata() => new DocumentMetadata
     {
         Title = $"201 File - {_e.FullName}",
-        Author = "One Punch HRIS",
+        Author = CompanyName,
         CreationDate = DateTimeOffset.UtcNow,
     };
 
@@ -54,8 +63,14 @@ public class Employee201Document : IDocument
         {
             row.RelativeItem().Column(col =>
             {
-                col.Item().Text("ONE PUNCH HRIS").Bold().FontSize(12).FontColor(Primary);
+                col.Item().Text(CompanyName).Bold().FontSize(12).FontColor(Primary);
                 col.Item().Text("EMPLOYEE 201 FILE").FontSize(9).FontColor(LabelColor).LetterSpacing(1);
+                if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
+                {
+                    col.Item().Text(string.Join("  •  ", new[] { _company?.Address, _company?.Contact }
+                        .Where(s => !string.IsNullOrWhiteSpace(s))))
+                        .FontSize(7.5f).FontColor(LabelColor);
+                }
             });
             row.ConstantItem(160).AlignRight().Column(col =>
             {

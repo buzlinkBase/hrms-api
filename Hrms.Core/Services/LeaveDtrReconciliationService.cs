@@ -33,7 +33,13 @@ public class LeaveDtrReconciliationService
         List<DailyRecord> records,
         CancellationToken token)
     {
-        var leaveRecords = records.Where(r => r.PaidLeaveHours > 0).ToList();
+        // PaidLeaveHours is deliberately 0 for a OneTime-payout leave day (paid as a lump sum
+        // during a specific payroll run instead — see LeaveApplication.PayoutMode), so also
+        // catch those days via LeavesInfo presence or their credit reservation would never be
+        // consumed. LeavesInfo can also carry WithoutPay entries (ProcessUnPaidLeave tags them
+        // "UnpaidLeave"), but that's harmless here — the per-application loop below already
+        // skips app.PayType == WithoutPay, same as before this change.
+        var leaveRecords = records.Where(r => r.PaidLeaveHours > 0 || (r.LeavesInfo?.Count > 0)).ToList();
         if (leaveRecords.Count == 0) return;
 
         var employeeIds = leaveRecords.Select(r => r.EmployeeId).ToHashSet();

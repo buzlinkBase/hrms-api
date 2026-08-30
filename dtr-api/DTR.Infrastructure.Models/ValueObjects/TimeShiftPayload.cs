@@ -21,6 +21,7 @@ public class TimeShiftPayload : BasePayload
     public bool OTRequireTimeIn { get; set; } = false;
     public TimeSpan OTStart { get; set; }
     public double OverTimeThreshold { get; set; } = 60;
+    public double? MaxOvertimeHours { get; set; } = null;
     public double MinimumWorkMinutes { get; set; } = 0;
     public double MaxWorkingMinutes { get; set; } = 480;
 }

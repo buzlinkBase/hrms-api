@@ -82,6 +82,19 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             throw new InvalidOperationException(
                 $"Time-based (partial) filing is not allowed for \"{leave.Description}\".");
 
+        if (payload.PayType == PayType.WithPay && payload.PayoutMode == PayoutMode.OneTime)
+        {
+            if (payload.GovernmentAmount is null || payload.GovernmentAmount < 0)
+                throw new InvalidOperationException(
+                    "A Government Amount (0 or more) is required for a one-time leave payout.");
+            if (payload.CompanyAmount is null || payload.CompanyAmount < 0)
+                throw new InvalidOperationException(
+                    "A Company Amount (0 or more) is required for a one-time leave payout.");
+            if (payload.ReleasePayrollDate is null)
+                throw new InvalidOperationException(
+                    "A Release Payroll Date is required for a one-time leave payout.");
+        }
+
         if (leave.MaxConsecutiveDays.HasValue)
         {
             var span = payload.LeaveDateTo.DayNumber - payload.LeaveDateFrom.DayNumber + 1;
@@ -396,6 +409,23 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);
+    }
+
+    // Approved OneTime-payout leave applications whose ReleasePayrollDate falls within this
+    // run's date range — mirrors SalaryAdjustmentService.LoadAsync's PayrollDate matching.
+    public async Task<Dictionary<EmployeeKey, List<LeaveApplication>>> LoadOneTimePayoutsAsync(
+        List<Guid> empIds, DateOnly fromDate, DateOnly toDate, CancellationToken token)
+    {
+        return await _uow.Repository
+            .Find<LeaveApplication>(x =>
+                empIds.Contains(x.EmployeeId) &&
+                x.PayoutMode == PayoutMode.OneTime &&
+                x.ApprovalStatus == ApprovalStatus.Approved &&
+                x.ReleasePayrollDate != null &&
+                x.ReleasePayrollDate >= fromDate &&
+                x.ReleasePayrollDate <= toDate)
+            .GroupBy(x => x.EmployeeId)
+            .ToDictionaryAsync(g => new EmployeeKey(g.Key), g => g.ToList(), token);
     }
 
     public async Task<Dictionary<Leavekey, List<LeaveApplication>>>

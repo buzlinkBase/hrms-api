@@ -9,6 +9,10 @@ public class CreateLeaveApplication
     public DateOnly LeaveDateTo { get; set; }
     public DayFraction DayFraction { get; set; } = DayFraction.FullDay;
     public PayType PayType { get; set; } = PayType.WithPay;
+    public PayoutMode PayoutMode { get; set; } = PayoutMode.PerDay;
+    public decimal? GovernmentAmount { get; set; }
+    public decimal? CompanyAmount { get; set; }
+    public DateOnly? ReleasePayrollDate { get; set; }
     public bool IsManualEntry { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }

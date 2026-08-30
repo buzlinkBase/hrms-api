@@ -14,8 +14,10 @@ public class TaxTable : BaseEntity
     public decimal AddOnPercentage { get; set; }
 
 }
+[DisableSoftDelete]
 public class WTaxContribution : BaseEntity, IDateFilter
 {
+    public Guid PayrollBatchId { get; set; }
     public Guid EmployeeId { get; set; }
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }

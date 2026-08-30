@@ -20,9 +20,10 @@ public class PayrollSummaryLine
     public DateOnly PostingPeriod { get; set; }
     // Raw admin-entered Pay/Release Date from the payroll run request — see Payroll.PayDate.
     public DateOnly? PayDate { get; set; }
-    public Guid BatchCode { get; set; }
-    // Comma-separated DTR batch code(s) this line was generated from — see Payroll.DtrBatchCodes.
-    public string? DtrBatchCodes { get; set; }
+    // See Payroll.PayrollBatchId.
+    public Guid PayrollBatchId { get; set; }
+    // Free-text identity for the whole run — see Payroll.Remarks.
+    public string? Remarks { get; set; }
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;
@@ -109,6 +110,12 @@ public class PayrollSummaryLine
     //leaves
     public decimal UnpaidLeaves { get; set; }
     public decimal PaidLeaves { get; set; }
+    // OneTime leave payout (see LeaveApplication.PayoutMode) released this run.
+    // GovernmentFundedLeavePay is deliberately excluded from GrossIncome/statutory bases
+    // (a government benefit pass-through, not compensation); CompanyFundedLeavePay is
+    // included, so it is taxed and factored into SSS/PHIC/HDMF like regular compensation.
+    public decimal GovernmentFundedLeavePay { get; set; }
+    public decimal CompanyFundedLeavePay { get; set; }
     public decimal AbsencesAmount { get; set; }
     public decimal LateAmount { get; set; }
     public decimal UnderTimeAmount { get; set; }

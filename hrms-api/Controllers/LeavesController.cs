@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Hrms.Core.Messaging.LeaveWorkers;
 using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,11 +16,13 @@ namespace Hrms.Api.Controllers
     public class LeavesController : ControllerBase
     {
         private readonly LeaveService _service;
+        private readonly LeaveLedgerService _leaveLedgerService;
         private readonly IMapper _mapper;
 
-        public LeavesController(LeaveService service, IMapper mapper)
+        public LeavesController(LeaveService service, LeaveLedgerService leaveLedgerService, IMapper mapper)
         {
             _service = service;
+            _leaveLedgerService = leaveLedgerService;
             _mapper  = mapper;
         }
 
@@ -81,6 +84,20 @@ namespace Hrms.Api.Controllers
             var targetYear = year ?? DateTime.UtcNow.Year;
             await publisher.Publish(new RunLeavePeriodGrant(targetYear), token);
             return Ok($"Leave period grant triggered for {targetYear}. Credits will be created shortly.");
+        }
+
+        /// <summary>
+        /// Manually correct one employee's leave credits balance for a given leave type and
+        /// year. Records a LedgerEntryType.Adjustment entry rather than overwriting the
+        /// balance directly, so the ledger's audit trail stays intact. Creates the
+        /// LeaveCredits row if one doesn't exist yet for that employee/leave/year.
+        /// </summary>
+        [HttpPost("credits/adjust")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> AdjustCredits([FromBody] AdjustLeaveCreditsPayload payload, CancellationToken token)
+        {
+            var credits = await _leaveLedgerService.AdjustBalanceAsync(payload, token);
+            return Ok(new { credits.Id, credits.Balance, credits.Granted, credits.Used });
         }
     }
 }

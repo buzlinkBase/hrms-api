@@ -11,5 +11,6 @@ public class Company : BaseEntity
     public int TotalWorkingDays { get; set; }
     public int TakehomePercentage { get; set; }
     public bool ApplyStatutoryOnActualMonth { get; set; } = true;
+    public string TIN { get; set; } = string.Empty;
 }
 

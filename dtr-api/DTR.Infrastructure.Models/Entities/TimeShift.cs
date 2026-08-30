@@ -38,6 +38,8 @@ public class TimeShift : BaseEntity
 
     //Minimum extra hours before overtime applies.
     public double OverTimeThreshold { get; set; } = 60;
+    // Null or 0 = no limit; otherwise the max OT hours creditable for a day on this shift.
+    public double? MaxOvertimeHours { get; set; } = null;
     //public bool PaidByNetDutyTime { get; set; }
     //split
     public double MinimumWorkMinutes { get; set; } = 0;

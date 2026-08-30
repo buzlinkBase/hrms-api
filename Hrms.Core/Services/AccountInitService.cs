@@ -283,6 +283,30 @@ public class AccountInitService : BaseService<Company>
                 RequiresApproval         = true,
                 IsStatutory              = true,
             },
+            // Distinct from "SL" (company Sick Leave) on purpose — filed once an employee's
+            // SL credits are exhausted and the illness continues, so it needs its own credit
+            // pool (SL's AllowNegativeBalance=false would otherwise reject the filing). Its
+            // PayoutMode is set per-application (see LeaveApplication.PayoutMode) — OneTime
+            // when SSS releases it as a lump sum split into Government/Company amounts.
+            new Leave
+            {
+                Id                       = Guid.CreateVersion7(),
+                Code                     = "SB",
+                Category                 = "Statutory",
+                Description              = "SSS Sickness Benefit",
+                LegalBasis               = "RA 11199 (Social Security Act of 2018), Sec. 14",
+                PaySource                = PaySource.Shared,
+                EmployerAdvancesPayment  = true,
+                AccrualBasis             = AccrualBasis.None,
+                Credits                  = 120,
+                LeaveReset               = LeaveReset.PerPeriod,
+                AllowHalfDay             = false,
+                AllowNegativeBalance     = false,
+                MaxConsecutiveDays       = 120,
+                RequiresSupportingDocument = true,
+                RequiresApproval         = true,
+                IsStatutory              = true,
+            },
 
             // ── Government-sector only ────────────────────────────────────────────
             new Leave
@@ -719,14 +743,8 @@ public class AccountInitService : BaseService<Company>
     }
 
     /// <summary>
-    /// Seeds a small set of starter TimeShift schedules so a new tenant has real shifts to
-    /// assign employees to immediately. Day/Morning/Night are Fixed shifts (a single
-    /// continuous span with a 1-hour unpaid lunch); Split Shift uses a 2-hour midday gap
-    /// instead of a 1-hour lunch to represent the two work blocks (TimeShiftType has no
-    /// separate schedule-block entity — Split shifts reuse the same AM/Lunch/PM fields as
-    /// Fixed ones). TimeShiftType.FLEXI is commented out in the enum today even though the
-    /// frontend's Flexi Shift form already posts it — not seeded here since the type
-    /// doesn't exist yet; that's a separate pre-existing gap.
+    /// Seeds a single starter TimeShift (Fixed, 8am-5pm) so a new tenant has a real shift to
+    /// assign employees to immediately.
     /// </summary>
     private async Task SetDefaultTimeShifts(CancellationToken token)
     {
@@ -750,6 +768,7 @@ public class AccountInitService : BaseService<Company>
                 OTRequireTimeIn = false,
                 OTStart = new TimeSpan(17, 0, 0),
                 OverTimeThreshold = 60,
+                MaxOvertimeHours = null, // no cap by default — see TimeShift.MaxOvertimeHours
                 MinimumWorkMinutes = 240,
                 MaxWorkingMinutes = 480,
             }
@@ -784,15 +803,15 @@ public class AccountInitService : BaseService<Company>
     {
         var types = new List<DeductionType>
         {
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "GOVT",    Name = "Government Contributions" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "COLOAN",  Name = "Company Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "SSSLOAN", Name = "SSS Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "HDMFLOAN", Name = "Pag-IBIG (HDMF) Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "CASHADV", Name = "Cash Advance" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "SALLOAN", Name = "Salary Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "CALLOAN", Name = "Calamity Loan" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "MEDDENT", Name = "Medical / Dental" },
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "OTHER",   Name = "Other Deductions" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "GOVT",    Name = "Government Contributions"  , Status="ACTIVE" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "COLOAN",  Name = "Company Loan" , Status="ACTIVE" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "SSSLOAN", Name = "SSS Loan"  , Status="ACTIVE"},
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "HDMFLOAN", Name = "Pag-IBIG (HDMF) Loan" , Status="ACTIVE" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "CASHADV", Name = "Cash Advance" , Status="ACTIVE" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "SALLOAN", Name = "Salary Loan"  , Status="ACTIVE"},
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "CALLOAN", Name = "Calamity Loan"  , Status="ACTIVE"},
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "MEDDENT", Name = "Medical / Dental" , Status="ACTIVE" },
+            new DeductionType { Id = Guid.CreateVersion7(), Code = "OTHER",   Name = "Other Deductions"  , Status="ACTIVE"},
         };
         await _uow.Repository.AddRangeAsync(types, token);
     }

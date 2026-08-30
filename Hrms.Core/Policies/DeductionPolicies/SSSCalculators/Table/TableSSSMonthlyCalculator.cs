@@ -11,10 +11,11 @@
             var balances = SSSHelper.GetBalance(context, table.EE, table.ER, table.EC);
             var divisor = 1;
 
+            var strategy = CutoffAllocationStrategyFactory.Resolve(context.Employee.SalaryType);
             var payload = new SSSTablePayload(
-                StatutoryHelper.CalcRemainingBalance(table.EE, balances.EEBalance, divisor),
-                StatutoryHelper.CalcRemainingBalance(table.ER, balances.ERBalance, divisor),
-                StatutoryHelper.CalcRemainingBalance(table.EC, balances.ECBalance, divisor));
+                strategy.AllocateFirstCutoffShare(table.EE, balances.EEBalance, context, divisor),
+                strategy.AllocateFirstCutoffShare(table.ER, balances.ERBalance, context, divisor),
+                strategy.AllocateFirstCutoffShare(table.EC, balances.ECBalance, context, divisor));
 
             return SSSHelper.ApplyTable(context, line, payload, context.Payload.FromDate);
         }

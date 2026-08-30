@@ -89,5 +89,12 @@ public class SSSContributionService : BaseService<SSSContribution>
     //    await RemoveAsync(Id);
     //}
 
+    // Cascade cleanup for PayrollProcessorService.DeleteBatchAsync — removes every ledger row
+    // this run wrote in one statement, so remittance reports (which read this table directly,
+    // not Payroll.IsPosted) don't keep showing contributions for a payroll run that no longer
+    // exists. Matches on PayrollBatchId rather than EmployeeId+period so it can't collide with
+    // a different batch that happens to cover the same employee/period.
+    public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
+        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
 }
 

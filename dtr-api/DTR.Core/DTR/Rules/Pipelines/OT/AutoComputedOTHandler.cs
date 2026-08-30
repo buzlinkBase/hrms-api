@@ -11,7 +11,8 @@ public class AutoComputedOTHandler : OverTimeHandler
              .AddPolicy(new AutoComputeOvertimePolicy(new IsSystemAutoComputeOT()))
              //.AddPolicy(new TrimOTForFirst8HrPolicy(new IsOTFirst8hrRuleSpec(), SpecFailureBehavior.ReturnInput))
              ;
-        return pipeline.Execute(Input, Context);
+        var result = pipeline.Execute(Input, Context);
+        return OvertimeCapper.Cap(result, Context);
 
     }
 }

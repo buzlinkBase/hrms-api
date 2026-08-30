@@ -10,6 +10,7 @@ public class PayslipDocument : IDocument
 {
     private readonly Payroll _p;
     private readonly EmployeeFullModel _e;
+    private readonly Company? _company;
 
     private static readonly string Primary = "#1DA081";
     private static readonly string SectionHeaderBg = "#f5f5f5";
@@ -18,16 +19,20 @@ public class PayslipDocument : IDocument
     private static readonly string LabelColor = "#666666";
     private static readonly string TextColor = "#1a1a1a";
 
-    public PayslipDocument(Payroll payroll, EmployeeFullModel employee)
+    // Falls back to the product name until the tenant fills in Company Setup.
+    private string CompanyName => string.IsNullOrWhiteSpace(_company?.Description) ? "One Punch HRIS" : _company.Description;
+
+    public PayslipDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null)
     {
         _p = payroll;
         _e = employee;
+        _company = company;
     }
 
     public DocumentMetadata GetMetadata() => new DocumentMetadata
     {
         Title = $"Payslip - {_e.FullName} - {_p.PayPeriodStart:MMM dd} to {_p.PayPeriodEnd:MMM dd, yyyy}",
-        Author = "One Punch HRIS",
+        Author = CompanyName,
         CreationDate = DateTimeOffset.UtcNow,
     };
 
@@ -60,8 +65,14 @@ public class PayslipDocument : IDocument
         {
             row.RelativeItem().Column(col =>
             {
-                col.Item().Text("ONE PUNCH HRIS").Bold().FontSize(12).FontColor(Primary);
+                col.Item().Text(CompanyName).Bold().FontSize(12).FontColor(Primary);
                 col.Item().Text("PAYSLIP").FontSize(9).FontColor(LabelColor).LetterSpacing(1);
+                if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
+                {
+                    col.Item().Text(string.Join("  •  ", new[] { _company?.Address, _company?.Contact }
+                        .Where(s => !string.IsNullOrWhiteSpace(s))))
+                        .FontSize(7.5f).FontColor(LabelColor);
+                }
             });
             row.ConstantItem(200).AlignRight().Column(col =>
             {
@@ -80,8 +91,12 @@ public class PayslipDocument : IDocument
         {
             col.Spacing(8);
             col.Item().Element(ComposeEmployeeInfo);
-            col.Item().Element(ComposeEarnings);
-            col.Item().Element(ComposeDeductions);
+            col.Item().Row(row =>
+            {
+                row.Spacing(8);
+                row.RelativeItem().Element(ComposeEarnings);
+                row.RelativeItem().Element(ComposeDeductions);
+            });
             col.Item().Element(ComposeNetPay);
         });
     }
@@ -174,19 +189,30 @@ public class PayslipDocument : IDocument
                 AmountRow(table, "Regular Night Diff. Overtime", _p.RegularNDOTPay);
                 AmountRow(table, "Rest Day",
                     _p.RestDayPay + _p.RestDayOTPay + _p.RestDayNDPay + _p.RestDayNDOTPay);
-
+                // FIXED employees' Basic Pay (MonthlyRate/divisor) already pays for
+                // Company-funded paid-leave days, so showing the full PaidLeaves again here
+                // would double it up — only VARIABLE's Basic Pay (RegularDayPay only) needs
+                // the whole amount broken out. Leave paid from Government/Shared/Other
+                // sources (SSS maternity, etc.) is never embedded in FIXED's flat rate
+                // though, so that slice still needs its own line either way. See
+                // PayrollProcessorService.ComputeAllowances for the matching GrossIncome fix.
+                if (_p.SalaryType != SalaryType.FIXED)
+                {
+                    AmountRow(table, "Paid Leave", _p.PaidLeaves);
+                }
                 SubHeaderRow(table, "HOLIDAY BREAKDOWN");
                 AmountRow(table, "Legal Holiday (Unworked)", _p.LegalHolidayUnworkedPay);
-                AmountRow(table, "Holiday Duty (Worked)",
+                AmountRow(table, "Legal Holiday Duty (Worked)",
                     (_p.LegalPay - _p.LegalHolidayUnworkedPay) + _p.LegalOTPay + _p.LegalNDPay + _p.LegalNDOTPay);
                 AmountRow(table, "Rest Day + Legal Holiday",
                     _p.RestLegalPay + _p.RestLegalOTPay + _p.RestLegalNDPay + _p.RestLegalNDOTPay);
-                AmountRow(table, "Rest Day + Special Holiday",
-                    _p.RestSpecialPay + _p.RestSpecialOTPay + _p.RestSpecialNDPay + _p.RestSpecialNDOTPay);
                 AmountRow(table, "Special Holiday",
                     _p.SpecialPay + _p.SpecialOTPay + _p.SpecialNDPay + _p.SpecialNDOTPay);
+                AmountRow(table, "Rest Day + Special Holiday",
+                    _p.RestSpecialPay + _p.RestSpecialOTPay + _p.RestSpecialNDPay + _p.RestSpecialNDOTPay);
                 AmountRow(table, "Double Legal Holiday",
-                    _p.DoubleLegalPay + _p.DoubleLegalOTPay + _p.DoubleLegalNDPay + _p.DoubleLegalNDOTPay +
+                    _p.DoubleLegalPay + _p.DoubleLegalOTPay + _p.DoubleLegalNDPay + _p.DoubleLegalNDOTPay);
+                AmountRow(table, "Rest Day + Double Legal Holiday",
                     _p.RestDoubleLegalPay + _p.RestDoubleLegalOTPay + _p.RestDoubleLegalNDPay + _p.RestDoubleLegalNDOTPay);
 
                 SubHeaderRow(table, "OTHER INCOME");
@@ -222,10 +248,12 @@ public class PayslipDocument : IDocument
                 AmountRow(table, "Withholding Tax", _p.WithholdingTax);
                 AmountRow(table, "Loans", _p.TotalLoans);
                 AmountRow(table, "Other Deductions", _p.OtherDeductions - _p.TotalLoans);
-                AmountRow(table, "Late", _p.LateAmount);
-                AmountRow(table, "Under Time", _p.UnderTimeAmount);
-                AmountRow(table, "Absences", _p.AbsencesAmount);
-
+                if (_p.SalaryType == SalaryType.FIXED)
+                {
+                    AmountRow(table, "Late", _p.LateAmount);
+                    AmountRow(table, "Under Time", _p.UnderTimeAmount);
+                    AmountRow(table, "Absences", _p.AbsencesAmount);
+                }
                 AmountRow(table, "TOTAL DEDUCTIONS", _p.TotalDeductions, bold: true);
             });
         });

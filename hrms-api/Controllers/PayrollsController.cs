@@ -17,12 +17,14 @@ namespace Hrms.Api.Controllers
         private readonly PayrollProcessorService _service;
         private readonly PayrollService _payrollService;
         private readonly EmployeeService _employeeService;
+        private readonly CompanyService _companyService;
 
-        public PayrollsController(PayrollProcessorService service, PayrollService payrollService, EmployeeService employeeService)
+        public PayrollsController(PayrollProcessorService service, PayrollService payrollService, EmployeeService employeeService, CompanyService companyService)
         {
             _service = service;
             _payrollService = payrollService;
             _employeeService = employeeService;
+            _companyService = companyService;
         }
 
         [HttpPost("calculate")]
@@ -71,7 +73,8 @@ namespace Hrms.Api.Controllers
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
             var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, token);
-            var document = new PayrollSummaryReportDocument(data, fromDate, toDate);
+            var company = await _companyService.FineOneAsync(token);
+            var document = new PayrollSummaryReportDocument(data, fromDate, toDate, company);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payroll-summary-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
         }
@@ -83,9 +86,30 @@ namespace Hrms.Api.Controllers
             if (payroll == null) return NotFound();
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
-            var document = new PayslipDocument(payroll, employee);
+            var company = await _companyService.FineOneAsync(token);
+            var document = new PayslipDocument(payroll, employee, company);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
+        }
+
+        // Post and Delete are run-level transactions — an employee's payroll is never
+        // generated on its own, so it's never posted or deleted on its own either. Both act
+        // against the PayrollBatch header row (id = Payroll.PayrollBatchId). See
+        // PayrollProcessorService.PostBatchAsync / DeleteBatchAsync.
+        [HttpPost("batch/{batchId:guid}/post")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> PostBatch(Guid batchId, CancellationToken token)
+        {
+            await _service.PostBatchAsync(batchId, token);
+            return Ok("success");
+        }
+
+        [HttpDelete("batch/{batchId:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> DeleteBatch(Guid batchId, CancellationToken token)
+        {
+            await _service.DeleteBatchAsync(batchId, token);
+            return Ok("success");
         }
 
         //[HttpPost("create-payroll")]

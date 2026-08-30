@@ -58,41 +58,6 @@ public class IsComputeWtax : IPayrollSpec<DeductionPayloadContext>
     }
 }
 
-//public class IsQualityAsTaxable : IPayrollSpec<DeductionPayloadContext>
-//{
-//    private readonly decimal _allowances;
-
-//    public IsQualityAsTaxable(decimal allowances)
-//    {
-//        _allowances = allowances;
-//    }
-
-//public bool IsSatisfiedBy(DeductionPayloadContext context)
-//{
-//    if (!new IsComputeWtax().IsSatisfiedBy(context)) return false;
-
-//    var YearLyGross = context.Employee.DailyRate
-//        * context.Payload.CompanyPolicy.TotalDaysInaYear;
-
-//    YearLyGross += _allowances;
-
-//    var firstNonZero = context.Payload.TaxTableModel
-//        .Where(x => (x.BaseTaxDue > 0
-//        || x.AddOnPercentage > 0
-//        || x.PercentageInAmountOf > 0))
-//        .FirstOrDefault();
-
-//    if (firstNonZero == null) return false;
-
-//    var amount = firstNonZero.PercentageInAmountOf == 0
-//        ? firstNonZero.RangeFrom
-//        : firstNonZero.PercentageInAmountOf;
-//    var rate = firstNonZero.BaseTaxDue + (amount * firstNonZero.AddOnPercentage);
-//    return rate <= YearLyGross;
-//}
-
-//}
-
 public class IsCrossMonth : IPayrollSpec<CalculatorPayload>
 {
     public bool IsSatisfiedBy(CalculatorPayload context)

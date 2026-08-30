@@ -19,6 +19,8 @@ public class PayrollProcessorService
     private readonly PHICContributionService _phicContributionService;
     private readonly HDMFContributionService _hdmfContributionService;
     private readonly TaxContributionService _taxContributionService;
+    private readonly LeaveService _leaveService;
+    private readonly PayrollBatchService _payrollBatchService;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
@@ -33,7 +35,9 @@ public class PayrollProcessorService
         SSSContributionService sssContributionService,
         PHICContributionService phicContributionService,
         HDMFContributionService hdmfContributionService,
-        TaxContributionService taxContributionService)
+        TaxContributionService taxContributionService,
+        LeaveService leaveService,
+        PayrollBatchService payrollBatchService)
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
@@ -48,11 +52,13 @@ public class PayrollProcessorService
         _phicContributionService = phicContributionService;
         _hdmfContributionService = hdmfContributionService;
         _taxContributionService = taxContributionService;
+        _leaveService = leaveService;
+        _payrollBatchService = payrollBatchService;
     }
 
     public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
     {
-        var usedBatchCodes = await _payrollService.GetUsedDtrBatchCodesAsync(token);
+        var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
         var alreadyPosted = payload.BatchCodes.Where(usedBatchCodes.Contains).ToList();
         if (alreadyPosted.Count > 0)
         {
@@ -62,14 +68,73 @@ public class PayrollProcessorService
         }
 
         var lines = await CalculateAsync(payload, token);
+        if (lines.Count() == 0) return lines;
+        var savingBatch = Guid.CreateVersion7().ToString();
+
+        await _payrollBatchService.AddAsync(new PayrollBatch
+        {
+            PayPeriodStart = lines.MinBy(x => x.PayPeriodStart)!.PayPeriodStart,
+            PayPeriodEnd = lines.MaxBy(x => x.PayPeriodEnd)!.PayPeriodEnd,
+            PayDate = payload.PayDate,
+            DtrBatchCodes = savingBatch,
+            Remarks = payload.Remarks,
+        }, token);
+
+        // Generating no longer marks payroll as posted — a run stays an editable/deletable
+        // draft (PayrollBatch.IsPosted defaults to false) until explicitly posted via
+        // PostBatchAsync. Saving is not posting.
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)
         {
-            payroll.IsPosted = true;
+            payroll.BatchCode = savingBatch;
         }
         await _payrollService.SavePayrollsAsync(payrolls, token);
         await SaveStatutoryContributionsAsync(lines, token);
         return lines;
+
+
+
+    }
+
+    // Locks a whole Generate run in as final — an employee's payroll is never posted on its
+    // own, since it was never generated on its own either. Updates the canonical
+    // PayrollBatch.IsPosted plus each child Payroll row's denormalized copy (see
+    // Payroll.PayrollBatchId doc comment) so existing per-row report filters keep working
+    // unchanged.
+    public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        await _payrollBatchService.PostAsync(payrollBatchId, token);
+        await _payrollService.PostBatchAsync(payrollBatchId, token);
+    }
+
+    // Deletes every row from one Generate run (same PayrollBatchId) in a single action, plus
+    // the PayrollBatch header row itself. Post and Delete are run-level transactions, not
+    // per-employee ones — an employee's payroll was never generated on its own, so it isn't
+    // posted or deleted on its own either. Regenerating is blocked while ANY row from the
+    // run's DTR batch(es) still exists (see GenerateAsync/GetUsedDtrBatchCodesAsync), so a
+    // partial per-row cleanup wouldn't actually unblock a re-run anyway. Also removes the
+    // SSS/PHIC/HDMF/WTax ledger rows SaveStatutoryContributionsAsync wrote for this batch,
+    // since those are written unconditionally regardless of IsPosted and the remittance
+    // reports read them directly rather than filtering by Payroll — leaving them behind
+    // would show contributions for a payroll run that no longer exists. Each cascade delete
+    // is a single ExecuteDeleteAsync keyed on PayrollBatchId (not a per-employee loop —
+    // these 4 tables can reach millions of rows, so this matters), matching how
+    // PayrollService.DeleteByBatchIdAsync already deletes the Payroll rows themselves. If
+    // the batch has already been posted, it's left alone — a posted run is final.
+    public async Task DeleteBatchAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token);
+        if (batch == null) throw new ValidationException("Payroll batch not found.");
+        if (batch.IsPosted)
+            throw new ValidationException("This payroll run has already been posted and can no longer be deleted.");
+
+        await _sssContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
+        await _phicContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
+        await _hdmfContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
+        await _taxContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
+        await _payrollService.DeleteByBatchIdAsync(payrollBatchId, token);
+        await _payrollService.CommitChangesAsync(token);
+        await _payrollBatchService.DeleteAsync(payrollBatchId, token);
     }
 
     // Persists one SSS/PHIC/HDMF ledger row per employee for this cutoff, so the next
@@ -81,6 +146,7 @@ public class PayrollProcessorService
             .Where(l => l.SSSContribution > 0 || l.EmployerSSSContribution > 0)
             .Select(l => new SSSContribution
             {
+                PayrollBatchId = l.PayrollBatchId,
                 EmployeeId = l.EmployeeId,
                 PayrollFrom = l.PayPeriodStart,
                 PayrollTo = l.PayPeriodEnd,
@@ -96,6 +162,7 @@ public class PayrollProcessorService
             .Where(l => l.PhilHealthContribution > 0 || l.EmployerPhilHealthContribution > 0)
             .Select(l => new PHICContribution
             {
+                PayrollBatchId = l.PayrollBatchId,
                 EmployeeId = l.EmployeeId,
                 PayrollFrom = l.PayPeriodStart,
                 PayrollTo = l.PayPeriodEnd,
@@ -110,6 +177,7 @@ public class PayrollProcessorService
             .Where(l => l.PagIbigContribution > 0 || l.EmployerPagIbigContribution > 0)
             .Select(l => new HDMFContribution
             {
+                PayrollBatchId = l.PayrollBatchId,
                 EmployeeId = l.EmployeeId,
                 PayrollFrom = l.PayPeriodStart,
                 PayrollTo = l.PayPeriodEnd,
@@ -124,6 +192,7 @@ public class PayrollProcessorService
             .Where(l => l.WithholdingTax > 0)
             .Select(l => new WTaxContribution
             {
+                PayrollBatchId = l.PayrollBatchId,
                 EmployeeId = l.EmployeeId,
                 PayrollFrom = l.PayPeriodStart,
                 PayrollTo = l.PayPeriodEnd,
@@ -153,7 +222,7 @@ public class PayrollProcessorService
             .DistinctBy(x => x.Id)
             .ToList();
 
-        if (employees == null || !employees.Any())
+        if (employees == null || employees.Count() == 0)
         {
             return payrollLines;
         }
@@ -173,19 +242,37 @@ public class PayrollProcessorService
         if (needsPayDate && payload.PayDate == null)
             throw new ValidationException("A Pay/Release Date is required to generate this payroll under the configured statutory posting policy.");
 
+        // Small master table — load once per run rather than per employee. Used to split
+        // PaidLeaves by funding source (see ComputeBasicSalary/ComputeAllowances).
+        var leavePaySourceMap = (await _leaveService.FindAllAsync(token))
+            .ToDictionary(x => x.Id, x => x.PaySource);
+
         foreach (var employee in employees)
         {
             if (employee == null) continue;
-            if (!dtrRecords.Records.TryGetValue(new EmployeeKey(employee.Id), out var empDtr)) continue;
+            if (!dtrRecords.Records.TryGetValue(new EmployeeKey(employee.Id), out var empDtr))
+            {
+                continue;
+            }
             employee.DailyRate = _dailyRateResolver.Resolve(employee, dateRange.FromDate);
+
             var payrollLine = InitializePayrollLine(
                 dateRange, employee, batch, period,
                 rangePayload.CompanyPolicy.CrossMonthStatutoryCreditPolicy,
                 rangePayload.CompanyPolicy.WTaxCrossMonthCreditPolicy,
-                payload.PayDate, payload.BatchCodes);
-            ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine);
+                payload.PayDate, payload.Remarks);
+
+            ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine, leavePaySourceMap);
             ComputeAllowances(dateRange, rangePayload, employee, payrollLine);
+            // Deliberately before ComputeDeductions (unlike ApplySalaryAdjustments, which runs
+            // after) — the Company-funded portion must already be part of GrossIncome so the
+            // SSS/PHIC/HDMF/WTax calculators below see it via StatutoryHelper.Get*GrossBaseRate.
+            ApplyOneTimeLeavePayoutsToGross(rangePayload, employee, payrollLine);
             ComputeDeductions(rangePayload, employee, payrollLine);
+            // ComputeDeductions just freshly recomputed NetPay from GrossIncome (not an
+            // increment), so the Government-funded portion — deliberately kept out of
+            // GrossIncome/statutory bases above — can only be added to NetPay here, after.
+            payrollLine.NetPay += payrollLine.GovernmentFundedLeavePay;
             ApplySalaryAdjustments(rangePayload, employee, payrollLine);
             payrollLines.Add(payrollLine);
         }
@@ -204,12 +291,12 @@ public class PayrollProcessorService
     private static PayrollSummaryLine InitializePayrollLine(
         DateRangePayload payload,
         EmployeeModelPayrollRun employee,
-        Guid batch,
+        Guid payrollBatchId,
         string period,
         CrossMonthStatutoryCreditPolicy creditPolicy,
         CrossMonthStatutoryCreditPolicy wtaxCreditPolicy,
         DateOnly? payDate,
-        List<string> dtrBatchCodes) =>
+        string? remarks) =>
         new PayrollSummaryLine
         {
             PayrollPeriod = period,
@@ -217,8 +304,8 @@ public class PayrollProcessorService
             PayPeriodEnd = payload.ToDate,
             EmployeeId = employee.Id,
             FullName = employee.FullName,
-            BatchCode = batch,
-            DtrBatchCodes = string.Join(",", dtrBatchCodes),
+            PayrollBatchId = payrollBatchId,
+            Remarks = remarks,
             PayrollDate = payload.ToDate,
             StatutoryCreditDate = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, creditPolicy, payDate),
             PostingPeriod = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, wtaxCreditPolicy, payDate),
@@ -233,13 +320,15 @@ public class PayrollProcessorService
         List<DailyRecordRunModel> dtrs,
         EmployeeModelPayrollRun employee,
         CalculatorPayload rangePayload,
-        PayrollSummaryLine payrollLine)
+        PayrollSummaryLine payrollLine,
+        Dictionary<Guid, PaySource> leavePaySourceMap)
     {
         var employeeBasicCalc = CalculateDTRTimePay(payload, dtrs, employee, rangePayload);
         payrollLine.TimeHourPayResults = employeeBasicCalc;
         payrollLine.SalaryType = employee.SalaryType;
         payrollLine.DailyRate = employee.DailyRate;
         CalcBasicRate(payrollLine, employeeBasicCalc, employee);
+
         payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateAmount);
         payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.TotalOT);
         payrollLine.UnderTimeAmount = employeeBasicCalc.Sum(x => x.UTAmount);
@@ -295,6 +384,13 @@ public class PayrollProcessorService
 
     }
 
+    // Splits PaidLeaves by funding source using each DTR day's LeavesInfo (LeaveId + hours,
+    // written by the DTR reconciliation engine) joined against Leave.PaySource. Expressed
+    // as a proportional share of the already-computed PaidLeaves money (rather than
+    // re-deriving hourly-rate pay here) so it can never exceed PaidLeaves and stays
+    // consistent with whatever rate/proration LeavePolicy applied.
+
+
     private List<DTRPayModel> CalculateDTRTimePay(
         DateRangePayload payload,
         List<DailyRecordRunModel> dtrs,
@@ -326,9 +422,7 @@ public class PayrollProcessorService
         return basicResultMoel;
     }
 
-    private void CalcBasicRate(PayrollSummaryLine payrollLine,
-        List<DTRPayModel> TimeCalcResult,
-        EmployeeModelPayrollRun employee)
+    private void CalcBasicRate(PayrollSummaryLine payrollLine, List<DTRPayModel> TimeCalcResult, EmployeeModelPayrollRun employee)
     {
         if (employee.SalaryType != SalaryType.FIXED)
         {
@@ -340,7 +434,6 @@ public class PayrollProcessorService
         var deductions = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));
         basicTotal = basicTotal - deductions;
         payrollLine.BasicPay = basicTotal;
-
     }
 
 
@@ -385,7 +478,17 @@ public class PayrollProcessorService
         payrollLine.TotalRegularAllowances = IncomeCalcResult.RegularAllowances.Sum(x => x.Amount);
         payrollLine.OtherIncomeCollection = IncomeCalcResult.AllIncome;
         payrollLine.RegularAllowanceProrated = CaptureProratedAllowance(pp, payrollLine.TotalRegularAllowances);
-        payrollLine.GrossIncome = payrollLine.BasicPay +  PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.TimeHourPayResults);
+        payrollLine.GrossIncome = payrollLine.BasicPay + PayrollProcessorUtil.GetGrossIncome(IncomeCalcResult, payrollLine.TimeHourPayResults);
+        // DTRPayModel.Gross (folded into GetGrossIncome above) always adds PaidLeaves, but
+        // for FIXED employees CalcBasicRate's MonthlyRate/divisor BasicPay already pays for
+        // every day in the period — including paid-leave days — and only subtracts
+        // Late/UT/Unpaid Leave/Absences from it, not paid leave. Adding PaidLeaves again
+        // here would double-count it. VARIABLE's BasicPay only sums RegularDayPay, so for
+        // VARIABLE this is the only place leave-with-pay compensation gets credited.
+        // Only the Company-funded slice is embedded in FIXED's flat rate, though — leave
+        // paid out of Government/Shared/Other sources (SSS maternity, etc.) is never part
+        // of the guaranteed monthly rate, so NonCompanyPaidLeaves must still be added for
+        // FIXED employees too.
         IdentifyTaxableIncome(payrollLine, IncomeCalcResult);
 
     }
@@ -417,6 +520,36 @@ public class PayrollProcessorService
         payrollLine.EmployerPhilHealthContribution = deductionPipeLine.PHIC.Total;
         payrollLine.EmployerPagIbigContribution = deductionPipeLine.HDMF.Total;
         payrollLine.EmployerECContribution = deductionPipeLine.SSS.EC;
+    }
+
+    // Injects an approved OneTime leave payout (see LeaveApplication.PayoutMode) matched to
+    // this run via ReleasePayrollDate. GovernmentAmount is deliberately kept out of
+    // GrossIncome — it's a government benefit pass-through, not compensation, and all four
+    // statutory calculators (SSS/PHIC/HDMF/WTax) share the same GrossIncome-based bracket
+    // lookup, so there's no cheaper way to exempt it from WTax alone. CompanyAmount is taxable
+    // compensation, so it's added to GrossIncome here and (see the call site) NetPay is left
+    // for ComputeDeductions to (re)compute from that — GovernmentAmount is added to NetPay
+    // separately, after ComputeDeductions runs.
+    // internal (not private) so hrms.test can exercise this directly without a DB — see
+    // Hrms.Core's InternalsVisibleTo for hrms.test.
+    internal static void ApplyOneTimeLeavePayoutsToGross(
+        CalculatorPayload rangePayload,
+        EmployeeModelPayrollRun employee,
+        PayrollSummaryLine payrollLine)
+    {
+        if (!rangePayload.OneTimeLeavePayouts.TryGetValue(new EmployeeKey(employee.Id), out var payouts))
+            return;
+
+        foreach (var payout in payouts)
+        {
+            var gov = payout.GovernmentAmount ?? 0;
+            var comp = payout.CompanyAmount ?? 0;
+            payrollLine.GovernmentFundedLeavePay += gov;
+            payrollLine.CompanyFundedLeavePay += comp;
+            payrollLine.NonTaxableBenefits += gov;
+            payrollLine.TaxableBenefits += comp;
+            payrollLine.GrossIncome += comp;
+        }
     }
 
     private static void ApplySalaryAdjustments(
