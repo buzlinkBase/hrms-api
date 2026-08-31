@@ -116,3 +116,57 @@ public class ThirteenthMonthModel
     public decimal TotalBasicPayForYear { get; set; }
     public decimal ThirteenthMonthPay { get; set; }
 }
+
+// BIR Form 1601-C's actual return figures for one posting period — company-wide totals,
+// not a per-employee breakdown. Filed through eBIRForms/eFPS (BIR does not accept a raw
+// file upload for this return the way SSS/PhilHealth/Pag-IBIG do), so this exists to give
+// the preparer the exact numbers to transcribe rather than to be a submittable file itself.
+public class MonthlyRemittanceReturnModel
+{
+    public DateOnly PeriodFrom { get; set; }
+    public DateOnly PeriodTo { get; set; }
+    public int EmployeeCount { get; set; }
+    public decimal TotalTaxableCompensation { get; set; }
+    public decimal TotalTaxWithheld { get; set; }
+}
+
+// One row per employee per year — the BIR Alphalist's per-employee annual compensation/tax
+// breakdown. Also the source data for each employee's 2316 certificate.
+public class AlphalistEntryModel
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string TIN { get; set; } = string.Empty;
+    public int Year { get; set; }
+    public decimal GrossCompensation { get; set; }
+    public decimal NonTaxableCompensation { get; set; }
+    public decimal TaxableCompensation { get; set; }
+    public decimal ThirteenthMonthPay { get; set; }
+    public decimal TotalSSS { get; set; }
+    public decimal TotalPhilHealth { get; set; }
+    public decimal TotalPagIbig { get; set; }
+    public decimal TotalTaxWithheld { get; set; }
+}
+
+// Single-employee annual data for a BIR 2316 certificate — AlphalistEntryModel's figures
+// plus the employee/employer identification fields the certificate itself needs.
+public class Bir2316Model
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string TIN { get; set; } = string.Empty;
+    public string RDOCode { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string CivilStatus { get; set; } = string.Empty;
+    public int Year { get; set; }
+    public decimal GrossCompensation { get; set; }
+    public decimal NonTaxableCompensation { get; set; }
+    public decimal TaxableCompensation { get; set; }
+    public decimal ThirteenthMonthPay { get; set; }
+    public decimal TotalSSS { get; set; }
+    public decimal TotalPhilHealth { get; set; }
+    public decimal TotalPagIbig { get; set; }
+    public decimal TotalTaxWithheld { get; set; }
+}

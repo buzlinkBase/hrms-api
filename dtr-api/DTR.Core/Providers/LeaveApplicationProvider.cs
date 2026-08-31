@@ -69,6 +69,47 @@ public class TravelApplicationProvider
         _employee = currentEmployee;
     }
 
+    //public TravelOrderApplication? GetApplication(DateOnly date)
+    //{
+    //    var key = new TravelKey(_employee.Id);
+    //    if (!_travelApplications.TryGetValue(key, out var applications))
+    //    {
+    //        return null;
+    //    }
+
+    //    var app = applications.FirstOrDefault(a => a.StartDate <= date && date <= a.EndDate);
+    //    if (app == null || !app.StartTime.HasValue || !app.EndTime.HasValue)
+    //    {
+    //        return null;
+    //    }
+
+    //    TimeOnly startTimeOnly = TimeOnly.FromDateTime(app.StartTime.Value);
+    //    TimeOnly endTimeOnly = TimeOnly.FromDateTime(app.EndTime.Value);
+    //    var isCross = app.EndDate.ToDateTime(TimeOnly.MinValue).Date < app.EndTime.Value.Date;
+
+    //    return new TravelOrderApplication
+    //    {
+    //        Id = app.Id,
+    //        ApplicationDate = app.ApplicationDate,
+    //        Destination = app.Destination,
+    //        Cost = app.Cost,
+    //        EmployeeId = app.EmployeeId,
+    //        IsManualEntry = app.IsManualEntry,
+    //        Purpose = app.Purpose,
+    //        Reference = app.Reference,
+    //        TenantId = app.TenantId,
+    //        TotalMinutes = app.TotalMinutes,
+    //        Status = app.Status,
+    //        Classification = app.Classification,
+    //        StartDate = date,
+    //        EndDate = date,
+    //        StartTime = date.ToDateTime(startTimeOnly),
+    //        EndTime = isCross
+    //        ? date.AddDays(1).ToDateTime(endTimeOnly)
+    //        : date.ToDateTime(endTimeOnly)
+    //    };
+    //}
+
     public TravelOrderApplication? GetApplication(DateOnly date)
     {
         var key = new TravelKey(_employee.Id);
@@ -77,15 +118,29 @@ public class TravelApplicationProvider
             return null;
         }
 
+        // Find application where 'date' falls strictly within [StartDate, EndDate]
         var app = applications.FirstOrDefault(a => a.StartDate <= date && date <= a.EndDate);
-        if (app == null || !app.StartTime.HasValue || !app.EndTime.HasValue)
+        if (app == null)
         {
             return null;
         }
 
-        TimeOnly startTimeOnly = TimeOnly.FromDateTime(app.StartTime.Value);
-        TimeOnly endTimeOnly = TimeOnly.FromDateTime(app.EndTime.Value);
-        var isCross = app.EndDate.ToDateTime(TimeOnly.MinValue).Date < app.EndTime.Value.Date;
+        // Default to full-day bounds (00:00 to 23:59:59) if times are not specified
+        TimeOnly startTimeOnly = app.StartTime.HasValue
+            ? TimeOnly.FromDateTime(app.StartTime.Value)
+            : TimeOnly.MinValue;
+
+        TimeOnly endTimeOnly = app.EndTime.HasValue
+            ? TimeOnly.FromDateTime(app.EndTime.Value)
+            : TimeOnly.MaxValue;
+
+        // Check if EndTime spans into the day after EndDate
+        bool isCross = app.EndTime.HasValue && app.EndTime.Value.Date > app.EndDate.ToDateTime(TimeOnly.MinValue).Date;
+
+        // Determine target EndDate for this single-day evaluation
+        DateTime resolvedEndTime = (isCross && date == app.EndDate)
+            ? date.AddDays(1).ToDateTime(endTimeOnly)
+            : date.ToDateTime(endTimeOnly);
 
         return new TravelOrderApplication
         {
@@ -104,9 +159,8 @@ public class TravelApplicationProvider
             StartDate = date,
             EndDate = date,
             StartTime = date.ToDateTime(startTimeOnly),
-            EndTime = isCross
-            ? date.AddDays(1).ToDateTime(endTimeOnly)
-            : date.ToDateTime(endTimeOnly)
+            EndTime = resolvedEndTime
         };
     }
+
 }

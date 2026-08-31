@@ -428,22 +428,26 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             .ToDictionaryAsync(g => new EmployeeKey(g.Key), g => g.ToList(), token);
     }
 
-    public async Task<Dictionary<Leavekey, List<LeaveApplication>>>
-        FindByDateRangeAsync(DateOnly fromDate,
-        DateOnly toDate,
-        HashSet<Guid> employeeIds,
-        CancellationToken token)
+    public async Task<Dictionary<Leavekey, List<LeaveApplication>>> FindByDateRangeAsync(
+    DateOnly fromDate,
+    DateOnly toDate,
+    HashSet<Guid> employeeIds,
+    CancellationToken token)
     {
-        var data = await _uow.Repository
-        .Find<LeaveApplication>(x => x.LeaveDateFrom >= fromDate
-            && x.ApprovalStatus == ApprovalStatus.Approved
-            && x.LeaveDateTo <= toDate
-            && employeeIds.Contains(x.EmployeeId))
-        .Include(x => x.Leave)
-        .GroupBy(a => new Leavekey(a.EmployeeId))
-        .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.LeaveDateFrom).ToList(), token);
-        ;
-        return data;
+        var rawData = await _uow.Repository
+            .Find<LeaveApplication>(x => x.LeaveDateFrom <= toDate
+                && x.LeaveDateTo >= fromDate
+                && x.ApprovalStatus == ApprovalStatus.Approved
+                && employeeIds.Contains(x.EmployeeId))
+            .Include(x => x.Leave)
+            .ToListAsync(token);
+
+        return rawData
+            .GroupBy(a => new Leavekey(a.EmployeeId))
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(x => x.LeaveDateFrom).ToList()
+            );
     }
 }
 public readonly record struct Leavekey(Guid EmpId);

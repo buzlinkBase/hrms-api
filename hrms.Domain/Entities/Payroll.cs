@@ -143,6 +143,13 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
 
     public decimal NonTaxableBenefits { get; set; }
     public decimal TaxableBenefits { get; set; }
+    // Persisted copies of PayrollSummaryLine.TaxableIncome/NonTaxableIncome (gross less
+    // non-taxable allowances/contributions before the BIR tax lookup) — needed for BIR
+    // Alphalist/2316 annual rollups. Property names must match PayrollSummaryLine exactly:
+    // Mapster's convention mapping (used by PayrollProcessorService.GenerateAsync) only maps
+    // identically-named members. Rows generated before this field existed will read 0.
+    public decimal TaxableIncome { get; set; }
+    public decimal NonTaxableIncome { get; set; }
     //public List<DTRPayModel> TimeHourPayResults { get; set; } = new();
     //public List<OtherIncomeSchedules> OtherIncomeCollection { get; set; } = new();
     //public List<DeductionInfo> DeductionCollection { get; set; } = new();

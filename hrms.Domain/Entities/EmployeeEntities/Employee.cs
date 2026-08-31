@@ -75,6 +75,8 @@ public class Employee : BaseEntity
     public string PHICNo { get; set; } = string.Empty;
     public string HDMFNo { get; set; } = string.Empty;
     public string TIN { get; set; } = string.Empty;
+    // BIR Revenue District Office code — needed on 2316 certificates/Alphalist.
+    public string RDOCode { get; set; } = string.Empty;
 
     public string Contact { get; set; } = string.Empty;
     public string Address1 { get; set; } = string.Empty;

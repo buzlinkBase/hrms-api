@@ -246,6 +246,84 @@ public class PayrollReportService : BaseService<Payroll>
         }).OrderBy(x => x.FullName).ToList();
     }
 
+    // BIR 1601-C's actual return figures for one posting period. Filtered by PostingPeriod
+    // (the BIR-specific reporting-period date, independently configurable from
+    // PayPeriodStart/End via WTaxCrossMonthCreditPolicy) — not PayPeriodStart/End — to match
+    // how WTaxContribution.PayrollDate (and therefore the WTax remittance report) is already
+    // credited. See Payroll.PostingPeriod's doc comment.
+    public async Task<MonthlyRemittanceReturnModel> GetMonthlyRemittanceReturnAsync(DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => x.PostingPeriod >= from && x.PostingPeriod <= to && x.IsPosted).ToListAsync(token);
+        return new MonthlyRemittanceReturnModel
+        {
+            PeriodFrom = from,
+            PeriodTo = to,
+            EmployeeCount = rows.Select(x => x.EmployeeId).Distinct().Count(),
+            TotalTaxableCompensation = rows.Sum(x => x.TaxableIncome),
+            TotalTaxWithheld = rows.Sum(x => x.WithholdingTax),
+        };
+    }
+
+    // BIR Alphalist — one row per employee for the year. TaxableIncome/NonTaxableIncome only
+    // exist on Payroll rows generated after that migration landed (see Payroll.cs); earlier
+    // rows read as 0 here.
+    public async Task<List<AlphalistEntryModel>> GetAlphalistAsync(int year, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => x.PostingPeriod.Year == year && x.IsPosted).ToListAsync(token);
+        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
+
+        return rows.GroupBy(x => x.EmployeeId).Select(g =>
+        {
+            employeeMap.TryGetValue(g.Key, out var e);
+            return new AlphalistEntryModel
+            {
+                EmployeeId = g.Key,
+                EmployeeNo = e?.EmployeeNo ?? "",
+                FullName = e.FullName(),
+                TIN = e?.TIN ?? "",
+                Year = year,
+                GrossCompensation = g.Sum(x => x.GrossIncome),
+                NonTaxableCompensation = g.Sum(x => x.NonTaxableIncome),
+                TaxableCompensation = g.Sum(x => x.TaxableIncome),
+                ThirteenthMonthPay = g.Sum(x => x.BasicPay) / 12,
+                TotalSSS = g.Sum(x => x.SSSContribution),
+                TotalPhilHealth = g.Sum(x => x.PhilHealthContribution),
+                TotalPagIbig = g.Sum(x => x.PagIbigContribution),
+                TotalTaxWithheld = g.Sum(x => x.WithholdingTax),
+            };
+        }).OrderBy(x => x.FullName).ToList();
+    }
+
+    // Single-employee version of the Alphalist row, plus the identification fields a 2316
+    // certificate needs — null if the employee has no posted payroll for that year.
+    public async Task<Bir2316Model?> Get2316DataAsync(Guid employeeId, int year, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => x.EmployeeId == employeeId && x.PostingPeriod.Year == year && x.IsPosted).ToListAsync(token);
+        if (rows.Count == 0) return null;
+
+        var employee = await _employeeService.GetFullByIdAsync(employeeId, token);
+        return new Bir2316Model
+        {
+            EmployeeId = employeeId,
+            EmployeeNo = employee?.EmployeeNo ?? "",
+            FullName = employee?.FullName ?? "",
+            TIN = employee?.TIN ?? "",
+            RDOCode = employee?.RDOCode ?? "",
+            Address = string.Join(", ", new[] { employee?.Address1, employee?.Address2 }
+                .Where(s => !string.IsNullOrWhiteSpace(s))),
+            CivilStatus = employee?.CivilStatus ?? "",
+            Year = year,
+            GrossCompensation = rows.Sum(x => x.GrossIncome),
+            NonTaxableCompensation = rows.Sum(x => x.NonTaxableIncome),
+            TaxableCompensation = rows.Sum(x => x.TaxableIncome),
+            ThirteenthMonthPay = rows.Sum(x => x.BasicPay) / 12,
+            TotalSSS = rows.Sum(x => x.SSSContribution),
+            TotalPhilHealth = rows.Sum(x => x.PhilHealthContribution),
+            TotalPagIbig = rows.Sum(x => x.PagIbigContribution),
+            TotalTaxWithheld = rows.Sum(x => x.WithholdingTax),
+        };
+    }
+
     private async Task<Dictionary<Guid, Employee>> LoadEmployeeMapAsync(IEnumerable<Guid> employeeIds, CancellationToken token)
     {
         var employees = await _employeeService.FindByIds(employeeIds.Distinct().ToList(), token);

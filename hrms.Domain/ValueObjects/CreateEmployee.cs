@@ -79,6 +79,7 @@ public class CreateEmployee
     public string PHICNo { get; set; } = string.Empty;
     public string HDMFNo { get; set; } = string.Empty;
     public string TIN { get; set; } = string.Empty;
+    public string RDOCode { get; set; } = string.Empty;
 
     public string Contact { get; set; } = string.Empty;
     public string Address1 { get; set; } = string.Empty;
@@ -148,6 +149,7 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public string PHICNo { get; set; } = string.Empty;
     [IgnoreMember] public string HDMFNo { get; set; } = string.Empty;
     [IgnoreMember] public string TIN { get; set; } = string.Empty;
+    [IgnoreMember] public string RDOCode { get; set; } = string.Empty;
     [IgnoreMember] public string? Email { get; set; }
     [IgnoreMember] public string Contact { get; set; } = string.Empty;
     [IgnoreMember] public string Address1 { get; set; } = string.Empty;
@@ -227,6 +229,7 @@ public class EmployeeFullModel
     public string PHICNo { get; set; } = string.Empty;
     public string HDMFNo { get; set; } = string.Empty;
     public string TIN { get; set; } = string.Empty;
+    public string RDOCode { get; set; } = string.Empty;
 
     public string Contact { get; set; } = string.Empty;
     public string Address1 { get; set; } = string.Empty;

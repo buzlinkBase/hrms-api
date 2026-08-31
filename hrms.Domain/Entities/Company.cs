@@ -12,5 +12,13 @@ public class Company : BaseEntity
     public int TakehomePercentage { get; set; }
     public bool ApplyStatutoryOnActualMonth { get; set; } = true;
     public string TIN { get; set; } = string.Empty;
+
+    // ── Government agency registration (BIR/SSS/PhilHealth/Pag-IBIG report headers) ─────
+    public string RDOCode { get; set; } = string.Empty;
+    public string SSSNumber { get; set; } = string.Empty;
+    public string PhilHealthNumber { get; set; } = string.Empty;
+    public string PagIbigNumber { get; set; } = string.Empty;
+    public string AuthorizedSignatoryName { get; set; } = string.Empty;
+    public string AuthorizedSignatoryTitle { get; set; } = string.Empty;
 }
 

@@ -1,4 +1,5 @@
-﻿using Hrms.Core.Extensions;
+﻿using System.Text;
+using Hrms.Core.Extensions;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using Mapster;
@@ -96,5 +97,35 @@ public class SSSContributionService : BaseService<SSSContribution>
     // a different batch that happens to cover the same employee/period.
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
         await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
+
+    // SSS R3 (Contribution Collection List) electronic file for upload via the My.SSS
+    // employer portal. Column layout implemented from general knowledge of the My.SSS R3
+    // upload template, NOT against a live reference spec — diff against the current portal
+    // template before first real submission. ER Share here already folds in EC (SSSHelper
+    // reports them separately, but the shared ContributionRemittanceModel this reuses
+    // combines them — see GetRemittanceReportAsync above).
+    public async Task<byte[]> GenerateR3FileAsync(DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => x.PayrollDate >= from && x.PayrollDate <= to).ToListAsync(token);
+        var employees = await _employeeService.FindByIds(rows.Select(x => x.EmployeeId).Distinct().ToList(), token);
+        var employeeMap = employees.ToDictionary(x => x.Id);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("SS Number,Last Name,First Name,Middle Name,EE Share,ER Share (incl. EC),Total Contribution,Applicable Period");
+        foreach (var r in rows.OrderBy(x => employeeMap.TryGetValue(x.EmployeeId, out var e) ? e.LastName : ""))
+        {
+            employeeMap.TryGetValue(r.EmployeeId, out var emp);
+            sb.AppendLine(string.Join(",",
+                StatutoryFileFormat.CsvField(emp?.SSSNo ?? ""),
+                StatutoryFileFormat.CsvField(emp?.LastName ?? ""),
+                StatutoryFileFormat.CsvField(emp?.FirstName ?? ""),
+                StatutoryFileFormat.CsvField(emp?.MiddleName ?? ""),
+                r.EE.ToString("F2"),
+                (r.ER + r.EC).ToString("F2"),
+                r.TotalContibution.ToString("F2"),
+                from.ToString("MM/yyyy")));
+        }
+        return Encoding.UTF8.GetBytes(sb.ToString());
+    }
 }
 
