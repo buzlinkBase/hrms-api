@@ -100,7 +100,14 @@ public class PayrollGroupService : BaseService<PayrollGroup>
     }
     public async Task<PayrollGroup?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        var group = await GetOneAsync(Id, token);
+        // CutoffDays is an unordered EF Core collection navigation — without an explicit
+        // order, rows come back in whatever order the DB happens to return them, which the
+        // Payroll Group Detail screen then renders as-is. Order by Id (insertion order) so
+        // the list is stable and matches the sequence cutoffs were added in.
+        if (group?.CutoffDays != null)
+            group.CutoffDays = group.CutoffDays.OrderBy(x => x.Id).ToList();
+        return group;
     }
     public async Task Delete(Guid Id, CancellationToken token)
     {
