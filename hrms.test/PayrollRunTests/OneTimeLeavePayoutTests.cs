@@ -40,6 +40,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         line.GrossIncome.Should().Be(20_000);
         line.GovernmentFundedLeavePay.Should().Be(0);
         line.CompanyFundedLeavePay.Should().Be(0);
+
     }
 
     [Fact]

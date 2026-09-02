@@ -1,5 +1,3 @@
-using NpgsqlTypes;
-
 namespace Hrms.Core.Calculators;
 
 public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
@@ -328,11 +326,18 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             TotalOT = otTotal,
             TotalND = ndTotal,
             TotalNDOT = ndotTotal,
+
             NDPremiumPay = ndPremiumTotal,
             OTPremiumPay = otPremiumTotal,
-            Holiday = legal.Value + special + restlegal + restSpecial + doubleLegal.Value + restDoubleLegal.Value,
-            Gross = paid
-            + otTotal
+
+            Holiday = legal.Value // + legalOT + legalND + legalNDOT
+            + special //+ specialOT + specialND + specialNDOT
+            + restlegal //+ restLegalOT + restLegalND + restLegalNDOT
+            + restSpecial //+ restSpecialOT + restSpecialND + restSpecialNDOT
+            + doubleLegal.Value //+ doubleLegalOT + doubleLegalND + doubleLegalNDOT
+            + restDoubleLegal.Value, // + restDoubleLegalOT  + restDoubleLegalND + restDoubleLegalNDOT,
+
+            TotalExcludingBasic = otTotal
             + ndTotal
             + ndotTotal
             + restday
@@ -342,6 +347,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             + restSpecial
             + doubleLegal.Value
             + restDoubleLegal.Value
+
         };
     }
 }

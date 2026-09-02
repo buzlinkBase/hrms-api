@@ -21,6 +21,18 @@ public record PayrollRunPayload(List<string> BatchCodes)
     // so Post/Delete Payroll Run can show which run is which.
     public string? Remarks { get; init; }
 }
+
+// Payload for the "Generate 13th Month Pay" run — a lump-sum, non-attendance-based payout,
+// so unlike PayrollRunPayload there's no DTR batch to select from. PayrollGroupIds/EmployeeIds
+// scope which employees are included; both null/empty means everyone with posted regular pay
+// in Year. See PayrollProcessorService.GenerateThirteenthMonthAsync.
+public record ThirteenthMonthRunPayload(int Year)
+{
+    public List<Guid>? PayrollGroupIds { get; init; }
+    public List<Guid>? EmployeeIds { get; init; }
+    public DateOnly? PayDate { get; init; }
+    public string? Remarks { get; init; }
+}
 public class CompanyPolicyRule
 {
     public OvertimeInclusionPolicy OTInclusionPolicy { get; set; }
@@ -30,8 +42,8 @@ public class CompanyPolicyRule
     public CrossMonthStatutoryCreditPolicy WTaxCrossMonthCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
     public bool TreatNdotAsNdOnly { get; set; } = false;
     public decimal RequiredTakehomePercentage { get; set; } = 10;
-    public int RequiredWorkingDays { get; set; } = 22;
-    public int TotalDaysInaYear { get; set; } = 264;//22*12 use for daily rate computation for fix rate
+    //public int RequiredWorkingDays { get; set; } = 22;
+    //public int TotalDaysInaYear { get; set; } = 264;//22*12 use for daily rate computation for fix rate
     //public decimal StatutoryCap { get; set; }
     //public decimal _13thMonthCap { get; set; } = 90_000;
 }

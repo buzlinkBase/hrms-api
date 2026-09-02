@@ -4,6 +4,7 @@ using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    partial class HrmsContextModelSnapshot : ModelSnapshot
+    [Migration("20260831050352_projectsite_atg_branch")]
+    partial class projectsite_atg_branch
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3653,9 +3656,6 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("PayrollType")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("PhilHealthContribution")
                         .HasColumnType("decimal(65,30)");
 
@@ -3897,9 +3897,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<DateOnly>("PayPeriodStart")
                         .HasColumnType("date");
-
-                    b.Property<int>("PayrollType")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("PostedAt")
                         .HasColumnType("datetime(6)");

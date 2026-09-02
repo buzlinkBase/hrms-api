@@ -56,17 +56,6 @@ namespace Hrms.Api.Controllers
             return Ok(respModel);
         }
 
-        [HttpPost("insert-default")]
-        [AllowAnonymous]
-        [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
-        public async Task<IActionResult> AddDefault(CancellationToken token)
-        {
-            await _accountInitService.Create(token);
-            await _accountInitService.CommitChangesAsync(token);
-            return NoContent();
-        }
-
-
         [HttpPut("{id}")]
         [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateRateTable payload, CancellationToken token)

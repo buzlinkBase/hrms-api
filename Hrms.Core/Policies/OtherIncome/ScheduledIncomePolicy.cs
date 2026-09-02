@@ -22,12 +22,10 @@ internal class ScheduledIncomePolicy : PayrollPolicyBase<AllowancePipeData, Payr
         line.Bonuses = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.SpecialBonus).ToList();
         line.Reimbursements = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.Reimbursement).ToList();
         line.OtherIncome = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.Others).ToList();
-
         //TODO capture saved prorated allowance from db to be included for the current month for SSS computation
-        line.ProratedAllowances = context.Payload.ProratedAllowance
-                                .Where(x => x.EmployeeId == context.Employee.Id)
-                                .ToList();
-
+        //line.ProratedAllowances = context.Payload.ProratedAllowance
+        //                        .Where(x => x.EmployeeId == context.Employee.Id)
+        //                        .ToList();
         // Update running total
         line.RunningTotal += effectiveIncomes.Sum(x => x.Amount);
         return line;

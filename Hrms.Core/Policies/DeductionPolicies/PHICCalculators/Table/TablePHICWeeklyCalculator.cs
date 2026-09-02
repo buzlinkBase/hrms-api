@@ -8,7 +8,7 @@
 
             if (line.IsLimit) return line;
 
-            var baseRate = StatutoryHelper.GetWeeklyGrossBaseRate(context);
+            var baseRate = StatutoryHelper.GetWeeklyBracketBaseRate(context, resolver);
             var table = PHICHelper.GetTable(context, baseRate);
             if (table == null) return line;
 
@@ -16,6 +16,26 @@
 
             if (balances.EEBalance == 0) return line;
             if (line.RemainingGrossBalance < balances.EEBalance) return line;
+
+            var isCrossMonth = new IsCrossMonth().IsSatisfiedBy(context.Payload);
+
+            // The last configured week of the month (not a cross-month period, which has
+            // its own mid-hire proration path below and is a different "boundary" concept)
+            // is the final chance to true up whatever earlier weeks did/didn't withhold —
+            // always take the exact remaining balance here, regardless of
+            // StatutoryDeductionSchedule. Mirrors Semi-Monthly's IsSecondCutoff branch.
+            // Produces the same number PerPayroll's shrinking-divisor already converges to
+            // on the final week (divisor naturally becomes 1 there), and fixes the case
+            // FirstHalfMonth's post-week-1 ReleaseNothing used to block entirely.
+            var isLastRegularWeek = false;
+            try { isLastRegularWeek = !isCrossMonth && resolver.IsLastCutoff(context); }
+            catch (CutoffMismatchException) { }
+
+            if (isLastRegularWeek)
+            {
+                var truedUpPayload = new PHICTablePayload(balances.EEBalance, balances.ERBalance);
+                return PHICHelper.ApplyTable(context, line, truedUpPayload, context.Payload.FromDate);
+            }
 
             var scheduleAction = StatutoryScheduleResolver.Resolve(context, resolver);
             if (scheduleAction == StatutoryReleaseAction.ReleaseNothing) return line;
@@ -26,7 +46,7 @@
 
             try
             {
-                if (new IsCrossMonth().IsSatisfiedBy(context.Payload))
+                if (isCrossMonth)
                 {
                     if (StatutoryHelper.IsHiredThisMonth(context))
                     {

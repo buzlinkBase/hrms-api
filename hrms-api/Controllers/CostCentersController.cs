@@ -33,9 +33,9 @@ namespace Hrms.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<CostCenterModel>>), 200)]
-        public async Task<IActionResult> Get()
+        public async Task<IActionResult> Get([FromQuery] Guid? branchId)
         {
-            var data = await _service.FindAllAsync();
+            var data = await _service.FindAllAsync(branchId);
             return Ok(_mapper.Map<List<CostCenterModel>>(data));
         }
 

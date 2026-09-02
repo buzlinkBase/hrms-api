@@ -45,6 +45,17 @@ namespace Hrms.Api.Controllers
             return Ok(response);
         }
 
+        // Lump-sum 13th month pay run — not attendance-driven, so no DTR batch selection.
+        // Post/Delete reuse the same batch/{id}/post and batch/{id} endpoints below.
+        [HttpPost("generate-13th-month")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> GenerateThirteenthMonth([FromBody] ThirteenthMonthRunPayload payload, CancellationToken token)
+        {
+            var payrolls = await _service.GenerateThirteenthMonthAsync(payload, token);
+            var response = new { data = payrolls, total = payrolls.Count };
+            return Ok(response);
+        }
+
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> Get(

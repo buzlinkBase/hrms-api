@@ -87,6 +87,27 @@ namespace Hrms.Api.Controllers
         }
 
         /// <summary>
+        /// Current balance for one employee/leave/year — feeds the Leave Balance Entry form
+        /// so HR sees what's already on record before adjusting it. Returns a default
+        /// all-zero balance (200, not 404) when nothing has been granted/adjusted yet for
+        /// this combination, matching this app's "no results is still a valid result"
+        /// convention for lookups.
+        /// </summary>
+        [HttpGet("credits")]
+        [ProducesResponseType(typeof(ResponseModel<LeaveCreditsBalanceModel>), 200)]
+        public async Task<IActionResult> GetCreditsBalance(
+            [FromQuery] Guid employeeId, [FromQuery] Guid leaveId, [FromQuery] int year, CancellationToken token)
+        {
+            var balance = await _leaveLedgerService.GetBalanceAsync(employeeId, leaveId, year, token);
+            return Ok(balance ?? new LeaveCreditsBalanceModel
+            {
+                EmployeeId = employeeId,
+                LeaveId = leaveId,
+                PeriodYear = year,
+            });
+        }
+
+        /// <summary>
         /// Manually correct one employee's leave credits balance for a given leave type and
         /// year. Records a LedgerEntryType.Adjustment entry rather than overwriting the
         /// balance directly, so the ledger's audit trail stays intact. Creates the

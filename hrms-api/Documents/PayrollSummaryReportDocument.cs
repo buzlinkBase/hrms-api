@@ -68,7 +68,7 @@ public class PayrollSummaryReportDocument : IDocument
             row.RelativeItem().Column(col =>
             {
                 col.Item().Text(CompanyName).Bold().FontSize(12).FontColor(Primary);
-                col.Item().Text("PAYROLL SUMMARY REPORT").FontSize(9).FontColor(LabelColor).LetterSpacing(1);
+                col.Item().Text("PAYROLL SUMMARY REPORT").FontSize(9).FontColor(LabelColor);
                 if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
                 {
                     col.Item().Text(string.Join("  •  ", new[] { _company?.Address, _company?.Contact }
@@ -99,6 +99,8 @@ public class PayrollSummaryReportDocument : IDocument
                 cols.RelativeColumn(1);    // Holiday
                 cols.RelativeColumn(1);    // Allowances
                 cols.RelativeColumn(1);    // Other Income
+                cols.RelativeColumn(1);    // One-Time Payout (Company)
+                cols.RelativeColumn(1);    // One-Time Payout (Government)
                 cols.RelativeColumn(1.1f); // Gross
                 cols.RelativeColumn(1);    // SSS
                 cols.RelativeColumn(1);    // PhilHealth
@@ -123,6 +125,8 @@ public class PayrollSummaryReportDocument : IDocument
                 header.Cell().Element(HeaderCell).AlignRight().Text("Holiday").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("Allow.").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("Other Inc.").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("1x Payout (Co)").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("1x Payout (Gov)").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("Gross").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("SSS").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("PhilHealth").Bold();
@@ -142,6 +146,8 @@ public class PayrollSummaryReportDocument : IDocument
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.HolidayPay));
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.TotalRegularAllowances));
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.TotalOtherIncome));
+                table.Cell().Element(DataCell).AlignRight().Text(Money(r.CompanyFundedLeavePay));
+                table.Cell().Element(DataCell).AlignRight().Text(Money(r.GovernmentFundedLeavePay));
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.GrossIncome)).Bold();
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.SSSContribution));
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.PhilHealthContribution));
@@ -162,6 +168,8 @@ public class PayrollSummaryReportDocument : IDocument
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.HolidayPay))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.TotalRegularAllowances))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.TotalOtherIncome))).Bold();
+            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.CompanyFundedLeavePay))).Bold();
+            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.GovernmentFundedLeavePay))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.GrossIncome))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.SSSContribution))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.PhilHealthContribution))).Bold();

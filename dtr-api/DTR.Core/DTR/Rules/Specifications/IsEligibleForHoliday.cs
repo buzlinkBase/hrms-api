@@ -10,11 +10,25 @@ public class IsEligibleForHoliday : IRuleSpecification
     {
         _holidayType = holidayType;
     }
-
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
+        if (new IsGovFundedLeaved().IsSatisfiedBy(input, context))
+        {
+            //not eligible for holiday on leave during maternity and SL
+            return false;
+        }
+
+        var hasSpecialLeave = context.Payload.Data.CurrentLeaves
+           .Where(x => x.Leave.PaySource == PaySource.Government ||
+           x.PayoutMode == PayoutMode.OneTime ||
+           x.Leave.PaySource == PaySource.Shared).Any();
+
+        //not eligble if has maternity/gov funded
+        if (hasSpecialLeave) return false;
+
         var evaluator = HolidayEligibilityEvaluatorFactory.Create(_holidayType);
         return evaluator.Evaluate(input, context);
+
     }
 }
 

@@ -6,7 +6,7 @@
         {
             var rate = context.Employee?.TaxRate;
             if (rate == null) return line;
-            var payload = new WTaxTablePayload(rate.EE + rate.AddOns);
+            var payload = new WTaxTablePayload(context.PayrollLine.GrossIncome, rate.EE + rate.AddOns);
             return WTaxHelper.ApplyTable(context, line, payload, context.Payload.FromDate);
         }
     }

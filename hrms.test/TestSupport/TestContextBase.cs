@@ -155,17 +155,9 @@ public abstract class TestContextBase
     protected static void SeedTaxTable(DeductionPayloadContext context, params WTaxModel[] brackets)
         => context.Payload.TaxTableModel = brackets.ToList();
 
-    protected static WTaxModel TaxBracket(decimal from, decimal to, decimal baseTaxDue, decimal addOnPercentage) =>
-        new WTaxModel { RangeFrom = from, RangeTo = to, BaseTaxDue = baseTaxDue, AddOnPercentage = addOnPercentage };
-
-    protected static void AddTaxContribution(DeductionPayloadContext context, decimal taxDue)
-    {
-        var key = new EmployeeKey(context.Employee.Id);
-        if (!context.Payload.TaxContribution.TryGetValue(key, out var list))
-        {
-            list = new List<WTaxContributionModel>();
-            context.Payload.TaxContribution[key] = list;
-        }
-        list.Add(new WTaxContributionModel { EmployeeId = context.Employee.Id, TaxDue = taxDue });
-    }
+    // payrollType is required (no default) — WTaxHelper.GetTable now filters by the
+    // employee's own PayrollFrequency, so a mislabeled bracket row simply never matches
+    // rather than silently reusing whatever the default happened to be.
+    protected static WTaxModel TaxBracket(decimal from, decimal to, decimal baseTaxDue, decimal addOnPercentage, string payrollType) =>
+        new WTaxModel { RangeFrom = from, RangeTo = to, BaseTaxDue = baseTaxDue, AddOnPercentage = addOnPercentage, PayrollType = payrollType };
 }

@@ -30,6 +30,7 @@ internal class ColaPolicy : PayrollPolicyBase<AllowancePipeData, PayrollContext>
         line.Cola = cola;
         line.RunningTotal += cola;
         return line;
+
     }
 }
 

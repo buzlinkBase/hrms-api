@@ -209,6 +209,25 @@ public class EmployeeService : BaseService<Employee>
         return data;
     }
 
+    // Employees eligible for a 13th month pay run (Settings.IsEligibleFor13thMonth), scoped
+    // to payrollGroupIds/employeeIds when provided (both null/empty = everyone eligible).
+    // Loads PayrollGroup/TaxRate/Settings explicitly — EmployeeModelPayrollRun's mapping
+    // (MappingProfile.cs) reads PayrollGroup.PayrollFrequency, so it must be Include()d rather
+    // than relying on lazy loading. See PayrollProcessorService.GenerateThirteenthMonthAsync.
+    public async Task<List<EmployeeModelPayrollRun>> GetForThirteenthMonthRunAsync(
+        List<Guid>? payrollGroupIds, List<Guid>? employeeIds, CancellationToken token)
+    {
+        var employees = await GetQueryable(x =>
+                (employeeIds == null || employeeIds.Count == 0 || employeeIds.Contains(x.Id)) &&
+                (payrollGroupIds == null || payrollGroupIds.Count == 0 || payrollGroupIds.Contains(x.PayrollGroupId)) &&
+                x.Settings != null && x.Settings.IsEligibleFor13thMonth)
+            .Include(x => x.PayrollGroup)
+            .Include(x => x.TaxRate)
+            .Include(x => x.Settings)
+            .ToListAsync(token);
+        return _mapper.Map<List<EmployeeModelPayrollRun>>(employees);
+    }
+
     public async Task<List<Employee>> FindAllAsync(CancellationToken token)
     {
         var data = await GetQueryable()

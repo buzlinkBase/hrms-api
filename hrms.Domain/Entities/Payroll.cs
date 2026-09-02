@@ -117,12 +117,19 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     //leaves
     public decimal UnpaidLeaves { get; set; }
     public decimal PaidLeaves { get; set; }
+    // Mirrors PayrollSummaryLine.NonCompanyPaidLeaves — see its doc comment. Display only.
+    public decimal NonCompanyPaidLeaves { get; set; }
     // OneTime leave payout (see LeaveApplication.PayoutMode) released this run.
     // GovernmentFundedLeavePay is deliberately excluded from GrossIncome/statutory bases
     // (a government benefit pass-through, not compensation); CompanyFundedLeavePay is
     // included, so it is taxed and factored into SSS/PHIC/HDMF like regular compensation.
     public decimal GovernmentFundedLeavePay { get; set; }
     public decimal CompanyFundedLeavePay { get; set; }
+    // Persisted copies of PayrollSummaryLine.OneTimePayoutBreakdown/PaidLeaveBreakdown —
+    // property names must match exactly for Mapster's convention mapping. Rows generated
+    // before these fields existed will read null.
+    public string? OneTimePayoutBreakdown { get; set; }
+    public string? PaidLeaveBreakdown { get; set; }
     public decimal AbsencesAmount { get; set; }
     public decimal LateAmount { get; set; }
     public decimal UnderTimeAmount { get; set; }
@@ -154,4 +161,60 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     //public List<OtherIncomeSchedules> OtherIncomeCollection { get; set; } = new();
     //public List<DeductionInfo> DeductionCollection { get; set; } = new();
     public bool IsPosted { get; set; }
+    // Denormalized copy of PayrollBatch.PayrollType, kept in sync by PayrollProcessorService
+    // — same pattern as IsPosted — so report queries (e.g. next year's 13th month/Alphalist
+    // calculation) can exclude a 13th month payout row without joining PayrollBatch.
+    public PayrollType PayrollType { get; set; } = PayrollType.Regular;
+
+    // Persisted copies of PayrollSummaryLine's per-category DTR hours (see that class's
+    // ComputeHoursBreakdown doc comment) — needed so the Payroll Summary page's Hours
+    // Breakdown tab has real figures once a run is saved and re-fetched via GET /payrolls,
+    // not just on the live Calculate/Generate preview. Property names must match
+    // PayrollSummaryLine exactly: Mapster's convention mapping (used by
+    // PayrollProcessorService.GenerateAsync) only maps identically-named members. Rows
+    // generated before this field existed will read 0.
+    public decimal OvertimeHours { get; set; }
+    public decimal RegularNetHours { get; set; }
+    public decimal RegularOTHours { get; set; }
+    public decimal RegularNDHours { get; set; }
+    public decimal RegularNDOTHours { get; set; }
+
+    public decimal RestDayHours { get; set; }
+    public decimal RestDayOTHours { get; set; }
+    public decimal RestDayNDHours { get; set; }
+    public decimal RestDayNDOTHours { get; set; }
+
+    public decimal LegalHolHours { get; set; }
+    public decimal LegalHolOTHours { get; set; }
+    public decimal LegalHolNightDiffHours { get; set; }
+    public decimal LegalHolNightDiffOTHours { get; set; }
+
+    public decimal SpecialHolHours { get; set; }
+    public decimal SpecialHolOTHours { get; set; }
+    public decimal SpecialHolNightDiffHours { get; set; }
+    public decimal SpecialHolNightDiffOTHours { get; set; }
+
+    public decimal RestLegalDayHours { get; set; }
+    public decimal RestLegalDayOTHours { get; set; }
+    public decimal RestLegalDayNDHours { get; set; }
+    public decimal RestLegalDayNDOTHours { get; set; }
+
+    public decimal RestSpecialDayHours { get; set; }
+    public decimal RestSpecialDayOTHours { get; set; }
+    public decimal RestSpecialDayNDHours { get; set; }
+    public decimal RestSpecialDayNDOTHours { get; set; }
+
+    public decimal DoubleLegalHours { get; set; }
+    public decimal DoubleLegalOTHours { get; set; }
+    public decimal DoubleLegalNDHours { get; set; }
+    public decimal DoubleLegalNDOTHours { get; set; }
+
+    public decimal RestDoubleLegalHours { get; set; }
+    public decimal RestDoubleLegalOTHours { get; set; }
+    public decimal RestDoubleLegalNDHours { get; set; }
+    public decimal RestDoubleLegalNDOTHours { get; set; }
+
+    public decimal OBHours { get; set; }
+    public decimal PaidLeaveHours { get; set; }
+    public decimal UnpaidLeaveHours { get; set; }
 }

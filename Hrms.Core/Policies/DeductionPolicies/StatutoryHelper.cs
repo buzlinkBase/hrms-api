@@ -17,19 +17,80 @@ public class StatutoryHelper
     }
     public static decimal GetSemiMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
-        // Bracket lookup uses actual resolved gross (this cutoff's + prior cutoffs'
-        // this month) directly from the payroll line already computed upstream —
-        // same basis for Fixed and Variable alike, since PayrollLine.GrossIncome is
-        // already correctly computed per salary type by the time deductions run.
-        // Fixed employees previously used an independently-approximated MonthlyRate
-        // formula here that silently omitted rest-day/holiday/ND pay and other
-        // components already included in GrossIncome. Interim cutoffs under-bracket
-        // until the month's full gross has accumulated; the balance-netting ledger
-        // corrects the running total by the final cutoff.
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
-        var prioGross = payrol.Sum(x => x.GrossIncome);
-        return context.PayrollLine.GrossIncome + prioGross;
+        var prioGross = payrol.Sum(x => x.GrossIncome
+            - x.TotalDeminimises
+            - x.Reimbursement
+            - x.TotalBonuses);
+        return Math.Max(0, context.PayrollLine.GrossIncome
+            - context.PayrollLine.TotalDeminimises
+            - context.PayrollLine.Reimbursement
+            - context.PayrollLine.TotalBonuses
+            + prioGross);
     }
+    // Projected whole-month gross for a FIXED employee releasing a full-month statutory
+    // contribution before the month is actually finished — MonthlyRate adjusted for
+    // attendance-driven deductions already known this period and non-statutory-base income
+    // exclusions, matching GetSemiMonthlyGrossBaseRate/GetWeeklyGrossBaseRate's own
+    // exclusions. Shared by GetSemiMonthlyBracketBaseRate and GetWeeklyBracketBaseRate — the
+    // projection itself doesn't depend on payroll frequency, only which cutoff triggers it.
+    private static decimal GetFixedProjectedMonthlyBaseRate(DeductionPayloadContext context) =>
+        Math.Max(0, context.Employee.MonthlyRate
+            - context.PayrollLine.AbsencesAmount
+            - context.PayrollLine.LateAmount
+            - context.PayrollLine.UnderTimeAmount
+            - context.PayrollLine.UnpaidLeaves
+            + context.PayrollLine.TotalAllIncome
+            - context.PayrollLine.TotalDeminimises
+            - context.PayrollLine.Reimbursement
+            - context.PayrollLine.TotalBonuses);
+
+    // FIXED employees know their monthly rate in advance, so on every cutoff except the
+    // last one, project the full-month gross from it instead of GetSemiMonthlyGrossBaseRate's
+    // "actual gross posted so far" — which on an early/middle cutoff only reflects a fraction
+    // of the month's pay and under-brackets a deduction meant to cover the whole month (e.g. a
+    // 30,000/month employee's first cutoff only has ~15,000 posted, landing in a lower
+    // bracket than the month actually calls for). The LAST cutoff deliberately keeps using the
+    // actual accumulated gross instead of the projection — by then every prior cutoff's real
+    // attendance is already posted, so the true sum is more accurate than a projection
+    // extrapolated from a single period's attendance, and the calculator's own unconditional
+    // last-cutoff true-up (see Table*SemiMonthlyCalculator's IsSecondCutoff branch) absorbs
+    // whatever drift the earlier cutoffs' projections introduced — so every cutoff, not just
+    // the schedule's designated "release everything now" one, brackets correctly against the
+    // whole month. VARIABLE employees are left on the actual-to-date basis unchanged — their
+    // future cutoffs genuinely aren't known yet, so any shortfall relies on the same
+    // last-cutoff true-up instead. A CutoffMismatchException here just means "can't tell yet"
+    // — fall back to the normal actual-to-date base rate.
+    public static decimal GetSemiMonthlyBracketBaseRate(DeductionPayloadContext context, ICutoffPolicyResolver resolver)
+    {
+        try
+        {
+            if (context.Employee.SalaryType == SalaryType.FIXED && !resolver.IsLastCutoff(context))
+            {
+                return GetFixedProjectedMonthlyBaseRate(context);
+            }
+        }
+        catch (CutoffMismatchException) { }
+        return GetSemiMonthlyGrossBaseRate(context);
+    }
+
+    // Weekly analog of GetSemiMonthlyBracketBaseRate — same FIXED-projection rationale,
+    // applied to every week except the last one (see Table*WeeklyCalculator's unconditional
+    // last-week true-up for the other half of this: this only handles the bracket lookup, not
+    // the release timing/divisor).
+    public static decimal GetWeeklyBracketBaseRate(DeductionPayloadContext context, ICutoffPolicyResolver resolver)
+    {
+        try
+        {
+            if (context.Employee.SalaryType == SalaryType.FIXED && !resolver.IsLastCutoff(context))
+            {
+                return GetFixedProjectedMonthlyBaseRate(context);
+            }
+        }
+        catch (CutoffMismatchException) { }
+        return GetWeeklyGrossBaseRate(context);
+    }
+
     public static decimal GetWeeklyGrossBaseRate(DeductionPayloadContext context)
     {
         // Same actual-gross-to-date basis as the Semi-Monthly case above, every week
@@ -76,6 +137,7 @@ public class StatutoryHelper
     }
 
     public static DateOnly GetHiredDate(DeductionPayloadContext context) => context.Employee.HireDate;
+
     public static PayrollProjection GetDailyProjectedGrossRate(DeductionPayloadContext context)
     {
         decimal baseRate = 0m;
@@ -127,9 +189,8 @@ public class StatutoryHelper
             }
             var totalAbsent = 0;// (int)payrolls.Sum(x => x.AbsentCount);
             int workedDays = daysInMonth - totalAbsent - startDay + 1;
-            var totalDaysInaMonthAve = context.Payload.CompanyPolicy.TotalDaysInaYear / 12;
-
-            baseRate = context.Employee.DailyRate * Math.Min(workedDays, totalDaysInaMonthAve);
+            //var totalDaysInaMonthAve =  context.Payload.CompanyPolicy.TotalDaysInaYear / 12;
+            baseRate = context.Employee.DailyRate * Math.Min(workedDays, 26);
             divisor = workedDays;
             remainingIncome = (context.Employee.DailyRate * remainingDays);
         }

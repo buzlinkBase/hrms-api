@@ -424,6 +424,9 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                 x.ReleasePayrollDate != null &&
                 x.ReleasePayrollDate >= fromDate &&
                 x.ReleasePayrollDate <= toDate)
+            // Needed so PayrollProcessorService can label each payout by leave type
+            // (Leave.Description) when building PayrollSummaryLine.OneTimePayoutBreakdown.
+            .Include(x => x.Leave)
             .GroupBy(x => x.EmployeeId)
             .ToDictionaryAsync(g => new EmployeeKey(g.Key), g => g.ToList(), token);
     }

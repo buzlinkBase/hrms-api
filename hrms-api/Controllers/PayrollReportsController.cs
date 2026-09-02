@@ -111,6 +111,16 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [HttpGet("13th-month-pay/print")]
+        public async Task<IActionResult> ThirteenthMonthPayPrint([FromQuery] int year, CancellationToken token)
+        {
+            var data = await _reportService.GetThirteenthMonthAsync(year, token);
+            var company = await _companyService.FineOneAsync(token);
+            var document = new ThirteenthMonthPayListDocument(data, year, company);
+            var bytes = document.GeneratePdf();
+            return File(bytes, "application/pdf", $"13th-month-pay-{year}.pdf");
+        }
+
         // ── BIR 1601-C ────────────────────────────────────────────────────────────────
 
         [HttpGet("1601c")]

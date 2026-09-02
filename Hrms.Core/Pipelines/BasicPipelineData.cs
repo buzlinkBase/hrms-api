@@ -19,7 +19,7 @@ public class AllowancePipeData : IPipeData
 {
     public decimal RunningTotal { get; set; }
     public decimal Cola { get; set; }
-    public List<ProratedAllowanceForSSS> ProratedAllowances { get; set; } = new();
+    //public List<ProratedAllowanceForSSS> ProratedAllowances { get; set; } = new();
     public List<OtherIncomeInfo> AllIncome { get; set; } = new();
     public List<OtherIncomeInfo> OtherIncome { get; set; } = new();
     public List<OtherIncomeInfo> Reimbursements { get; set; } = new();

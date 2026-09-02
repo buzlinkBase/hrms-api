@@ -28,7 +28,6 @@ namespace Hrms.adms.Controllers
         {
             var tenantId = HttpContext.ParseTenant();
             if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
-
             var data = await _service.AddAsync(payload, tenantId, token);
             return Ok(data);
         }

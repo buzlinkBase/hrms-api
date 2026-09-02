@@ -38,6 +38,14 @@ public class WorkTypeResolver : IWorkTypeResolver
         var isSpecialWorking = context.IsSpecialWorking();
         var isSpecialNonWorking = context.IsSpecialNonWorking();
 
+        var isGovFundedLeaved = new IsGovFundedLeaved()
+            .IsSatisfiedBy(TimeRange.Empty, context);
+
+        if (isGovFundedLeaved)
+        {
+            return WorkType.GovFundedLeave;
+        }
+
         if (hasAttendance)
             return ResolveDutyWorkType(leave, isRestDay, isLegalHoliday, isDoubleLegal, isSpecialWorking, isSpecialNonWorking);
 
@@ -81,6 +89,7 @@ public class WorkTypeResolver : IWorkTypeResolver
         bool isSpecialWorking,
         bool isSpecialNonWorking)
     {
+
         if (isRestDay)
         {
             if (isDoubleLegal) return WorkType.RestDayDoubleLegalDuty;

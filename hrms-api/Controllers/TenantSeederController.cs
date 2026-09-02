@@ -23,6 +23,7 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Seed( CancellationToken token)
         {
             await _service.Create(token);
+            await _service.CommitChangesAsync(token);
             return Ok();
         }
     }

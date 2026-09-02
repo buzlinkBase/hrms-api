@@ -56,7 +56,13 @@ public class PayrollService : BaseService<Payroll>
     // this alongside PayrollBatchService.PostAsync.
     public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token)
     {
-        var payrolls = await GetQueryable(x => x.PayrollBatchId == payrollBatchId).ToListAsync(token);
+        // GetQueryable defaults to AsNoTracking — must opt into tracking here (noTracking:
+        // false), or mutating IsPosted below never gets picked up by SaveChanges and this
+        // silently no-ops: no exception, no rows actually updated. ModifyRangeAsync/UpdateRange
+        // is kept as a belt-and-suspenders explicit mark, but the real fix is tracking the
+        // query in the first place — same reasoning as DailyRecordService.PostAsync/UnpostAsync,
+        // which mutate tracked entities directly with no explicit Update() call at all.
+        var payrolls = await GetQueryable(x => x.PayrollBatchId == payrollBatchId, noTracking: false).ToListAsync(token);
         if (payrolls.Count == 0) throw new ValidationException("Payroll batch not found.");
         foreach (var payroll in payrolls) payroll.IsPosted = true;
         await ModifyRangeAsync(payrolls, token);
@@ -68,6 +74,19 @@ public class PayrollService : BaseService<Payroll>
         await Uow.Repository.AddRangeAsync(payrolls, token);
         await Uow.SaveChangesAsync(token);
         await CommitChangesAsync(token);
+    }
+
+    // Employees who already have a 13th month payout Payroll row for the given calendar
+    // year — used by PayrollProcessorService.GenerateThirteenthMonthAsync to block
+    // regenerating for an employee already paid, the 13th-month analog of
+    // PayrollBatchService.GetUsedDtrBatchCodesAsync.
+    public async Task<HashSet<Guid>> GetThirteenthMonthPaidEmployeeIdsAsync(int year, CancellationToken token)
+    {
+        var ids = await GetQueryable(x => x.PayrollType == PayrollType.ThirteenthMonth && x.PayPeriodStart.Year == year)
+            .Select(x => x.EmployeeId)
+            .Distinct()
+            .ToListAsync(token);
+        return ids.ToHashSet();
     }
 
     public async Task<List<Payroll>> GetAsync(

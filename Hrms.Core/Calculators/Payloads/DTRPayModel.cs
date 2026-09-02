@@ -6,8 +6,8 @@ public class DTRPayModel
     public Guid? DtrId { get; set; }
     public string? DTRRef { get; set; }
     public DateOnly Date { get; set; }
-    public Guid EmployeeId  { get; set; }
-    public decimal DailyRate  { get; set; }
+    public Guid EmployeeId { get; set; }
+    public decimal DailyRate { get; set; }
     public SalaryType SalaryType { get; set; }
 
 
@@ -19,7 +19,7 @@ public class DTRPayModel
 
     public decimal RegularDayPay { get; set; }
     public decimal RegularOTPay { get; set; }
-    public decimal RegularNDPay { get; set; } 
+    public decimal RegularNDPay { get; set; }
     public decimal RegularNDOTPay { get; set; }
 
     public decimal RestDayPay { get; set; }
@@ -30,9 +30,9 @@ public class DTRPayModel
     public decimal LegalPay { get; set; }
     public decimal LegalOTPay { get; set; }
     public decimal LegalNDPay { get; set; }
-    public decimal LegalNDOTPay { get; set; } 
+    public decimal LegalNDOTPay { get; set; }
 
-    public decimal SpecialPay { get; set; } 
+    public decimal SpecialPay { get; set; }
     public decimal SpecialOTPay { get; set; }
     public decimal SpecialNDPay { get; set; }
     public decimal SpecialNDOTPay { get; set; }
@@ -58,19 +58,18 @@ public class DTRPayModel
     public decimal RestDoubleLegalNDOTPay { get; set; }
 
     public decimal LegalWorked { get; set; }
-    public decimal LegalUnWorked { get; set; } 
+    public decimal LegalUnWorked { get; set; }
     public decimal DoubleLegalWorked { get; set; }
     public decimal DoubleLegalUnworked { get; set; }
     public decimal RestDoubleLegalWorked { get; set; }
     public decimal RestDoubleLegalUnworked { get; set; }
-    public decimal Gross { get; set; }
-
+    public decimal TotalExcludingBasic { get; set; }  
     public decimal Holiday { get; set; }
-    public decimal NDPremiumPay   { get; set; }
-    public decimal OTPremiumPay   { get; set; } 
+    public decimal NDPremiumPay { get; set; }
+    public decimal OTPremiumPay { get; set; }
 
     public decimal TotalOT { get; set; }
     public decimal TotalND { get; set; }
-    public decimal TotalNDOT  { get; set; }
-     
+    public decimal TotalNDOT { get; set; }
+
 }

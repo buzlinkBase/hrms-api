@@ -13,11 +13,8 @@ public class HolidayPolicy : ConditionalPolicyBase
         {
             return TimeRange.Empty;
         }
-
         var provider = HolidayPolicyProviderFactory.Create(regularTimeRange, context);
         var timeRange = provider.Calculate(_holidayType, regularTimeRange);
-
         return regularTimeRange;
-
     }
 }

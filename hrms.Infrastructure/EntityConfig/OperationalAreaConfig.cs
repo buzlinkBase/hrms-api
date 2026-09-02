@@ -8,6 +8,10 @@ namespace Hrms.Infrastructure.EntityConfig
     {
         public void Configure(EntityTypeBuilder<CostCenters> builder)
         {
+            builder.HasOne(x => x.Branch)
+                .WithMany()
+                .HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

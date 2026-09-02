@@ -17,7 +17,7 @@ internal static class ReportHeaderComposer
             row.RelativeItem().Column(col =>
             {
                 col.Item().Text(ReportDocumentStyle.CompanyName(company)).Bold().FontSize(12).FontColor(ReportDocumentStyle.Primary);
-                col.Item().Text(reportTitle).FontSize(9).FontColor(ReportDocumentStyle.LabelColor).LetterSpacing(1);
+                col.Item().Text(reportTitle).FontSize(9).FontColor(ReportDocumentStyle.LabelColor);
                 var identifiers = new[] { company?.TIN is { Length: > 0 } tin ? $"TIN {tin}" : null, company?.Address, company?.Contact }
                     .Where(s => !string.IsNullOrWhiteSpace(s));
                 if (identifiers.Any())

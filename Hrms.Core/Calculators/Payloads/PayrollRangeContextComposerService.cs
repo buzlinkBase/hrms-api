@@ -124,7 +124,7 @@ public class PayrollRangeContextComposerService
             var sssContriTask = await _ssscontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
             var phicContriTask = await _phiccontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
             var hdmfContriTask = await _hdmfcontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
-            var taxContriTask = await _taxcontriService.LoadContributionsAsync(wtaxCreditDate, dtrPayload.ToDate, token);
+            //var taxContriTask = await _taxcontriService.LoadContributionsAsync(wtaxCreditDate, dtrPayload.ToDate, token);
 
             // Gov Tables & Holidays
             var sssTableTask = await _govSSSService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
@@ -167,17 +167,16 @@ public class PayrollRangeContextComposerService
                 SSSContribution = sssContriTask,
                 PHICContribution = phicContriTask,
                 HDMFContribution = hdmfContriTask,
-                TaxContribution = taxContriTask,
+                //TaxContribution = taxContriTask,
                 // Initialization
-                ProratedAllowance = new List<ProratedAllowanceForSSS>(),
+                //ProratedAllowance = new List<ProratedAllowanceForSSS>(),
                 CompanyPolicy = new CompanyPolicyRule
                 {
-                    RequiredTakehomePercentage = companyTask?.TakehomePercentage ?? 10,
-                    RequiredWorkingDays = companyTask?.TotalWorkingDays ?? 26,
                     ApplyStatutoryOnActualMonth = companyTask?.ApplyStatutoryOnActualMonth ?? true,
                     CrossMonthStatutoryCreditPolicy = crossMonthCreditPolicy,
                     WTaxCrossMonthCreditPolicy = wtaxCreditPolicy,
                     TreatNdotAsNdOnly = treatNdotAsNdOnly,
+                    RequiredTakehomePercentage = companyTask?.TakehomePercentage ?? 10,
                 }
             };
         }

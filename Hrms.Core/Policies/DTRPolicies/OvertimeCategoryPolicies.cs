@@ -7,27 +7,6 @@ internal abstract class SingleCategoryOTPolicy : PayrollPolicyBase<BasicPipeline
     protected abstract double Hours(DailyRecordRunModel r);
     protected abstract RateType[] PolicyRateTypes { get; }
 
-    //public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
-    //{
-    //    var isOTEligible = new IsEligibleForOvertime().IsSatisfiedBy(context);
-    //    if (!isOTEligible) return line;
-
-    //    var hours = (decimal)Hours(context.DailyRecord);
-    //    if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
-
-    //    var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
-
-    //    decimal combinedRateMultiplier = 1.0m;
-    //    foreach (var rateType in PolicyRateTypes)
-    //    {
-    //        var rate = PremiumRateHelper.GetRate(context, rateType, 1.0m);
-    //        combinedRateMultiplier *= rate;
-    //    }
-
-    //    var effectiveMultiplier =  combinedRateMultiplier;
-    //    line.Value += hours * baseHourlyRate * effectiveMultiplier;
-    //    return line;
-    //}
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
         var isOTEligible = new IsEligibleForOvertime().IsSatisfiedBy(context);
@@ -73,6 +52,7 @@ internal abstract class SingleCategoryOTPolicy : PayrollPolicyBase<BasicPipeline
         // line.NdPremium is intentionally not altered here because no ND hours exist in this pipeline category.
         return line;
     }
+
 }
 
 internal class RegularOTPolicy : SingleCategoryOTPolicy

@@ -64,7 +64,7 @@ public class Employee201Document : IDocument
             row.RelativeItem().Column(col =>
             {
                 col.Item().Text(CompanyName).Bold().FontSize(12).FontColor(Primary);
-                col.Item().Text("EMPLOYEE 201 FILE").FontSize(9).FontColor(LabelColor).LetterSpacing(1);
+                col.Item().Text("EMPLOYEE 201 FILE").FontSize(9).FontColor(LabelColor);
                 if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
                 {
                     col.Item().Text(string.Join("  •  ", new[] { _company?.Address, _company?.Contact }

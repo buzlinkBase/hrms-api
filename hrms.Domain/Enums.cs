@@ -116,6 +116,16 @@ public enum StatutoryDeductionSchedule
     SecondHalfMonth,
 }
 
+// Distinguishes a regular DTR-cutoff-driven payroll run from a 13th month pay run — see
+// PayrollProcessorService.GenerateThirteenthMonthAsync. Lives on both PayrollBatch (canonical)
+// and Payroll (denormalized per-row copy, same pattern as IsPosted) so report queries can
+// filter by type without a join.
+public enum PayrollType
+{
+    Regular,
+    ThirteenthMonth,
+}
+
 public enum BillingCycle
 {
     Monthly,
@@ -258,6 +268,7 @@ public enum WorkType
     RestDayDoubleLegalDuty,     // Worked on double legal holiday on rest day
 
     // 7. Leaves, Attendance & System States
+    GovFundedLeave,             // Approved Leave with Pay 
     PaidLeave,                  // Approved Leave with Pay
     UnpaidLeave,                // Approved Leave without Pay
     Absent,                     // Unauthorized Absence / No Show

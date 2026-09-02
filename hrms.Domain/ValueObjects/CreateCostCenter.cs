@@ -9,6 +9,7 @@ public class CreateCostCenter
     public string Address { get; set; } = string.Empty;
     public Polygon? Boundary { get; set; }
     public string Status { get; set; } = "Active";
+    public Guid? BranchId { get; set; }
 }
 
 public class UpdateCostCenter : CreateCostCenter
@@ -18,4 +19,9 @@ public class UpdateCostCenter : CreateCostCenter
 
 public class CostCenterModel : UpdateCostCenter
 {
+    // Denormalized for the Project Site list/table — avoids a separate Branches lookup just
+    // to show which branch each row belongs to. Populated via MappingProfile.cs since the
+    // property names don't match CostCenters.Branch.Name/Code for Mapster's convention map.
+    public string? BranchName { get; set; }
+    public string? BranchCode { get; set; }
 }

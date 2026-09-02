@@ -19,18 +19,10 @@ public class WTaxCalculatorFactory
 
 public class WTaxTableSalaryFrequencyFactory
 {
-    public static IDeductionCalculator Create(DeductionPayloadContext context)
-    {
-        var resolver = new CutoffPolicyResolver();
-        return context.Employee.PayrollFrequency switch
-        {
-            PayrollFrequency.DAILY => new TableWTaxDailyCalculator(resolver),
-            PayrollFrequency.WEEKLY => new TableWTaxWeeklyCalculator(resolver),
-            PayrollFrequency.SEMI_MONTHLY => new TableWTaxSemiMonthlyCalculator(resolver),
-            PayrollFrequency.MONTHLY => new TableWTaxMonthlyCalculator(resolver),
-            _ => throw new NotImplementedException()
-        };
-    }
+    // One calculator for every frequency now — WTax is computed independently per period
+    // (see TableWTaxCalculator), so PayrollFrequency only ever mattered for which bracket
+    // table applied, which TableWTaxCalculator/WTaxHelper.GetTable already handle internally.
+    public static IDeductionCalculator Create(DeductionPayloadContext context) => new TableWTaxCalculator();
 }
 
 public class WTaxFixSalaryFrequencyFactory

@@ -115,6 +115,19 @@ public class ThirteenthMonthModel
     public int Year { get; set; }
     public decimal TotalBasicPayForYear { get; set; }
     public decimal ThirteenthMonthPay { get; set; }
+    // Sum of Payroll.TotalBonuses (IncomeClassType.SpecialBonus-classified income only) across
+    // this employee's regular payroll rows for the year — combined with ThirteenthMonthPay
+    // against the exemption ceiling per Payroll Settings' documented rule. See
+    // PayrollProcessorService.ComputeRemainingThirteenthMonthCeiling.
+    public decimal TotalSpecialBonusesForYear { get; set; }
+    // "NotGenerated" (no 13th month Payroll row exists yet) / "Draft" (generated, not yet
+    // posted) / "Posted" (released) — for the released/unreleased tracker.
+    public string Status { get; set; } = "NotGenerated";
+    // Only set once a 13th month payout row exists (Status != "NotGenerated").
+    public decimal? NetPay { get; set; }
+    // The generated Payroll row's own Id — needed to print its payslip (GET payrolls/{id}/print).
+    // Null when Status == "NotGenerated".
+    public Guid? PayrollId { get; set; }
 }
 
 // BIR Form 1601-C's actual return figures for one posting period — company-wide totals,

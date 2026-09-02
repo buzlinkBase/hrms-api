@@ -186,6 +186,8 @@ public class MappingProfile : IRegister
             .Map(dest => dest.Boundary, src => src.Boundary);
         config.NewConfig<CostCenters, CostCenterModel>()
             .Map(dest => dest.Boundary, src => src.Boundary)
+            .Map(dest => dest.BranchName, src => src.Branch != null ? src.Branch.Name : null)
+            .Map(dest => dest.BranchCode, src => src.Branch != null ? src.Branch.Code : null)
             .TwoWays();
 
         config.NewConfig<CreatePosition, Position>();

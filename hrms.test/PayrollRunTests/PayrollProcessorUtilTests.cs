@@ -5,22 +5,28 @@ namespace hrms.test.PayrollRunTests;
 public class PayrollProcessorUtilTests
 {
     [Fact]
-    public void GetGrossIncome_SumsBasicPayrollGrossAndAllowanceRunningTotal()
+    public void GetGross_SumsBasicPayTimeHourPayAllIncomeAndLeavePayouts()
     {
-        var basics = new List<DTRPayModel>
+        var line = new PayrollSummaryLine
         {
-            new() { Gross = 10_000 },
-            new() { Gross = 2_500 },
+            BasicPay = 10_000,
+            TimeHourPayResults = new List<DTRPayModel>
+            {
+                new() { TotalExcludingBasic = 2_500 },
+                new() { TotalExcludingBasic = 500 },
+            },
+            TotalAllIncome = 1_200,
+            CompanyFundedLeavePay = 300,
+            GovernmentFundedLeavePay = 100,
         };
-        var incomes = new AllowancePipeData { RunningTotal = 1_200 };
 
-        PayrollProcessorUtil.GetGrossIncome(incomes, basics).Should().Be(13_700);
+        PayrollProcessorUtil.GetGross(line).Should().Be(14_600);
     }
 
     [Fact]
-    public void GetGrossIncome_ZeroWhenNoBasicsAndNoAllowances()
+    public void GetGross_ZeroWhenLineIsEmpty()
     {
-        PayrollProcessorUtil.GetGrossIncome(new AllowancePipeData(), new List<DTRPayModel>()).Should().Be(0);
+        PayrollProcessorUtil.GetGross(new PayrollSummaryLine()).Should().Be(0);
     }
 
     [Fact]

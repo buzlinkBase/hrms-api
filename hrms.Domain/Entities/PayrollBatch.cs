@@ -21,4 +21,8 @@ public class PayrollBatch : BaseEntity
     public bool IsPosted { get; set; }
     public DateTime? PostedAt { get; set; }
     public Guid? PostedBy  { get; set; }
+    // Regular (DTR-cutoff-driven) vs a 13th month pay run — see
+    // PayrollProcessorService.GenerateThirteenthMonthAsync. Canonical source; Payroll.PayrollType
+    // is a denormalized per-row copy, same pattern as IsPosted.
+    public PayrollType PayrollType { get; set; } = PayrollType.Regular;
 }

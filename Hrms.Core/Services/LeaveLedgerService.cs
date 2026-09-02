@@ -87,6 +87,37 @@ public class LeaveLedgerService : BaseService<LeaveLedger>
         return GetQueryable().ToListAsync(token);
     }
 
+    // Current balance for one employee/leave/year — feeds the Leave Balance Entry form so HR
+    // sees what's already on record before typing a new balance (AdjustBalanceAsync above is
+    // write-only). Null when no LeaveCredits row exists yet for this combination (nothing has
+    // ever been granted/adjusted) — the form should just treat that as an all-zero starting
+    // balance rather than an error.
+    public async Task<LeaveCreditsBalanceModel?> GetBalanceAsync(Guid employeeId, Guid leaveId, int year, CancellationToken token)
+    {
+        var credits = await Context.LeaveCredits.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.LeaveId == leaveId && x.PeriodYear == year, token);
+        if (credits == null) return null;
+
+        var employee = await Context.Employees.AsNoTracking().FirstOrDefaultAsync(x => x.Id == employeeId, token);
+        var leave = await Context.Leaves.AsNoTracking().FirstOrDefaultAsync(x => x.Id == leaveId, token);
+
+        return new LeaveCreditsBalanceModel
+        {
+            EmployeeId = employeeId,
+            EmployeeNo = employee?.EmployeeNo ?? "",
+            FullName = employee.FullName(),
+            LeaveId = leaveId,
+            LeaveCode = leave?.Code ?? "",
+            LeaveDescription = leave?.Description ?? "",
+            PeriodYear = credits.PeriodYear,
+            Granted = credits.Granted,
+            Used = credits.Used,
+            Balance = credits.Balance,
+            Reserved = credits.Reserved,
+            AvailableToFile = credits.AvailableToFile,
+        };
+    }
+
     public async Task<Dictionary<EmployeeLeaveCreditsKey, decimal>> LoadCreditsAsync(List<Guid> employeeIds,
         CancellationToken token)
     {

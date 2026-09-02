@@ -26,13 +26,17 @@ public class CostCenterService : BaseService<CostCenters>
 
     }
 
-    public async Task<List<CostCenters>> FindAllAsync()
+    public async Task<List<CostCenters>> FindAllAsync(Guid? branchId = null)
     {
-        return await GetQueryable().ToListAsync();
+        return await GetQueryable(x => branchId == null || x.BranchId == branchId)
+            .Include(x => x.Branch)
+            .ToListAsync();
     }
     public async Task<CostCenters?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetQueryable(x => x.Id == Id)
+            .Include(x => x.Branch)
+            .FirstOrDefaultAsync(token);
     }
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {

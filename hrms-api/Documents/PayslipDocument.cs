@@ -66,7 +66,7 @@ public class PayslipDocument : IDocument
             row.RelativeItem().Column(col =>
             {
                 col.Item().Text(CompanyName).Bold().FontSize(12).FontColor(Primary);
-                col.Item().Text("PAYSLIP").FontSize(9).FontColor(LabelColor).LetterSpacing(1);
+                col.Item().Text(_p.PayrollType == PayrollType.ThirteenthMonth ? "13TH MONTH PAY" : "PAYSLIP").FontSize(9).FontColor(LabelColor);
                 if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
                 {
                     col.Item().Text(string.Join("  •  ", new[] { _company?.Address, _company?.Contact }
@@ -172,6 +172,11 @@ public class PayslipDocument : IDocument
 
     void ComposeEarnings(IContainer c)
     {
+        if (_p.PayrollType == PayrollType.ThirteenthMonth)
+        {
+            ComposeThirteenthMonthEarnings(c);
+            return;
+        }
         c.Border(1).BorderColor(BorderColor).Column(col =>
         {
             col.Item().Element(c2 => SectionHeader(c2, "EARNINGS"));
@@ -189,16 +194,22 @@ public class PayslipDocument : IDocument
                 AmountRow(table, "Regular Night Diff. Overtime", _p.RegularNDOTPay);
                 AmountRow(table, "Rest Day",
                     _p.RestDayPay + _p.RestDayOTPay + _p.RestDayNDPay + _p.RestDayNDOTPay);
-                // FIXED employees' Basic Pay (MonthlyRate/divisor) already pays for
-                // Company-funded paid-leave days, so showing the full PaidLeaves again here
-                // would double it up — only VARIABLE's Basic Pay (RegularDayPay only) needs
-                // the whole amount broken out. Leave paid from Government/Shared/Other
-                // sources (SSS maternity, etc.) is never embedded in FIXED's flat rate
-                // though, so that slice still needs its own line either way. See
-                // PayrollProcessorService.ComputeAllowances for the matching GrossIncome fix.
+                // FIXED employees' Basic Pay (MonthlyRate/divisor) already pays for every day
+                // in the period, paid-leave days included — showing the full PaidLeaves
+                // again here would double it up. VARIABLE's Basic Pay (RegularDayPay only)
+                // never includes leave-day pay, so it needs the whole amount broken out.
+                // Retained as-is per PayrollProcessorService.ComputeAllowances.
                 if (_p.SalaryType != SalaryType.FIXED)
                 {
                     AmountRow(table, "Paid Leave", _p.PaidLeaves);
+                }
+                if (_p.CompanyFundedLeavePay > 0)
+                {
+                    // Government-funded is deliberately NOT shown here — it's a non-taxable
+                    // pass-through excluded from Gross Income, shown near Net Pay instead
+                    // (see ComposeNetPay). Only the taxable Company-funded slice belongs in
+                    // Earnings — see PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross.
+                    AmountRow(table, "One-Time Leave Payout (Company)", _p.CompanyFundedLeavePay);
                 }
                 SubHeaderRow(table, "HOLIDAY BREAKDOWN");
                 AmountRow(table, "Legal Holiday (Unworked)", _p.LegalHolidayUnworkedPay);
@@ -226,6 +237,51 @@ public class PayslipDocument : IDocument
 
                 AmountRow(table, "GROSS INCOME", _p.GrossIncome, bold: true);
             });
+            var hasLeaveNote = !string.IsNullOrWhiteSpace(_p.PaidLeaveBreakdown)
+                || !string.IsNullOrWhiteSpace(_p.OneTimePayoutBreakdown)
+                || _p.NonCompanyPaidLeaves > 0;
+            if (hasLeaveNote)
+            {
+                col.Item().PaddingHorizontal(4).PaddingBottom(4).Column(detail =>
+                {
+                    if (!string.IsNullOrWhiteSpace(_p.PaidLeaveBreakdown))
+                        detail.Item().Text($"Paid Leave detail: {_p.PaidLeaveBreakdown}").FontSize(7).Italic().FontColor(LabelColor);
+                    if (_p.NonCompanyPaidLeaves > 0)
+                        // Informational only — NOT included in Gross Income above. Regular
+                        // (non-one-time) Government/Shared-funded paid leave, e.g. an SSS
+                        // maternity day, out of the Paid Leave total. FIXED's Basic Pay only
+                        // ever covers the Company-funded share of paid leave.
+                        detail.Item().Text($"Includes {Money(_p.NonCompanyPaidLeaves)} in Government/Shared-funded paid leave (informational)").FontSize(7).Italic().FontColor(LabelColor);
+                    if (!string.IsNullOrWhiteSpace(_p.OneTimePayoutBreakdown))
+                        detail.Item().Text($"One-Time Leave Payout detail: {_p.OneTimePayoutBreakdown}").FontSize(7).Italic().FontColor(LabelColor);
+                });
+            }
+        });
+    }
+
+    // 13th Month Pay (PD 851) is a lump-sum annual payout, not attendance-driven — none of
+    // the OT/ND/holiday/other-income breakdown or SSS/PhilHealth/Pag-IBIG rows apply (see
+    // PayrollProcessorService.GenerateThirteenthMonthAsync, which never invokes those
+    // calculators for this PayrollType). Shows the non-taxable/taxable ceiling split instead,
+    // since that — not a DTR breakdown — is the figure that explains this payslip's tax.
+    void ComposeThirteenthMonthEarnings(IContainer c)
+    {
+        c.Border(1).BorderColor(BorderColor).Column(col =>
+        {
+            col.Item().Element(c2 => SectionHeader(c2, "13TH MONTH PAY"));
+            col.Item().Padding(4).Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    cols.RelativeColumn(3);
+                    cols.RelativeColumn(1);
+                });
+
+                AmountRow(table, "13th Month Pay", _p.GrossIncome, bold: true);
+                SubHeaderRow(table, "TAX TREATMENT");
+                AmountRow(table, "Non-Taxable Portion", _p.NonTaxableBenefits);
+                AmountRow(table, "Taxable Portion", _p.TaxableBenefits);
+            });
         });
     }
 
@@ -242,17 +298,24 @@ public class PayslipDocument : IDocument
                     cols.RelativeColumn(1);
                 });
 
-                AmountRow(table, "SSS Contribution", _p.SSSContribution);
-                AmountRow(table, "PhilHealth Contribution", _p.PhilHealthContribution);
-                AmountRow(table, "Pag-IBIG Contribution", _p.PagIbigContribution);
-                AmountRow(table, "Withholding Tax", _p.WithholdingTax);
-                AmountRow(table, "Loans", _p.TotalLoans);
-                AmountRow(table, "Other Deductions", _p.OtherDeductions - _p.TotalLoans);
-                if (_p.SalaryType == SalaryType.FIXED)
+                var isThirteenthMonth = _p.PayrollType == PayrollType.ThirteenthMonth;
+                if (!isThirteenthMonth)
                 {
-                    AmountRow(table, "Late", _p.LateAmount);
-                    AmountRow(table, "Under Time", _p.UnderTimeAmount);
-                    AmountRow(table, "Absences", _p.AbsencesAmount);
+                    AmountRow(table, "SSS Contribution", _p.SSSContribution);
+                    AmountRow(table, "PhilHealth Contribution", _p.PhilHealthContribution);
+                    AmountRow(table, "Pag-IBIG Contribution", _p.PagIbigContribution);
+                }
+                AmountRow(table, "Withholding Tax", _p.WithholdingTax);
+                if (!isThirteenthMonth)
+                {
+                    AmountRow(table, "Loans", _p.TotalLoans);
+                    AmountRow(table, "Other Deductions", _p.OtherDeductions - _p.TotalLoans);
+                    if (_p.SalaryType == SalaryType.FIXED)
+                    {
+                        AmountRow(table, "Late", _p.LateAmount);
+                        AmountRow(table, "Under Time", _p.UnderTimeAmount);
+                        AmountRow(table, "Absences", _p.AbsencesAmount);
+                    }
                 }
                 AmountRow(table, "TOTAL DEDUCTIONS", _p.TotalDeductions, bold: true);
             });
@@ -261,10 +324,25 @@ public class PayslipDocument : IDocument
 
     void ComposeNetPay(IContainer c)
     {
-        c.Background(SubHeaderBg).Border(1).BorderColor(Primary).Padding(10).Row(row =>
+        c.Column(col =>
         {
-            row.RelativeItem().Text("NET PAY").Bold().FontSize(12).FontColor(Primary);
-            row.ConstantItem(150).AlignRight().Text(Money(_p.NetPay)).Bold().FontSize(14).FontColor(Primary);
+            // Government-funded one-time leave payout — a non-taxable benefit pass-through
+            // deliberately excluded from Gross Income/statutory bases (see
+            // PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross), so it's added to Net
+            // Pay here rather than shown inside the taxable Earnings box above.
+            if (_p.GovernmentFundedLeavePay > 0)
+            {
+                col.Item().PaddingBottom(4).Row(row =>
+                {
+                    row.RelativeItem().Text("One-Time Leave Payout (Government, Non-Taxable)").FontColor(LabelColor);
+                    row.ConstantItem(150).AlignRight().Text(Money(_p.GovernmentFundedLeavePay)).FontColor(LabelColor);
+                });
+            }
+            col.Item().Background(SubHeaderBg).Border(1).BorderColor(Primary).Padding(10).Row(row =>
+            {
+                row.RelativeItem().Text("NET PAY").Bold().FontSize(12).FontColor(Primary);
+                row.ConstantItem(150).AlignRight().Text(Money(_p.NetPay)).Bold().FontSize(14).FontColor(Primary);
+            });
         });
     }
 }

@@ -224,16 +224,33 @@ public class PayrollReportService : BaseService<Payroll>
 
     // Standard PH formula: total Basic Pay earned in the calendar year / 12. Reflects
     // whatever Payroll rows exist for that employee in the year — not specially prorated
-    // for employees hired/separated mid-year beyond that.
+    // for employees hired/separated mid-year beyond that. Filters on PostingPeriod (not
+    // PayPeriodStart) to match GetAlphalistAsync/GetMonthlyRemittanceReturnAsync's
+    // BIR-year-boundary convention, and excludes PayrollType.ThirteenthMonth rows so a
+    // year's own 13th month payout can never fold into a later year's calculation.
     public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token)
     {
-        var rows = await GetQueryable(x => x.PayPeriodStart.Year == year && x.IsPosted).ToListAsync(token);
+        var rows = await GetQueryable(x => x.PostingPeriod.Year == year && x.IsPosted && x.PayrollType == PayrollType.Regular).ToListAsync(token);
         var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
+
+        // This year's own 13th month payout row, if generated — used to surface a
+        // released/unreleased Status per employee (NotGenerated/Draft/Posted), independent
+        // of the `rows` query above (which deliberately excludes ThirteenthMonth rows so a
+        // payout can never fold into its own entitlement calculation).
+        var thirteenthMonthRuns = await GetQueryable(x =>
+                x.PayrollType == PayrollType.ThirteenthMonth && x.PayPeriodStart.Year == year)
+            .Select(x => new { x.Id, x.EmployeeId, x.IsPosted, x.NetPay })
+            .ToListAsync(token);
+        var runByEmployee = thirteenthMonthRuns
+            .GroupBy(x => x.EmployeeId)
+            .ToDictionary(g => g.Key, g => g.First());
 
         return rows.GroupBy(x => x.EmployeeId).Select(g =>
         {
             employeeMap.TryGetValue(g.Key, out var e);
             var totalBasic = g.Sum(x => x.BasicPay);
+            var totalSpecialBonuses = g.Sum(x => x.TotalBonuses);
+            runByEmployee.TryGetValue(g.Key, out var run);
             return new ThirteenthMonthModel
             {
                 EmployeeId = g.Key,
@@ -242,6 +259,10 @@ public class PayrollReportService : BaseService<Payroll>
                 Year = year,
                 TotalBasicPayForYear = totalBasic,
                 ThirteenthMonthPay = totalBasic / 12,
+                TotalSpecialBonusesForYear = totalSpecialBonuses,
+                Status = run == null ? "NotGenerated" : run.IsPosted ? "Posted" : "Draft",
+                NetPay = run?.NetPay,
+                PayrollId = run?.Id,
             };
         }).OrderBy(x => x.FullName).ToList();
     }

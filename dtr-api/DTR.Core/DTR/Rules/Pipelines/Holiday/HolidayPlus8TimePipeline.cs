@@ -4,15 +4,15 @@ public class HolidayPlus8TimePipeline : IDTRTimePipeline
 {
     public TimeRange Apply(TimeContext context, TimeRange cannonicalTimeRange)
     {
-        var specification = new IsHolidaySpec(HolidayType.LEGAL)
-            .And(new IsEligibleForHoliday(HolidayType.LEGAL));
-
         var holidayKey = TimeRangeLedger.CreateKey<HolidayPlus8TimePipeline>(context);
         var cached = context.Payload.Ledger.GetByKey(holidayKey);
         if (cached.Found)
         {
             return cached.Value ?? TimeRange.Empty;
-        }
+        } 
+        var specification = new IsHolidaySpec(HolidayType.LEGAL)
+            .And(new IsEligibleForHoliday(HolidayType.LEGAL));
+         
         var currentDate = context.Payload.Data.CurrentShift.ShiftDate;
         var _holidayType = HolidayType.LEGAL;
         //Get current date holiday only
@@ -20,9 +20,17 @@ public class HolidayPlus8TimePipeline : IDTRTimePipeline
            .GetHolidayDuringDate(_holidayType, context.Payload.Data.Employee, currentDate)
            ;
 
-        if (!holidays.Any()) return TimeRange.Empty;
+        if (!holidays.Any())
+        {
+            context.Payload.Ledger.Record(holidayKey, TimeRange.Empty);
+            return TimeRange.Empty;
+        }
         var satisfied = specification.IsSatisfiedBy(cannonicalTimeRange, context);
-        if (!satisfied) return TimeRange.Empty;
+        if (!satisfied)
+        {
+            context.Payload.Ledger.Record(holidayKey, TimeRange.Empty);
+            return TimeRange.Empty;
+        }
 
         var defaultMinutes = satisfied
             ? (context.Payload.Data.CurrentShift.MaxWorkingMinutes)
@@ -38,6 +46,7 @@ public class HolidayPlus8TimePipeline : IDTRTimePipeline
         //}
         var finalRange = TimeRange.Empty;
         finalRange.SetMetaData("HolidayCount", multiplier);
+        context.Payload.Ledger.Record(holidayKey, finalRange);
         return finalRange;
 
     }

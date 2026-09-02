@@ -1,15 +1,18 @@
 ﻿
 using DTR.Core;
 using Hrms.Domain.Entities;
+using Hrms.Infrastructure.Migrations;
 namespace Hrms.Core.Services;
 
 public class AccountInitService : BaseService<Company>
 {
     private readonly GeneralSettingService _settingService;
-    public AccountInitService(IUnitOfWorkService uow, GeneralSettingService settingService) : base(uow)
+    public AccountInitService(IUnitOfWorkService uow, 
+        GeneralSettingService settingService) : base(uow)
     {
         _settingService = settingService;
     }
+
     public async Task Create(CancellationToken token)
     {
         //await CreateOrUpdateAsync(company);
@@ -17,6 +20,7 @@ public class AccountInitService : BaseService<Company>
         await SetDefaultRates(token);
         await SetDefaultIncomeTypes(token);
         await SetDefaultDeductionTypes(token);
+        await SetBranch(token);
         await SetDefaultHolidays(token);
         await SetDefaultSSSTable(token);
         await SetDefaultPHICTable(token);
@@ -28,6 +32,21 @@ public class AccountInitService : BaseService<Company>
         await PayrollSettings(token);
         await SetDefaultStatutoryCreditPolicy(token);
         await SetDefaultPayrollInclusionDefaults(token);
+    }
+
+    private async Task SetBranch(CancellationToken token)
+    {
+        var branch = new Branch
+        {
+            Code = "Main",
+            Name = "Main Office",
+            Address = "",
+            Contact = "",
+            ShortName = "Main",
+            Email = "",
+            ManagerName = ""
+        };
+        await _uow.Repository.AddAsync(branch, token);
     }
 
     private async Task PayrollSettings(CancellationToken token)

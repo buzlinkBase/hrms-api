@@ -131,6 +131,45 @@ public class DailyRecordService : BaseService<DailyRecord>
         return (records, fromDate, toDate);
     }
 
+    // Per-employee leave-type breakdown (which leave, how many hours, paid/unpaid) for the
+    // days covered by this Generate run — a dedicated hand-rolled projection rather than
+    // trusting LoadForPayrollRunAsync's ProjectToType<DailyRecordRunModel> to also pull the
+    // LeavesInfo child collection along for free, matching the proven-working pattern
+    // DTRDetailQuery already uses for the same navigation. Used by
+    // PayrollProcessorService to build PayrollSummaryLine.PaidLeaveBreakdown — richer,
+    // per-leave-type detail behind the existing lump PaidLeaves/UnpaidLeaves totals.
+    public async Task<Dictionary<EmployeeKey, List<LeaveMetaDataModel>>>
+        LoadLeaveInfoForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
+    {
+        if (batchCodes.Count == 0) return [];
+
+        var rows = await GetQueryable(x => batchCodes.Contains(x.BatchCode!) && x.LeavesInfo != null && x.LeavesInfo.Any())
+            .AsNoTracking()
+            .SelectMany(x => x.LeavesInfo!.Select(li => new
+            {
+                x.EmployeeId,
+                li.LeaveId,
+                li.Name,
+                li.Hours,
+                li.StartDateTime,
+                li.EndDateTime,
+                li.PayType,
+            }))
+            .ToListAsync(token);
+
+        return rows
+            .GroupBy(x => new EmployeeKey(x.EmployeeId))
+            .ToDictionary(g => g.Key, g => g.Select(x => new LeaveMetaDataModel
+            {
+                LeaveId = x.LeaveId,
+                Name = x.Name,
+                Hours = x.Hours,
+                StartDateTime = x.StartDateTime,
+                EndDateTime = x.EndDateTime,
+                PayType = x.PayType,
+            }).ToList());
+    }
+
     public async Task<Dictionary<EmployeeKey, List<DailyRecordRunModel>>>
         LoadForPayrollAsync(PayrollCalcPayload payload,
         CancellationToken token)
@@ -245,7 +284,7 @@ public class DailyRecordService : BaseService<DailyRecord>
                 x.First().PostingDescription,
                 x.First().CreatedAt
             })
-            .OrderByDescending(x=>x.CreatedAt)
+            .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(token);
 
         var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);

@@ -9,7 +9,7 @@ public class TableHDMFSemiMonthlyCalculator : IDeductionCalculator
     {
         if (line.IsLimit) return line;
         var resolver = new CutoffPolicyResolver();
-        var baseRate = StatutoryHelper.GetSemiMonthlyGrossBaseRate(context);
+        var baseRate = StatutoryHelper.GetSemiMonthlyBracketBaseRate(context, resolver);
         var table = HDMFHelper.GetTable(context, baseRate);
         if (table == null) return line;
 
@@ -17,16 +17,16 @@ public class TableHDMFSemiMonthlyCalculator : IDeductionCalculator
         if (balances.EEBalance == 0) return line;
         if (line.RemainingGrossBalance < balances.EEBalance) return line;
 
-        var scheduleAction = StatutoryScheduleResolver.Resolve(context, resolver);
-        if (scheduleAction == StatutoryReleaseAction.ReleaseNothing) return line;
-
-        var divisor = _divisorResolver.Resolve(context, resolver, scheduleAction);
         var date = context.Payload.FromDate;
 
         try
         {
             if (resolver.IsFirstCutoff(context))
             {
+                var scheduleAction = StatutoryScheduleResolver.Resolve(context, resolver);
+                if (scheduleAction == StatutoryReleaseAction.ReleaseNothing) return line; // e.g. SecondHalfMonth: wait for the last cutoff
+
+                var divisor = _divisorResolver.Resolve(context, resolver, scheduleAction);
                 var strategy = CutoffAllocationStrategyFactory.Resolve(context.Employee.SalaryType);
                 var payload = new HDMFTablePayload(
                     strategy.AllocateFirstCutoffShare(table.EmployeeShare, balances.EEBalance, context, divisor),
@@ -36,10 +36,13 @@ public class TableHDMFSemiMonthlyCalculator : IDeductionCalculator
             }
             else if (resolver.IsSecondCutoff(context))
             {
-                // Always the exact remaining balance — self-corrects the month's total to
-                // table.EmployeeShare/EmployerShare regardless of how the first cutoff split
-                // it, so Fixed and Variable employees both end up contributing the correct
-                // full-month amount.
+                // Always the exact remaining balance, regardless of StatutoryDeductionSchedule
+                // — the last cutoff is the final chance in the month to true up whatever the
+                // first cutoff did/didn't withhold, so Fixed and Variable employees (and every
+                // schedule: PerPayroll, FirstHalfMonth, SecondHalfMonth) all converge on the
+                // correct full-month total no matter how the first cutoff split it. Must stay
+                // unconditional — this used to be gated behind a StatutoryScheduleResolver
+                // check that made it unreachable under FirstHalfMonth (see git history).
                 var payload = new HDMFTablePayload(
                     balances.EEBalance,
                     balances.ERBalance);

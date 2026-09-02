@@ -1,5 +1,4 @@
-﻿using Hrms.Core.Calculators;
-using Hrms.Core.Services.AI;
+﻿using Hrms.Core.Services.AI;
 using Hrms.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
