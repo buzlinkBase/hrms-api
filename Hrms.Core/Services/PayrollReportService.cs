@@ -228,9 +228,17 @@ public class PayrollReportService : BaseService<Payroll>
     // PayPeriodStart) to match GetAlphalistAsync/GetMonthlyRemittanceReturnAsync's
     // BIR-year-boundary convention, and excludes PayrollType.ThirteenthMonth rows so a
     // year's own 13th month payout can never fold into a later year's calculation.
-    public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token)
+    // asOfDate, when given, bounds BasicPay/Special Bonuses to what was actually earned up to
+    // that date instead of the full calendar year — PD 851 self-prorates the resulting
+    // ThirteenthMonthPay simply by summing less. Used by Last Pay's prorated 13th month
+    // component (PayrollProcessorService.GenerateLastPayAsync); the regular 13th month run
+    // and reports pass none and keep today's full-year behavior.
+    public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token, DateOnly? asOfDate = null)
     {
-        var rows = await GetQueryable(x => x.PostingPeriod.Year == year && x.IsPosted && x.PayrollType == PayrollType.Regular).ToListAsync(token);
+        var rows = await GetQueryable(x =>
+                x.PostingPeriod.Year == year && x.IsPosted && x.PayrollType == PayrollType.Regular &&
+                (asOfDate == null || x.PostingPeriod <= asOfDate))
+            .ToListAsync(token);
         var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
 
         // This year's own 13th month payout row, if generated — used to surface a

@@ -269,6 +269,7 @@ public class EmployeeModelPayrollRun
     //public Guid? BranchId { get; set; }
     public JobLevelOption JobLevel { get; set; }
     public DateOnly HireDate { get; set; }
+    public DateTime? DateResigned { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string MiddleName { get; set; } = string.Empty;
@@ -355,7 +356,8 @@ public class CreateTaxRate
 public class CreateEmployeeSetting
 {
     public bool IsEligibleForOvertime { get; set; }
-    public bool IsEligibleForHolidayPay { get; set; }
+    public bool IsEligibleForRegularHolidayPay { get; set; }
+    public bool IsEligibleForSpecialHolidayPay { get; set; }
     public bool IsEligibleForNightDifferential { get; set; }
     public bool IsEligibleForLeaveCredits { get; set; }
     public bool IsEligibleFor13thMonth { get; set; }
@@ -418,7 +420,8 @@ public class EmployeeDTRRun
 public class EmployeeSettingsRun
 {
     public bool IsEligibleForOvertime { get; set; }
-    public bool IsEligibleForHolidayPay { get; set; }
+    public bool IsEligibleForRegularHolidayPay { get; set; }
+    public bool IsEligibleForSpecialHolidayPay { get; set; }
     public bool IsEligibleForNightDifferential { get; set; }
     public bool IsEligibleForLeaveCredits { get; set; }
     public bool IsEligibleFor13thMonth { get; set; }

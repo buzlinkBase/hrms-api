@@ -1,8 +1,5 @@
-﻿using Hrms.Core;
-using NPOI.OpenXmlFormats.Vml;
-
+﻿
 namespace Hrms.Core.Policies.DTRPolicies;
-
 public class RegularHolidayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
@@ -39,7 +36,7 @@ public class HolidayPayCalculator
     private readonly BasicPipelineData _line;
     private HolidayPayCalculator(PayrollContext context, BasicPipelineData line)
     {
-        _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
+        _isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
         _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
                               context.Employee.IsRegularHolidayIncluded;
         _totalRateMultiplier = PremiumRateHelper.GetRate(context, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);

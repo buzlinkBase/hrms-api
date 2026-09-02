@@ -25,6 +25,8 @@ public class PayrollProcessorService
     private readonly GeneralSettingService _generalSettingService;
     private readonly EmployeeService _employeeService;
     private readonly TaxService _taxService;
+    private readonly DeductionAplDtlService _deductionAplDtlService;
+    private readonly LeaveLedgerService _leaveLedgerService;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
@@ -45,7 +47,9 @@ public class PayrollProcessorService
         PayrollReportService payrollReportService,
         GeneralSettingService generalSettingService,
         EmployeeService employeeService,
-        TaxService taxService)
+        TaxService taxService,
+        DeductionAplDtlService deductionAplDtlService,
+        LeaveLedgerService leaveLedgerService)
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
@@ -66,6 +70,8 @@ public class PayrollProcessorService
         _generalSettingService = generalSettingService;
         _employeeService = employeeService;
         _taxService = taxService;
+        _deductionAplDtlService = deductionAplDtlService;
+        _leaveLedgerService = leaveLedgerService;
     }
 
     public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
@@ -247,6 +253,175 @@ public class PayrollProcessorService
         await SaveStatutoryContributionsAsync(lines, token);
 
         return lines;
+    }
+
+    // Last Pay / Final Pay (DOLE Labor Advisory 06-20) for a separated employee: prorated
+    // 13th month pay (basic pay actually earned up to DateResigned / 12) + cash conversion of
+    // convertible leave credits, minus outstanding loan balance (informational netting only —
+    // the loan ledger itself is untouched). Shares the SAME annual exemption ceiling as 13th
+    // month, combined with Special Bonuses already paid that year. Deliberately does NOT
+    // compute final DTR-attendance wages — those still flow through the existing regular
+    // GenerateAsync from whatever DTR batch covers the employee's last days worked, the same
+    // relationship 13th Month Pay already has to regular payroll. One-time-ever per employee
+    // (not annual), guarded via GetLastPayPaidEmployeeIdsAsync.
+    public async Task<List<PayrollSummaryLine>> GenerateLastPayAsync(LastPayRunPayload payload, CancellationToken token)
+    {
+        if (payload.EmployeeIds is not { Count: > 0 })
+        {
+            throw new ValidationException("Select at least one separated employee to generate Last Pay for.");
+        }
+
+        var employees = await _employeeService.GetSeparatedEmployeesForLastPayAsync(payload.EmployeeIds, token);
+        var employeeMap = employees.ToDictionary(x => x.Id);
+        var missing = payload.EmployeeIds.Where(id => !employeeMap.ContainsKey(id)).ToList();
+        if (missing.Count > 0)
+        {
+            throw new ValidationException(
+                "One or more selected employees are not eligible for Last Pay — they must be marked separated " +
+                "(Terminated/Resigned/Retired/Deceased) with a Date Resigned on file.");
+        }
+
+        var alreadyPaid = await _payrollService.GetLastPayPaidEmployeeIdsAsync(token);
+        var alreadyPaidSelected = payload.EmployeeIds.Where(alreadyPaid.Contains).ToList();
+        if (alreadyPaidSelected.Count > 0)
+        {
+            throw new ValidationException(
+                "Last Pay has already been generated for one or more selected employees. " +
+                "Delete the existing run first if you need to regenerate it.");
+        }
+
+        var convertibleLeaveValue = await _leaveLedgerService.GetConvertibleLeaveValueAsync(payload.EmployeeIds, token);
+        var outstandingLoans = await LoadOutstandingLoansAsync(payload.EmployeeIds, employees, token);
+
+        var settings = await _generalSettingService.GetSettingsAsync(PayrollSettingsIdentity.IdentityType);
+        var ceiling = settings.TryGetValue(PayrollSettingsIdentity.KeyThirteenthMonthExemptionCeiling, out var ceilingSetting)
+                      && ceilingSetting.Value != null
+            ? GeneralSettingsUtil.ParseDouble(ceilingSetting.Value, 90_000)
+            : 90_000;
+
+        var effectiveDate = payload.PayDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var taxTable = await _taxService.LoadForPayrollrunAsync(effectiveDate, token);
+        var batchId = Guid.CreateVersion7();
+
+        // Employees separated on the same date share the same GetThirteenthMonthAsync
+        // result set — cached per (year, asOfDate) so a batch of same-day separations
+        // doesn't re-run the same query once per employee.
+        var thirteenthMonthFiguresCache = new Dictionary<DateOnly, List<ThirteenthMonthModel>>();
+
+        var lines = new List<PayrollSummaryLine>();
+        foreach (var employeeId in payload.EmployeeIds)
+        {
+            var employee = employeeMap[employeeId];
+            var asOfDate = DateOnly.FromDateTime(employee.DateResigned!.Value);
+            var periodStart = new DateOnly(asOfDate.Year, 1, 1);
+
+            if (!thirteenthMonthFiguresCache.TryGetValue(asOfDate, out var figures))
+            {
+                figures = await _payrollReportService.GetThirteenthMonthAsync(asOfDate.Year, token, asOfDate);
+                thirteenthMonthFiguresCache[asOfDate] = figures;
+            }
+            var proratedThirteenthMonth = figures.FirstOrDefault(x => x.EmployeeId == employeeId)?.ThirteenthMonthPay ?? 0;
+            var totalSpecialBonusesForYear = figures.FirstOrDefault(x => x.EmployeeId == employeeId)?.TotalSpecialBonusesForYear ?? 0;
+
+            convertibleLeaveValue.TryGetValue(employeeId, out var leaveValue);
+            var dailyRate = _dailyRateResolver.Resolve(employee, asOfDate);
+            var leaveConversion = leaveValue * dailyRate;
+            outstandingLoans.TryGetValue(employeeId, out var outstandingLoanBalance);
+
+            var gross = proratedThirteenthMonth + leaveConversion;
+            var remainingCeiling = ComputeRemainingThirteenthMonthCeiling((decimal)ceiling, totalSpecialBonusesForYear);
+            var (nonTaxable, taxable) = ComputeThirteenthMonthTaxSplit(gross, remainingCeiling);
+
+            var wtaxResult = new DeductionPipeData { RemainingGrossBalance = taxable };
+            if (taxable > 0 && employee.TaxRate != null)
+            {
+                employee.PayrollFrequency = PayrollFrequency.MONTHLY;
+                var wtaxContext = new DeductionPayloadContext
+                {
+                    Employee = employee,
+                    Payload = new CalculatorPayload
+                    {
+                        FromDate = periodStart,
+                        ToDate = asOfDate,
+                        TaxTableModel = taxTable,
+                        CompanyPolicy = new CompanyPolicyRule(),
+                    },
+                    PayrollLine = new PayrollSummaryLine { GrossIncome = taxable },
+                };
+                wtaxResult = WTaxCalculatorFactory.Create(wtaxContext).Calculate(wtaxContext, wtaxResult);
+            }
+            // Loan balance is netted straight into RunningTotal so GetNetPay below subtracts
+            // it alongside WTax in one step — informational only, never written back to the
+            // loan ledger (DeductionApplicationDetail is never touched by this method).
+            wtaxResult.RunningTotal += outstandingLoanBalance;
+
+            var line = new PayrollSummaryLine
+            {
+                PayrollPeriod = $"Last Pay {asOfDate:yyyy-MM-dd}",
+                PayPeriodStart = periodStart,
+                PayPeriodEnd = asOfDate,
+                PayrollDate = effectiveDate,
+                StatutoryCreditDate = effectiveDate,
+                PostingPeriod = effectiveDate,
+                PayDate = payload.PayDate,
+                PayrollBatchId = batchId,
+                PayrollType = PayrollType.LastPay,
+                Remarks = payload.Remarks,
+                EmployeeId = employeeId,
+                FullName = $"{employee.FirstName} {employee.LastName}".Trim(),
+                SalaryType = employee.SalaryType,
+                BasicPay = 0, // never counted toward a future 13th month/Alphalist figure
+                GrossIncome = gross,
+                NonTaxableBenefits = nonTaxable,
+                TaxableBenefits = taxable,
+                WithholdingTax = wtaxResult.TaxInfo?.TaxDue ?? 0,
+                TotalLoans = outstandingLoanBalance,
+                TotalDeductions = wtaxResult.RunningTotal,
+                PayrollGroupId = employee.PayrollGroupId,
+                AreaId = employee.AreaId,
+                ClientId = employee.ClientId,
+            };
+            line.NetPay = PayrollProcessorUtil.GetNetPay(line, wtaxResult);
+            lines.Add(line);
+        }
+
+        await _payrollBatchService.AddAsync(new PayrollBatch
+        {
+            Id = batchId,
+            PayPeriodStart = lines.Min(x => x.PayPeriodStart),
+            PayPeriodEnd = lines.Max(x => x.PayPeriodEnd),
+            PayDate = payload.PayDate,
+            PayrollType = PayrollType.LastPay,
+            Remarks = payload.Remarks,
+        }, token);
+
+        var payrolls = _mapper.Map<List<Payroll>>(lines);
+        foreach (var payroll in payrolls)
+        {
+            payroll.BatchCode = batchId.ToString();
+        }
+        await _payrollService.SavePayrollsAsync(payrolls, token);
+        // SSS/PHIC/HDMF are never set on these lines; only the WTaxContribution row (needed
+        // for BIR remittance reporting) gets written — same as GenerateThirteenthMonthAsync.
+        await SaveStatutoryContributionsAsync(lines, token);
+
+        return lines;
+    }
+
+    // Sums outstanding (Balance > 0) loan installments per employee up to their own
+    // separation date, via the same DeductionAplDtlService.LoadAsync the regular payroll
+    // deduction pipeline uses — informational only for Last Pay (see GenerateLastPayAsync).
+    private async Task<Dictionary<Guid, decimal>> LoadOutstandingLoansAsync(
+        List<Guid> employeeIds, List<EmployeeModelPayrollRun> employees, CancellationToken token)
+    {
+        var latestSeparationDate = employees
+            .Where(x => employeeIds.Contains(x.Id))
+            .Max(x => DateOnly.FromDateTime(x.DateResigned!.Value));
+        var deductionsByEmployee = await _deductionAplDtlService.LoadAsync(employeeIds, DateOnly.MinValue, latestSeparationDate, token);
+
+        return deductionsByEmployee.ToDictionary(
+            kvp => kvp.Key.employeeId,
+            kvp => kvp.Value.Where(x => x.Type == DeductionInfoType.Loan).Sum(x => x.Amount));
     }
 
     // Splits a 13th month gross into the non-taxable portion (up to the exemption ceiling)

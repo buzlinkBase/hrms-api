@@ -228,6 +228,22 @@ public class EmployeeService : BaseService<Employee>
         return _mapper.Map<List<EmployeeModelPayrollRun>>(employees);
     }
 
+    // Employees eligible for a Last Pay run — separated (per the SeparatedStatuses used
+    // elsewhere to EXCLUDE these same employees from active DTR/filter queries) with a
+    // recorded DateResigned to anchor the proration window. See PayrollProcessorService.GenerateLastPayAsync.
+    public async Task<List<EmployeeModelPayrollRun>> GetSeparatedEmployeesForLastPayAsync(
+        List<Guid>? employeeIds, CancellationToken token)
+    {
+        var employees = await GetQueryable(x =>
+                (employeeIds == null || employeeIds.Count == 0 || employeeIds.Contains(x.Id)) &&
+                SeparatedStatuses.Contains(x.EmploymentStatus) && x.DateResigned != null)
+            .Include(x => x.PayrollGroup)
+            .Include(x => x.TaxRate)
+            .Include(x => x.Settings)
+            .ToListAsync(token);
+        return _mapper.Map<List<EmployeeModelPayrollRun>>(employees);
+    }
+
     public async Task<List<Employee>> FindAllAsync(CancellationToken token)
     {
         var data = await GetQueryable()

@@ -2,12 +2,15 @@
 
 internal class LeavePolicy : PayrollPolicyBase<LineCollection<BasicPipelineData>, PayrollContext>
 {
-    //public LeavePolicy() : base(new IsLeave()
-    //    .AndNot(new IsLegalHolidayDay())
-    //    .AndNot(new IsSpecialNonWorkingDay())
-    //    .AndNot(new IsRestDayType())
-    //    .And(new IsEligibleForLeaveCredits()))
-    //{ }
+    public LeavePolicy() : base(
+        new IsEligibleForLeavePay()
+        //new IsLeave()
+        //.AndNot(new IsLegalHolidayDay())
+        //.AndNot(new IsSpecialNonWorkingDay())
+        //.AndNot(new IsRestDayType())
+        //.And(new IsEligibleForLeavePay())
+        )
+    { }
 
     public override LineCollection<BasicPipelineData> ApplyIfSatisfied(LineCollection<BasicPipelineData> linecollection, PayrollContext context)
     {
@@ -41,5 +44,6 @@ internal class LeavePolicy : PayrollPolicyBase<LineCollection<BasicPipelineData>
             });
         }
         return linecollection;
+
     }
 }

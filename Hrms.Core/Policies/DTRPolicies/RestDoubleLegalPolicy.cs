@@ -38,7 +38,7 @@ public class RestDoubleLegalPayCalculator
 
     private RestDoubleLegalPayCalculator(PayrollContext context, BasicPipelineData line)
     {
-        _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
+        _isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
         _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
                               context.Employee.IsRestDayPaid &&
                               context.Employee.IsRegularHolidayIncluded;

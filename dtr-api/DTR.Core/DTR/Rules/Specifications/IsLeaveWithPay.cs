@@ -20,11 +20,9 @@ public class IsGovFundedLeaved : IRuleSpecification
     public bool IsSatisfiedBy(TimeRange input, TimeContext context)
     {
         var hasSpecialLeave = context.Payload.Data.CurrentLeaves
-           .Where(x => (x.Leave.PaySource == PaySource.Government ||
-               x.Leave.PaySource == PaySource.Shared) && 
+           .Where(x => (x.Leave.PaySource == PaySource.Government || x.Leave.PaySource == PaySource.Shared) &&
                x.PayoutMode == PayoutMode.OneTime &&
-               x.PayType == PayType.WithPay 
-               )
+               x.PayType == PayType.WithPay)
            .Any();
 
         return hasSpecialLeave;

@@ -1,11 +1,12 @@
 namespace Hrms.Core.Policies.DTRPolicies;
 
-internal class SpecialWorkDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
+internal class SpecialNonWorkingDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollContext>
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
         var dailyRecord = context.DailyRecord;
-        if (dailyRecord.WorkTypeEnum is not (WorkType.SpecialNonWorkingHoliday or WorkType.SpecialHolidayDuty) ||
+        if (dailyRecord.WorkTypeEnum is not (WorkType.SpecialNonWorkingHoliday 
+                or WorkType.SpecialHolidayDuty) ||
             dailyRecord.ShiftWorkingHour <= 0)
         {
             return line;
@@ -35,7 +36,7 @@ public class SpecialHolidayPayCalculator
 
     private SpecialHolidayPayCalculator(PayrollContext context)
     {
-        _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
+        _isEligible = new IsEligibleForSpecialHolidayPay().IsSatisfiedBy(context);
         _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
                               context.Employee.IsSpecialNonWorkingIncluded;
         _totalRateMultiplier = PremiumRateHelper.GetRate(context, RateType.SPECIAL_NON_WORKING, RATE_DEFAULT.SPECIAL_NON_WORKING);

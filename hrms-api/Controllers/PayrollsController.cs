@@ -56,6 +56,15 @@ namespace Hrms.Api.Controllers
             return Ok(response);
         }
 
+        [HttpPost("generate-last-pay")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> GenerateLastPay([FromBody] LastPayRunPayload payload, CancellationToken token)
+        {
+            var payrolls = await _service.GenerateLastPayAsync(payload, token);
+            var response = new { data = payrolls, total = payrolls.Count };
+            return Ok(response);
+        }
+
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> Get(

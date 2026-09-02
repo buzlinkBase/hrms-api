@@ -33,6 +33,15 @@ public record ThirteenthMonthRunPayload(int Year)
     public DateOnly? PayDate { get; init; }
     public string? Remarks { get; init; }
 }
+// EmployeeIds is required (not optional like ThirteenthMonthRunPayload's) — Last Pay is
+// never run "for everyone", only for specific separated employees being settled. Each
+// employee's own DateResigned anchors their proration window, so no Year/PayrollGroupIds
+// scoping is needed here. See PayrollProcessorService.GenerateLastPayAsync.
+public record LastPayRunPayload(List<Guid> EmployeeIds)
+{
+    public DateOnly? PayDate { get; init; }
+    public string? Remarks { get; init; }
+}
 public class CompanyPolicyRule
 {
     public OvertimeInclusionPolicy OTInclusionPolicy { get; set; }

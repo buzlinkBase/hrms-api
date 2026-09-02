@@ -9,6 +9,52 @@ public class LeaveLedgerService : BaseService<LeaveLedger>
     {
     }
 
+    // Rate-weighted convertible leave days per employee, for Last Pay's leave conversion
+    // component (PayrollProcessorService.GenerateLastPayAsync) — the caller only needs to
+    // multiply the returned value by the employee's own DailyRate to get the peso amount.
+    // Reads LeaveCredits.Balance directly — the entity's own authoritative hard balance, not
+    // the ledger-derived Sum(Add-Less) LoadCreditsAsync computes for other consumers — summed
+    // across every PeriodYear row per employee/leave-type (unused balances carry over),
+    // restricted to leave types with ConvertToCash enabled, capped per type by
+    // MaxCashConversionDays where set, then weighted by that leave type's own
+    // CashConversionRate before being combined across leave types (each type can have a
+    // different rate, so the weighting must happen before summing).
+    public async Task<Dictionary<Guid, decimal>> GetConvertibleLeaveValueAsync(
+        List<Guid> employeeIds, CancellationToken token)
+    {
+        var rows = await (
+            from credits in Context.LeaveCredits.AsNoTracking()
+            join leave in Context.Leaves.AsNoTracking() on credits.LeaveId equals leave.Id
+            where employeeIds.Contains(credits.EmployeeId) && leave.ConvertToCash
+            select new
+            {
+                credits.EmployeeId, credits.LeaveId, credits.Balance,
+                leave.MaxCashConversionDays, leave.CashConversionRate,
+            })
+            .ToListAsync(token);
+
+        return rows
+            .GroupBy(x => new { x.EmployeeId, x.LeaveId })
+            .Select(g => new
+            {
+                g.Key.EmployeeId,
+                Value = ComputeConvertibleLeaveValue(
+                    g.Sum(x => x.Balance), g.First().MaxCashConversionDays, g.First().CashConversionRate),
+            })
+            .GroupBy(x => x.EmployeeId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Value));
+    }
+
+    // One leave type's rate-weighted convertible value: the balance capped at
+    // MaxCashConversionDays (uncapped when null), then weighted by CashConversionRate.
+    // `internal` so it's directly unit testable without a database — see
+    // GetConvertibleLeaveValueAsync, which sums this across an employee's leave types.
+    internal static decimal ComputeConvertibleLeaveValue(decimal balance, double? maxCashConversionDays, decimal cashConversionRate)
+    {
+        var convertibleDays = maxCashConversionDays is { } max ? Math.Min(balance, (decimal)max) : balance;
+        return convertibleDays * cashConversionRate;
+    }
+
     // Manual HR correction of an employee's leave credits balance. Recorded as a
     // LedgerEntryType.Adjustment ledger entry (Add/Less computed from the delta to the
     // new balance) rather than overwriting LeaveCredits.Balance directly, so the ledger's

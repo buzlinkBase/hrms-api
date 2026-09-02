@@ -66,7 +66,12 @@ public class PayslipDocument : IDocument
             row.RelativeItem().Column(col =>
             {
                 col.Item().Text(CompanyName).Bold().FontSize(12).FontColor(Primary);
-                col.Item().Text(_p.PayrollType == PayrollType.ThirteenthMonth ? "13TH MONTH PAY" : "PAYSLIP").FontSize(9).FontColor(LabelColor);
+                col.Item().Text(_p.PayrollType switch
+                {
+                    PayrollType.ThirteenthMonth => "13TH MONTH PAY",
+                    PayrollType.LastPay => "LAST PAY",
+                    _ => "PAYSLIP",
+                }).FontSize(9).FontColor(LabelColor);
                 if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
                 {
                     col.Item().Text(string.Join("  •  ", new[] { _company?.Address, _company?.Contact }
@@ -177,6 +182,11 @@ public class PayslipDocument : IDocument
             ComposeThirteenthMonthEarnings(c);
             return;
         }
+        if (_p.PayrollType == PayrollType.LastPay)
+        {
+            ComposeLastPayEarnings(c);
+            return;
+        }
         c.Border(1).BorderColor(BorderColor).Column(col =>
         {
             col.Item().Element(c2 => SectionHeader(c2, "EARNINGS"));
@@ -188,21 +198,25 @@ public class PayslipDocument : IDocument
                     cols.RelativeColumn(1);
                 });
 
-                AmountRow(table, "Basic Pay", _p.BasicPay);
+                // FIXED employees' Basic Pay (MonthlyRate/divisor) already pays for every day
+                // in the period, paid-leave days folded in — shown here net of PaidLeaves so
+                // the Basic Pay and Paid Leave lines don't double-count the same money.
+                // VARIABLE's Basic Pay (RegularDayPay only) never included paid-leave pay, so
+                // it's shown as-is. See PayrollProcessorService.GetBasicPay/ComputeBasicSalary.
+                AmountRow(table, "Basic Pay",
+                    _p.SalaryType == SalaryType.FIXED ? _p.BasicPay - _p.PaidLeaves : _p.BasicPay);
                 AmountRow(table, "Regular Overtime", _p.RegularOTPay);
                 AmountRow(table, "Regular Night Differential", _p.RegularNDPay);
                 AmountRow(table, "Regular Night Diff. Overtime", _p.RegularNDOTPay);
                 AmountRow(table, "Rest Day",
                     _p.RestDayPay + _p.RestDayOTPay + _p.RestDayNDPay + _p.RestDayNDOTPay);
-                // FIXED employees' Basic Pay (MonthlyRate/divisor) already pays for every day
-                // in the period, paid-leave days included — showing the full PaidLeaves
-                // again here would double it up. VARIABLE's Basic Pay (RegularDayPay only)
-                // never includes leave-day pay, so it needs the whole amount broken out.
-                // Retained as-is per PayrollProcessorService.ComputeAllowances.
-                if (_p.SalaryType != SalaryType.FIXED)
-                {
-                    AmountRow(table, "Paid Leave", _p.PaidLeaves);
-                }
+                AmountRow(table, "Paid Leave", _p.PaidLeaves);
+                // Unpaid Leave is shown as-is regardless of salary type — FIXED's Basic Pay
+                // above is already computed net of it (GetBasicPay subtracts it from the flat
+                // monthly rate), and VARIABLE's day-by-day calc simply never generates pay for
+                // an unpaid-leave day, so in both cases it was never part of Basic Pay to
+                // begin with and needs no further adjustment here.
+                AmountRow(table, "Unpaid Leave", _p.UnpaidLeaves);
                 if (_p.CompanyFundedLeavePay > 0)
                 {
                     // Government-funded is deliberately NOT shown here — it's a non-taxable
@@ -285,6 +299,33 @@ public class PayslipDocument : IDocument
         });
     }
 
+    // Last Pay / Final Pay (DOLE Labor Advisory 06-20): prorated 13th month + leave credit
+    // cash conversion, combined into one GrossIncome figure by GenerateLastPayAsync (the two
+    // components aren't persisted separately) — same non-taxable/taxable ceiling split shown
+    // for 13th Month Pay, since it's the figure that explains this payslip's tax. Final DTR-
+    // attendance wages for days actually worked aren't part of this document; they're on a
+    // separate regular payslip from whatever payroll run covered those days.
+    void ComposeLastPayEarnings(IContainer c)
+    {
+        c.Border(1).BorderColor(BorderColor).Column(col =>
+        {
+            col.Item().Element(c2 => SectionHeader(c2, "LAST PAY"));
+            col.Item().Padding(4).Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    cols.RelativeColumn(3);
+                    cols.RelativeColumn(1);
+                });
+
+                AmountRow(table, "Prorated 13th Month + Leave Conversion", _p.GrossIncome, bold: true);
+                SubHeaderRow(table, "TAX TREATMENT");
+                AmountRow(table, "Non-Taxable Portion", _p.NonTaxableBenefits);
+                AmountRow(table, "Taxable Portion", _p.TaxableBenefits);
+            });
+        });
+    }
+
     void ComposeDeductions(IContainer c)
     {
         c.Border(1).BorderColor(BorderColor).Column(col =>
@@ -299,14 +340,22 @@ public class PayslipDocument : IDocument
                 });
 
                 var isThirteenthMonth = _p.PayrollType == PayrollType.ThirteenthMonth;
-                if (!isThirteenthMonth)
+                var isLastPay = _p.PayrollType == PayrollType.LastPay;
+                var isRegular = !isThirteenthMonth && !isLastPay;
+                if (isRegular)
                 {
                     AmountRow(table, "SSS Contribution", _p.SSSContribution);
                     AmountRow(table, "PhilHealth Contribution", _p.PhilHealthContribution);
                     AmountRow(table, "Pag-IBIG Contribution", _p.PagIbigContribution);
                 }
                 AmountRow(table, "Withholding Tax", _p.WithholdingTax);
-                if (!isThirteenthMonth)
+                if (isLastPay)
+                {
+                    // Netted straight off Net Pay by GenerateLastPayAsync — informational
+                    // only, the loan ledger itself is untouched by this payout.
+                    AmountRow(table, "Outstanding Loans", _p.TotalLoans);
+                }
+                if (isRegular)
                 {
                     AmountRow(table, "Loans", _p.TotalLoans);
                     AmountRow(table, "Other Deductions", _p.OtherDeductions - _p.TotalLoans);

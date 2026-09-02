@@ -45,7 +45,7 @@ public class RestSpecialDayPayCalculator
 
     private RestSpecialDayPayCalculator(PayrollContext context)
     {
-        _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
+        _isEligible = new IsEligibleForSpecialHolidayPay().IsSatisfiedBy(context);
         _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
                               context.Employee.IsRestDayPaid &&
                               context.Employee.IsSpecialNonWorkingIncluded;

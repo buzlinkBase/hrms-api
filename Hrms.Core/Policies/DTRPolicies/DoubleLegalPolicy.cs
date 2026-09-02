@@ -44,7 +44,7 @@ public class DoubleLegalPayCalculator
 
     private DoubleLegalPayCalculator(PayrollContext context)
     {
-        _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
+        _isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
         _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
                               context.Employee.IsRegularHolidayIncluded;
     }

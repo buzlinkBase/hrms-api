@@ -15,11 +15,31 @@ public class IsEligibleForNightDifferential : IPayrollSpec<PayrollContext>
                (context.Employee.Settings?.IsEligibleForNightDifferential ?? true);
     }
 }
-public class IsEligibleForHolidayPay : IPayrollSpec<PayrollContext>
+public class IsEligibleForLeavePay  : IPayrollSpec<PayrollContext>
 {
     public bool IsSatisfiedBy(PayrollContext context)
     {
-        return context.Employee.Settings?.IsEligibleForHolidayPay ?? true;
+        return context.Employee.Settings?.IsEligibleForLeaveCredits ?? true;
+    }
+}
+// Regular Holiday is legally mandatory pay (worked or not) regardless of any CBA — used by
+// the Regular/DoubleLegal/RestLegalDay/RestDoubleLegal calculators.
+public class IsEligibleForRegularHolidayPay : IPayrollSpec<PayrollContext>
+{
+    public bool IsSatisfiedBy(PayrollContext context)
+    {
+        return context.Employee.Settings?.IsEligibleForRegularHolidayPay ?? true;
+    }
+}
+
+// Special Non-Working Holiday is "no work, no pay" by default under DOLE rules — this flag
+// exists for the CBA case where an employer opts to pay it anyway even when unworked. Used
+// by the SpecialNonWorkingDay/RestSpecialDay calculators.
+public class IsEligibleForSpecialHolidayPay : IPayrollSpec<PayrollContext>
+{
+    public bool IsSatisfiedBy(PayrollContext context)
+    {
+        return context.Employee.Settings?.IsEligibleForSpecialHolidayPay ?? false;
     }
 }
 public class IsComputeSSS : IPayrollSpec<DeductionPayloadContext>

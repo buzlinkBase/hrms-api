@@ -96,7 +96,8 @@ public class EmployeeSeederService
                 Settings = new EmployeeSetting
                 {
                     IsEligibleForOvertime = true,
-                    IsEligibleForHolidayPay = true,
+                    IsEligibleForRegularHolidayPay = true,
+                    IsEligibleForSpecialHolidayPay = true,
                     IsEligibleForNightDifferential = true,
                     IsEligibleForLeaveCredits = true,
                     IsEligibleFor13thMonth = true,

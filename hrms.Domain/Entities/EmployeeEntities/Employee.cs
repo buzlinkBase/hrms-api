@@ -154,7 +154,13 @@ public class EmployeeSetting : BaseEntity
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }
     public bool IsEligibleForOvertime { get; set; }
-    public bool IsEligibleForHolidayPay { get; set; }
+    // Split from a single IsEligibleForHolidayPay flag — Regular Holiday pay is legally
+    // mandatory (worked or not) regardless of CBA, while Special Non-Working Holiday is
+    // "no work, no pay" by default UNLESS a company's CBA says otherwise, so the two need
+    // independent per-employee toggles. See Hrms.Core\Specs\IsRegularWorkingDay.cs and the
+    // six DTRPolicies calculators that read these.
+    public bool IsEligibleForRegularHolidayPay { get; set; }
+    public bool IsEligibleForSpecialHolidayPay { get; set; }
     public bool IsEligibleForNightDifferential { get; set; }
     public bool IsEligibleForLeaveCredits { get; set; }
     public bool IsEligibleFor13thMonth { get; set; }

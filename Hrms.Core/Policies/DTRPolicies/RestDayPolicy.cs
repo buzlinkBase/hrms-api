@@ -22,7 +22,8 @@ internal class RestDayPolicy : PayrollPolicyBase<BasicPipelineData, PayrollConte
         var restDayHours = (decimal)dailyRecord.RestDayHours;
 
         // Check if base rest day rate is pre-funded (Fixed with IsRestDayPaid = true)
-        bool isBasePayPreFunded = employee.SalaryType == SalaryType.FIXED && employee.IsRestDayPaid;
+        bool isBasePayPreFunded = employee.SalaryType == SalaryType.FIXED 
+            && employee.IsRestDayPaid;
 
         // If pre-funded, pay only the premium delta above 1.0 (e.g., 1.30 - 1.00 = 0.30)
         // If not pre-funded (Daily/Variable or IsRestDayPaid = false), pay the full rate multiplier

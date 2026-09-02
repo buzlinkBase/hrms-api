@@ -46,7 +46,7 @@ public class RestLegalDayPayCalculator
 
     private RestLegalDayPayCalculator(PayrollContext context)
     {
-        _isEligible = new IsEligibleForHolidayPay().IsSatisfiedBy(context);
+        _isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
         _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
                               context.Employee.IsRestDayPaid &&
                               context.Employee.IsRegularHolidayIncluded;

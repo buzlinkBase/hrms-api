@@ -175,7 +175,8 @@ public class EmployeeSettingConfig : IEntityTypeConfiguration<EmployeeSetting>
         //        EmployeeId = Guid.Parse("398BBB60-4A8F-4095-A478-59B4F4E6A22F"),
         //        IsEligibleForOvertime = true,
         //        IsEligibleFor13thMonth = true,
-        //        IsEligibleForHolidayPay = true,
+        //        IsEligibleForRegularHolidayPay = true,
+        //        IsEligibleForSpecialHolidayPay = true,
         //        IsEligibleForLeaveCredits = true,
         //        IsEligibleForNightDifferential = true
         //    });

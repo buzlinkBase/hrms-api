@@ -89,6 +89,18 @@ public class PayrollService : BaseService<Payroll>
         return ids.ToHashSet();
     }
 
+    // Last Pay is a one-time-ever payout per employee (not annual like 13th month), so no
+    // year bound — an employee who already has a LastPay row must have it deleted first to
+    // regenerate. See PayrollProcessorService.GenerateLastPayAsync.
+    public async Task<HashSet<Guid>> GetLastPayPaidEmployeeIdsAsync(CancellationToken token)
+    {
+        var ids = await GetQueryable(x => x.PayrollType == PayrollType.LastPay)
+            .Select(x => x.EmployeeId)
+            .Distinct()
+            .ToListAsync(token);
+        return ids.ToHashSet();
+    }
+
     public async Task<List<Payroll>> GetAsync(
         DateOnly from, DateOnly to,
         Guid? employeeId, Guid? clientId, Guid? payrollGroupId,
