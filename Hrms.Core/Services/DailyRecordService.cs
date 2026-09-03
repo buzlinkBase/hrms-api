@@ -354,6 +354,17 @@ public class DailyRecordService : BaseService<DailyRecord>
                 RestSpecialDayNDHours = x.Sum(xx => xx.RestSpecialDayNDHours),
                 RestSpecialDayNDOTHours = x.Sum(xx => xx.RestSpecialDayNDOTHours),
                 RestSpecialDayOTHours = x.Sum(xx => xx.RestSpecialDayOTHours),
+
+                DoubleLegalHours = x.Sum(xx => xx.DoubleLegalHours),
+                DoubleLegalOTHours = x.Sum(xx => xx.DoubleLegalOTHours),
+                DoubleLegalNDHours = x.Sum(xx => xx.DoubleLegalNDHours),
+                DoubleLegalNDOTHours = x.Sum(xx => xx.DoubleLegalNDOTHours),
+
+                RestDoubleLegalHours = x.Sum(xx => xx.RestDoubleLegalHours),
+                RestDoubleLegalOTHours = x.Sum(xx => xx.RestDoubleLegalOTHours),
+                RestDoubleLegalNDHours = x.Sum(xx => xx.RestDoubleLegalNDHours),
+                RestDoubleLegalNDOTHours = x.Sum(xx => xx.RestDoubleLegalNDOTHours),
+
                 AbsentCount = x.Sum(x => x.AbsentCount),
                 LeaveHours = x.Sum(x => x.PaidLeaveHours),
                 UnpaidLeaveHours = x.Sum(x => x.UnpaidLeaveHours),
@@ -411,6 +422,8 @@ public class DailyRecordService : BaseService<DailyRecord>
              .Select(x => new DTRDetailModel
              {
                  Id = x.Id,
+                 BatchCode = x.BatchCode,
+                 ShiftId = x.ShiftId,
                  ShiftWorkingHour = x.ShiftWorkingHour,
                  HolCount = x.HolCount,
                  SPCount = x.SPCount,
@@ -471,6 +484,26 @@ public class DailyRecordService : BaseService<DailyRecord>
                  RestSpecialDayOTHours = x.RestSpecialDayOTHours,
                  RestSpecialDayNDHours = x.RestSpecialDayNDHours,
                  RestSpecialDayNDOTHours = x.RestSpecialDayNDOTHours,
+
+                 DoubleLegalHours = x.DoubleLegalHours,
+                 DoubleLegalOTHours = x.DoubleLegalOTHours,
+                 DoubleLegalNDHours = x.DoubleLegalNDHours,
+                 DoubleLegalNDOTHours = x.DoubleLegalNDOTHours,
+
+                 RestDoubleLegalHours = x.RestDoubleLegalHours,
+                 RestDoubleLegalOTHours = x.RestDoubleLegalOTHours,
+                 RestDoubleLegalNDHours = x.RestDoubleLegalNDHours,
+                 RestDoubleLegalNDOTHours = x.RestDoubleLegalNDOTHours,
+
+                 Note = x.Note,
+                 PostingDescription = x.PostingDescription,
+                 UserId = x.UserId,
+                 BranchId = x.BranchId,
+                 DepartmentId = x.DepartmentId,
+                 PayrollGroupId = x.PayrollGroupId,
+                 ClientId = x.ClientId,
+                 AreaId = x.AreaId,
+                 Posted = x.Posted,
              })
              .OrderBy(x => x.FullName)
              .ThenBy(x => x.WorkDate)

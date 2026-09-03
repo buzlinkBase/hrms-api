@@ -15,6 +15,7 @@ public class HolidayService : BaseService<Holiday>
     {
         var holiday = _mapper.Map<Holiday>(model);
         holiday.HolYear = model.HolDate.Year;
+        holiday.IsPaid = HolidayPaidPolicy.Resolve(holiday.HolType);
         await CreateAsync(holiday, token);
         await CommitChangesAsync(token);
         return _mapper.Map<HolidayModel>(holiday);
@@ -28,6 +29,7 @@ public class HolidayService : BaseService<Holiday>
         }
         model.Adapt(existing);
         existing.HolYear = model.HolDate.Year;
+        existing.IsPaid = HolidayPaidPolicy.Resolve(existing.HolType);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
         return _mapper.Map<HolidayModel>(existing);
