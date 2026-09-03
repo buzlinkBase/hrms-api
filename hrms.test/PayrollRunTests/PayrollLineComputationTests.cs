@@ -123,12 +123,12 @@ public class PayrollLineComputationTests : TestContextBase
     public void ComputeNonCompanyPaidLeaves_NoLeaveInfoOrZeroPaidLeaves_LeavesFieldAtZero()
     {
         var line = new PayrollSummaryLine { PaidLeaves = 5_000 };
-        PayrollProcessorService.ComputeNonCompanyPaidLeaves(null, new Dictionary<Guid, PaySource>(), line);
+        PayrollProcessorService.ComputeNonCompanyPaidLeaves(null, new Dictionary<Guid, PaySource>(), null, line);
         line.NonCompanyPaidLeaves.Should().Be(0);
 
         var lineZeroPaid = new PayrollSummaryLine { PaidLeaves = 0 };
         var leaveInfo = new List<LeaveMetaDataModel> { new() { LeaveId = Guid.NewGuid(), Hours = 8, PayType = PayType.WithPay } };
-        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, new Dictionary<Guid, PaySource>(), lineZeroPaid);
+        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, new Dictionary<Guid, PaySource>(), null, lineZeroPaid);
         lineZeroPaid.NonCompanyPaidLeaves.Should().Be(0);
     }
 
@@ -140,7 +140,7 @@ public class PayrollLineComputationTests : TestContextBase
         var paySourceMap = new Dictionary<Guid, PaySource> { [leaveId] = PaySource.Company };
         var line = new PayrollSummaryLine { PaidLeaves = 4_000 };
 
-        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, paySourceMap, line);
+        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, paySourceMap, null, line);
 
         line.NonCompanyPaidLeaves.Should().Be(0);
     }
@@ -162,7 +162,7 @@ public class PayrollLineComputationTests : TestContextBase
         };
         var line = new PayrollSummaryLine { PaidLeaves = 4_000 };
 
-        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, paySourceMap, line);
+        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, paySourceMap, null, line);
 
         line.NonCompanyPaidLeaves.Should().Be(1_000); // 4,000 * (2/8) — only the Government-sourced hours' share
     }
@@ -184,7 +184,7 @@ public class PayrollLineComputationTests : TestContextBase
         };
         var line = new PayrollSummaryLine { PaidLeaves = 4_000 };
 
-        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, paySourceMap, line);
+        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, paySourceMap, null, line);
 
         line.NonCompanyPaidLeaves.Should().Be(0); // only the 8 Company-sourced hours counted -> 0% non-company
     }
@@ -196,7 +196,7 @@ public class PayrollLineComputationTests : TestContextBase
         var leaveInfo = new List<LeaveMetaDataModel> { new() { LeaveId = unknownLeaveId, Hours = 8, PayType = PayType.WithPay } };
         var line = new PayrollSummaryLine { PaidLeaves = 2_000 };
 
-        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, new Dictionary<Guid, PaySource>(), line);
+        PayrollProcessorService.ComputeNonCompanyPaidLeaves(leaveInfo, new Dictionary<Guid, PaySource>(), null, line);
 
         // TryGetValue failing short-circuits the `&&` in the Where clause, excluding the hours
         // from the non-company numerator entirely — an unmapped LeaveId defaults to

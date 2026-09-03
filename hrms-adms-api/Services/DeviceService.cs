@@ -1,4 +1,5 @@
 ﻿using Hrms.adms.Models.DTO;
+using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.adms.Services;
 
@@ -7,6 +8,35 @@ public class DeviceService : BaseService<BiometricDevice>
     public DeviceService(IUnitOfWorkService uow) : base(uow)
     {
     }
+    // Runs on both Create (AddAsync) and Update (UpdateStatusAsync) via BaseService's
+    // Guard.ModelGuardAsync(CreateValidatorAsync, ...) hook. Blocks registering/reassigning a
+    // device (by SN) that's already Active under a DIFFERENT tenant — the same protection
+    // AdmsController's runtime tenant-resolution (FindSnAsync) implicitly relies on staying
+    // unambiguous. IgnoreQueryFilters() is required here for the same reason FindSnAsync uses
+    // it: this is a shared-schema DB (every tenant's BiometricDevices rows live in one table,
+    // isolated only by the row-level TenantId query filter), so seeing across tenants means
+    // deliberately bypassing that filter. Also blocks a same-tenant duplicate SN, which was
+    // previously unguarded entirely and is exactly what made FindSnAsync's FirstOrDefaultAsync
+    // nondeterministic when duplicates existed. Excludes the model's own Id so updating a
+    // device's own other fields (UpdateStatusAsync currently always re-sends SN) never
+    // self-blocks. Only Active, non-deleted rows count — a released/decommissioned device
+    // (Inactive or soft-deleted) elsewhere is free to be re-registered.
+    protected override async Task<EvaluationResult> CreateValidatorAsync(BiometricDevice model, CancellationToken token = default)
+    {
+        var existing = await GetQueryable(x =>
+                x.SN == model.SN &&
+                x.DeletedAt == null &&
+                x.Id != model.Id)
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(token);
+
+        if (existing == null) return EvaluationResult.OK;
+
+        return existing.TenantId != model.TenantId
+            ? EvaluationResult.Fail("This device is already registered to another company.")
+            : EvaluationResult.Fail("This device (serial number) is already registered.");
+    }
+
     public async Task<UpdateBiometricDevice> AddAsync(CreateBiometricDevice payload, Guid TenantId, CancellationToken token)
     {
         var model = new BiometricDevice

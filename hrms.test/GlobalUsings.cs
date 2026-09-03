@@ -3,6 +3,7 @@ global using Hrms.Core.Calculators;
 global using Hrms.Core.Calculators.Payloads;
 global using Hrms.Core.Pipelines;
 global using Hrms.Core.Policies.DeductionPolicies;
+global using Hrms.Core.Policies.DeductionPolicies.WtaxCalculators;
 global using Hrms.Domain;
 global using Hrms.Domain.Entities;
 global using Hrms.Domain.ValueObjects;

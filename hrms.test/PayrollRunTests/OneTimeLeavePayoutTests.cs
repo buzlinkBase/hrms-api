@@ -5,12 +5,16 @@ namespace hrms.test.PayrollRunTests;
 
 /// <summary>
 /// PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross — the injection point for a
-/// OneTime leave payout (LeaveApplication.PayoutMode). GovernmentAmount is deliberately kept
-/// out of GrossIncome (a government benefit pass-through, not compensation, and all four
-/// statutory calculators share the same GrossIncome-based bracket lookup); CompanyAmount is
-/// taxable compensation and is added to GrossIncome so it flows through SSS/PHIC/HDMF/WTax
-/// like regular pay. Made `internal` (not private) specifically so this can be tested here
-/// without a database — see Hrms.Core's InternalsVisibleTo for hrms.test.
+/// OneTime leave payout (LeaveApplication.PayoutMode). GovernmentAmount is a government
+/// benefit pass-through (excluded from GrossIncome/statutory bases); CompanyAmount is taxable
+/// compensation. This method itself never touches GrossIncome directly — it only accumulates
+/// GovernmentFundedLeavePay/CompanyFundedLeavePay/NonTaxableBenefits/TaxableBenefits;
+/// PayrollProcessorUtil.GetGross (called right after, in CalculateAsync) is what folds
+/// CompanyFundedLeavePay into GrossIncome while deliberately excluding
+/// GovernmentFundedLeavePay — see PayrollProcessorUtilTests.GetGross_ExcludesGovernmentFundedLeavePay_IncludesCompanyFundedLeavePay
+/// and OneTimeLeavePayoutPipelineTests for that full interaction. Made `internal` (not
+/// private) specifically so this can be tested here without a database — see Hrms.Core's
+/// InternalsVisibleTo for hrms.test.
 /// </summary>
 public class OneTimeLeavePayoutTests : TestContextBase
 {
@@ -59,7 +63,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
     }
 
     [Fact]
-    public void CompanyAmount_IsAddedToGrossIncomeAndTaxableBenefits()
+    public void CompanyAmount_AccumulatesIntoCompanyFundedLeavePayAndTaxableBenefits_GrossIncomeUntouchedHere()
     {
         var empId = Guid.NewGuid();
         var payload = new CalculatorPayload();
@@ -70,11 +74,13 @@ public class OneTimeLeavePayoutTests : TestContextBase
 
         line.CompanyFundedLeavePay.Should().Be(5_000);
         line.TaxableBenefits.Should().Be(5_000);
-        line.GrossIncome.Should().Be(25_000); // 20,000 + 5,000 company-funded variance
+        // GetGross (not this method) is what folds CompanyFundedLeavePay into GrossIncome —
+        // see OneTimeLeavePayoutPipelineTests for that chained behavior.
+        line.GrossIncome.Should().Be(20_000);
     }
 
     [Fact]
-    public void GovernmentAndCompanyAmounts_BothAccumulate_OnTheSamePayout()
+    public void GovernmentAndCompanyAmounts_BothAccumulate_GrossIncomeUntouchedHere()
     {
         var empId = Guid.NewGuid();
         var payload = new CalculatorPayload();
@@ -85,11 +91,11 @@ public class OneTimeLeavePayoutTests : TestContextBase
 
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.CompanyFundedLeavePay.Should().Be(5_000);
-        line.GrossIncome.Should().Be(25_000); // only the company portion is added
+        line.GrossIncome.Should().Be(20_000);
     }
 
     [Fact]
-    public void MultiplePayoutsForSameEmployee_AllAccumulate()
+    public void MultiplePayoutsForSameEmployee_AllAccumulate_GrossIncomeUntouchedHere()
     {
         var empId = Guid.NewGuid();
         var payload = new CalculatorPayload();
@@ -104,7 +110,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
 
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.CompanyFundedLeavePay.Should().Be(3_000);
-        line.GrossIncome.Should().Be(23_000);
+        line.GrossIncome.Should().Be(20_000);
     }
 
     [Fact]

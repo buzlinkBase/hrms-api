@@ -5,7 +5,7 @@ namespace hrms.test.PayrollRunTests;
 public class PayrollProcessorUtilTests
 {
     [Fact]
-    public void GetGross_SumsBasicPayTimeHourPayAllIncomeAndLeavePayouts()
+    public void GetGross_SumsBasicPayTimeHourPayAllIncomeAndCompanyFundedLeavePayouts()
     {
         var line = new PayrollSummaryLine
         {
@@ -20,7 +20,23 @@ public class PayrollProcessorUtilTests
             GovernmentFundedLeavePay = 100,
         };
 
-        PayrollProcessorUtil.GetGross(line).Should().Be(14_600);
+        PayrollProcessorUtil.GetGross(line).Should().Be(14_500);
+    }
+
+    [Fact]
+    public void GetGross_ExcludesGovernmentFundedLeavePay_IncludesCompanyFundedLeavePay()
+    {
+        // GovernmentFundedLeavePay is a non-taxable government benefit pass-through, added
+        // straight to NetPay after deductions are computed off Gross — including it here
+        // would wrongly subject it to SSS/PhilHealth/Pag-IBIG/WTax and double-count it into
+        // NetPay (see ApplyOneTimeLeavePayoutsToGross / GenerateLastPayAsync).
+        var withGov = new PayrollSummaryLine { BasicPay = 1_000, GovernmentFundedLeavePay = 5_000 };
+        var withoutGov = new PayrollSummaryLine { BasicPay = 1_000 };
+
+        PayrollProcessorUtil.GetGross(withGov).Should().Be(PayrollProcessorUtil.GetGross(withoutGov));
+
+        var withComp = new PayrollSummaryLine { BasicPay = 1_000, CompanyFundedLeavePay = 5_000 };
+        PayrollProcessorUtil.GetGross(withComp).Should().Be(6_000);
     }
 
     [Fact]

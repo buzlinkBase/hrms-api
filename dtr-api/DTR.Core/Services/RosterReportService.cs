@@ -30,8 +30,8 @@ public class RosterReportService
 
     public async Task<List<RosterReportModel>> RosterReportQuery(DTRRequestPayload payload, CancellationToken token)
     {
-        var fromDate = DateOnly.FromDateTime(payload.FromDate);
-        var toDate = DateOnly.FromDateTime(payload.ToDate);
+        var fromDate = payload.FromDate;
+        var toDate = payload.ToDate;
 
         var employees = await _employeeService.GetForDTRRunAsync(payload, token);
         if (employees.Count == 0) return new List<RosterReportModel>();
