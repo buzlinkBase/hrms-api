@@ -363,8 +363,9 @@ public class DailyRecordService : BaseService<DailyRecord>
     }
     public async Task<List<TardinessReportModel>> TardinessReportQuery(DTRRequestPayload payload, CancellationToken token)
     {
-        var fromDate = DateOnly.FromDateTime(payload.FromDate);
-        var toDate = DateOnly.FromDateTime(payload.ToDate);
+
+        var fromDate = payload.FromDate;
+        var toDate = payload.ToDate;
 
         var query =
             from record in _uow.Repository.FindAll<DailyRecord>().AsNoTracking()

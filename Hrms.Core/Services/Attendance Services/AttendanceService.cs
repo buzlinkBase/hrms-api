@@ -202,23 +202,29 @@ public class AttendanceService : BaseService<Attendance>
             .ToListAsync();
     }
 
-
+    private static (DateOnly fromDate, DateOnly toDate) GetDateRange(DTRRequestPayload payload)
+    {
+        var from = payload.FromDate.AddDays(TimeAllowance.AttLookbackDays);
+        var to = payload.ToDate.AddDays(TimeAllowance.AttLookforward);
+        return (from, to);
+    }
     public async Task<Dictionary<AttendanceEmpId, List<Attendance>>> LoadAttForDTRProcess(
         DTRRequestPayload payload,
         HashSet<Guid> empIds,
         bool canProcess,
         CancellationToken token)
     {
-        var from = payload.FromDate;
-        var to = payload.ToDate.AddDays(1);
-        //var EmployeeId = payload.EmployeeId;
+
         var departmentId = payload.DepartmentId;
         var payrollGroupId = payload.PayrollGroupId;
         var branchId = payload.BranchId;
         var areaId = payload.OperationAreaId;
         var clientId = payload.ClientId;
-        var fromWD = DateOnly.FromDateTime(payload.FromDate);
-        var toWD = DateOnly.FromDateTime(payload.ToDate);
+
+        var fromWD = payload.FromDate;
+        var toWD = payload.ToDate;
+        var from = payload.FromDate.AddDays(TimeAllowance.AttLookbackDays).ToDateTime(TimeOnly.MinValue);
+        var to = payload.ToDate.AddDays(TimeAllowance.AttLookforward).ToDateTime(TimeOnly.MinValue);
 
         var dtrLookup = await _uow.Context.DailyTimeRecords
             .Where(dtr => dtr.WorkDate >= fromWD &&
@@ -233,16 +239,16 @@ public class AttendanceService : BaseService<Attendance>
         var dtrSet = new HashSet<(Guid EmployeeId, DateOnly WorkDate)>(
             dtrLookup.Select(d => (d.EmployeeId, d.WorkDate))
         );
-
         var spec = new UserHasViewSpec<Attendance>(canProcess);
-
+     
+        //var EmployeeId = payload.EmployeeId;
         var data = await _uow.Repository
             .Find(spec)
             .AsNoTracking()
             .AsSplitQuery()
             .Include(x => x.Employee)
             .Where(x =>
-                x.Status=="Active" &&
+                x.Status == "Active" &&
                 x.WorkDateTime >= from &&
                 x.WorkDateTime <= to &&
                 x.EmployeeId != null &&
