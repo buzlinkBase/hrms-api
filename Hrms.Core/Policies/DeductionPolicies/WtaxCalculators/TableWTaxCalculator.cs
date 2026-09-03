@@ -1,4 +1,4 @@
-namespace Hrms.Core.Policies.DeductionPolicies
+namespace Hrms.Core.Policies.DeductionPolicies.WtaxCalculators
 {
     // Independent per-period withholding tax — BIR's Revised Withholding Tax Table (RR
     // 11-2018) taxes each pay period on its own compensation against that period's own

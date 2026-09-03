@@ -1,4 +1,4 @@
-﻿namespace Hrms.Core.Policies.DeductionPolicies
+﻿namespace Hrms.Core.Policies.DeductionPolicies.WtaxCalculators
 {
     public class FixedWTaxPerPayroll : IDeductionCalculator
     {
