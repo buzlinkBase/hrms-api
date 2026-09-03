@@ -26,12 +26,10 @@ public class DTRCalcService
         Payload = payload;
         context.DtrService = this;
         var calculator = new DailyRecordCompute(context);
-        var FromDate = DateOnly.FromDateTime(payload.FromDate);
-        var ToDate = DateOnly.FromDateTime(payload.ToDate);
-        return calculator.ProcessDailyRecords(processor, FromDate, ToDate, token, ignoreNull, processOnlyPairedAtt);
+        return calculator.ProcessDailyRecords(processor, payload.FromDate, payload.ToDate, token, ignoreNull, processOnlyPairedAtt);
     }
     public CancellationToken GetToken => Token ?? CancellationToken.None;
-    public DTRRequestPayload GetPayload(DateTime date)
+    public DTRRequestPayload GetPayload(DateOnly date)
     {
         if (Payload == null)
         {

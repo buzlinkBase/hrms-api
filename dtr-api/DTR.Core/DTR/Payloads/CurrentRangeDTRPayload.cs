@@ -79,8 +79,8 @@ public class CurrentRangeDTRPayloadService
 
     private static (DateOnly fromDate, DateOnly toDate) GetDateRange(DTRRequestPayload payload)
     {
-        var from = DateOnly.FromDateTime(payload.FromDate.Date.AddDays(TimeAllowance.AttLookbackDays));
-        var to = DateOnly.FromDateTime(payload.ToDate.Date.AddDays(TimeAllowance.AttLookforward));
+        var from = payload.FromDate.AddDays(TimeAllowance.AttLookbackDays);
+        var to = payload.ToDate.AddDays(TimeAllowance.AttLookforward);
         return (from, to);
     }
 

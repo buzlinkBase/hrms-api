@@ -2,8 +2,8 @@
 
 public record DTRRequestPayload
 {
-    public DateTime FromDate { get; set; }
-    public DateTime ToDate { get; set; }
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
     public Guid? EmployeeId { get; set; }
     public Guid? DepartmentId { get; set; }
     public Guid? PayrollGroupId { get; set; }

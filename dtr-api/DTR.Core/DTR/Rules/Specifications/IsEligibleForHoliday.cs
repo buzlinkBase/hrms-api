@@ -212,7 +212,7 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
         if (dtrService is null)
             return null;
 
-        var curPayload = dtrService.GetPayload(date.ToDateTime(TimeOnly.MinValue));
+        var curPayload = dtrService.GetPayload(date);
         var result = await dtrService.GetDTRInfoAsync<DTRDetailModel>(curPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
         return result.FirstOrDefault();
     }
