@@ -1,4 +1,6 @@
 ﻿
+using Hrms.Core.Policies.DeductionPolicies.WtaxCalculators;
+
 namespace Hrms.Core.Policies.DeductionPolicies;
 
 public class WTaxCalculatorFactory

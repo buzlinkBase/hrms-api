@@ -623,7 +623,9 @@ public class PayrollProcessorService
             leaveInfoByEmployee.TryGetValue(new EmployeeKey(employee.Id), out var empLeaveInfo);
             payrollLine.PaidLeaveBreakdown = BuildPaidLeaveBreakdown(empLeaveInfo);
             ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine, leavePaySourceMap);
-            ComputeNonCompanyPaidLeaves(empLeaveInfo, leavePaySourceMap, payrollLine);
+            rangePayload.Leaves.TryGetValue(new Leavekey(employee.Id), out var employeeLeaveApps);
+            var employeeOneTimeLeaveApps = employeeLeaveApps?.Where(a => a.PayoutMode == PayoutMode.OneTime).ToList();
+            ComputeNonCompanyPaidLeaves(empLeaveInfo, leavePaySourceMap, employeeOneTimeLeaveApps, payrollLine);
             ComputeAllowances(dateRange, rangePayload, employee, payrollLine);
             ApplyOneTimeLeavePayoutsToGross(rangePayload, employee, payrollLine);
             payrollLine.GrossIncome = PayrollProcessorUtil.GetGross(payrollLine);
@@ -765,7 +767,8 @@ public class PayrollProcessorService
         payrollLine.TimeHourPayResults = employeeBasicCalc;
         payrollLine.SalaryType = employee.SalaryType;
         payrollLine.DailyRate = employee.DailyRate;
-        GetBasicPay(payrollLine, employeeBasicCalc, employee);
+        var oneTimeLeaveDays = CountOneTimeLeaveCalendarDays(rangePayload, employee.Id, payload.FromDate, payload.ToDate);
+        GetBasicPay(payrollLine, employeeBasicCalc, employee, oneTimeLeaveDays);
         payrollLine.GrossIncome += payrollLine.BasicPay + employeeBasicCalc.Sum(x => x.TotalExcludingBasic);
         payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateAmount);
         payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.TotalOT);
@@ -832,12 +835,27 @@ public class PayrollProcessorService
     internal static void ComputeNonCompanyPaidLeaves(
         List<LeaveMetaDataModel>? leaveInfo,
         Dictionary<Guid, PaySource> leavePaySourceMap,
+        List<LeaveApplication>? oneTimeLeaveApplications,
         PayrollSummaryLine payrollLine)
     {
         // Needs payrollLine.PaidLeaves, just set above — display-only split, does not
         // touch GrossIncome/BasicPay (see NonCompanyPaidLeaves doc comment).
         if (leaveInfo == null || leaveInfo.Count == 0 || payrollLine.PaidLeaves == 0) return;
-        var paidLeaveInfo = leaveInfo.Where(x => x.PayType == PayType.WithPay).ToList();
+        var paidLeaveInfo = leaveInfo
+            .Where(x => x.PayType == PayType.WithPay)
+            // OneTime-payout leave days carry their FULL entitlement hours in leaveInfo (DTR
+            // metadata needed for leave-credit consumption regardless of payout mode — see
+            // dtr-api LeavePolicy), but contribute ZERO money to payrollLine.PaidLeaves (their
+            // PaidLeaveHours is 0 — paid entirely via ApplyOneTimeLeavePayoutsToGross instead).
+            // Left in, they'd skew this ratio whenever an ordinary per-day leave coexists with
+            // a OneTime leave in the same period (e.g. a small vacation-leave payout getting
+            // mostly attributed to an unrelated OneTime maternity leave's hours).
+            .Where(x => oneTimeLeaveApplications == null || oneTimeLeaveApplications.Count == 0 ||
+                !oneTimeLeaveApplications.Any(a =>
+                    a.LeaveId == x.LeaveId &&
+                    DateOnly.FromDateTime(x.StartDateTime) >= a.LeaveDateFrom &&
+                    DateOnly.FromDateTime(x.StartDateTime) <= a.LeaveDateTo))
+            .ToList();
         var totalHours = paidLeaveInfo.Sum(x => x.Hours);
         if (totalHours <= 0) return;
         var nonCompanyHours = paidLeaveInfo
@@ -878,7 +896,11 @@ public class PayrollProcessorService
         return basicResultMoel;
     }
 
-    private void GetBasicPay(PayrollSummaryLine payrollLine, List<DTRPayModel> TimeCalcResult, EmployeeModelPayrollRun employee)
+    // internal (not private), static (doesn't touch instance state) so hrms.test can exercise
+    // this directly without a DB — matches ComputeThirteenthMonthTaxSplit/
+    // ApplyOneTimeLeavePayoutsToGross's established pattern.
+    internal static void GetBasicPay(PayrollSummaryLine payrollLine, List<DTRPayModel> TimeCalcResult,
+        EmployeeModelPayrollRun employee, int oneTimeLeaveDays)
     {
         if (employee.SalaryType != SalaryType.FIXED)
         {
@@ -888,12 +910,45 @@ public class PayrollProcessorService
         var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
         var basicTotal = employee.MonthlyRate / divisor;
         var deductions = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));
-        basicTotal = basicTotal - deductions;
+        // OneTime-payout leave days (e.g. Shared-funded SSS maternity, paid via
+        // ApplyOneTimeLeavePayoutsToGross's lump sum) are WithPay — not UnpaidLeave — and
+        // never Late/UT/Absent (WorkType resolves to PaidLeave/GovFundedLeave for a leave
+        // application, see dtr-api WorkTypeResolver), so without this term the flat monthly
+        // rate silently keeps paying for them on top of the lump sum. Counts every calendar
+        // day of the leave that falls in this period (including rest days — the flat rate
+        // itself already implicitly covers rest days as part of the period share), applied
+        // regardless of PaySource since the flat rate has no PaySource awareness at all.
+        var oneTimeLeaveDeduction = Math.Max(0, oneTimeLeaveDays) * employee.DailyRate;
+        basicTotal = basicTotal - deductions - oneTimeLeaveDeduction;
         payrollLine.BasicPay += basicTotal;
     }
 
+    // Sums the calendar days of this employee's approved OneTime-payout leave application(s)
+    // that fall within [periodStart, periodEnd] — see GetBasicPay. Sourced from
+    // CalculatorPayload.Leaves (matched by actual leave date-range overlap, loaded every run
+    // via LeaveApplicationService.FindByDateRangeAsync) rather than OneTimeLeavePayouts
+    // (matched only to the single period containing ReleasePayrollDate) so the deduction
+    // applies in EVERY period a multi-period leave (e.g. 105-day maternity) overlaps, not just
+    // the one period that happens to release the lump sum.
+    internal static int CountOneTimeLeaveCalendarDays(
+        CalculatorPayload rangePayload, Guid employeeId, DateOnly periodStart, DateOnly periodEnd)
+    {
+        if (!rangePayload.Leaves.TryGetValue(new Leavekey(employeeId), out var apps) || apps.Count == 0)
+            return 0;
 
-    private int GetDivisor(DateOnly fromDate, EmployeeModelPayrollRun employee)
+        var days = 0;
+        foreach (var a in apps)
+        {
+            if (a.PayoutMode != PayoutMode.OneTime || a.PayType == PayType.WithoutPay) continue;
+            var from = a.LeaveDateFrom > periodStart ? a.LeaveDateFrom : periodStart;
+            var to = a.LeaveDateTo < periodEnd ? a.LeaveDateTo : periodEnd;
+            if (from > to) continue;
+            days += to.DayNumber - from.DayNumber + 1;
+        }
+        return days;
+    }
+
+    internal static int GetDivisor(DateOnly fromDate, EmployeeModelPayrollRun employee)
     {
         if (employee.PayrollGroup == null) return 2;
         switch (employee.PayrollGroup.PayrollFrequency)
@@ -995,10 +1050,10 @@ public class PayrollProcessorService
             payrollLine.CompanyFundedLeavePay += comp;
             payrollLine.NonTaxableBenefits += gov;
             payrollLine.TaxableBenefits += comp;
-            // Deliberately NOT added to GrossIncome — gov is a government benefit
-            // pass-through, exempt from the SSS/PHIC/HDMF/WTax bracket lookups that all key
-            // off GrossIncome (see NetPay reconciliation at the call site).
-            payrollLine.GrossIncome += comp;
+            // GrossIncome itself is NOT touched here — it's unconditionally recomputed by
+            // PayrollProcessorUtil.GetGross() right after this method returns (see the call
+            // site), which already folds in CompanyFundedLeavePay (incremented above) and
+            // deliberately excludes GovernmentFundedLeavePay.
             var leaveName = payout.Leave.Description;
             breakdownParts.Add(gov > 0 && comp > 0
                 ? $"{leaveName}: {comp:0.00} (Company) + {gov:0.00} (Government)"
@@ -1107,11 +1162,15 @@ public class PayrollProcessorUtil
 {
     public static decimal GetGross(PayrollSummaryLine payrollLine)
     {
+        // GovernmentFundedLeavePay is deliberately excluded — it's a non-taxable government
+        // benefit pass-through (see PayrollSummaryLine.GovernmentFundedLeavePay doc comment
+        // and ApplyOneTimeLeavePayoutsToGross), added straight to NetPay after deductions are
+        // computed off this Gross figure instead. Including it here would wrongly subject it
+        // to SSS/PhilHealth/Pag-IBIG/WTax and double-count it into NetPay.
         var gross = payrollLine.BasicPay
             + payrollLine.TimeHourPayResults.Sum(x => x.TotalExcludingBasic)
             + payrollLine.TotalAllIncome
             + payrollLine.CompanyFundedLeavePay
-            + payrollLine.GovernmentFundedLeavePay
             ;
         return gross;
     }

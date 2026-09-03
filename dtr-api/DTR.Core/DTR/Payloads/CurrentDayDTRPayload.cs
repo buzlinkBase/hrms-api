@@ -107,7 +107,15 @@ public static class VirtualTimeComposer
         var strategy = LeaveAttendanceStrategyFactory.Create(curLeave.DurationType);
         return strategy.CreateVirtualAttendance(curLeave, curEmployee, shift);
     }
+    // OneTime-payout leave (e.g. a Shared-funded SSS maternity lump sum) is paid entirely
+    // through PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross instead of the normal
+    // DTR/attendance channel — injecting a full "worked a shift" virtual attendance block for
+    // these days would additionally feed RegularDayPay as if the employee physically worked,
+    // double-paying on top of the lump sum. WorkType resolution for the day (PaidLeave/
+    // GovFundedLeave, never Absent) does not depend on virtual attendance existing, so
+    // excluding OneTime here doesn't misclassify the day.
     public static bool IsEligibleForVirtualAttendance(LeaveApplication leave) =>
     leave.PayType != PayType.WithoutPay &&
+    leave.PayoutMode != PayoutMode.OneTime &&
     leave.Leave?.PaySource is PaySource.Company or PaySource.Shared;
 }
