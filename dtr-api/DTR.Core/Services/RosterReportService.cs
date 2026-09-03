@@ -1,7 +1,4 @@
-using DTR.Core.Services;
-using Hrms.Core.Services;
-using Hrms.Domain;
-using Hrms.Domain.ValueObjects;
+using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
@@ -55,13 +52,10 @@ public class RosterReportService
                     FullName = employee.FullName(),
                     Department = employee.DepartmentName,
                     ShiftId = shift?.Id,
-                    ShiftName = shift?.ShiftName ?? "Unassigned",
+                    ShiftName = shift?.ShiftName ?? "Open",
                     ShiftStart = shift?.StartTime,
                     ShiftEnd = shift?.EndTime,
                     IsRestDay = isRestDay,
-                    // Both come straight from the resolver that produced this shift — the
-                    // tier that matched (Override/FixedSchedule/Permanent/OpenShift) and,
-                    // only for Override, the Work Rotation Plan row backing it.
                     ScheduleSource = shift?.Source ?? ScheduleSource.OpenShift,
                     OverrideId = shift?.OverrideId,
                 });
@@ -72,5 +66,28 @@ public class RosterReportService
             .OrderBy(x => x.WorkDate)
             .ThenBy(x => x.FullName)
             .ToList();
+    }
+
+    public async Task<(CurrentShiftInfo? Current, CurrentShiftInfo? Next)> FindCurrentAndNextShift(DateOnly date, Guid EmpIds, Guid? TimeShiftId, CancellationToken token)
+    {
+        var employee = new EmployeeDTRRun { Id = EmpIds, TimeShiftId = TimeShiftId };
+        var employees = new List<EmployeeDTRRun> { employee };
+        var shifts = await _workScheduleResolver.Resolve(date, date.AddDays(1), employees, token);
+        var dtrContext = new DTRContextModel { AllShifts = shifts, Employees = employees };
+        var payload = new CurrentShiftProviderPayload
+        {
+            AllTimeShifts = shifts,
+            CurDate = date,
+            Employee = employee
+        };
+        var sp = new CurrentShiftProvider(dtrContext, payload);
+        var current = sp.GetCurrentShift();
+        var next = sp.GetNextShift(current);
+
+        var currentTransform = new CurrentShiftInfo { ShiftType = current?.ShiftType, StartTime = current?.StartTime, EndTime = current?.EndTime };
+        var nextTransform = new CurrentShiftInfo { ShiftType = current?.ShiftType, StartTime = next?.StartTime, EndTime = next?.EndTime };
+        return (currentTransform, nextTransform);
+
+
     }
 }

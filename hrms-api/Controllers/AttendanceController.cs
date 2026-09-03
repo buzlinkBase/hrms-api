@@ -17,17 +17,20 @@ public class AttendanceController : ControllerBase
     private readonly AttendanceService _attendanceService;
     private readonly EmployeeService _employeeService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly RosterReportService _rosterReportService;
     private readonly DailyRecordService _service;
     public AttendanceController(
                 AttendanceService attendanceService,
                 EmployeeService employeeService,
                 DailyRecordService service,
-                IServiceProvider serviceProvider
+                IServiceProvider serviceProvider,
+                RosterReportService rosterReportService
         )
     {
         _attendanceService = attendanceService;
         _employeeService = employeeService;
         _serviceProvider = serviceProvider;
+        _rosterReportService = rosterReportService;
         _service = service;
     }
 
@@ -149,11 +152,11 @@ public class AttendanceController : ControllerBase
         var att = await _attendanceService.FindOne(payload.AttId, ct);
         if (att == null) throw new Exception("record not found");
 
-        if (emp.BioId!=att.BioId)
+        if (emp.BioId != att.BioId)
         {
             throw new Exception("Bio Id in employee does not match to the attendance bioId");
         }
-        await _attendanceService.Tag( att,emp, ct); 
+        await _attendanceService.Tag(att, emp, ct);
         return Ok("success");
     }
 
@@ -187,20 +190,32 @@ public class AttendanceController : ControllerBase
     public async Task<IActionResult> GetManualEntry([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
     {
         var result = await _attendanceService
-            .GetLog(filter,LOGSOURCE.MANUAL);
+            .GetLog(filter, LOGSOURCE.MANUAL);
         return Ok(result);
     }
 
-    [HttpGet("dtr-view-att")]
+    [HttpGet("dtr-view-att-by-shift")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetAllLogsInRange([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
+    public async Task<IActionResult> GetShiftAttendance(
+        [FromQuery] Guid employeeId, [FromQuery] DateOnly workDate, [FromQuery] Guid? timeShiftId,
+        [FromQuery] DateTime? actualStart, [FromQuery] DateTime? actualEnd, CancellationToken ct)
     {
-        var result = await _attendanceService
-            .GetAllLogsInRange(filter);
-        return Ok(result);
+        var shifts = await _rosterReportService.FindCurrentAndNextShift(workDate, employeeId, timeShiftId, ct);
+        if (shifts.Current == null
+            || shifts.Next == null
+            || shifts.Current.StartTime == null
+            || shifts.Current.EndTime == null
+            || shifts.Current.ShiftType == null
+            || shifts.Next.StartTime == null
+            || shifts.Next.EndTime == null
+            || shifts.Next.ShiftType == null)
+        {
+            return Ok(new List<AttendanceModel>());
+        }
+        var attendance = await _attendanceService.GetAllLogsInRange(employeeId, shifts.Current, shifts.Next, ct);
+        return Ok(attendance);
     }
-
 
     [HttpGet("raw-logs")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]

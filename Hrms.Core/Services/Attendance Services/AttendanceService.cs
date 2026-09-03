@@ -1,6 +1,8 @@
 ﻿using Castle.Components.DictionaryAdapter.Xml;
+using DTR.Core;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Polly;
 
 namespace Hrms.Core.Services;
 
@@ -82,16 +84,19 @@ public class AttendanceService : BaseService<Attendance>
             .ToListAsync();
     }
 
-    public async Task<List<AttendanceModel>> GetAllLogsInRange(AttendanceFilterDate filter)
+    public async Task<List<AttendanceModel>> GetAllLogsInRange(Guid employeeId, CurrentShiftInfo current, CurrentShiftInfo next, CancellationToken ct)
     {
-        DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
-        DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
-        Guid? filterEmployeeId = filter?.EmployeeId;
+        var settings = await Context.GeneralSettings.FirstOrDefaultAsync(x => x.Description == nameof(SettingKey.TimeInAllowance), ct);
+        var allowance = current.ShiftType == TimeShiftType.SPLIT ? 0 : GeneralSettingsUtil.ParseInt(settings?.Value, -120);
+        Guid? filterEmployeeId = employeeId;
+
+        var startTime = current.StartTime!.Value;
+        var endTime = next.StartTime!.Value.AddMinutes(allowance);
 
         return await Uow.Context.Attendances
-            .Where(x => x.WorkDateTime >= fromDate &&
-                        x.WorkDateTime < toDate &&
-                        (filterEmployeeId == null || x.EmployeeId == filterEmployeeId))
+            .Where(x => x.WorkDateTime >= startTime &&
+                        x.WorkDateTime <= endTime &&
+                        x.EmployeeId == employeeId)
             .Select(x => new AttendanceModel
             {
                 Id = x.Id,
@@ -109,7 +114,7 @@ public class AttendanceService : BaseService<Attendance>
             })
             .OrderByDescending(x => x.Name)
             .ThenBy(x => x.WorkDateTime)
-            .ToListAsync();
+            .ToListAsync(ct);
     }
 
 
@@ -240,7 +245,7 @@ public class AttendanceService : BaseService<Attendance>
             dtrLookup.Select(d => (d.EmployeeId, d.WorkDate))
         );
         var spec = new UserHasViewSpec<Attendance>(canProcess);
-     
+
         //var EmployeeId = payload.EmployeeId;
         var data = await _uow.Repository
             .Find(spec)

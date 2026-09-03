@@ -28,19 +28,19 @@ public record UpdateAttendance
 public class UnRegisteredAttendance
 {
     public DateOnly FromDate { get; set; }
-    public DateOnly ToDate  { get; set; }
+    public DateOnly ToDate { get; set; }
 }
 
-public class TagEmployeeRequest 
+public class TagEmployeeRequest
 {
     public Guid EmployeeId { get; set; }
-    public Guid AttId  { get; set; }
+    public Guid AttId { get; set; }
 }
 
 public class AttendanceModel
 {
     public Guid Id { get; set; }
-    public int? BioId  { get; set; }
+    public int? BioId { get; set; }
     public Guid? EmployeeId { get; set; }
     public string? Name { get; set; }
     public DateTime WorkDateTime { get; set; }
@@ -56,4 +56,12 @@ public class ManualAttModel
 {
     public string BatchCode { get; set; }
     public DateTime Date { get; set; }
+}
+
+public class CurrentShiftInfo
+{
+    public TimeShiftType? ShiftType { get; set; }
+    //public DateOnly ShiftDate { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
 }
