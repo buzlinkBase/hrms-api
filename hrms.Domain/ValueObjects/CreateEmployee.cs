@@ -56,7 +56,6 @@ public class CreateEmployee
     public bool IsRestDayPaid { get; set; }
     public bool IsRegularHolidayIncluded { get; set; }
     public bool IsSpecialNonWorkingIncluded { get; set; }
-    public bool IsNightDiffIncluded { get; set; }
     // New employees default to the tenant-wide Fixed Salary Defaults (Company Policy)
     // until an admin explicitly opts them into their own overrides. Existing employees
     // (migration-backfilled) keep defaulting to true — see EmployeeConfig.cs.
@@ -131,7 +130,6 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public bool IsRestDayPaid { get; set; }
     [IgnoreMember] public bool IsRegularHolidayIncluded { get; set; }
     [IgnoreMember] public bool IsSpecialNonWorkingIncluded { get; set; }
-    [IgnoreMember] public bool IsNightDiffIncluded { get; set; }
     [IgnoreMember] public bool UseEmployeeOverride { get; set; } = true;
     [IgnoreMember] public DateTime? DOB { get; set; }
     [IgnoreMember] public string BloodType { get; set; } = string.Empty;
@@ -206,7 +204,6 @@ public class EmployeeFullModel
     public bool IsRestDayPaid { get; set; }
     public bool IsRegularHolidayIncluded { get; set; }
     public bool IsSpecialNonWorkingIncluded { get; set; }
-    public bool IsNightDiffIncluded { get; set; }
     public bool UseEmployeeOverride { get; set; } = true;
 
     public DateTime? DOB { get; set; }
@@ -285,7 +282,6 @@ public class EmployeeModelPayrollRun
     public bool IsRestDayPaid { get; set; }
     public bool IsRegularHolidayIncluded { get; set; }
     public bool IsSpecialNonWorkingIncluded { get; set; }
-    public bool IsNightDiffIncluded { get; set; }
     public bool UseEmployeeOverride { get; set; } = true;
     public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;

@@ -6,10 +6,9 @@ namespace Hrms.Core.Services;
 public record PayrollInclusionResult(
     bool IsRestDayPaid,
     bool IsRegularHolidayIncluded,
-    bool IsSpecialNonWorkingIncluded,
-    bool IsNightDiffIncluded)
+    bool IsSpecialNonWorkingIncluded)
 {
-    public static readonly PayrollInclusionResult AllFalse = new(false, false, false, false);
+    public static readonly PayrollInclusionResult AllFalse = new(false, false, false);
 }
 
 public class EmployeePayrollInclusionResolver
@@ -37,7 +36,6 @@ public class EmployeePayrollInclusionResolver
             employee.IsRestDayPaid = result.IsRestDayPaid;
             employee.IsRegularHolidayIncluded = result.IsRegularHolidayIncluded;
             employee.IsSpecialNonWorkingIncluded = result.IsSpecialNonWorkingIncluded;
-            employee.IsNightDiffIncluded = result.IsNightDiffIncluded;
         }
     }
 }
@@ -74,8 +72,7 @@ public class EmployeeOverrideHandler : PayrollInclusionHandler
         new(
             employee.IsRestDayPaid,
             employee.IsRegularHolidayIncluded,
-            employee.IsSpecialNonWorkingIncluded,
-            employee.IsNightDiffIncluded);
+            employee.IsSpecialNonWorkingIncluded);
 }
 // Terminal fallback: tenant-wide defaults, used when the employee has no override
 // (or no tenant defaults have been configured yet, in which case everything is false).
@@ -92,6 +89,5 @@ public class TenantDefaultHandler : PayrollInclusionHandler
         new(
             _tenantDefaults?.DefaultRestDayPaid ?? false,
             _tenantDefaults?.DefaultRegularHolidayIncluded ?? false,
-            _tenantDefaults?.DefaultSpecialNonWorkingIncluded ?? false,
-            _tenantDefaults?.DefaultNightDiffIncluded ?? false);
+            _tenantDefaults?.DefaultSpecialNonWorkingIncluded ?? false);
 }

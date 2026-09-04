@@ -49,7 +49,6 @@ public class CompanyPolicyRule
     public bool ApplyStatutoryOnActualMonth { get; set; }
     public CrossMonthStatutoryCreditPolicy CrossMonthStatutoryCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
     public CrossMonthStatutoryCreditPolicy WTaxCrossMonthCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
-    public bool TreatNdotAsNdOnly { get; set; } = false;
     public decimal RequiredTakehomePercentage { get; set; } = 10;
     //public int RequiredWorkingDays { get; set; } = 22;
     //public int TotalDaysInaYear { get; set; } = 264;//22*12 use for daily rate computation for fix rate

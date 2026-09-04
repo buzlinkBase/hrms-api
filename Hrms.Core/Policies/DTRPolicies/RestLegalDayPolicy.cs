@@ -26,8 +26,18 @@ internal class RestLegalDayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
         var workedHours = (decimal)Math.Max(0, dailyRecord.RestLegalDayHours);
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
-        var earnings = RestLegalDayPayCalculator
-            .ForContext(context)
+        var isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
+        // Requires BOTH IsRestDayPaid and IsRegularHolidayIncluded to treat the combo premium
+        // as pre-funded, since the day is simultaneously a rest day and a holiday.
+        var isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
+                                  context.Employee.IsRestDayPaid &&
+                                  context.Employee.IsRegularHolidayIncluded;
+        var rateMultiplier =
+            PremiumRateHelper.GetRate(context, RateType.RESTDAY_DUTY, RATE_DEFAULT.RESTDAY_DUTY) *
+            PremiumRateHelper.GetRate(context, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);
+
+        var earnings = DayTypePayCalculator
+            .For(isEligible, isBasePayPreFunded, rateMultiplier, unworkedMultiplier: 1.0m)
             .CalculateWorkedPay(hourlyRate, workedHours)
             .CalculateUnworkedPay(hourlyRate, unworkedHours)
             .Total;
@@ -35,55 +45,4 @@ internal class RestLegalDayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
         line.Value += earnings;
         return line;
     }
-}
-
-public class RestLegalDayPayCalculator
-{
-    private decimal _total;
-    private readonly bool _isEligible;
-    private readonly bool _isBasePayPreFunded;
-    private readonly decimal _totalRateMultiplier;
-
-    private RestLegalDayPayCalculator(PayrollContext context)
-    {
-        _isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
-        _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
-                              context.Employee.IsRestDayPaid &&
-                              context.Employee.IsRegularHolidayIncluded;
-        _totalRateMultiplier =
-            PremiumRateHelper.GetRate(context, RateType.RESTDAY_DUTY, RATE_DEFAULT.RESTDAY_DUTY) *
-            PremiumRateHelper.GetRate(context, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);
-    }
-
-    public static RestLegalDayPayCalculator ForContext(PayrollContext context) => new(context);
-
-    public RestLegalDayPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
-    {
-        if (workedHours <= 0) return this;
-
-        // Ineligible: Earns 1.0x standard hourly rate
-        // Eligible & Pre-Funded (rest day AND holiday both already covered by base pay):
-        //   Earns delta premium above 1.0x base pay (e.g., 2.60 - 1.00 = 1.60)
-        // Eligible & Not Pre-Funded: Earns full configured combo multiplier (e.g., 2.60)
-        var multiplier = !_isEligible
-            ? 1.0m
-            : (_isBasePayPreFunded ? Math.Max(0m, _totalRateMultiplier - 1.0m) : _totalRateMultiplier);
-
-        _total += hourlyRate * workedHours * multiplier;
-        return this;
-    }
-
-    public RestLegalDayPayCalculator CalculateUnworkedPay(decimal hourlyRate, decimal unworkedHours)
-    {
-        if (unworkedHours <= 0 || !_isEligible) return this;
-
-        // Eligible & Pre-Funded (Fixed): Base pay is already included in base salary, so delta is 0.0x
-        // Eligible & Not Pre-Funded (Daily): Unworked rest day + legal holiday credit is paid at 100% (1.0x) base rate
-        var multiplier = _isBasePayPreFunded ? 0.0m : 1.0m;
-
-        _total += hourlyRate * unworkedHours * multiplier;
-        return this;
-    }
-
-    public decimal Total => _total;
 }

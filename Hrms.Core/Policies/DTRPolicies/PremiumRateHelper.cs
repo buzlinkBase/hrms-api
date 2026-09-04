@@ -27,22 +27,6 @@
         }
     }
 
-    internal static class CompanyPolicyHelper
-    {
-        // Same client-then-company resolution shape as PremiumRateHelper's chain, simplified
-        // to a single boolean rather than a per-RateType dictionary.
-        public static bool ShouldTreatNdotAsNdOnly(PayrollContext context)
-        {
-            var clientId = context.Employee?.ClientId;
-            if (clientId.HasValue &&
-                context.Payload.ClientTreatNdotAsNdOnlyOverrides.TryGetValue(clientId.Value, out var overrideValue))
-            {
-                return overrideValue;
-            }
-            return context.Payload.CompanyPolicy.TreatNdotAsNdOnly;
-        }
-    }
-
     public class RateHelper
     {
         public static decimal GetDailyRate(PayrollContext context)

@@ -16,8 +16,16 @@ internal class RestDoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, Payr
         var workedHours = (decimal)Math.Max(0, dailyRecord.RestDoubleLegalHours);
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
-        var earnings = RestDoubleLegalPayCalculator
-            .ForContext(context,line)
+        var isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
+        var isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
+                                  context.Employee.IsRestDayPaid &&
+                                  context.Employee.IsRegularHolidayIncluded;
+
+        // DOLE: worked rest day + double holiday = 390% (300% double holiday + 30% rest day
+        // premium), unworked double holiday = 200%. Pre-funded delta on unworked is the same
+        // 2.0 - 1.0 = 1.0 as DoubleLegalPolicy — base pay covers the 1.0x, premium remains due.
+        var earnings = DayTypePayCalculator
+            .For(isEligible, isBasePayPreFunded, workedMultiplier: 3.9m, unworkedMultiplier: 2.0m, line)
             .CalculateWorkedPay(hourlyRate, workedHours)
             .CalculateUnworkedPay(hourlyRate, unworkedHours)
             .Total;
@@ -25,56 +33,4 @@ internal class RestDoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, Payr
         line.Value += earnings;
         return line;
     }
-}
-
-public class RestDoubleLegalPayCalculator
-{
-    private decimal _total;
-    private readonly bool _isEligible;
-    private readonly bool _isBasePayPreFunded;
-    private readonly BasicPipelineData _line;
-    private const decimal DOLE_WORKED_MULTIPLIER = 3.9m; // 300% double holiday + 30% rest day premium
-    private const decimal DOLE_UNWORKED_MULTIPLIER = 2.0m; // 200% double regular holiday
-
-    private RestDoubleLegalPayCalculator(PayrollContext context, BasicPipelineData line)
-    {
-        _isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);
-        _isBasePayPreFunded = context.Employee.SalaryType == SalaryType.FIXED &&
-                              context.Employee.IsRestDayPaid &&
-                              context.Employee.IsRegularHolidayIncluded;
-        _line = line;
-    }
-
-    public static RestDoubleLegalPayCalculator ForContext(PayrollContext context, BasicPipelineData line) => new(context,line);
-
-    public RestDoubleLegalPayCalculator CalculateWorkedPay(decimal hourlyRate, decimal workedHours)
-    {
-        if (workedHours <= 0) return this;
-
-        // DOLE Worked Rest Day + Double Holiday: 390% (3.9x)
-        // If ineligible: Earns 1.0x standard hourly rate
-        // If eligible & pre-funded: Earns 2.9x additional premium (3.9x - 1.0x pre-funded base)
-        // If eligible & not pre-funded: Earns full 3.9x
-        var multiplier = !_isEligible
-            ? 1.0m
-            : (_isBasePayPreFunded ? (DOLE_WORKED_MULTIPLIER - 1.0m) : DOLE_WORKED_MULTIPLIER);
-
-        _total += hourlyRate * workedHours * multiplier;
-        _line.Worked = _total;
-        return this;
-    }
-
-    public RestDoubleLegalPayCalculator CalculateUnworkedPay(decimal hourlyRate, decimal unworkedHours)
-    {
-
-        if (unworkedHours <= 0 || !_isEligible) return this;
-        // DOLE Unworked Double Holiday: 200% (2.0x)
-        // If eligible & pre-funded (fixed monthly): Base pay (2.0x) is already included in base pay, so delta is 0.0x
-        // If eligible & not pre-funded (daily-paid): Earns full 2.0x
-        var multiplier = _isBasePayPreFunded ? 0.0m : DOLE_UNWORKED_MULTIPLIER;
-        _total += hourlyRate * unworkedHours * multiplier;
-        _line.UnWork = _total;
-        return this;
-    }
-    public decimal Total => _total;
 }

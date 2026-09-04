@@ -7,30 +7,6 @@ internal abstract class SingleCategoryNDPolicy : PayrollPolicyBase<BasicPipeline
     protected abstract double Hours(DailyRecordRunModel r);
     protected abstract RateType[] PolicyRateTypes { get; }
 
-    //public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
-    //{
-    //    var hours = (decimal)Hours(context.DailyRecord);
-    //    if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
-
-    //    var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
-
-    //    decimal combinedRateMultiplier = 1.0m;
-    //    foreach (var rateType in PolicyRateTypes)
-    //    {
-    //        var rate = PremiumRateHelper.GetRate(context, rateType, 1.0m);
-    //        combinedRateMultiplier *= rate;
-    //    }
-
-    //    var isPreFunded = context.Employee.IsNightDiffIncluded ||
-    //                      context.Employee.SalaryType == SalaryType.FIXED;
-
-    //    var effectiveMultiplier = isPreFunded
-    //        ? Math.Max(0m, combinedRateMultiplier - 1.00m)
-    //        : combinedRateMultiplier;
-
-    //    line.Value += hours * baseHourlyRate * effectiveMultiplier;
-    //    return line;
-    //}
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
         var hours = (decimal)Hours(context.DailyRecord);
@@ -64,16 +40,10 @@ internal abstract class SingleCategoryNDPolicy : PayrollPolicyBase<BasicPipeline
         // Since this is pure ND, OtPremium remains untouched (0), and ND captures the exact variance.
         decimal pureNdPremiumMultiplier = fullyCompoundedRate - coreDayRate;
 
-        // 5. Handle Pre-Funded / Fixed salary configurations gracefully
-        var isPreFunded = context.Employee.IsNightDiffIncluded ||
-                          context.Employee.SalaryType == SalaryType.FIXED;
-
-        decimal effectiveTotalMultiplier = isPreFunded
-            ? Math.Max(0m, fullyCompoundedRate - 1.00m)
-            : fullyCompoundedRate;
-
-        // 6. Allocate values cleanly to the tracking pipeline instance
-        line.Value += basePayForHours * effectiveTotalMultiplier;
+        // Night differential is always paid in full — no Fixed-salary or per-employee
+        // "already included in the monthly rate" discount applies here.
+        // 5. Allocate values cleanly to the tracking pipeline instance
+        line.Value += basePayForHours * fullyCompoundedRate;
         line.NDPremium += basePayForHours * pureNdPremiumMultiplier;
         // line.OtPremium is intentionally not altered here because no OT hours exist in this pipeline category.
         return line;

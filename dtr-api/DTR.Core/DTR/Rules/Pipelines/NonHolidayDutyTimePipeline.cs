@@ -14,8 +14,10 @@ public class NonHolidayDutyTimePipeline : IDTRTimePipeline
 
         if (isHoliday.IsSatisfiedBy(cannonicalTimeRange, context))
         {
-            //if holiday return only nonholiday
-            //we may also check the   new IsHolTimeInDayType() here
+            // if holiday, return only the non-holiday portion — already split by whichever
+            // HolidayTimeBasis is configured, since HolidayPolicyProviderFactory recorded
+            // this ledger entry via IsHolTimeInDayType-aware TimeInDayTypeProvider /
+            // ActualWorkHoursProvider.
             var regKey = TimeRangeLedger.CreateKey("non_holiday_portion", context);
             var cached = context.Payload.Ledger.GetByKey(regKey);
             if (cached.Found)

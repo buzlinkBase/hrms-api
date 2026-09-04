@@ -31,6 +31,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\hrms-api\hrms-api.csproj" />
 		<ProjectReference Include="..\Hrms.Core\Hrms.Core.csproj" />
+		<ProjectReference Include="..\hrms-adms-api\hrms-adms-api.csproj" />
 	</ItemGroup>
 
 </Project>

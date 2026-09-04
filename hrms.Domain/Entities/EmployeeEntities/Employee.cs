@@ -48,7 +48,6 @@ public class Employee : BaseEntity
     public bool IsRestDayPaid { get; set; }
     public bool IsRegularHolidayIncluded { get; set; }
     public bool IsSpecialNonWorkingIncluded { get; set; }
-    public bool IsNightDiffIncluded { get; set; }
 
     // When true, use this employee's own IsXxxIncluded toggles above for Fixed-salary
     // payroll. When false, fall back to the tenant-wide PayrollInclusionDefaults.

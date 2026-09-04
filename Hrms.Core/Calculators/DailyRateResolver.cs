@@ -9,7 +9,8 @@ public interface IDailyRateResolver
 /// Resolves the effective Daily Rate to use for a payroll run.
 /// Manual mode (or non-FIXED salary): the employee's stored DailyRate is authoritative.
 /// CalculatedEDR mode: DailyRate = (MonthlyRate * 12) / FactorDays — FactorDays is an
-/// annual factor (e.g. 365, 313, 261, 252, or an international/continuous-ops variant).
+/// annual factor (e.g. 365, 313, 305, 261, 253, 251 per DOLE, a flat-calendar variant
+/// like 312/260, or the continuous-ops DOLE Advisory No. 001-10 factor 393.80).
 /// MonthlyTotalDays mode: DailyRate = MonthlyRate / divisor, where the divisor is either
 ///  - the actual number of days in the payroll month (28/29/30/31), when UseActualMonthDays
 ///    is set — resolved per run from <paramref name="referenceDate"/>, or

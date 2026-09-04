@@ -6,31 +6,7 @@ internal abstract class SingleCategoryNDOTPolicy : PayrollPolicyBase<BasicPipeli
 
     protected abstract double Hours(DailyRecordRunModel r);
     protected abstract RateType[] PolicyRateTypes { get; }
-
-    //public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
-    //{
-    //    var hours = (decimal)Hours(context.DailyRecord);
-    //    if (hours <= 0 || context.DailyRecord.ShiftWorkingHour <= 0) return line;
-
-    //    var baseHourlyRate = PremiumRateHelper.GetHourlyRate(context);
-
-    //    decimal combinedRateMultiplier = 1.0m;
-    //    foreach (var rateType in PolicyRateTypes)
-    //    {
-    //        var rate = PremiumRateHelper.GetRate(context, rateType, 1.0m);
-    //        combinedRateMultiplier *= rate;
-    //    }
-
-    //    var isPreFunded = context.Employee.IsNightDiffIncluded ||
-    //                      context.Employee.SalaryType == SalaryType.FIXED;
-
-    //    var effectiveMultiplier = isPreFunded
-    //        ? Math.Max(0m, combinedRateMultiplier - 1.00m)
-    //        : combinedRateMultiplier;
-
-    //    line.Value += hours * baseHourlyRate * effectiveMultiplier;
-    //    return line;
-    //}
+     
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
         var hours = (decimal)Hours(context.DailyRecord);
@@ -61,27 +37,18 @@ internal abstract class SingleCategoryNDOTPolicy : PayrollPolicyBase<BasicPipeli
             : 1.0m;
 
         // 3. Compute tiered compounding multipliers dynamically
-        // When TreatNdotAsNdOnly is on, the OT tier is skipped entirely — these hours are
-        // paid at the same rate as plain night differential, identical to SingleCategoryNDPolicy.
-        var treatAsNdOnly = CompanyPolicyHelper.ShouldTreatNdotAsNdOnly(context);
         decimal coreDayRate = dayTypeMultiplier;                         // Tier 1: Day rate (e.g., 1.30)
-        decimal overtimeRate = treatAsNdOnly ? coreDayRate : coreDayRate * otRateMultiplier;           // Tier 2: Day rate + OT (e.g., 1.30 * 1.25 = 1.625)
+        decimal overtimeRate = coreDayRate * otRateMultiplier;           // Tier 2: Day rate + OT (e.g., 1.30 * 1.25 = 1.625)
         decimal fullyCompoundedRate = overtimeRate * ndRateMultiplier;    // Tier 3: Day rate + OT + ND (e.g., 1.625 * 1.10 = 1.7875)
 
         // 4. Extract pure premiums by calculating the differences between mathematical tiers
-        decimal pureOtPremiumMultiplier = treatAsNdOnly ? 0m : overtimeRate - coreDayRate;
+        decimal pureOtPremiumMultiplier = overtimeRate - coreDayRate;
         decimal pureNdPremiumMultiplier = fullyCompoundedRate - overtimeRate;
 
-        // 5. Handle Pre-Funded / Fixed salary configurations gracefully
-        var isPreFunded = context.Employee.IsNightDiffIncluded ||
-                          context.Employee.SalaryType == SalaryType.FIXED;
-
-        decimal effectiveTotalMultiplier = isPreFunded
-            ? Math.Max(0m, fullyCompoundedRate - 1.00m)
-            : fullyCompoundedRate;
-
-        // 6. Allocate values cleanly to the tracking pipeline instance
-        line.Value += basePayForHours * effectiveTotalMultiplier;
+        // Night differential is always paid in full — no Fixed-salary or per-employee
+        // "already included in the monthly rate" discount applies here.
+        // 5. Allocate values cleanly to the tracking pipeline instance
+        line.Value += basePayForHours * fullyCompoundedRate;
         line.OTPremium += basePayForHours * pureOtPremiumMultiplier;
         line.NDPremium += basePayForHours * pureNdPremiumMultiplier;
         return line;

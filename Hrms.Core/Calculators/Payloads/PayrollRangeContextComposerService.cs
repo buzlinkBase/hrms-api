@@ -107,18 +107,6 @@ public class PayrollRangeContextComposerService
                 : CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
             var wtaxCreditDate = StatutoryCreditDateResolver.Resolve(dtrPayload.FromDate, dtrPayload.ToDate, wtaxCreditPolicy, payDate);
 
-            var treatNdotAsNdOnly = companySettings.TryGetValue(SettingKey.TreatNdotAsNdOnly.ToString(), out var treatNdotAsNdOnlySetting)
-                && GeneralSettingsUtil.ParseBool(treatNdotAsNdOnlySetting.Value, false);
-
-            // Per-client override for the same flag — clients without an explicit row inherit
-            // the company default above (see CompanyPolicyHelper.ShouldTreatNdotAsNdOnly).
-            var clientNdotSettingsTask = await _generalSettingService.GetSettingsAsync("Client", clientIds.Select(id => id.ToString()).ToHashSet());
-            var clientTreatNdotAsNdOnlyOverrides = clientNdotSettingsTask
-                .Where(kv => kv.Value.TryGetValue(SettingKey.TreatNdotAsNdOnly.ToString(), out _))
-                .ToDictionary(
-                    kv => kv.Key.IdentityId,
-                    kv => GeneralSettingsUtil.ParseBool(kv.Value[SettingKey.TreatNdotAsNdOnly.ToString()].Value, false));
-
             // Contributions
             var payrollsTask = await _payrollService.LoadPostedPayrollAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
             var sssContriTask = await _ssscontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
@@ -152,7 +140,6 @@ public class PayrollRangeContextComposerService
                     .SelectMany(rows => rows)
                     .GroupBy(x => new ClientRateKey(x.ClientId, x.Type))
                     .ToDictionary(g => g.Key, g => g.First().Rate),
-                ClientTreatNdotAsNdOnlyOverrides = clientTreatNdotAsNdOnlyOverrides,
                 PostedPriorPayrolls = payrollsTask,
                 Leaves = leavesTask,
                 LeaveCredits = leaveCreditsTask,
@@ -175,7 +162,6 @@ public class PayrollRangeContextComposerService
                     ApplyStatutoryOnActualMonth = companyTask?.ApplyStatutoryOnActualMonth ?? true,
                     CrossMonthStatutoryCreditPolicy = crossMonthCreditPolicy,
                     WTaxCrossMonthCreditPolicy = wtaxCreditPolicy,
-                    TreatNdotAsNdOnly = treatNdotAsNdOnly,
                     RequiredTakehomePercentage = companyTask?.TakehomePercentage ?? 10,
                 }
             };

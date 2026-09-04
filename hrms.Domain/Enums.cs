@@ -458,7 +458,6 @@ public enum SettingKey
     WaivePriorDayRequirement,
     CrossMonthStatutoryCreditPolicy,
     WTaxCrossMonthCreditPolicy,
-    TreatNdotAsNdOnly,
 }
 
 public enum IncludeNullResponse

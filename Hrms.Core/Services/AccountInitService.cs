@@ -15,7 +15,6 @@ public class AccountInitService : BaseService<Company>
 
     public async Task Create(CancellationToken token)
     {
-        //await CreateOrUpdateAsync(company);
         await SetDefaultLeaves(token);
         await SetDefaultRates(token);
         await SetDefaultIncomeTypes(token);
@@ -31,6 +30,7 @@ public class AccountInitService : BaseService<Company>
         await SetDefaultTimeShifts(token);
         await PayrollSettings(token);
         await SetDefaultStatutoryCreditPolicy(token);
+        await SetDefaultAttendancePayrollPolicy(token);
         await SetDefaultPayrollInclusionDefaults(token);
     }
 
@@ -69,8 +69,8 @@ public class AccountInitService : BaseService<Company>
     /// instead of relying solely on the GeneralSettingsEfConfig migration seed, which is a
     /// single global row and does not reach tenants provisioned after it applies. Uses a
     /// direct insert (not GeneralSettingService.ReplaceByIdentityTypeAsync) because that
-    /// method replaces every "Company"-identity row wholesale, and no other Company setting
-    /// is seeded here today.
+    /// method replaces every "Company"-identity row wholesale, and this and
+    /// SetDefaultAttendancePayrollPolicy each seed their own slice of Company settings.
     /// </summary>
     private async Task SetDefaultStatutoryCreditPolicy(CancellationToken token)
     {
@@ -93,13 +93,35 @@ public class AccountInitService : BaseService<Company>
                 Description = SettingKey.WTaxCrossMonthCreditPolicy.ToString(),
                 Value = CrossMonthStatutoryCreditPolicy.CutoffEndMonth.ToString(),
             },
-            new()
-            {
-                Id = Guid.CreateVersion7(),
-                IdentityType = "Company",
-                Description = SettingKey.TreatNdotAsNdOnly.ToString(),
-                Value = false.ToString(),
-            },
+        };
+        await _uow.Repository.AddRangeAsync(settings, token);
+    }
+
+    /// <summary>
+    /// Seeds Company-identity defaults for the Attendance &amp; Payroll Policy tab (OT,
+    /// late policy, night diff threshold, attendance-fill and holiday-eligibility rules) so
+    /// every new tenant starts with explicit, editable rows instead of relying solely on the
+    /// runtime fallback defaults in DTR.Core.CompanyPolicyService — which this mirrors value
+    /// for value.
+    /// </summary>
+    private async Task SetDefaultAttendancePayrollPolicy(CancellationToken token)
+    {
+        var settings = new List<GeneralSetting>
+        {
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = OvertimeInclusionPolicy.UsePostShiftWork.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.OTEligibility.ToString(), Value = OvertimeEligibilityRule.IndependentOfAttendanceIssues.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.AttFillLimit.ToString(), Value = ManualEntryLimitEnum.NOLIMIT.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.HolidayTimeBasis.ToString(), Value = HolidayTimeBasis.BasedOnTimeInDayType.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.IsHalfDayLateOn.ToString(), Value = false.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.HalfDayLateThresholdMinutes.ToString(), Value = 0.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.IsWholeDayLateOn.ToString(), Value = false.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.WholeDayLateThresholdMinutes.ToString(), Value = 0.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.NightDiffThreshold.ToString(), Value = 0.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.IsHolPlusReg.ToString(), Value = false.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.TimeInAllowance.ToString(), Value = (-120).ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.DoublePunchGap.ToString(), Value = 2.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = false.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.WaivePriorDayRequirement.ToString(), Value = false.ToString() },
         };
         await _uow.Repository.AddRangeAsync(settings, token);
     }
@@ -812,7 +834,6 @@ public class AccountInitService : BaseService<Company>
                 DefaultRestDayPaid = false,
                 DefaultRegularHolidayIncluded = true,
                 DefaultSpecialNonWorkingIncluded = false,
-                DefaultNightDiffIncluded = false,
             },
         };
         await _uow.Repository.AddRangeAsync(defaults, token);
