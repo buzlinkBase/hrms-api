@@ -702,6 +702,7 @@ public class PayrollProcessorService
             line.LegalHolOTHours + line.SpecialHolOTHours +
             line.RestLegalDayOTHours + line.RestSpecialDayOTHours +
             line.DoubleLegalOTHours + line.RestDoubleLegalOTHours;
+         
     }
 
     // Which leave type(s) made up this run's PaidLeaves/UnpaidLeaves totals, and how many

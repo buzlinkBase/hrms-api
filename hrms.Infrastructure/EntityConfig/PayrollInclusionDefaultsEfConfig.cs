@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Hrms.Infrastructure.EntityConfig;
 
-internal class PayrollInclusionDefaultsEfConfig : IEntityTypeConfiguration<PayrollInclusionDefaults>
-{
-    public void Configure(EntityTypeBuilder<PayrollInclusionDefaults> builder)
-    {
-    }
-}
+//internal class PayrollInclusionDefaultsEfConfig : IEntityTypeConfiguration<PayrollInclusionDefaults>
+//{
+//    public void Configure(EntityTypeBuilder<PayrollInclusionDefaults> builder)
+//    {
+//    }
+//}

@@ -1,8 +1,4 @@
-using Hrms.Domain.Entities;
-using Hrms.Domain.ValueObjects;
-
 namespace Hrms.Core.Services;
-
 public record PayrollInclusionResult(
     bool IsRestDayPaid,
     bool IsRegularHolidayIncluded,
@@ -13,11 +9,9 @@ public record PayrollInclusionResult(
 
 public class EmployeePayrollInclusionResolver
 {
-    private readonly PayrollInclusionDefaultsService _defaultsService;
 
-    public EmployeePayrollInclusionResolver(PayrollInclusionDefaultsService defaultsService)
+    public EmployeePayrollInclusionResolver(  )
     {
-        _defaultsService = defaultsService;
     }
     // Mutates each employee's 4 IsXxxIncluded booleans in place to their final resolved
     // value, so every downstream reader (the DTR pay policies) sees the resolved value
@@ -25,11 +19,7 @@ public class EmployeePayrollInclusionResolver
     public async Task ApplyAsync(List<EmployeeModelPayrollRun> employees, CancellationToken token)
     {
         if (employees == null || employees.Count == 0) return;
-        var tenantDefaults = await _defaultsService.FineOneAsync(token);
         var overrideHandler = new EmployeeOverrideHandler();
-        var tenantHandler = new TenantDefaultHandler(tenantDefaults);
-        overrideHandler.SetNextHandler(tenantHandler);
-
         foreach (var employee in employees)
         {
             var result = overrideHandler.Handle(employee);
@@ -67,27 +57,10 @@ public abstract class PayrollInclusionHandler
 // out of the tenant-wide defaults.
 public class EmployeeOverrideHandler : PayrollInclusionHandler
 {
-    protected override bool IsApplicable(EmployeeModelPayrollRun employee) => employee.UseEmployeeOverride;
+    protected override bool IsApplicable(EmployeeModelPayrollRun employee) => true;
     protected override PayrollInclusionResult GetInclusion(EmployeeModelPayrollRun employee) =>
         new(
             employee.IsRestDayPaid,
             employee.IsRegularHolidayIncluded,
             employee.IsSpecialNonWorkingIncluded);
-}
-// Terminal fallback: tenant-wide defaults, used when the employee has no override
-// (or no tenant defaults have been configured yet, in which case everything is false).
-public class TenantDefaultHandler : PayrollInclusionHandler
-{
-    private readonly PayrollInclusionDefaults? _tenantDefaults;
-
-    public TenantDefaultHandler(PayrollInclusionDefaults? tenantDefaults)
-    {
-        _tenantDefaults = tenantDefaults;
-    }
-    protected override bool IsApplicable(EmployeeModelPayrollRun employee) => true;
-    protected override PayrollInclusionResult GetInclusion(EmployeeModelPayrollRun employee) =>
-        new(
-            _tenantDefaults?.DefaultRestDayPaid ?? false,
-            _tenantDefaults?.DefaultRegularHolidayIncluded ?? false,
-            _tenantDefaults?.DefaultSpecialNonWorkingIncluded ?? false);
-}
+} 

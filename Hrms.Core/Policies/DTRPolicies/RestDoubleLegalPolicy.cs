@@ -4,7 +4,9 @@ internal class RestDoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, Payr
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
-        //TODO must consider Holiday Hours Basis
+        // Holiday Hours Basis (BasedOnTimeInDayType vs BasedOnActualWorkHours) is already
+        // applied upstream by dtr-api's HolidayPolicyProviderFactory when RestDoubleLegalHours
+        // is computed — see CleanDTRDetailProcessor.cs. Nothing to branch on here.
         var dailyRecord = context.DailyRecord;
         if (dailyRecord.WorkTypeEnum is not (WorkType.RestDayDoubleLegal or WorkType.RestDayDoubleLegalDuty) ||
             dailyRecord.ShiftWorkingHour <= 0 || dailyRecord.HolCount == 0)

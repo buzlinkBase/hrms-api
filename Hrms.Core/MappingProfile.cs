@@ -211,10 +211,6 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateCompany, Company>();
         config.NewConfig<Company, CompanyModel>();
 
-        config.NewConfig<CreatePayrollInclusionDefaults, PayrollInclusionDefaults>();
-        config.NewConfig<UpdatePayrollInclusionDefaults, PayrollInclusionDefaults>();
-        config.NewConfig<PayrollInclusionDefaults, PayrollInclusionDefaultsModel>();
-
         config.NewConfig<CreateOtherIncomeType, OtherIncomeType>();
         config.NewConfig<UpdateOtherIncome, OtherIncomeType>();
         config.NewConfig<OtherIncomeType, OtherIncomeTypeModel>();
