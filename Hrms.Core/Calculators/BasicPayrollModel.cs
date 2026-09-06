@@ -269,6 +269,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             Date = context.PayrollDate,
             EmployeeId = context.DailyRecord.EmployeeId,
             DailyRate = context.Employee.DailyRate,
+            WorkType = context.WorkType,
 
             UnpaidLeave = unpaid,
             PaidLeave = paid,

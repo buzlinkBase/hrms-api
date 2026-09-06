@@ -353,6 +353,53 @@ public class PayrollReportService : BaseService<Payroll>
         };
     }
 
+    // OneTime, employer-advanced government payouts awaiting/undergoing SSS-style
+    // reimbursement — see LeaveApplication.EmployerAdvancesPayment/ReimbursementStatus.
+    // Direct-deposit payouts are excluded: the employer never advanced that money, so there's
+    // nothing for it to be reimbursed for. Sourced straight from LeaveApplication (not posted
+    // Payroll rows, unlike this service's other reports) since the claim exists independently
+    // of whether this run's payroll has been posted yet.
+    public async Task<List<ReimbursementListModel>> GetReimbursementListAsync(DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var apps = await Context.leaveApplications
+            .Include(x => x.Leave)
+            .Where(x =>
+                x.PayoutMode == PayoutMode.OneTime &&
+                x.ApprovalStatus == ApprovalStatus.Approved &&
+                x.GovernmentAmount != null && x.GovernmentAmount > 0 &&
+                x.ReleasePayrollDate != null &&
+                x.ReleasePayrollDate >= from && x.ReleasePayrollDate <= to)
+            .AsNoTracking()
+            .ToListAsync(token);
+
+        var employerAdvanced = apps
+            .Where(x => x.EmployerAdvancesPayment ?? x.Leave.EmployerAdvancesPayment)
+            .ToList();
+
+        var employeeMap = await LoadEmployeeMapAsync(employerAdvanced.Select(x => x.EmployeeId), token);
+
+        return employerAdvanced.Select(a =>
+        {
+            employeeMap.TryGetValue(a.EmployeeId, out var e);
+            return new ReimbursementListModel
+            {
+                LeaveApplicationId = a.Id,
+                EmployeeId = a.EmployeeId,
+                EmployeeNo = e?.EmployeeNo ?? "",
+                FullName = e.FullName(),
+                LeaveDescription = a.Leave.Description,
+                LeaveDateFrom = a.LeaveDateFrom,
+                LeaveDateTo = a.LeaveDateTo,
+                ReleasePayrollDate = a.ReleasePayrollDate,
+                GovernmentAmount = a.GovernmentAmount ?? 0,
+                Status = a.ReimbursementStatus,
+                FiledDate = a.ReimbursementFiledDate,
+                ReceivedDate = a.ReimbursementReceivedDate,
+                ReferenceNo = a.ReimbursementReferenceNo,
+            };
+        }).OrderBy(x => x.FullName).ToList();
+    }
+
     private async Task<Dictionary<Guid, Employee>> LoadEmployeeMapAsync(IEnumerable<Guid> employeeIds, CancellationToken token)
     {
         var employees = await _employeeService.FindByIds(employeeIds.Distinct().ToList(), token);

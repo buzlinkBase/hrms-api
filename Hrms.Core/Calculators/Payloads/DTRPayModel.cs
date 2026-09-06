@@ -9,6 +9,10 @@ public class DTRPayModel
     public Guid EmployeeId { get; set; }
     public decimal DailyRate { get; set; }
     public SalaryType SalaryType { get; set; }
+    // Same enum PayrollContext.WorkType carries into this calculation — surfaced here purely
+    // for display (e.g. TimeHourPayResultsModal's per-day breakdown), so a reviewer can see
+    // which DTR policy classified this day without re-deriving it from the pay columns.
+    public WorkType WorkType { get; set; }
 
 
     public decimal LateAmount { get; set; }

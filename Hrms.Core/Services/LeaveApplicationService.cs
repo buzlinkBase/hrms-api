@@ -411,6 +411,24 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         await RemoveAsync(Id, token);
     }
 
+    // Finance-only action: record the SSS/government reimbursement claim's progress for a
+    // OneTime, employer-advanced leave payout. Deliberately independent of UpdateAsync/the
+    // ApprovalStatus workflow — this never touches ApprovalStatus or triggers its credit/DTR
+    // side effects.
+    public async Task UpdateReimbursementStatusAsync(Guid id, UpdateReimbursementStatus payload, CancellationToken token)
+    {
+        var existing = await Context.leaveApplications.FirstOrDefaultAsync(x => x.Id == id, token)
+            ?? throw new NotFoundException("Record not found");
+
+        existing.ReimbursementStatus = payload.Status;
+        existing.ReimbursementFiledDate = payload.FiledDate;
+        existing.ReimbursementReceivedDate = payload.ReceivedDate;
+        existing.ReimbursementReferenceNo = payload.ReferenceNo;
+
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
+
     // Approved OneTime-payout leave applications whose ReleasePayrollDate falls within this
     // run's date range — mirrors SalaryAdjustmentService.LoadAsync's PayrollDate matching.
     public async Task<Dictionary<EmployeeKey, List<LeaveApplication>>> LoadOneTimePayoutsAsync(

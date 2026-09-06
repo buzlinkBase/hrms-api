@@ -144,4 +144,88 @@ public class StatutoryHelperTests : TestContextBase
         AddCutoff(secondCutoffCtx, 15); AddCutoff(secondCutoffCtx, 31, isEndOfMonth: true);
         StatutoryHelper.IsPartialDeduction(secondCutoffCtx).Should().BeTrue();
     }
+
+    // --- IsOneTimePayLeave / one-time-leave-payout bracket short-circuit ------------------
+    // A OneTime-payout leave (e.g. an SSS maternity lump sum) coinciding with this payroll
+    // period means statutory contributions should bracket off the ACTUAL gross released this
+    // period, not a FIXED monthly projection or Variable prior-gross accumulation — see
+    // StatutoryHelper.IsOneTimePayLeave and its callers.
+
+    [Fact]
+    public void IsOneTimePayLeave_TrueWhenReleaseDateFallsWithinThePayrollPeriod()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.SEMI_MONTHLY, 5_000,
+            new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+        AddOneTimeLeavePayout(ctx, releasePayrollDate: new DateOnly(2025, 3, 10));
+
+        StatutoryHelper.IsOneTimePayLeave(ctx).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsOneTimePayLeave_FalseWhenReleaseDateFallsOutsideThePayrollPeriod()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.SEMI_MONTHLY, 5_000,
+            new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+        AddOneTimeLeavePayout(ctx, releasePayrollDate: new DateOnly(2025, 3, 20));
+
+        StatutoryHelper.IsOneTimePayLeave(ctx).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsOneTimePayLeave_FalseWhenNoPayoutsExistForThisEmployee()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.SEMI_MONTHLY, 5_000,
+            new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+
+        StatutoryHelper.IsOneTimePayLeave(ctx).Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetSemiMonthlyBracketBaseRate_OneTimePayLeave_ReturnsActualGrossIncome_NotFixedProjection()
+    {
+        // FIXED, non-last cutoff would normally project the full 30,000 MonthlyRate (see
+        // SemiMonthly_Fixed_BracketsOffFullMonthlyRate_EvenlySplitAcrossBothCutoffs in
+        // SSSTableCalculatorTests) — a coinciding OneTime payout bypasses that entirely.
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.SEMI_MONTHLY, 5_000,
+            new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+        AddOneTimeLeavePayout(ctx);
+
+        StatutoryHelper.GetSemiMonthlyBracketBaseRate(ctx, new CutoffPolicyResolver()).Should().Be(5_000);
+    }
+
+    [Fact]
+    public void GetWeeklyBracketBaseRate_OneTimePayLeave_ReturnsActualGrossIncome_NotFixedProjection()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.WEEKLY, 5_000,
+            new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 7));
+        AddCutoff(ctx, 7); AddCutoff(ctx, 14); AddCutoff(ctx, 21); AddCutoff(ctx, 31, isEndOfMonth: true);
+        AddOneTimeLeavePayout(ctx);
+
+        StatutoryHelper.GetWeeklyBracketBaseRate(ctx, new CutoffPolicyResolver()).Should().Be(5_000);
+    }
+
+    [Fact]
+    public void GetWeeklyGrossBaseRate_OneTimePayLeave_ReturnsThisPeriodsGrossOnly_IgnoringPriorPostedGross()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.WEEKLY, 5_000,
+            new DateOnly(2025, 3, 8), new DateOnly(2025, 3, 14));
+        AddPriorPayroll(ctx, 7_500);
+        AddOneTimeLeavePayout(ctx);
+
+        StatutoryHelper.GetWeeklyGrossBaseRate(ctx).Should().Be(5_000); // not 12,500
+    }
+
+    [Fact]
+    public void GetDailyProjectedGrossRate_OneTimePayLeave_ProjectsGrossIncomeDirectly_BypassingDayCountProjection()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.DAILY, 5_000,
+            new DateOnly(2025, 3, 3), new DateOnly(2025, 3, 3), monthlyRate: 31_000);
+        AddOneTimeLeavePayout(ctx);
+
+        var result = StatutoryHelper.GetDailyProjectedGrossRate(ctx);
+
+        result.ProjectedGross.Should().Be(5_000);
+        result.BaseRate.Should().Be(5_000);
+        result.Divisor.Should().Be(1);
+    }
 }

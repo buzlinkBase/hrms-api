@@ -43,10 +43,13 @@ public class AttendanceController : ControllerBase
         [FromForm] Guid? operationAreaId,
         [FromForm] Guid? clientId,
         [FromForm] Guid? departmentId,
+        [FromForm] string remarks,
         CancellationToken ct)
     {
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
+        if (string.IsNullOrWhiteSpace(remarks))
+            return BadRequest("A reason/remarks for this upload is required.");
 
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
@@ -70,6 +73,14 @@ public class AttendanceController : ControllerBase
         var atts = await new AttEmployeeSetter(_attendanceService.Uow)
            .ParseAttLogs(parsedData, LOGSOURCE.UPLOADED);
 
+        // Tags the whole imported batch with why it was uploaded out-of-band — the punches
+        // themselves are still device data, not hand-typed, but the upload action itself is a
+        // manual intervention worth an audit trail.
+        foreach (var att in atts)
+        {
+            att.LogRemarks = remarks;
+        }
+
         await _attendanceService.AddRangeAsync(atts, ct);
         await _attendanceService.CommitChangesAsync(ct);
 
@@ -84,6 +95,10 @@ public class AttendanceController : ControllerBase
         if (payload == null || !payload.Any())
         {
             return BadRequest("Payload cannot be empty.");
+        }
+        if (payload.Any(x => string.IsNullOrWhiteSpace(x.Remarks)))
+        {
+            return BadRequest("Remarks is required for every manual attendance entry.");
         }
         var employeeIds = payload.Select(x => x.EmployeeId).ToHashSet();
         var employees = await _service.Context.Employees
@@ -130,7 +145,7 @@ public class AttendanceController : ControllerBase
                 IP = string.Empty,
                 Boundary = null,
                 LogSource = LOGSOURCE.MANUAL,
-                EditRemarks = string.Empty,
+                EditRemarks = att.Remarks,
             });
         }
         if (attendances.Any())
@@ -168,6 +183,10 @@ public class AttendanceController : ControllerBase
         if (payload == null)
         {
             return BadRequest("Payload cannot be empty.");
+        }
+        if (string.IsNullOrWhiteSpace(payload.Remarks))
+        {
+            return BadRequest("Remarks is required.");
         }
         await _attendanceService.Update(payload, ct);
         await _attendanceService.CommitChangesAsync(ct);

@@ -25,12 +25,14 @@ public class OneTimeLeavePayoutTests : TestContextBase
         GrossIncome = startingGrossIncome,
     };
 
-    private static LeaveApplication OneTimePayout(decimal? gov, decimal? comp) => new()
+    private static LeaveApplication OneTimePayout(
+        decimal? gov, decimal? comp, bool? employerAdvancesOverride = null, bool typeEmployerAdvances = false) => new()
     {
-        Leave = new Leave { Description = "SSS Sickness Benefit" },
+        Leave = new Leave { Description = "SSS Sickness Benefit", EmployerAdvancesPayment = typeEmployerAdvances },
         PayoutMode = PayoutMode.OneTime,
         GovernmentAmount = gov,
         CompanyAmount = comp,
+        EmployerAdvancesPayment = employerAdvancesOverride,
     };
 
     [Fact]
@@ -39,12 +41,12 @@ public class OneTimeLeavePayoutTests : TestContextBase
         var payload = new CalculatorPayload();
         var line = Line(20_000);
 
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(Guid.NewGuid()), line);
+        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(Guid.NewGuid()), line);
 
         line.GrossIncome.Should().Be(20_000);
         line.GovernmentFundedLeavePay.Should().Be(0);
         line.CompanyFundedLeavePay.Should().Be(0);
-
+        employerAdvancedGovPay.Should().Be(0);
     }
 
     [Fact]
@@ -52,14 +54,61 @@ public class OneTimeLeavePayoutTests : TestContextBase
     {
         var empId = Guid.NewGuid();
         var payload = new CalculatorPayload();
-        payload.OneTimeLeavePayouts[new EmployeeKey(empId)] = new List<LeaveApplication> { OneTimePayout(gov: 15_000, comp: 0) };
+        payload.OneTimeLeavePayouts[new EmployeeKey(empId)] = new List<LeaveApplication>
+        {
+            OneTimePayout(gov: 15_000, comp: 0, employerAdvancesOverride: true),
+        };
         var line = Line(20_000);
 
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.NonTaxableBenefits.Should().Be(15_000);
         line.GrossIncome.Should().Be(20_000); // unchanged — Government amount excluded
+        employerAdvancedGovPay.Should().Be(15_000); // Employer Advance — belongs in NetPay
+    }
+
+    [Theory]
+    [InlineData(true, null, true)]   // application override: employer advances
+    [InlineData(false, null, false)] // application override: direct deposit by government
+    [InlineData(null, true, true)]   // inherits leave type default: employer advances
+    [InlineData(null, false, false)] // inherits leave type default: direct deposit
+    public void EmployerAdvancesPayment_ResolvesFromApplicationOverrideOrLeaveTypeDefault(
+        bool? applicationOverride, bool? typeDefault, bool expectedEmployerAdvances)
+    {
+        var empId = Guid.NewGuid();
+        var payload = new CalculatorPayload();
+        payload.OneTimeLeavePayouts[new EmployeeKey(empId)] = new List<LeaveApplication>
+        {
+            OneTimePayout(gov: 15_000, comp: 0, employerAdvancesOverride: applicationOverride, typeEmployerAdvances: typeDefault ?? false),
+        };
+        var line = Line(20_000);
+
+        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+
+        // GovernmentFundedLeavePay/NonTaxableBenefits stay informational — full entitlement
+        // regardless of who actually disburses it.
+        line.GovernmentFundedLeavePay.Should().Be(15_000);
+        line.NonTaxableBenefits.Should().Be(15_000);
+        employerAdvancedGovPay.Should().Be(expectedEmployerAdvances ? 15_000 : 0);
+    }
+
+    [Fact]
+    public void MixedDisbursementMethods_OnlyEmployerAdvancedPortionReturnedForNetPay()
+    {
+        var empId = Guid.NewGuid();
+        var payload = new CalculatorPayload();
+        payload.OneTimeLeavePayouts[new EmployeeKey(empId)] = new List<LeaveApplication>
+        {
+            OneTimePayout(gov: 10_000, comp: 0, employerAdvancesOverride: true),  // employer advances
+            OneTimePayout(gov: 6_000, comp: 0, employerAdvancesOverride: false), // direct deposit
+        };
+        var line = Line(20_000);
+
+        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+
+        line.GovernmentFundedLeavePay.Should().Be(16_000); // full entitlement, both payouts
+        employerAdvancedGovPay.Should().Be(10_000);        // only the advanced one hits NetPay
     }
 
     [Fact]

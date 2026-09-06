@@ -16,6 +16,9 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
 
     public async Task AddAsync(PassSlipApplication model, CancellationToken token)
     {
+        if (string.IsNullOrWhiteSpace(model.Remarks))
+            throw new InvalidOperationException("Remarks explaining this pass slip is required.");
+
         model.ApprovalStatus = ApprovalStatus.ForApproval;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -23,6 +26,9 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
 
     public async Task UpdateAsync(UpdatePassSlipApplication payload, CancellationToken token)
     {
+        if (string.IsNullOrWhiteSpace(payload.Remarks))
+            throw new InvalidOperationException("Remarks explaining this pass slip is required.");
+
         var existing = await Context.PassSlipApplications.FindAsync(new object[] { payload.Id }, token);
         if (existing == null) throw new NotFoundException("Record not found");
         payload.Adapt(existing);

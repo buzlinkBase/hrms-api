@@ -326,6 +326,13 @@ public enum PayoutMode
               // LeaveApplication.ReleasePayrollDate/GovernmentAmount/CompanyAmount
 }
 
+public enum ReimbursementStatus
+{
+    NotFiled,     // employer has not yet filed the SSS/government reimbursement claim
+    Filed,        // claim submitted, awaiting the government's reimbursement
+    Reimbursed    // government has paid the employer back
+}
+
 public enum AccrualBasis
 {
     None,          // manual / lump-sum grant; Credits field is the entitlement

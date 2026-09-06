@@ -81,6 +81,31 @@ public abstract class TestContextBase
         list.Add(new Payroll { EmployeeId = context.Employee.Id, GrossIncome = priorGrossIncome });
     }
 
+    // --- One-Time Leave Payout (maternity-style lump sum) -------------------------------
+
+    // Marks the employee as having a OneTime-payout leave (StatutoryHelper.IsOneTimePayLeave)
+    // releasing within [context.Payload.FromDate, ToDate] — the statutory Get*BracketBaseRate
+    // methods then bracket off the period's actual GrossIncome instead of a FIXED projection
+    // or Variable accumulation, and the Table*Calculators release the full bracket amount
+    // immediately instead of splitting/prorating it. releasePayrollDate defaults to the
+    // context's own FromDate (i.e. "releases within this period") — pass an out-of-range date
+    // to build a non-matching payout for a negative test.
+    protected static void AddOneTimeLeavePayout(DeductionPayloadContext context, DateOnly? releasePayrollDate = null)
+    {
+        var key = new EmployeeKey(context.Employee.Id);
+        if (!context.Payload.OneTimeLeavePayouts.TryGetValue(key, out var list))
+        {
+            list = new List<LeaveApplication>();
+            context.Payload.OneTimeLeavePayouts[key] = list;
+        }
+        list.Add(new LeaveApplication
+        {
+            Leave = new Leave { Description = "Test One-Time Leave Payout" },
+            PayoutMode = PayoutMode.OneTime,
+            ReleasePayrollDate = releasePayrollDate ?? context.Payload.FromDate,
+        });
+    }
+
     // --- SSS ----------------------------------------------------------------------------
 
     protected static void SetSSSRate(DeductionPayloadContext context, ComputationBasis basis, decimal ee = 0, decimal er = 0, decimal ec = 0)

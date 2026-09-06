@@ -32,7 +32,10 @@ public class OneTimeLeavePayoutPipelineTests
         {
             new()
             {
-                Leave = new Leave { Description = "Maternity Leave", PaySource = PaySource.Shared },
+                // EmployerAdvancesPayment = true — the standard SSS Maternity case: the
+                // employer advances the full benefit through payroll and files for
+                // reimbursement afterward (see LeaveApplication.EmployerAdvancesPayment).
+                Leave = new Leave { Description = "Maternity Leave", PaySource = PaySource.Shared, EmployerAdvancesPayment = true },
                 PayoutMode = PayoutMode.OneTime,
                 GovernmentAmount = 15_000,
                 CompanyAmount = 5_000,
@@ -61,9 +64,10 @@ public class OneTimeLeavePayoutPipelineTests
         line.GrossIncome += line.BasicPay; // mirrors ComputeBasicSalary's own accumulation
 
         // 2. OneTime payout — accumulates the funded amounts, does not touch GrossIncome.
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
+        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.CompanyFundedLeavePay.Should().Be(5_000);
+        employerAdvancedGovPay.Should().Be(15_000); // Employer Advance — belongs in NetPay
 
         // 3. Gross rollup — only the Company-funded portion is included; Basic Pay
         // contributes 0 since the leave days were fully offset in step 1.
@@ -72,12 +76,73 @@ public class OneTimeLeavePayoutPipelineTests
 
         // 4. Deductions (stand-in for ComputeDeductions — a real WTax calculation isn't
         // exercised here, just its shape) computed off the correct (non-inflated) Gross, then
-        // the government amount is added to NetPay exactly once, as CalculateAsync does.
+        // the employer-advanced government amount is added to NetPay exactly once, as
+        // CalculateAsync does.
         var deductions = new DeductionPipeData { RunningTotal = 500 };
         line.NetPay = PayrollProcessorUtil.GetNetPay(line, deductions);
-        line.NetPay += line.GovernmentFundedLeavePay;
+        line.NetPay += employerAdvancedGovPay;
 
         line.NetPay.Should().Be(19_500); // 5,000 - 500 + 15,000 — government amount counted once
+    }
+
+    [Fact]
+    public void FixedEmployee_DirectDepositOneTimeMaternityLeave_ExcludedFromNetPay()
+    {
+        // Same scenario as the Employer Advance case above, except the government pays the
+        // employee directly (e.g. the employee separated before the SSS claim was filed) — the
+        // employer never hands this money over, so it must not inflate this run's NetPay, even
+        // though it's still informationally tracked via GovernmentFundedLeavePay for payslip
+        // visibility.
+        var employee = new EmployeeModelPayrollRun
+        {
+            Id = Guid.NewGuid(),
+            SalaryType = SalaryType.FIXED,
+            MonthlyRate = 30_000,
+            DailyRate = 1_000,
+            PayrollGroup = new PayrollGroupModel { PayrollFrequency = PayrollFrequency.SEMI_MONTHLY },
+        };
+        var payload = new CalculatorPayload();
+        payload.OneTimeLeavePayouts[new EmployeeKey(employee.Id)] = new List<LeaveApplication>
+        {
+            new()
+            {
+                Leave = new Leave { Description = "Maternity Leave", PaySource = PaySource.Shared, EmployerAdvancesPayment = true },
+                PayoutMode = PayoutMode.OneTime,
+                GovernmentAmount = 15_000,
+                CompanyAmount = 5_000,
+                EmployerAdvancesPayment = false, // per-application override: Direct Deposit
+            },
+        };
+        payload.Leaves[new Leavekey(employee.Id)] = new List<LeaveApplication>
+        {
+            new()
+            {
+                Leave = new Leave { Description = "Maternity Leave", PaySource = PaySource.Shared },
+                PayoutMode = PayoutMode.OneTime,
+                PayType = PayType.WithPay,
+                LeaveDateFrom = PeriodStart,
+                LeaveDateTo = PeriodEnd,
+            },
+        };
+
+        var line = new PayrollSummaryLine { PayPeriodStart = PeriodStart, PayPeriodEnd = PeriodEnd };
+
+        var oneTimeLeaveDays = PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, employee.Id, PeriodStart, PeriodEnd);
+        PayrollProcessorService.GetBasicPay(line, new List<DTRPayModel>(), employee, oneTimeLeaveDays);
+        line.GrossIncome += line.BasicPay;
+
+        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
+        line.GovernmentFundedLeavePay.Should().Be(15_000); // still tracked informationally
+        employerAdvancedGovPay.Should().Be(0);             // but excluded from NetPay
+
+        line.GrossIncome = PayrollProcessorUtil.GetGross(line);
+        line.GrossIncome.Should().Be(5_000); // unaffected by disbursement method either way
+
+        var deductions = new DeductionPipeData { RunningTotal = 500 };
+        line.NetPay = PayrollProcessorUtil.GetNetPay(line, deductions);
+        line.NetPay += employerAdvancedGovPay;
+
+        line.NetPay.Should().Be(4_500); // 5,000 - 500 — government amount excluded entirely
     }
 
     [Fact]
@@ -89,7 +154,7 @@ public class OneTimeLeavePayoutPipelineTests
         {
             new()
             {
-                Leave = new Leave { Description = "Maternity Leave", PaySource = PaySource.Shared },
+                Leave = new Leave { Description = "Maternity Leave", PaySource = PaySource.Shared, EmployerAdvancesPayment = true },
                 PayoutMode = PayoutMode.OneTime,
                 GovernmentAmount = 15_000,
                 CompanyAmount = 5_000,
@@ -106,13 +171,13 @@ public class OneTimeLeavePayoutPipelineTests
         line.BasicPay.Should().Be(3_000);
         line.GrossIncome += line.BasicPay;
 
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
+        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
         line.GrossIncome = PayrollProcessorUtil.GetGross(line);
         line.GrossIncome.Should().Be(8_000); // 3,000 worked + 5,000 company-funded
 
         var deductions = new DeductionPipeData { RunningTotal = 500 };
         line.NetPay = PayrollProcessorUtil.GetNetPay(line, deductions);
-        line.NetPay += line.GovernmentFundedLeavePay;
+        line.NetPay += employerAdvancedGovPay;
 
         line.NetPay.Should().Be(22_500); // 8,000 - 500 + 15,000
     }

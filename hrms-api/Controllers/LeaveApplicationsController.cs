@@ -88,5 +88,13 @@ namespace Hrms.Api.Controllers
             await _service.CommitChangesAsync(token);
             return Ok();
         }
+
+        [HttpPut("{id}/reimbursement")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UpdateReimbursement(Guid id, [FromBody] UpdateReimbursementStatus payload, CancellationToken token)
+        {
+            await _service.UpdateReimbursementStatusAsync(id, payload, token);
+            return Ok();
+        }
     }
 }

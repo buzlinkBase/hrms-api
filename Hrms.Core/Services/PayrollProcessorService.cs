@@ -626,16 +626,18 @@ public class PayrollProcessorService
             var employeeOneTimeLeaveApps = employeeLeaveApps?.Where(a => a.PayoutMode == PayoutMode.OneTime).ToList();
             ComputeNonCompanyPaidLeaves(empLeaveInfo, leavePaySourceMap, employeeOneTimeLeaveApps, payrollLine);
             ComputeAllowances(dateRange, rangePayload, employee, payrollLine);
-            ApplyOneTimeLeavePayoutsToGross(rangePayload, employee, payrollLine);
+            var employerAdvancedGovPay = ApplyOneTimeLeavePayoutsToGross(rangePayload, employee, payrollLine);
             payrollLine.GrossIncome = PayrollProcessorUtil.GetGross(payrollLine);
             // Deliberately before ComputeDeductions (unlike ApplySalaryAdjustments, which runs
             // after) — the Company-funded portion must already be part of GrossIncome so the
             // SSS/PHIC/HDMF/WTax calculators below see it via StatutoryHelper.Get*GrossBaseRate.
             ComputeDeductions(rangePayload, employee, payrollLine);
             // ComputeDeductions just freshly recomputed NetPay from GrossIncome (not an
-            // increment), so the Government-funded portion — deliberately kept out of
-            // GrossIncome/statutory bases above — can only be added to NetPay here, after.
-            payrollLine.NetPay += payrollLine.GovernmentFundedLeavePay;
+            // increment), so the employer-advanced government portion — deliberately kept out
+            // of GrossIncome/statutory bases above — can only be added to NetPay here, after.
+            // Direct-deposit payouts (government pays the employee, not this employer) are
+            // excluded — see ApplyOneTimeLeavePayoutsToGross's doc comment.
+            payrollLine.NetPay += employerAdvancedGovPay;
             ApplySalaryAdjustments(rangePayload, employee, payrollLine);
             payrollLines.Add(payrollLine);
         }
@@ -1029,18 +1031,28 @@ public class PayrollProcessorService
     // statutory calculators (SSS/PHIC/HDMF/WTax) share the same GrossIncome-based bracket
     // lookup, so there's no cheaper way to exempt it from WTax alone. CompanyAmount is taxable
     // compensation, so it's added to GrossIncome here and (see the call site) NetPay is left
-    // for ComputeDeductions to (re)compute from that — GovernmentAmount is added to NetPay
-    // separately, after ComputeDeductions runs.
+    // for ComputeDeductions to (re)compute from that.
+    //
+    // GovernmentFundedLeavePay/NonTaxableBenefits always accumulate the FULL entitlement
+    // regardless of who actually disburses it — that stays informational, for payslip
+    // visibility of the benefit. But only the portion the EMPLOYER actually advances through
+    // this payroll run belongs in NetPay: when the government pays the employee directly (the
+    // exception case — e.g. the employee separated before the SSS claim was filed), this
+    // employer never hands that money over, so it must not inflate this run's NetPay. The
+    // return value is that employer-advanced portion; the caller adds it to NetPay separately,
+    // after ComputeDeductions runs. Per-payout, not aggregate, because one employee can have
+    // multiple OneTime payouts in the same period with different disbursement methods.
     // internal (not private) so hrms.test can exercise this directly without a DB — see
     // Hrms.Core's InternalsVisibleTo for hrms.test.
-    internal static void ApplyOneTimeLeavePayoutsToGross(
+    internal static decimal ApplyOneTimeLeavePayoutsToGross(
         CalculatorPayload rangePayload,
         EmployeeModelPayrollRun employee,
         PayrollSummaryLine payrollLine)
     {
         if (!rangePayload.OneTimeLeavePayouts.TryGetValue(new EmployeeKey(employee.Id), out var payouts))
-            return;
+            return 0m;
 
+        var employerAdvancedGovPay = 0m;
         var breakdownParts = new List<string>();
         foreach (var payout in payouts)
         {
@@ -1054,14 +1066,23 @@ public class PayrollProcessorService
             // PayrollProcessorUtil.GetGross() right after this method returns (see the call
             // site), which already folds in CompanyFundedLeavePay (incremented above) and
             // deliberately excludes GovernmentFundedLeavePay.
+
+            // Null = inherit the leave type's default (LeaveApplication.EmployerAdvancesPayment
+            // doc comment) — payout.Leave is already loaded via LoadOneTimePayoutsAsync's
+            // .Include(x => x.Leave).
+            var employerAdvances = payout.EmployerAdvancesPayment ?? payout.Leave.EmployerAdvancesPayment;
+            if (employerAdvances) employerAdvancedGovPay += gov;
+
             var leaveName = payout.Leave.Description;
+            var govLabel = employerAdvances ? "Government — Employer Advance" : "Government — Direct Deposit";
             breakdownParts.Add(gov > 0 && comp > 0
-                ? $"{leaveName}: {comp:0.00} (Company) + {gov:0.00} (Government)"
+                ? $"{leaveName}: {comp:0.00} (Company) + {gov:0.00} ({govLabel})"
                 : comp > 0
                     ? $"{leaveName}: {comp:0.00} (Company)"
-                    : $"{leaveName}: {gov:0.00} (Government)");
+                    : $"{leaveName}: {gov:0.00} ({govLabel})");
         }
         payrollLine.OneTimePayoutBreakdown = breakdownParts.Count == 0 ? null : string.Join("; ", breakdownParts);
+        return employerAdvancedGovPay;
     }
 
     private static void ApplySalaryAdjustments(

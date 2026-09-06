@@ -72,6 +72,19 @@ public class LeaveApplication : BaseEntity
     // Which payroll run releases the OneTime lump sum — matched the same way
     // SalaryAdjustment.PayrollDate is matched against a run's [FromDate, ToDate].
     public DateOnly? ReleasePayrollDate { get; set; }
+    // Overrides Leave.EmployerAdvancesPayment for this specific filing. Null = inherit the
+    // leave type's default. Needed because the real-world disbursement method can differ per
+    // case even for the same leave type (e.g. SSS pays the employee directly if they separated
+    // before the claim was filed, instead of the employer advancing it as usual) — see
+    // PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross.
+    public bool? EmployerAdvancesPayment { get; set; }
+    // Tracks the employer's SSS/government reimbursement claim for the EmployerAdvancesPayment
+    // case only — see PayrollReportService.GetReimbursementListAsync and
+    // LeaveApplicationService.UpdateReimbursementStatusAsync.
+    public ReimbursementStatus ReimbursementStatus { get; set; } = ReimbursementStatus.NotFiled;
+    public DateOnly? ReimbursementFiledDate { get; set; }
+    public DateOnly? ReimbursementReceivedDate { get; set; }
+    public string? ReimbursementReferenceNo { get; set; }
     public bool IsManualEntry { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }

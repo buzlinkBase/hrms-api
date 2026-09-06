@@ -304,6 +304,63 @@ public class SSSTableCalculatorTests : TestContextBase
         result.SSS.EE.Should().Be(1_350); // bracket B for a 30,000 gross, taken in full on the cross-month cutoff
     }
 
+    // --- OneTime Leave Payout (maternity-style lump sum) coinciding with this period -----
+    // A OneTime payout's release period brackets off the ACTUAL gross (not a FIXED
+    // projection/Variable accumulation — see StatutoryHelperTests) AND releases the full
+    // bracket amount immediately, bypassing whatever cutoff-position split/proration the
+    // frequency would normally apply — see StatutoryHelper.IsOneTimePayLeave.
+
+    [Fact]
+    public void SemiMonthly_OneTimePayLeave_ReleasesFullBracketAmountImmediately_OnANonLastCutoff()
+    {
+        // Cutoff 1 of 2 (non-last) would normally project the full 30,000 MonthlyRate and
+        // split the resulting bracket-B amount in half — see
+        // SemiMonthly_Fixed_BracketsOffFullMonthlyRate_EvenlySplitAcrossBothCutoffs. A
+        // coinciding OneTime payout instead brackets off this period's actual 5,000 gross
+        // (bracket A) and takes it in full despite not being the last cutoff.
+        var ctx = BuildSemiMonthly(SalaryType.FIXED, 5_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+        AddOneTimeLeavePayout(ctx);
+
+        var result = new DeductionPipeline().Run(ctx);
+
+        result.SSS.EE.Should().Be(900);
+        result.SSS.ER.Should().Be(1_890);
+        result.SSS.EC.Should().Be(10);
+    }
+
+    [Fact]
+    public void Weekly_OneTimePayLeave_ReleasesFullBracketAmountImmediately_OnANonLastWeek()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.WEEKLY, 5_000, new DateOnly(2025, 2, 1), new DateOnly(2025, 2, 7));
+        AddCutoff(ctx, 7); AddCutoff(ctx, 14); AddCutoff(ctx, 21); AddCutoff(ctx, 28, isEndOfMonth: true);
+        SetSSSRate(ctx, ComputationBasis.Table);
+        SeedSSSTable(ctx, Brackets);
+        AddOneTimeLeavePayout(ctx);
+
+        var result = new DeductionPipeline().Run(ctx);
+
+        result.SSS.EE.Should().Be(900);
+        result.SSS.ER.Should().Be(1_890);
+        result.SSS.EC.Should().Be(10);
+    }
+
+    [Fact]
+    public void Daily_OneTimePayLeave_ReleasesFullBracketAmountImmediately_BypassingDayCountProjection()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.DAILY, 5_000, new DateOnly(2025, 3, 3), new DateOnly(2025, 3, 3), monthlyRate: 31_000);
+        AddCutoff(ctx, 31, isEndOfMonth: true);
+        SetSSSRate(ctx, ComputationBasis.Table);
+        SeedSSSTable(ctx, Brackets);
+        ctx.PayrollLine.TimeHourPayResults = new List<DTRPayModel>();
+        AddOneTimeLeavePayout(ctx);
+
+        var result = new DeductionPipeline().Run(ctx);
+
+        result.SSS.EE.Should().Be(900);
+        result.SSS.ER.Should().Be(1_890);
+        result.SSS.EC.Should().Be(10);
+    }
+
     [Fact]
     public void ComputationBasisNone_NeverDeductsRegardlessOfGross()
     {

@@ -86,6 +86,13 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [HttpGet("reimbursement-list")]
+        public async Task<IActionResult> ReimbursementList([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        {
+            var data = await _reportService.GetReimbursementListAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            return Ok(new { data, total = data.Count });
+        }
+
         [HttpGet("cost-summary")]
         public async Task<IActionResult> CostSummary(
             [FromQuery] DateTime from,

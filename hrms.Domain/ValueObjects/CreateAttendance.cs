@@ -17,12 +17,17 @@ public record CreateAttendance
 {
     public DateTime WorkTime { get; set; }
     public Guid EmployeeId { get; set; }
+    // Required — why this punch is being manually entered instead of coming from a device.
+    // See AttendanceController.ManualEntry.
+    public string Remarks { get; set; } = string.Empty;
 }
 
 public record UpdateAttendance
 {
     public Guid Id { get; set; }
     public DateTime WorkTime { get; set; }
+    // Required — why this log is being manually edited. See AttendanceController.UpdateAtt.
+    public string Remarks { get; set; } = string.Empty;
 }
 
 public class UnRegisteredAttendance
@@ -49,6 +54,11 @@ public class AttendanceModel
     public string? Branch { get; set; }
     public string? Client { get; set; }
     public string? Area { get; set; }
+    // Auto-generated context (e.g. Pass Slip's "Pass Slip - {Purpose}") vs. the user-authored
+    // reason from manual create/edit/upload — see AttendanceController's manual-entry/PUT/
+    // upload-att-log actions.
+    public string? LogRemarks { get; set; }
+    public string? EditRemarks { get; set; }
 }
 
 

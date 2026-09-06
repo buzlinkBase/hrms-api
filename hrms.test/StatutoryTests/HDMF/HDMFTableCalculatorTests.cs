@@ -197,6 +197,54 @@ public class HDMFTableCalculatorTests : TestContextBase
         new DeductionPipeline().Run(ctx).HDMF.EE.Should().Be(675);
     }
 
+    // --- OneTime Leave Payout (maternity-style lump sum) coinciding with this period -----
+    // See SSSTableCalculatorTests' equivalent tests for the full rationale — a coinciding
+    // OneTime payout brackets off the period's actual gross and releases the full bracket
+    // amount immediately, bypassing the normal projection/split.
+
+    [Fact]
+    public void SemiMonthly_OneTimePayLeave_ReleasesFullBracketAmountImmediately_OnANonLastCutoff()
+    {
+        var ctx = BuildSemiMonthly(SalaryType.FIXED, 5_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+        AddOneTimeLeavePayout(ctx);
+
+        var result = new DeductionPipeline().Run(ctx);
+
+        result.HDMF.EE.Should().Be(450);
+        result.HDMF.ER.Should().Be(450);
+    }
+
+    [Fact]
+    public void Weekly_OneTimePayLeave_ReleasesFullBracketAmountImmediately_OnANonLastWeek()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.WEEKLY, 5_000, new DateOnly(2025, 2, 1), new DateOnly(2025, 2, 7));
+        AddCutoff(ctx, 7); AddCutoff(ctx, 14); AddCutoff(ctx, 21); AddCutoff(ctx, 28, isEndOfMonth: true);
+        SetHDMFRate(ctx, ComputationBasis.Table);
+        SeedHDMFTable(ctx, Brackets);
+        AddOneTimeLeavePayout(ctx);
+
+        var result = new DeductionPipeline().Run(ctx);
+
+        result.HDMF.EE.Should().Be(450);
+        result.HDMF.ER.Should().Be(450);
+    }
+
+    [Fact]
+    public void Daily_OneTimePayLeave_ReleasesFullBracketAmountImmediately_BypassingDayCountProjection()
+    {
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.DAILY, 5_000, new DateOnly(2025, 3, 3), new DateOnly(2025, 3, 3), monthlyRate: 31_000);
+        AddCutoff(ctx, 31, isEndOfMonth: true);
+        SetHDMFRate(ctx, ComputationBasis.Table);
+        SeedHDMFTable(ctx, Brackets);
+        ctx.PayrollLine.TimeHourPayResults = new List<DTRPayModel>();
+        AddOneTimeLeavePayout(ctx);
+
+        var result = new DeductionPipeline().Run(ctx);
+
+        result.HDMF.EE.Should().Be(450);
+        result.HDMF.ER.Should().Be(450);
+    }
+
     [Fact]
     public void ComputationBasisNone_NeverDeductsRegardlessOfGross()
     {

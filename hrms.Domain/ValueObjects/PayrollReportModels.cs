@@ -46,6 +46,27 @@ public class LoanLedgerModel
     public decimal CurrentBalance { get; set; }
 }
 
+// One row per OneTime, employer-advanced government leave payout — tracks the employer's
+// SSS/government reimbursement claim from filing through to being paid back. See
+// PayrollReportService.GetReimbursementListAsync and
+// LeaveApplicationService.UpdateReimbursementStatusAsync.
+public class ReimbursementListModel
+{
+    public Guid LeaveApplicationId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string LeaveDescription { get; set; } = string.Empty;
+    public DateOnly LeaveDateFrom { get; set; }
+    public DateOnly LeaveDateTo { get; set; }
+    public DateOnly? ReleasePayrollDate { get; set; }
+    public decimal GovernmentAmount { get; set; }
+    public ReimbursementStatus Status { get; set; }
+    public DateOnly? FiledDate { get; set; }
+    public DateOnly? ReceivedDate { get; set; }
+    public string? ReferenceNo { get; set; }
+}
+
 public class CostSummaryModel
 {
     public Guid? GroupId { get; set; }

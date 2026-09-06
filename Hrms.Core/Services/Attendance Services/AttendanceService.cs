@@ -16,7 +16,9 @@ public class AttendanceService : BaseService<Attendance>
     {
         await Context.Attendances
             .Where(x => x.Id == model.Id)
-            .ExecuteUpdateAsync(x => x.SetProperty(xx => xx.WorkDateTime, model.WorkTime), token)
+            .ExecuteUpdateAsync(x => x
+                .SetProperty(xx => xx.WorkDateTime, model.WorkTime)
+                .SetProperty(xx => xx.EditRemarks, model.Remarks), token)
             ;
     }
 
@@ -72,6 +74,8 @@ public class AttendanceService : BaseService<Attendance>
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
                 LogSource = x.LogSource.ToString(),
+                LogRemarks = x.LogRemarks,
+                EditRemarks = x.EditRemarks,
                 Area = x.OperationArea != null ? x.OperationArea.Name : null,
                 Branch = x.Branch != null ? x.Branch.Name : null,
                 Client = x.Client != null ? x.Client.Name : null,
@@ -105,6 +109,8 @@ public class AttendanceService : BaseService<Attendance>
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
                 LogSource = x.LogSource.ToString(),
+                LogRemarks = x.LogRemarks,
+                EditRemarks = x.EditRemarks,
                 Area = x.OperationArea != null ? x.OperationArea.Name : null,
                 Branch = x.Branch != null ? x.Branch.Name : null,
                 Client = x.Client != null ? x.Client.Name : null,
@@ -155,6 +161,8 @@ public class AttendanceService : BaseService<Attendance>
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
                 LogSource = x.LogSource.ToString(),
+                LogRemarks = x.LogRemarks,
+                EditRemarks = x.EditRemarks,
                 Area = x.OperationArea != null ? x.OperationArea.Name : null,
                 Branch = x.Branch != null ? x.Branch.Name : null,
                 Client = x.Client != null ? x.Client.Name : null,
@@ -195,6 +203,8 @@ public class AttendanceService : BaseService<Attendance>
                 EmployeeId = x.EmployeeId,
                 WorkDateTime = x.WorkDateTime,
                 LogSource = x.LogSource.ToString(),
+                LogRemarks = x.LogRemarks,
+                EditRemarks = x.EditRemarks,
                 Area = x.OperationArea != null ? x.OperationArea.Name : null,
                 Branch = x.Branch != null ? x.Branch.Name : null,
                 Client = x.Client != null ? x.Client.Name : null,
