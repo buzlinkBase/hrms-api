@@ -131,20 +131,25 @@ namespace Hrms.Api.Controllers
         // ── BIR 1601-C ────────────────────────────────────────────────────────────────
 
         [HttpGet("1601c")]
-        public async Task<IActionResult> MonthlyRemittanceReturn([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> MonthlyRemittanceReturn(
+            [FromQuery] DateTime from, [FromQuery] DateTime to,
+            [FromQuery] bool amendedReturn, CancellationToken token)
         {
-            var data = await _reportService.GetMonthlyRemittanceReturnAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
-            return Ok(new { data = new[] { data }, total = 1 });
+            var (summary, employees) = await _reportService.GetMonthlyRemittanceReturnAsync(
+                DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), amendedReturn, token);
+            return Ok(new { data = employees, summary, total = employees.Count });
         }
 
         [HttpGet("1601c/print")]
-        public async Task<IActionResult> MonthlyRemittanceReturnPrint([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> MonthlyRemittanceReturnPrint(
+            [FromQuery] DateTime from, [FromQuery] DateTime to,
+            [FromQuery] bool amendedReturn, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var data = await _reportService.GetMonthlyRemittanceReturnAsync(fromDate, toDate, token);
+            var (summary, employees) = await _reportService.GetMonthlyRemittanceReturnAsync(fromDate, toDate, amendedReturn, token);
             var company = await _companyService.FineOneAsync(token);
-            var bytes = new MonthlyRemittanceReturnDocument(data, company).GeneratePdf();
+            var bytes = new MonthlyRemittanceReturnDocument(summary, employees, company).GeneratePdf();
             return File(bytes, "application/pdf", $"bir-1601c-{fromDate:yyyyMM}.pdf");
         }
 

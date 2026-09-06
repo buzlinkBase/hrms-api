@@ -140,6 +140,10 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateHoliday, Holiday>();
         config.NewConfig<Holiday, HolidayModel>();
 
+        config.NewConfig<CreateMinimumWageRate, MinimumWageRate>();
+        config.NewConfig<UpdateMinimumWageRate, MinimumWageRate>();
+        config.NewConfig<MinimumWageRate, MinimumWageRateModel>();
+
         config.NewConfig<CreateOverTimeApplication, OverTimeApplication>();
         config.NewConfig<UpdateOvertimeApplication, OverTimeApplication>();
         config.NewConfig<OverTimeApplication, OvertimeApplicationModel>();

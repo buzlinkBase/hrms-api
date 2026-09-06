@@ -280,16 +280,153 @@ public class PayrollReportService : BaseService<Payroll>
     // PayPeriodStart/End via WTaxCrossMonthCreditPolicy) — not PayPeriodStart/End — to match
     // how WTaxContribution.PayrollDate (and therefore the WTax remittance report) is already
     // credited. See Payroll.PostingPeriod's doc comment.
-    public async Task<MonthlyRemittanceReturnModel> GetMonthlyRemittanceReturnAsync(DateOnly from, DateOnly to, CancellationToken token)
+    // BIR 1601-C — see MonthlyRemittanceReturnModel/MonthlyRemittanceReturnEmployeeModel for
+    // the exact Line 15/16A/16B/16C/17/18/19 mapping. amendedReturn is a pass-through filing
+    // declaration, not derived from payroll data.
+    public async Task<(MonthlyRemittanceReturnModel Summary, List<MonthlyRemittanceReturnEmployeeModel> Employees)>
+        GetMonthlyRemittanceReturnAsync(DateOnly from, DateOnly to, bool amendedReturn, CancellationToken token)
     {
-        var rows = await GetQueryable(x => x.PostingPeriod >= from && x.PostingPeriod <= to && x.IsPosted).ToListAsync(token);
+        var regularRows = await GetQueryable(x =>
+                x.PayrollType == PayrollType.Regular && x.IsPosted &&
+                x.PostingPeriod >= from && x.PostingPeriod <= to)
+            .ToListAsync(token);
+
+        // 13th month payouts use NonTaxableBenefits/TaxableBenefits, not TaxableIncome — a
+        // different field pair than regular runs, so they're loaded and summed separately.
+        var thirteenthMonthRows = await GetQueryable(x =>
+                x.PayrollType == PayrollType.ThirteenthMonth && x.IsPosted &&
+                x.PostingPeriod >= from && x.PostingPeriod <= to)
+            .ToListAsync(token);
+
+        var employeeIds = regularRows.Select(x => x.EmployeeId)
+            .Concat(thirteenthMonthRows.Select(x => x.EmployeeId))
+            .Distinct().ToList();
+
+        var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
+
+        var branchIds = employeeMap.Values.Where(x => x.BranchId.HasValue).Select(x => x.BranchId!.Value).Distinct().ToList();
+        var branchMap = (await Context.Branches.AsNoTracking()
+            .Where(x => branchIds.Contains(x.Id)).ToListAsync(token))
+            .ToDictionary(x => x.Id);
+
+        var minimumWageRates = await Context.MinimumWageRates.AsNoTracking().ToListAsync(token);
+
+        // Hazard Pay rides the existing generic Other Income mechanism — any category flagged
+        // IsHazardPay flows into Gross/Taxable Income normally already; here we just isolate
+        // its per-employee amount for the period from the same per-period ledger every other
+        // allowance already posts to.
+        var hazardPayIncomeIds = await Context.Allowances.AsNoTracking()
+            .Where(x => x.IsHazardPay)
+            .Select(x => x.Id)
+            .ToListAsync(token);
+        var hazardPayByEmployee = hazardPayIncomeIds.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : (await Context.OtherIncomeApplicationDetails.AsNoTracking()
+                .Where(x => hazardPayIncomeIds.Contains(x.IncomeId) && x.Date >= from && x.Date <= to)
+                .ToListAsync(token))
+                .GroupBy(x => x.EmployeeId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
+        decimal? ResolveRegionRate(string? regionCode, DateOnly asOf) =>
+            string.IsNullOrEmpty(regionCode)
+                ? null
+                : minimumWageRates
+                    .Where(r => r.RegionCode == regionCode && r.EffectiveDate <= asOf)
+                    .OrderByDescending(r => r.EffectiveDate)
+                    .Select(r => (decimal?)r.DailyRate)
+                    .FirstOrDefault();
+
+        var regularByEmployee = regularRows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+        var thirteenthByEmployee = thirteenthMonthRows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var employees = new List<MonthlyRemittanceReturnEmployeeModel>();
+        foreach (var employeeId in employeeIds)
+        {
+            employeeMap.TryGetValue(employeeId, out var employee);
+            regularByEmployee.TryGetValue(employeeId, out var regRows);
+            thirteenthByEmployee.TryGetValue(employeeId, out var tmRows);
+            regRows ??= new List<Payroll>();
+            tmRows ??= new List<Payroll>();
+
+            var regionCode = employee?.BranchId.HasValue == true && branchMap.TryGetValue(employee.BranchId!.Value, out var branch)
+                ? branch.RegionCode
+                : null;
+
+            // MWE status is assessed from the employee's most recent regular row in the
+            // period, against the region rate effective as of that same row's period — not
+            // stored on Employee, so a later wage-rate change never retroactively reclassifies
+            // an already-filed period.
+            var latestRow = regRows.OrderByDescending(x => x.PostingPeriod).FirstOrDefault();
+            var regionRate = latestRow != null ? ResolveRegionRate(regionCode, latestRow.PostingPeriod) : null;
+            // Has payroll data to check but no Branch/Region/MinimumWageRate to check it
+            // against — defaulted to non-MWE below, but flagged so it's never silent.
+            var isUnclassified = latestRow != null && regionRate == null;
+            var isMWE = latestRow != null && regionRate.HasValue && latestRow.DailyRate <= regionRate.Value;
+
+            hazardPayByEmployee.TryGetValue(employeeId, out var hazardPay);
+
+            var gross = regRows.Sum(x => x.GrossIncome) + tmRows.Sum(x => x.NonTaxableBenefits + x.TaxableBenefits);
+            var line16A = isMWE ? regRows.Sum(x => x.BasicPay) : 0m;
+            var line16B = isMWE
+                ? regRows.Sum(x => x.HolidayPay + x.OvertimePay + x.NightDifferentialPay + x.NightDifferentialOTPay) + hazardPay
+                : 0m;
+            // Mandatory contributions + de minimis apply to every employee, MWE or not; the
+            // 13th month exempt portion is already ceiling-capped by ComputeThirteenthMonthTaxSplit.
+            var line16C = regRows.Sum(x => x.SSSContribution + x.PhilHealthContribution + x.PagIbigContribution + x.TotalDeminimises)
+                + tmRows.Sum(x => x.NonTaxableBenefits);
+            var taxWithheld = regRows.Sum(x => x.WithholdingTax) + tmRows.Sum(x => x.WithholdingTax);
+
+            employees.Add(new MonthlyRemittanceReturnEmployeeModel
+            {
+                EmployeeId = employeeId,
+                EmployeeNo = employee?.EmployeeNo ?? "",
+                FullName = employee.FullName(),
+                IsMinimumWageEarner = isMWE,
+                AtcCode = isMWE ? "KR020" : "KR010",
+                GrossCompensation = gross,
+                StatutoryMinimumWage = line16A,
+                MWEPremiumPay = line16B,
+                OtherNonTaxable = line16C,
+                TaxableCompensation = gross - (line16A + line16B + line16C),
+                TaxWithheld = taxWithheld,
+                IsUnclassified = isUnclassified,
+            });
+        }
+
+        var ordered = employees.OrderBy(x => x.FullName).ToList();
+        var summary = SummarizeMonthlyRemittanceReturn(ordered, from, to, amendedReturn);
+        return (summary, ordered);
+    }
+
+    // internal (not private), static — pure aggregation over already-fetched rows, testable
+    // without a DB. Spec Validations 1/2 (Line 17 = 16A+16B+16C, Line 18 = 15-17) hold by
+    // construction here rather than needing a runtime check.
+    internal static MonthlyRemittanceReturnModel SummarizeMonthlyRemittanceReturn(
+        List<MonthlyRemittanceReturnEmployeeModel> employees, DateOnly from, DateOnly to, bool amendedReturn)
+    {
+        var line15 = employees.Sum(x => x.GrossCompensation);
+        var line16A = employees.Sum(x => x.StatutoryMinimumWage);
+        var line16B = employees.Sum(x => x.MWEPremiumPay);
+        var line16C = employees.Sum(x => x.OtherNonTaxable);
+        var line17 = line16A + line16B + line16C;
+        var line18 = line15 - line17;
+        var line19 = employees.Sum(x => x.TaxWithheld);
+
         return new MonthlyRemittanceReturnModel
         {
             PeriodFrom = from,
             PeriodTo = to,
-            EmployeeCount = rows.Select(x => x.EmployeeId).Distinct().Count(),
-            TotalTaxableCompensation = rows.Sum(x => x.TaxableIncome),
-            TotalTaxWithheld = rows.Sum(x => x.WithholdingTax),
+            AmendedReturn = amendedReturn,
+            EmployeeCount = employees.Count,
+            Line15_TotalCompensation = line15,
+            Line16A_StatutoryMinimumWage = line16A,
+            Line16B_MWEPremiumPay = line16B,
+            Line16C_OtherNonTaxable = line16C,
+            Line17_TotalNonTaxable = line17,
+            Line18_TaxableCompensation = line18,
+            Line19_TaxWithheld = line19,
+            HasUnwithheldTaxWarning = line18 > 0 && line19 == 0,
+            UnclassifiedEmployeeCount = employees.Count(x => x.IsUnclassified),
         };
     }
 

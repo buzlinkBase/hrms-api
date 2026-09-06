@@ -13,6 +13,7 @@ public class CreateBranch
     //public string Email { get; set; } = string.Empty;
     public Polygon? Boundary { get; set; }
     public string Status { get; set; } = "Active";
+    public string? RegionCode { get; set; }
 }
 public class UpdateBranch : CreateBranch
 {

@@ -4,6 +4,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Hrms.Infrastructure</RootNamespace>
+        <UserSecretsId>b37ddffc-25a7-4a18-9b0a-a7576a2570c1</UserSecretsId>
     </PropertyGroup>
     <ItemGroup>
       <Content Include="db\migrations\**\*.sql">

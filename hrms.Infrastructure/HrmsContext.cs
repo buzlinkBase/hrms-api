@@ -88,6 +88,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<LeaveCredits> LeaveCredits { get; set; }
     public DbSet<LeaveLedger> LeaveLedgers { get; set; }
     public DbSet<Holiday> Holidays { get; set; }
+    public DbSet<MinimumWageRate> MinimumWageRates { get; set; }
     public DbSet<ChangeHoliday> ChangeHolidays { get; set; }
     public DbSet<ClientHoliday> ClientHolidays { get; set; }
     public DbSet<ManualBatchEntryLog> ManualAttendance { get; set; }

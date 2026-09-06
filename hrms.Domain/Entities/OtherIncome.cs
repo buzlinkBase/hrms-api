@@ -13,4 +13,8 @@ public class OtherIncome : BaseEntity
     public string Name { get; set; } = string.Empty;
     public Guid? IncomeTypeId { get; set; }
     public bool IsTaxable { get; set; } = false;
+    // Flags this category as Hazard Pay for BIR Form 1601-C Line 16B purposes — see
+    // PayrollReportService.GetMonthlyRemittanceReturnAsync. No calculation-pipeline effect;
+    // it still flows into Gross/Taxable Income like any other OtherIncome category.
+    public bool IsHazardPay { get; set; }
 }

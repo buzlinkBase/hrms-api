@@ -151,17 +151,62 @@ public class ThirteenthMonthModel
     public Guid? PayrollId { get; set; }
 }
 
-// BIR Form 1601-C's actual return figures for one posting period — company-wide totals,
-// not a per-employee breakdown. Filed through eBIRForms/eFPS (BIR does not accept a raw
-// file upload for this return the way SSS/PhilHealth/Pag-IBIG do), so this exists to give
-// the preparer the exact numbers to transcribe rather than to be a submittable file itself.
+// BIR Form 1601-C's actual return figures for one posting period, matching the physical
+// form's own Line 15/16A/16B/16C/17/18/19 layout — company-wide totals, summed from the
+// per-employee MonthlyRemittanceReturnEmployeeModel rows below. Filed through eBIRForms/eFPS
+// (BIR does not accept a raw file upload for this return the way SSS/PhilHealth/Pag-IBIG do),
+// so this exists to give the preparer the exact numbers to transcribe rather than to be a
+// submittable file itself. See PayrollReportService.GetMonthlyRemittanceReturnAsync and
+// PayrollReportService.SummarizeMonthlyRemittanceReturn.
 public class MonthlyRemittanceReturnModel
 {
     public DateOnly PeriodFrom { get; set; }
     public DateOnly PeriodTo { get; set; }
+    // A filing declaration, not derived from payroll data — echoed from the caller's request.
+    public bool AmendedReturn { get; set; }
     public int EmployeeCount { get; set; }
-    public decimal TotalTaxableCompensation { get; set; }
-    public decimal TotalTaxWithheld { get; set; }
+    public decimal Line15_TotalCompensation { get; set; }
+    public decimal Line16A_StatutoryMinimumWage { get; set; }
+    public decimal Line16B_MWEPremiumPay { get; set; }
+    public decimal Line16C_OtherNonTaxable { get; set; }
+    public decimal Line17_TotalNonTaxable { get; set; }
+    public decimal Line18_TaxableCompensation { get; set; }
+    public decimal Line19_TaxWithheld { get; set; }
+    // Spec Validation 3 — Line 18 &gt; 0 but nothing was withheld is a real data-quality signal
+    // worth surfacing (unlike Validations 1/2, which are arithmetic identities this summary
+    // guarantees by construction — see SummarizeMonthlyRemittanceReturn's own unit tests).
+    public bool HasUnwithheldTaxWarning { get; set; }
+    // Count of employees whose Minimum-Wage-Earner status could NOT be determined this period
+    // (no Branch assigned, Branch has no RegionCode, or no MinimumWageRate exists for that
+    // region as of the period) — they're defaulted to non-MWE (ATC KR010, Line 16A/16B = 0)
+    // rather than failing the whole report, but that default may be wrong for an employee who
+    // actually is a minimum wage earner. See MonthlyRemittanceReturnEmployeeModel.IsUnclassified.
+    public int UnclassifiedEmployeeCount { get; set; }
+}
+
+// One row per employee for the period — backs both the summary totals above (by summation)
+// and the report UI's drill-down (click a line, see the employee rows behind it).
+public class MonthlyRemittanceReturnEmployeeModel
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public bool IsMinimumWageEarner { get; set; }
+    // "KR020" (Minimum Wage Earner, tax-exempt) or "KR010" (Compensation Income, graduated
+    // table) — derived from IsMinimumWageEarner, not a stored/configurable value; these are
+    // the only two ATC codes BIR 1601-C recognizes for compensation income.
+    public string AtcCode { get; set; } = string.Empty;
+    public decimal GrossCompensation { get; set; }
+    public decimal StatutoryMinimumWage { get; set; }
+    public decimal MWEPremiumPay { get; set; }
+    public decimal OtherNonTaxable { get; set; }
+    public decimal TaxableCompensation { get; set; }
+    public decimal TaxWithheld { get; set; }
+    // True when this employee had a regular payroll row this period but their MWE status
+    // couldn't be resolved (missing Branch/Region/MinimumWageRate data) — defaulted to
+    // IsMinimumWageEarner=false rather than failing the report. Flag this employee's
+    // Branch/Region setup before filing if they're actually a minimum wage earner.
+    public bool IsUnclassified { get; set; }
 }
 
 // One row per employee per year — the BIR Alphalist's per-employee annual compensation/tax
