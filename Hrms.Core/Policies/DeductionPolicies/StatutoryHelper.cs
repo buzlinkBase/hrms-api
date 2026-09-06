@@ -65,6 +65,12 @@ public class StatutoryHelper
     {
         try
         {
+            var oneTimeFund = IsOneTimePayLeave(context);
+            if (oneTimeFund)
+            {
+                return context.PayrollLine.GrossIncome;
+            }
+
             if (context.Employee.SalaryType == SalaryType.FIXED && !resolver.IsLastCutoff(context))
             {
                 return GetFixedProjectedMonthlyBaseRate(context);
@@ -82,6 +88,11 @@ public class StatutoryHelper
     {
         try
         {
+            var oneTimeFund = IsOneTimePayLeave(context);
+            if (oneTimeFund)
+            {
+                return context.PayrollLine.GrossIncome;
+            }
             if (context.Employee.SalaryType == SalaryType.FIXED && !resolver.IsLastCutoff(context))
             {
                 return GetFixedProjectedMonthlyBaseRate(context);
@@ -91,10 +102,24 @@ public class StatutoryHelper
         return GetWeeklyGrossBaseRate(context);
     }
 
+    public static bool IsOneTimePayLeave(DeductionPayloadContext context)
+    {
+        if (context.Payload.OneTimeLeavePayouts.TryGetValue(new EmployeeKey(context.Employee.Id), out var apps))
+        {
+            var currentPayOut = apps.FirstOrDefault(x => x.PayoutMode == PayoutMode.OneTime && (x.ReleasePayrollDate >= context.Payload.FromDate && x.ReleasePayrollDate <= context.Payload.ToDate));
+            return currentPayOut != null;
+        }
+        return false;
+    }
     public static decimal GetWeeklyGrossBaseRate(DeductionPayloadContext context)
     {
         // Same actual-gross-to-date basis as the Semi-Monthly case above, every week
         // rather than only the final one of the month.
+        var oneTimeFund = IsOneTimePayLeave(context);
+        if (oneTimeFund)
+        {
+            return context.PayrollLine.GrossIncome;
+        }
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
         var prioGross = payrol.Sum(x => x.GrossIncome);
         return context.PayrollLine.GrossIncome + prioGross;
@@ -140,6 +165,12 @@ public class StatutoryHelper
 
     public static PayrollProjection GetDailyProjectedGrossRate(DeductionPayloadContext context)
     {
+        var oneTimeFund = IsOneTimePayLeave(context);
+        if (oneTimeFund)
+        {
+            return new PayrollProjection(context.PayrollLine.GrossIncome, 1, context.PayrollLine.GrossIncome, context.PayrollLine.GrossIncome, context.PayrollLine.GrossIncome);
+        }
+
         decimal baseRate = 0m;
         int curDay = context.Payload.FromDate.Day;
         int daysInMonth = context.Payload.FromDate.GetDaysInMonth();

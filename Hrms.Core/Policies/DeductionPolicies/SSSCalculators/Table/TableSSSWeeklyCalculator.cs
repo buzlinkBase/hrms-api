@@ -12,9 +12,15 @@
             if (table == null) return line;
 
             var balances = SSSHelper.GetBalance(context, table.EE, table.ER, table.EC);
-
             if (balances.EEBalance == 0) return line;
             if (line.RemainingGrossBalance < balances.EEBalance) return line;
+
+            var oneTimeFund = StatutoryHelper.IsOneTimePayLeave(context);
+            if (oneTimeFund)
+            {
+                var payloadx = new SSSTablePayload(table.EE, table.ER, table.EC);
+                return SSSHelper.ApplyTable(context, line, payloadx, context.Payload.FromDate);
+            }
 
             var isCrossMonth = new IsCrossMonth().IsSatisfiedBy(context.Payload);
 

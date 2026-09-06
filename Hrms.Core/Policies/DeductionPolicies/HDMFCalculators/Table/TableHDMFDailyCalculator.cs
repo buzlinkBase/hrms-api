@@ -6,8 +6,7 @@
         {
             var resolver = new CutoffPolicyResolver();
 
-            if (line.IsLimit) return line;
-
+            if (line.IsLimit) return line; 
             // Compute projected daily gross rate
             var calcResult = StatutoryHelper.GetDailyProjectedGrossRate(context);
             decimal baseRate = calcResult.ProjectedGross;
@@ -21,6 +20,13 @@
 
             if (balances.EEBalance == 0) return line;
             if (line.RemainingGrossBalance < balances.EEBalance) return line;
+
+            var oneTimeFund = StatutoryHelper.IsOneTimePayLeave(context);
+            if (oneTimeFund)
+            {
+                var payloadx = new HDMFTablePayload(table.EmployeeShare, table.EmployerShare);
+                return HDMFHelper.ApplyTable(context, line, payloadx, context.Payload.FromDate);
+            }
 
             // Current day of the payroll period
             int currentDay = context.Payload.FromDate.Day;

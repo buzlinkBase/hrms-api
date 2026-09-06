@@ -8,16 +8,22 @@ public class TableSSSSemiMonthlyCalculator : IDeductionCalculator
     public DeductionPipeData Calculate(DeductionPayloadContext context, DeductionPipeData line)
     {
         if (line.IsLimit) return line;
+        var date = context.Payload.FromDate;
+
         var resolver = new CutoffPolicyResolver();
         var baseRate = StatutoryHelper.GetSemiMonthlyBracketBaseRate(context, resolver);
         var table = SSSHelper.GetTable(context, baseRate);
         if (table == null) return line;
-
         var balances = SSSHelper.GetBalance(context, table.EE, table.ER, table.EC);
         if (balances.EEBalance == 0) return line;
         if (line.RemainingGrossBalance < balances.EEBalance) return line;
 
-        var date = context.Payload.FromDate;
+        var oneTimeFund = StatutoryHelper.IsOneTimePayLeave(context);
+        if (oneTimeFund)
+        {
+            var payload = new SSSTablePayload(table.EE, table.ER, table.EC);
+            return SSSHelper.ApplyTable(context, line, payload, date);
+        }
 
         try
         {

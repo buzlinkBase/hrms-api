@@ -22,6 +22,13 @@
             if (balances.EEBalance == 0) return line;
             if (line.RemainingGrossBalance < balances.EEBalance) return line;
 
+            var oneTimeFund = StatutoryHelper.IsOneTimePayLeave(context);
+            if (oneTimeFund)
+            {
+                var payloadx = new PHICTablePayload(table.EmployeeShare, table.EmployerShare);
+                return PHICHelper.ApplyTable(context, line, payloadx, context.Payload.FromDate);
+            }
+
             // Current day of the payroll period
             int currentDay = context.Payload.FromDate.Day;
 

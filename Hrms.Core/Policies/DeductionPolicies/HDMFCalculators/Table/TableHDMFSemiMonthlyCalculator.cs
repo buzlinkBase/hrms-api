@@ -19,6 +19,13 @@ public class TableHDMFSemiMonthlyCalculator : IDeductionCalculator
 
         var date = context.Payload.FromDate;
 
+        var oneTimeFund = StatutoryHelper.IsOneTimePayLeave(context);
+        if (oneTimeFund)
+        {
+            var payload = new HDMFTablePayload(table.EmployeeShare, table.EmployerShare);
+            return HDMFHelper.ApplyTable(context, line, payload, date);
+        }
+
         try
         {
             if (resolver.IsFirstCutoff(context))

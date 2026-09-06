@@ -18,6 +18,12 @@ public class TablePHICSemiMonthlyCalculator : IDeductionCalculator
         if (line.RemainingGrossBalance < balances.EEBalance) return line;
 
         var date = context.Payload.FromDate;
+        var oneTimeFund = StatutoryHelper.IsOneTimePayLeave(context);
+        if (oneTimeFund)
+        {
+            var payload = new PHICTablePayload(table.EmployeeShare, table.EmployerShare);
+            return PHICHelper.ApplyTable(context, line, payload, date);
+        }
 
         try
         {

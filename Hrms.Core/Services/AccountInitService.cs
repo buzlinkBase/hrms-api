@@ -768,17 +768,17 @@ public class AccountInitService : BaseService<Company>
                     new CutoffDay { Id = Guid.CreateVersion7(), Day = 30, Label = "Week 4 (End of Month)", IsEndOfMonth = true },
                 },
             },
-            new PayrollGroup
-            {
-                Id = Guid.CreateVersion7(),
-                Code = "D",
-                Name = "Daily",
-                PayrollFrequency = PayrollFrequency.DAILY,
-                CutoffDays = new List<CutoffDay>
-                {
-                    new CutoffDay { Id = Guid.CreateVersion7(), Day = 30, Label = "Month-End Settlement", IsEndOfMonth = true },
-                },
-            },
+            //new PayrollGroup
+            //{
+            //    Id = Guid.CreateVersion7(),
+            //    Code = "D",
+            //    Name = "Daily",
+            //    PayrollFrequency = PayrollFrequency.DAILY,
+            //    CutoffDays = new List<CutoffDay>
+            //    {
+            //        new CutoffDay { Id = Guid.CreateVersion7(), Day = 30, Label = "Month-End Settlement", IsEndOfMonth = true },
+            //    },
+            //},
         };
         await _uow.Repository.AddRangeAsync(groups, token);
     }

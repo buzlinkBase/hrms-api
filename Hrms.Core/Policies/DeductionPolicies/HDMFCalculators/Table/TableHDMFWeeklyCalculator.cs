@@ -17,6 +17,13 @@
             if (balances.EEBalance == 0) return line;
             if (line.RemainingGrossBalance < balances.EEBalance) return line;
 
+            var oneTimeFund = StatutoryHelper.IsOneTimePayLeave(context);
+            if (oneTimeFund)
+            {
+                var payloadx = new HDMFTablePayload(table.EmployeeShare, table.EmployerShare);
+                return HDMFHelper.ApplyTable(context, line, payloadx, context.Payload.FromDate);
+            }
+
             var isCrossMonth = new IsCrossMonth().IsSatisfiedBy(context.Payload);
 
             // The last configured week of the month (not a cross-month period, which has

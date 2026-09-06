@@ -16,6 +16,7 @@
             int? daysWorked = null;
             int? totalDaysInMonth = null;
 
+          
             try
             {
                 // Cross-month payroll
