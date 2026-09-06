@@ -31,7 +31,8 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Calculate([FromBody] PayrollRunPayload payload, CancellationToken token)
         {
-            var payrolls = await _service.CalculateAsync(payload, token);
+            var batch = Guid.CreateVersion7();
+            var payrolls = await _service.CalculateAsync(payload, batch, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
         }
@@ -40,7 +41,8 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Generate([FromBody] PayrollRunPayload payload, CancellationToken token)
         {
-            var payrolls = await _service.GenerateAsync(payload, token);
+            var batch = Guid.CreateVersion7();
+            var payrolls = await _service.GenerateAsync(payload, batch, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
         }

@@ -57,9 +57,8 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
         return holidaySlices.ToTimeRecordCollection();
     }
 
-    public override HolidayInfo? GetHolidayInfoDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift)
+    public override List<HolidayInfo?> GetHolidayInfoDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift)
     {
-        //must order worktype for WorkTypeResolver
         var shiftRange = new TimeRecord(shift.StartTime, shift.EndTime);
         var holidayKeys = new[]
         {
@@ -72,10 +71,11 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
                 _holidays.TryGetValue(key, out var holidays)
                     ? holidays?.Where(h => h.HolType == type && filterChain.IsApplicable(h, employee)) ?? []
                     : Enumerable.Empty<HolidayInfo>())
-            .OrderByDescending(h => h.WorkType)
+            .OrderBy(h => h.PayrollDate)
+            .ThenByDescending(x => x.WorkType)
             .GroupBy(h => new { h.HolidayId })
             .Select(x => x.FirstOrDefault())
-            .FirstOrDefault();
+            .ToList();
         return holidaySlices;
     }
 }
@@ -88,5 +88,5 @@ public abstract class HolidayProviderBase
     }
     public abstract TimeRecordCollection GetHolidayDuringDate(HolidayType type, EmployeeDTRRun employee, DateOnly date);
     public abstract TimeRecordCollection GetHolidayDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift);
-    public abstract HolidayInfo? GetHolidayInfoDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift);
+    public abstract List<HolidayInfo?> GetHolidayInfoDuringShift(HolidayType type, EmployeeDTRRun employee, CurrentShift shift);
 }

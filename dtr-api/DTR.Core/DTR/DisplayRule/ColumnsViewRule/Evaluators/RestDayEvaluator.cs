@@ -24,7 +24,12 @@ public class RegularDayEvaluator : IDutyDayEvaluator
         {
             return TimeRange.Empty;
         }
-        return range;
+
+        var holidayType = HolidayType.SPECIAL;
+        HolidayType value = (HolidayType)holidayType;
+        var WorkingHoliday = context.PipeLineResult.SpecialHoliday;
+        return range + WorkingHoliday;
+
     }
 }
 
@@ -181,11 +186,18 @@ public class SpecialHolidayEvaluator : IDutyDayEvaluator
 {
     public TimeRange Evaluate(TimeRange range, DisplayContext context)
     {
-        if (context.TimeContext.IsRestDay() || context.TimeContext.IsSpecialWorking())
+        if (context.TimeContext.IsRestDay() ||
+             context.TimeContext.IsLegalHoliday() ||
+             !context.TimeContext.IsSpecialNonWorking())
         {
             return TimeRange.Empty;
         }
         return context.PipeLineResult.SpecialHoliday;
+        //if (context.TimeContext.IsRestDay() || context.TimeContext.IsSpecialWorking())
+        //{
+        //    return TimeRange.Empty;
+        //}
+        //return context.PipeLineResult.SpecialHoliday;
     }
 }
 

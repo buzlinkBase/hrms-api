@@ -21,5 +21,6 @@ public class HolidayDutyTimePipeline : IHolidayDutyTimePipeline
             holidayRange.SetMetaData("SPHolidayCount", multiplier);
         }
         return holidayRange;
+
     }
 }

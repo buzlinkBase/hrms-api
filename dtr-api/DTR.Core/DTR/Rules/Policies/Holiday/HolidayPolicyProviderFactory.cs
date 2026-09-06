@@ -52,7 +52,6 @@ public class ActualWorkHoursProvider : IHolidayTimeProvider
         //var ledgerKey = TimeRangeLedger.CreateKey("undertime", context);
         //if (payload.Ledger.GetByKey(ledgerKey, out var cached))
         //    return cached; 
-
         var usableRange = holidaySlices
             .MergeOverlapping()
             .Exclude(late.TimeRecords)
@@ -76,7 +75,6 @@ public class ActualWorkHoursProvider : IHolidayTimeProvider
         HolidayType value = (HolidayType)holidayType;
         _context.Payload.Ledger.RecordByTag($"holiday_portion_{value}", _context, holidaySplice);
 
-
         HolidayType specialType = HolidayType.SPECIAL;
         HolidayType legalType = HolidayType.LEGAL;
         var special = _context.Payload.Ledger.GetByTag($"holiday_portion_{specialType}", _context);
@@ -91,8 +89,7 @@ public class ActualWorkHoursProvider : IHolidayTimeProvider
             ;
 
         _context.Payload.Ledger.RecordByTag("non_holiday_portion", _context, nonHolidaySplice);
-        return RegularTimeRange;
-
+        return RegularTimeRange; 
     }
 }
 public interface IHolidayTimeProvider

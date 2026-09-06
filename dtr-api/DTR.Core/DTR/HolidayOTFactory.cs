@@ -58,11 +58,12 @@ public class ActualDayOTHourProvider : IHolidayOTSliceProvider
         var realRecords = _context.CanonicalTimeRange.TimeRecords.ExcludeLeave();
         var shifFrom = realRecords.MinBy(x => x.StartTime)?.StartTime ?? DateTime.MinValue;
         var toDate   = realRecords.MaxBy(x => x.EndTime)?.EndTime ?? DateTime.MinValue;
-        var shift = new CurrentShift() { StartTime = shifFrom, EndTime = toDate };
+        var shift =  new CurrentShift() { StartTime = shifFrom, EndTime = toDate };
 
         var holiday = _context.Payload.Provider.HolidayProvider
             .GetHolidayDuringShift(holidayType, _context.Payload.Data.Employee, shift)
             .ToTimeRange();
+
         var timeRange = HolidayOTCalculator.Calculate(_oT, holiday);
         if (holiday.TotalMinutes > 0)
         {

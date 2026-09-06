@@ -74,7 +74,7 @@ public class PayrollProcessorService
         _leaveLedgerService = leaveLedgerService;
     }
 
-    public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, Guid batch, CancellationToken token)
     {
         var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
         var alreadyPosted = payload.BatchCodes.Where(usedBatchCodes.Contains).ToList();
@@ -85,7 +85,7 @@ public class PayrollProcessorService
                 "Delete the existing payroll run first if you need to regenerate it.");
         }
 
-        var lines = await CalculateAsync(payload, token);
+        var lines = await CalculateAsync(payload, batch,token);
         if (lines.Count() == 0) return lines;
         var savingBatch = Guid.CreateVersion7().ToString();
 
@@ -565,15 +565,14 @@ public class PayrollProcessorService
         if (taxRows.Count > 0) await _taxContributionService.AddRangeAsync(taxRows, token);
     }
 
-    public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload,Guid batch, CancellationToken token)
     {
         var payrollLines = new List<PayrollSummaryLine>();
         var dtrRecords = await _dtrServie.LoadForPayrollRunAsync(payload.BatchCodes, token);
         if (dtrRecords.Records == null || !dtrRecords.Records.Any()) return payrollLines;
         var leaveInfoByEmployee = await _dtrServie.LoadLeaveInfoForPayrollRunAsync(payload.BatchCodes, token);
         var dateRange = new DateRangePayload(dtrRecords.FromDate, dtrRecords.ToDate);
-        var period = BuildPayrollPeriod(dateRange);
-        var batch = Guid.CreateVersion7();
+        var period = BuildPayrollPeriod(dateRange); 
 
         var employees = dtrRecords.Records.Values
             .SelectMany(x => x.Select(y => y.Employee))

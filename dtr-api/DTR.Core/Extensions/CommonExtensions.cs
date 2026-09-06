@@ -1,4 +1,6 @@
-﻿namespace DTR.Core;
+﻿using NPOI.HSSF.Record;
+
+namespace DTR.Core;
 
 internal static class CommonExtensions
 {
@@ -36,47 +38,47 @@ internal static class CommonExtensions
     }
     internal static bool IsSpecialWorking(this TimeContext context)
     {
+
         var cached = context.Payload.SharedSpecCache.GetByTag(nameof(IsSpecialWorking), context);
         if (cached.Found)
             return cached.Value;
 
-        var result = GetCurrentSpecialHoliday(context)?.WorkType == HolidayWorkType.Working;
+        var info = GetCurrentSpecialHoliday(context)
+            .FirstOrDefault(x => x?.WorkType == HolidayWorkType.Working && context.Payload.Data.CurrentDate==x?.PayrollDate);
+        var result = info == null ? false : true;
         context.Payload.SharedSpecCache.RecordTag(nameof(IsSpecialWorking), context, result);
         return result;
+
     }
     internal static bool IsSpecialNonWorking(this TimeContext context)
     {
         var cached = context.Payload.SharedSpecCache.GetByTag(nameof(IsSpecialNonWorking), context);
         if (cached.Found)
             return cached.Value;
-
-        var result = GetCurrentSpecialHoliday(context)?.WorkType == HolidayWorkType.NonWorking;
+        var info = GetCurrentSpecialHoliday(context)
+            .FirstOrDefault(x => x?.WorkType == HolidayWorkType.NonWorking && context.Payload.Data.CurrentDate == x?.PayrollDate);
+        var result = info == null ? false : true;
         context.Payload.SharedSpecCache.RecordTag(nameof(IsSpecialNonWorking), context, result);
         return result;
     }
 
-    private static HolidayInfo? GetCurrentSpecialHoliday(TimeContext context)
+    private static List<HolidayInfo?> GetCurrentSpecialHoliday(TimeContext context)
     {
-        //return context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
-        //    HolidayType.SPECIAL,
-        //    context.Payload.Data.Employee,
-        //    context.Payload.Data.CurrentShift);
-
-        var info = context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
+        var infos = context.Payload.Provider.HolidayProvider.GetHolidayInfoDuringShift(
                 HolidayType.SPECIAL,
                 context.Payload.Data.Employee,
                 context.Payload.Data.CurrentShift);
+        return infos;
 
-        if (info == null) return null;
-
-        if (context.Payload.Data.CompanyPolicy.HolidayTimeBasis == HolidayTimeBasis.BasedOnTimeInDayType)
-        {
-            return info.PayrollDate == context.Payload.Data.CurrentDate
-               ? info
-               : null;
-        }
-
-        return info;
+        //var first = infos.FirstOrDefault();
+        //if (context.Payload.Data.CompanyPolicy.HolidayTimeBasis == HolidayTimeBasis.BasedOnTimeInDayType)
+        //{
+        //    if (first == null) return null; 
+        //    return first.PayrollDate == context.Payload.Data.CurrentDate
+        //       ? first
+        //       : null;
+        //}
+        //return infos.LastOrDefault();
     }
     internal static bool IsRestDay(this TimeContext context)
     {

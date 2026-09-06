@@ -42,8 +42,9 @@ public class VariableActualGrossAllocationStrategy : ICutoffAllocationStrategy
 
 public static class CutoffAllocationStrategyFactory
 {
-    public static ICutoffAllocationStrategy Resolve(SalaryType salaryType) =>
-        salaryType == SalaryType.VARIABLE
-            ? new VariableActualGrossAllocationStrategy()
-            : new FixedDivisorAllocationStrategy();
+    public static ICutoffAllocationStrategy Resolve(SalaryType salaryType) => new FixedDivisorAllocationStrategy();
+    //salaryType ==; 
+    //SalaryType.VARIABLE
+    //        ? new VariableActualGrossAllocationStrategy()
+    //        : new FixedDivisorAllocationStrategy();
 }
