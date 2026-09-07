@@ -7,9 +7,12 @@ namespace DTR.Core.Tests.DisplayRules;
 /// <summary>
 /// RegularNightdiffRule/LegalNightDiffRule — computes the night-diff portion of the already-
 /// evaluated regular/holiday work ranges, subtracts any "RegularTimeTopUp" ledger amount, then
-/// gates the result through NightDiffEvaluator (threshold) + NonHolidayEvaluator (day must not
-/// touch a holiday) for the Regular rule, or through the LEGAL DayType.NIGHT_DIFF evaluator for
-/// the Legal rule.
+/// gates the result through the shared DayType.NIGHT_DIFF threshold evaluator for both rules.
+/// RegularNightdiffRule used to also re-zero its result via NonHolidayEvaluator (day must not
+/// touch a holiday at all) — removed as a real production bug: on a boundary-crossing
+/// BasedOnActualWorkHours shift, RegWork/RestWork already hold only genuine non-holiday
+/// minutes, so that day-level gate was incorrectly dropping real night-diff time that fell on
+/// the shift's non-holiday portion. See RegularNightdiffRule.
 ///
 /// Both rules compute `IsND` via
 /// NightDiffChecker.IsDutyNightDiff(shift.StartTime, shift.StartTime) — start compared against
@@ -71,15 +74,18 @@ public class NightDiffDisplayRulesTests : DtrTestBase
     }
 
     [Fact]
-    public void RegularNightdiffRule_DayTouchesAHoliday_NonHolidayGateReturnsEmpty()
+    public void RegularNightdiffRule_DayTouchesAHoliday_StillReturnsTheNightPortion()
     {
+        // RegWork is only ever genuine non-holiday minutes by the time it reaches here, so a
+        // holiday-touching day must not re-zero real night-diff minutes on it (regression guard
+        // for the production bug this session fixed).
         var regWork = Range(ShiftStart, ShiftEnd);
         var context = BuildContext(holidayType: HolidayType.LEGAL);
         var evaluated = new EvaluatedColumnResult { RegWork = regWork, RestWork = TimeRange.Empty };
 
         var result = new RegularNightdiffRule(evaluated).ApplyRules(context);
 
-        result.IsEmpty().Should().BeTrue();
+        result.TotalMinutes.Should().Be(240); // 22:00-02:00, same as the non-holiday case
     }
 
     [Fact]

@@ -41,9 +41,13 @@ public class RegularDayEvaluator : IDutyDayEvaluator
             return TimeRange.Empty;
         }
 
-        var WorkingHoliday = context.PipeLineResult.SpecialHoliday;
-        return range + WorkingHoliday;
-
+        // `range` (HolidayPlusRegularRule's output, one layer above) is already the complete,
+        // correct value here — context.PipeLineResult.Regular (== the "non_holiday_portion"
+        // ledger tag) in the normal case, PipeLineResult.SpecialHoliday when the day is Special
+        // Working, or regular+holiday when IsHolPlusReg. Adding anything on top of it here
+        // (this evaluator previously added PipeLineResult.SpecialHoliday unconditionally)
+        // double-counts minutes HolidayPlusRegularRule/SPHoliday already correctly claim.
+        return range;
     }
 }
 

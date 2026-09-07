@@ -86,8 +86,7 @@ public class ActualWorkHoursProvider : IHolidayTimeProvider
             .MergeOverlapping()
             .Exclude(allHolidayRange.TimeRecords)
             .ToTimeRange()
-            ;
-
+            ; 
         _context.Payload.Ledger.RecordByTag("non_holiday_portion", _context, nonHolidaySplice);
         return RegularTimeRange; 
     }

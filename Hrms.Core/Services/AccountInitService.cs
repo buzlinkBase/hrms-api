@@ -431,10 +431,15 @@ public class AccountInitService : BaseService<Company>
     /// <summary>
     /// Seeds the common Philippine holiday calendar. Fixed-date national holidays are
     /// IsRecuring = true (HolidayService.GetAllHolidays substitutes in the current year
-    /// automatically, only Month/Day of HolDate matter for those). Movable holidays (Holy
-    /// Week, Chinese New Year, National Heroes Day) have no fixed month/day, so they're
-    /// seeded with an actual 2026 date as a starting point and IsRecuring = false — the
-    /// tenant needs to update these annually.
+    /// automatically, only Month/Day of HolDate matter for those). National Heroes Day is
+    /// legally defined as "last Monday of August" (RA 9492), so it's IsRecuring = true with
+    /// WeekOfMonth/DayOfWeek set instead — HolidayRecurrenceCalculator.ResolveNthWeekday
+    /// recomputes its actual date every year from HolDate's Month plus those two fields, so
+    /// only the Month portion of its seeded HolDate matters going forward. True movable
+    /// holidays with no nth-weekday rule (Holy Week, Chinese New Year — both follow a
+    /// liturgical/lunar calendar) have no fixed month/day at all, so they're seeded with an
+    /// actual 2026 date as a starting point and IsRecuring = false — the tenant needs to
+    /// update those annually.
     /// </summary>
     private async Task SetDefaultHolidays(CancellationToken token)
     {
@@ -449,10 +454,12 @@ public class AccountInitService : BaseService<Company>
             new Holiday { Id = Guid.CreateVersion7(), Description = "Christmas Day", HolType = HolidayType.LEGAL, WorkType = HolidayWorkType.NonWorking, HolDate = new DateOnly(2026, 12, 25), HolYear = 2026, IsRecuring = true, IsPaid = true },
             new Holiday { Id = Guid.CreateVersion7(), Description = "Rizal Day", HolType = HolidayType.LEGAL, WorkType = HolidayWorkType.NonWorking, HolDate = new DateOnly(2026, 12, 30), HolYear = 2026, IsRecuring = true, IsPaid = true },
 
+            // ── Regular (Legal) Holidays — recurring nth-weekday-of-month rule (RA 9492) ──
+            new Holiday { Id = Guid.CreateVersion7(), Description = "National Heroes Day", HolType = HolidayType.LEGAL, WorkType = HolidayWorkType.NonWorking, HolDate = new DateOnly(2026, 8, 31), HolYear = 2026, IsRecuring = true, WeekOfMonth = 5, DayOfWeek = DayOfWeek.Monday, IsPaid = true },
+
             // ── Regular (Legal) Holidays — movable, seeded for 2026, review yearly ──
             new Holiday { Id = Guid.CreateVersion7(), Description = "Maundy Thursday", HolType = HolidayType.LEGAL, WorkType = HolidayWorkType.NonWorking, HolDate = new DateOnly(2026, 4, 2), HolYear = 2026, IsRecuring = false, IsPaid = true },
             new Holiday { Id = Guid.CreateVersion7(), Description = "Good Friday", HolType = HolidayType.LEGAL, WorkType = HolidayWorkType.NonWorking, HolDate = new DateOnly(2026, 4, 3), HolYear = 2026, IsRecuring = false, IsPaid = true },
-            new Holiday { Id = Guid.CreateVersion7(), Description = "National Heroes Day", HolType = HolidayType.LEGAL, WorkType = HolidayWorkType.NonWorking, HolDate = new DateOnly(2026, 8, 31), HolYear = 2026, IsRecuring = false, IsPaid = true },
 
             // ── Special (Non-Working) Holidays — fixed date, no work no pay by default ──
             new Holiday { Id = Guid.CreateVersion7(), Description = "EDSA People Power Anniversary", HolType = HolidayType.SPECIAL, WorkType = HolidayWorkType.NonWorking, HolDate = new DateOnly(2026, 2, 25), HolYear = 2026, IsRecuring = true, IsPaid = false },
