@@ -46,18 +46,21 @@ public class PHICTableCalculatorTests : TestContextBase
     }
 
     [Fact]
-    public void SemiMonthly_Variable_TakesActualGrossBalanceInFull()
+    public void SemiMonthly_Variable_SplitsEvenlyAcrossCutoffs_SameAsFixed()
     {
+        // See SSSTableCalculatorTests' equivalent test — Variable's bracket lookup stays
+        // actual-gross-based, but the withholding split (evenly across the 2 configured
+        // cutoffs) is identical to Fixed's.
         var cutoff1 = BuildSemiMonthly(SalaryType.VARIABLE, 12_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
         var result1 = new DeductionPipeline().Run(cutoff1);
-        result1.PHIC.EE.Should().Be(450);
+        result1.PHIC.EE.Should().Be(225);
 
         var cutoff2 = BuildSemiMonthly(SalaryType.VARIABLE, 20_000, new DateOnly(2025, 3, 16), new DateOnly(2025, 3, 31));
         cutoff2.Employee.Id = cutoff1.Employee.Id;
         AddPriorPayroll(cutoff2, 12_000);
-        AddPHICContribution(cutoff2, 450, 450);
+        AddPHICContribution(cutoff2, 225, 225);
         var result2 = new DeductionPipeline().Run(cutoff2);
-        result2.PHIC.EE.Should().Be(225);
+        result2.PHIC.EE.Should().Be(450); // 675 - 225
 
         (result1.PHIC.EE + result2.PHIC.EE).Should().Be(675);
     }
@@ -172,13 +175,14 @@ public class PHICTableCalculatorTests : TestContextBase
     }
 
     [Fact]
-    public void Weekly_Variable_TakesFullBalanceEachWeek_ShortCircuitingOnceBracketIsSatisfied()
+    public void Weekly_Variable_SplitsEvenlyByRemainingWeeks_SameAsFixed()
     {
+        // See SSSTableCalculatorTests' equivalent test for the divisor/bracket-shift math.
         var empId = NewEmployeeId();
         decimal postedEE = 0, priorGross = 0, totalEE = 0;
         var weekGross = 7_500m;
         var starts = new[] { 1, 8, 15, 22 };
-        var expected = new decimal[] { 450m, 0m, 225m, 0m };
+        var expected = new decimal[] { 112.5m, 150m, 337.5m, 75m };
 
         for (int i = 0; i < 4; i++)
         {

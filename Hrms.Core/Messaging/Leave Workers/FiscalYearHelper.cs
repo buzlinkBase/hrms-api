@@ -6,7 +6,7 @@ namespace Hrms.Core.Messaging.LeaveWorkers;
 /// When <c>startMonth == 1</c> the fiscal year is identical to the calendar year.
 /// Example: startMonth=4 → FY2025 = Apr 2025 – Mar 2026.
 /// </summary>
-internal static class FiscalYearHelper
+public static class FiscalYearHelper
 {
     /// <summary>
     /// Returns the fiscal-year label (integer) that the given date falls in.

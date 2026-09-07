@@ -2385,6 +2385,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("DayOfWeek")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
@@ -2416,6 +2419,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("WeekOfMonth")
+                        .HasColumnType("int");
 
                     b.Property<int>("WorkType")
                         .HasColumnType("int");

@@ -30,7 +30,6 @@ public class CalculatorPayload : BasePayloadContext
     public Dictionary<EmployeeKey, List<PHICContributionModel>> PHICContribution { get; set; } = new();
     public Dictionary<EmployeeKey, List<HDMFContributionModel>> HDMFContribution { get; set; } = new();
     //public Dictionary<EmployeeKey, List<WTaxContributionModel>> TaxContribution { get; set; } = new();
-    public Dictionary<HolidayKey, List<HolidayInfo>> Holidays { get; set; } = new();
     //public List<ProratedAllowanceForSSS> ProratedAllowance { get; set; } = new();
     public List<SSSModel> SSSTableModel { get; set; } = new();
     public List<PHICModel> PHICTableModel { get; set; } = new();

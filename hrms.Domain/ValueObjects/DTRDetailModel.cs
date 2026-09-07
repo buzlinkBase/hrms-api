@@ -85,9 +85,14 @@ public class DTRDetailModel
     public Guid? AreaId { get; set; }
     public double ShiftWorkingHour { get; set; }
     public bool Posted { get; set; }
+    // Sum of every mutually-exclusive Hrs/OT/ND/ND-OT bucket the DTR detail table displays —
+    // exactly one WorkType group (Regular/RestDay/LegalHol/SpecialHol/RestLegal/RestSpecial/
+    // DoubleLegal/RestDoubleLegal) is ever populated per day (see WorkTypeResolver), so this is
+    // a straight sum, not a max/first. Deliberately excludes OBHours/PaidLeaveHours/
+    // UnpaidLeaveHours — those aren't worked hours.
     public double TotalHours => RegularNetHours + RegularOTHours + RegularNDHours + RegularNDOTHours
         + RestDayHours + RestDayOTHours + RestDayNDHours + RestDayNDOTHours
-        + LegalHolHours + LegalHolOTHours + LegalHolOTHours + LegalHolNightDiffHours
+        + LegalHolHours + LegalHolOTHours + LegalHolNightDiffHours + LegalHolNightDiffOTHours
         + SpecialHolHours + SpecialHolOTHours + SpecialHolNightDiffHours + SpecialHolNightDiffOTHours
         + RestLegalDayHours + RestLegalDayOTHours + RestLegalDayNDHours + RestLegalDayNDOTHours
         + RestSpecialDayHours + RestSpecialDayOTHours + RestSpecialDayNDHours + RestSpecialDayNDOTHours

@@ -47,18 +47,21 @@ public class HDMFTableCalculatorTests : TestContextBase
     }
 
     [Fact]
-    public void SemiMonthly_Variable_TakesActualGrossBalanceInFull()
+    public void SemiMonthly_Variable_SplitsEvenlyAcrossCutoffs_SameAsFixed()
     {
+        // See SSSTableCalculatorTests' equivalent test — Variable's bracket lookup stays
+        // actual-gross-based, but the withholding split (evenly across the 2 configured
+        // cutoffs) is identical to Fixed's.
         var cutoff1 = BuildSemiMonthly(SalaryType.VARIABLE, 12_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
         var result1 = new DeductionPipeline().Run(cutoff1);
-        result1.HDMF.EE.Should().Be(450);
+        result1.HDMF.EE.Should().Be(225);
 
         var cutoff2 = BuildSemiMonthly(SalaryType.VARIABLE, 20_000, new DateOnly(2025, 3, 16), new DateOnly(2025, 3, 31));
         cutoff2.Employee.Id = cutoff1.Employee.Id;
         AddPriorPayroll(cutoff2, 12_000);
-        AddHDMFContribution(cutoff2, 450, 450);
+        AddHDMFContribution(cutoff2, 225, 225);
         var result2 = new DeductionPipeline().Run(cutoff2);
-        result2.HDMF.EE.Should().Be(225);
+        result2.HDMF.EE.Should().Be(450); // 675 - 225
 
         (result1.HDMF.EE + result2.HDMF.EE).Should().Be(675);
     }

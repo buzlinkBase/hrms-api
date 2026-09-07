@@ -63,8 +63,22 @@ public sealed class ManualEntryLeaveTimeRangeStrategy : ILeaveTimeRangeStrategy
 {
     public TimeRange ComputeTimeRange(LeaveApplication application, TimeContext context)
     {
-        var maxMinutes = context.Payload.Data.CurrentShift?.MaxWorkingMinutes ?? 0;
-        var result = new TimeRange(Math.Min(application.TotalMinutes, maxMinutes));
-        return result.TimeRecords.ToTimeRange();
+        var shift = context.Payload.Data.CurrentShift;
+        if (shift == null) return TimeRange.Empty;
+
+        var minutes = Math.Min(application.TotalMinutes, shift.MaxWorkingMinutes);
+        if (minutes <= 0) return TimeRange.Empty;
+
+        // Anchored at shift start, matching PartialLeaveAttendanceStrategy's manual-entry
+        // virtual attendance pair (VirtualAttendanceFactory.CreatePair(shift.StartTime,
+        // shift.StartTime.AddMinutes(leave.TotalMinutes))) -- the same convention for a
+        // duration-only leave with no declared clock time.
+        var start = shift.StartTime;
+        var end = start.AddMinutes(minutes);
+        var records = new TimeRecordCollection
+        {
+            new TimeRecord { StartTime = start, EndTime = end, IsVirtual = true, IsLeave = true },
+        };
+        return new TimeRange(minutes, records);
     }
 }

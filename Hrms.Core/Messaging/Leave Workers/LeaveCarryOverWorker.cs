@@ -1,5 +1,6 @@
 using Hrms.Domain.Entities;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Hrms.Core.Messaging.LeaveWorkers;

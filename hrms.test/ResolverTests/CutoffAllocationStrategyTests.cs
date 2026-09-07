@@ -32,22 +32,18 @@ public class CutoffAllocationStrategyTests : TestContextBase
     }
 
     [Fact]
-    public void VariableStrategy_AlwaysTakesTheFullBalance_IgnoringDivisorAndProration()
-    {
-        var strategy = new VariableActualGrossAllocationStrategy();
-        strategy.AllocateFirstCutoffShare(rate: 1_000, balance: 437.50m, DummyContext(), divisor: 4, daysWorked: 3, totalDaysInMonth: 10)
-            .Should().Be(437.50m);
-    }
-
-    [Fact]
     public void Factory_ResolvesFixedSalaryType_ToFixedDivisorStrategy()
     {
         CutoffAllocationStrategyFactory.Resolve(SalaryType.FIXED).Should().BeOfType<FixedDivisorAllocationStrategy>();
     }
 
     [Fact]
-    public void Factory_ResolvesVariableSalaryType_ToVariableActualGrossStrategy()
+    public void Factory_ResolvesVariableSalaryType_ToFixedDivisorStrategyToo()
     {
-        CutoffAllocationStrategyFactory.Resolve(SalaryType.VARIABLE).Should().BeOfType<VariableActualGrossAllocationStrategy>();
+        // Variable now follows the exact same PayrollGroup cutoff-allocation policy as
+        // Fixed (50/50 split, FirstHalfMonth, SecondHalfMonth) — see
+        // ICutoffAllocationStrategy's doc comment for why a dedicated Variable strategy
+        // was retired.
+        CutoffAllocationStrategyFactory.Resolve(SalaryType.VARIABLE).Should().BeOfType<FixedDivisorAllocationStrategy>();
     }
 }

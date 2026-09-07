@@ -49,6 +49,9 @@ public class WTaxInfo
     public decimal TaxableIncome { get; set; }
     public decimal TaxDue { get; set; }
 }
+// Shared with dtr-api\DTR.Core (project reference) — populated by DTR.Core's own
+// HolidayQueryService/HolidayProviderFactory pipeline, keyed by Holidaykey (see
+// HolidayService.cs), independently of CalculatorPayload/PayrollRangeContextComposerService.
 public class HolidayInfo
 {
     public Guid HolidayId { get; set; }

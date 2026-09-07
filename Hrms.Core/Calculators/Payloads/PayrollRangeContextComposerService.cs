@@ -21,7 +21,6 @@ public class PayrollRangeContextComposerService
     private readonly HDMFContributionService _hdmfcontriService;
     private readonly TaxContributionService _taxcontriService;
     private readonly CompanyService _companyService;
-    private readonly HolidayService _holidayService;
     private readonly PayrollService _payrollService;
     private readonly SalaryAdjustmentService _salaryAdjService;
     private readonly GeneralSettingService _generalSettingService;
@@ -41,7 +40,6 @@ public class PayrollRangeContextComposerService
         HDMFContributionService hdmfcontriService,
         TaxContributionService taxcontriService,
         CompanyService companyService,
-        HolidayService holidayService,
         PayrollService payrollService,
         SalaryAdjustmentService salaryAdjService,
         GeneralSettingService generalSettingService
@@ -62,7 +60,6 @@ public class PayrollRangeContextComposerService
         _hdmfcontriService = hdmfcontriService;
         _taxcontriService = taxcontriService;
         _companyService = companyService;
-        _holidayService = holidayService;
         _payrollService = payrollService;
         _salaryAdjService = salaryAdjService;
         _generalSettingService = generalSettingService;
@@ -119,7 +116,6 @@ public class PayrollRangeContextComposerService
             var phicTableTask = await _govPHICService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
             var hdmfTableTask = await _govHDMFService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
             var taxTableTask = await _govTaxService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var holidaysTask = await _holidayService.GetAllHolidays(dtrPayload.FromDate, dtrPayload.ToDate, token);
 
             // 3. Wait for all to complete
             //await Task.WhenAll(
