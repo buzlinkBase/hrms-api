@@ -138,13 +138,18 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
 public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
 {
     public IncomeAplDtlService(IUnitOfWorkService uow) : base(uow) { }
+
+    // ConsumedByPayrollId == null is the real gatekeeper now — a row already stamped by a
+    // saved payroll run never matches again, regardless of date range, closing the
+    // double-application gap the plain date-range match used to allow.
     public Task<Dictionary<EmployeeKey, List<OtherIncomeInfo>>> LoadAsync(List<Guid> employeeIds, DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
         return GetQueryable()
             .AsNoTracking()
             .Where(x => x.Status == "Active"
                         && x.Date >= fromDate && x.Date <= toDate
-                        && employeeIds.Contains(x.EmployeeId))
+                        && employeeIds.Contains(x.EmployeeId)
+                        && x.ConsumedByPayrollId == null)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x
                 .Select(x => new OtherIncomeInfo
@@ -157,5 +162,29 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                     Type = x.Income?.IncomeClass
                 }).ToList(), token)
         ;
+    }
+
+    // Loads the specific rows HR confirmed in the Last Pay review step — re-checks
+    // ConsumedByPayrollId == null so a row consumed by something else between the review
+    // screen loading and Generate being clicked is silently skipped rather than re-applied.
+    public async Task<List<OtherIncomeSchedules>> FindByIdsAsync(List<Guid> ids, CancellationToken token)
+    {
+        return await GetQueryable()
+            .Where(x => ids.Contains(x.Id) && x.ConsumedByPayrollId == null)
+            .ToListAsync(token);
+    }
+
+    // For Last Pay's review step — every not-yet-consumed schedule row for these employees,
+    // regardless of date, so HR can see (and explicitly confirm) exactly what's pending before
+    // any of it is applied. See LastPayrollService.GetAvailableOtherIncomeAsync.
+    public async Task<List<OtherIncomeSchedules>> FindAvailableAsync(List<Guid> employeeIds, CancellationToken token)
+    {
+        return await GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.Status == "Active"
+                        && employeeIds.Contains(x.EmployeeId)
+                        && x.ConsumedByPayrollId == null)
+            .OrderBy(x => x.Date)
+            .ToListAsync(token);
     }
 }

@@ -4,7 +4,7 @@ using hrms.test.TestSupport;
 namespace hrms.test.PayrollRunTests;
 
 /// <summary>
-/// PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross — the injection point for a
+/// EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross — the injection point for a
 /// OneTime leave payout (LeaveApplication.PayoutMode). GovernmentAmount is a government
 /// benefit pass-through (excluded from GrossIncome/statutory bases); CompanyAmount is taxable
 /// compensation. This method itself never touches GrossIncome directly — it only accumulates
@@ -41,7 +41,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         var payload = new CalculatorPayload();
         var line = Line(20_000);
 
-        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(Guid.NewGuid()), line);
+        var employerAdvancedGovPay = EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(Guid.NewGuid()), line);
 
         line.GrossIncome.Should().Be(20_000);
         line.GovernmentFundedLeavePay.Should().Be(0);
@@ -60,7 +60,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         };
         var line = Line(20_000);
 
-        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        var employerAdvancedGovPay = EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.NonTaxableBenefits.Should().Be(15_000);
@@ -84,7 +84,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         };
         var line = Line(20_000);
 
-        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        var employerAdvancedGovPay = EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         // GovernmentFundedLeavePay/NonTaxableBenefits stay informational — full entitlement
         // regardless of who actually disburses it.
@@ -105,7 +105,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         };
         var line = Line(20_000);
 
-        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        var employerAdvancedGovPay = EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         line.GovernmentFundedLeavePay.Should().Be(16_000); // full entitlement, both payouts
         employerAdvancedGovPay.Should().Be(10_000);        // only the advanced one hits NetPay
@@ -119,7 +119,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         payload.OneTimeLeavePayouts[new EmployeeKey(empId)] = new List<LeaveApplication> { OneTimePayout(gov: 0, comp: 5_000) };
         var line = Line(20_000);
 
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         line.CompanyFundedLeavePay.Should().Be(5_000);
         line.TaxableBenefits.Should().Be(5_000);
@@ -136,7 +136,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         payload.OneTimeLeavePayouts[new EmployeeKey(empId)] = new List<LeaveApplication> { OneTimePayout(gov: 15_000, comp: 5_000) };
         var line = Line(20_000);
 
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.CompanyFundedLeavePay.Should().Be(5_000);
@@ -155,7 +155,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         };
         var line = Line(20_000);
 
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.CompanyFundedLeavePay.Should().Be(3_000);
@@ -170,7 +170,7 @@ public class OneTimeLeavePayoutTests : TestContextBase
         payload.OneTimeLeavePayouts[new EmployeeKey(empId)] = new List<LeaveApplication> { OneTimePayout(gov: null, comp: null) };
         var line = Line(20_000);
 
-        PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
+        EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, Employee(empId), line);
 
         line.GovernmentFundedLeavePay.Should().Be(0);
         line.CompanyFundedLeavePay.Should().Be(0);

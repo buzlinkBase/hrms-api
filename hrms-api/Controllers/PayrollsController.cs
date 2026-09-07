@@ -67,6 +67,26 @@ namespace Hrms.Api.Controllers
             return Ok(response);
         }
 
+        // Review-step data for the Last Pay generation screen — every Salary Adjustment /
+        // Other Income row not yet consumed by any payroll run for these employees, for HR to
+        // check off before Generate is called (LastPayRunPayload.SalaryAdjustmentIds /
+        // OtherIncomeScheduleIds). Nothing here is applied just by being listed.
+        [HttpGet("last-pay/available-salary-adjustments")]
+        [ProducesResponseType(typeof(ResponseModel<List<SalaryAdjustment>>), 200)]
+        public async Task<IActionResult> GetAvailableSalaryAdjustments([FromQuery] List<Guid> employeeIds, CancellationToken token)
+        {
+            var data = await _service.GetAvailableSalaryAdjustmentsAsync(employeeIds, token);
+            return Ok(new { data, total = data.Count });
+        }
+
+        [HttpGet("last-pay/available-other-income")]
+        [ProducesResponseType(typeof(ResponseModel<List<OtherIncomeSchedules>>), 200)]
+        public async Task<IActionResult> GetAvailableOtherIncome([FromQuery] List<Guid> employeeIds, CancellationToken token)
+        {
+            var data = await _service.GetAvailableOtherIncomeAsync(employeeIds, token);
+            return Ok(new { data, total = data.Count });
+        }
+
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> Get(

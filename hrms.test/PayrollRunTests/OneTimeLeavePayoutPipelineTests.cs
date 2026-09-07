@@ -58,13 +58,13 @@ public class OneTimeLeavePayoutPipelineTests
         // 1. Basic pay — every calendar day of the leave falls in this period (15 days), so
         // the flat rate is fully offset: 30,000/2 - 15*1,000 = 0. No DTR attendance in this
         // scenario (VirtualTimeComposer.IsEligibleForVirtualAttendance already excludes it).
-        var oneTimeLeaveDays = PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, employee.Id, PeriodStart, PeriodEnd);
-        PayrollProcessorService.GetBasicPay(line, new List<DTRPayModel>(), employee, oneTimeLeaveDays);
+        var oneTimeLeaveDays = EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, employee.Id, PeriodStart, PeriodEnd);
+        EmployeePayrollLineService.GetBasicPay(line, new List<DTRPayModel>(), employee, oneTimeLeaveDays);
         line.BasicPay.Should().Be(0);
         line.GrossIncome += line.BasicPay; // mirrors ComputeBasicSalary's own accumulation
 
         // 2. OneTime payout — accumulates the funded amounts, does not touch GrossIncome.
-        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
+        var employerAdvancedGovPay = EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
         line.GovernmentFundedLeavePay.Should().Be(15_000);
         line.CompanyFundedLeavePay.Should().Be(5_000);
         employerAdvancedGovPay.Should().Be(15_000); // Employer Advance — belongs in NetPay
@@ -127,11 +127,11 @@ public class OneTimeLeavePayoutPipelineTests
 
         var line = new PayrollSummaryLine { PayPeriodStart = PeriodStart, PayPeriodEnd = PeriodEnd };
 
-        var oneTimeLeaveDays = PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, employee.Id, PeriodStart, PeriodEnd);
-        PayrollProcessorService.GetBasicPay(line, new List<DTRPayModel>(), employee, oneTimeLeaveDays);
+        var oneTimeLeaveDays = EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, employee.Id, PeriodStart, PeriodEnd);
+        EmployeePayrollLineService.GetBasicPay(line, new List<DTRPayModel>(), employee, oneTimeLeaveDays);
         line.GrossIncome += line.BasicPay;
 
-        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
+        var employerAdvancedGovPay = EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
         line.GovernmentFundedLeavePay.Should().Be(15_000); // still tracked informationally
         employerAdvancedGovPay.Should().Be(0);             // but excluded from NetPay
 
@@ -167,11 +167,11 @@ public class OneTimeLeavePayoutPipelineTests
         var timeCalc = new List<DTRPayModel> { new() { RegularDayPay = 3_000 } };
         var line = new PayrollSummaryLine { PayPeriodStart = PeriodStart, PayPeriodEnd = PeriodEnd };
 
-        PayrollProcessorService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 0);
+        EmployeePayrollLineService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 0);
         line.BasicPay.Should().Be(3_000);
         line.GrossIncome += line.BasicPay;
 
-        var employerAdvancedGovPay = PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
+        var employerAdvancedGovPay = EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross(payload, employee, line);
         line.GrossIncome = PayrollProcessorUtil.GetGross(line);
         line.GrossIncome.Should().Be(8_000); // 3,000 worked + 5,000 company-funded
 

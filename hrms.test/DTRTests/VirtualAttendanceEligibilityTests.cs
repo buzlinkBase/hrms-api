@@ -6,7 +6,7 @@ namespace hrms.test.DTRTests;
 /// VirtualTimeComposer.IsEligibleForVirtualAttendance — gates whether a full "worked a shift"
 /// virtual attendance block gets injected for a leave day, which feeds RegularDayPay as if the
 /// employee physically worked. OneTime-payout leave (e.g. a Shared-funded SSS maternity lump
-/// sum) is paid entirely through PayrollProcessorService.ApplyOneTimeLeavePayoutsToGross
+/// sum) is paid entirely through EmployeePayrollLineService.ApplyOneTimeLeavePayoutsToGross
 /// instead — injecting virtual attendance for those days would double-pay VARIABLE employees
 /// on top of the lump sum. See the maternity-leave bug fix.
 /// </summary>

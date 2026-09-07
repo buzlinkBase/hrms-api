@@ -33,12 +33,18 @@ public class OtherIncomeSchedules : BaseEntity
     public Guid EmployeeId { get; set; }
     public Guid ApplicationId { get; set; }
     public Guid IncomeId { get; set; }
-    public virtual OtherIncome? Income { get; set; } 
+    public virtual OtherIncome? Income { get; set; }
     public DateOnly Date { get; set; }
     public decimal Amount { get; set; }
     public bool IsTaxable { get; set; }
     public bool IsProrated { get; set; }
     public string Notes { get; set; } = string.Empty;
+    // Null = available to be picked up by a payroll run. Stamped with the Payroll.Id that
+    // actually applied it once that run is SAVED (not merely calculated/previewed) — see
+    // PayrollInputConsumptionService.MarkConsumedAsync. Nulled back out if that batch is
+    // later deleted (PayrollBatchLifecycleService.DeleteBatchAsync), releasing the row for
+    // the next run.
+    public Guid? ConsumedByPayrollId { get; set; }
 }
 
 public class IncomePayment : BaseEntity

@@ -41,6 +41,16 @@ public record LastPayRunPayload(List<Guid> EmployeeIds)
 {
     public DateOnly? PayDate { get; init; }
     public string? Remarks { get; init; }
+    // Selectable components — each defaults to today's existing behavior (always included) so
+    // an existing caller that doesn't set these keeps working unchanged.
+    public bool IncludeThirteenthMonth { get; init; } = true;
+    public bool IncludeLeaveConversion { get; init; } = true;
+    // Explicit opt-in only — omitted/empty means none applied. Sourced from
+    // LastPayrollService.GetAvailableSalaryAdjustmentsAsync/GetAvailableOtherIncomeAsync and
+    // confirmed by HR before Generate is called. See PayrollInputConsumptionService for how
+    // these get marked consumed once this run is saved.
+    public List<Guid>? SalaryAdjustmentIds { get; init; }
+    public List<Guid>? OtherIncomeScheduleIds { get; init; }
 }
 public class CompanyPolicyRule
 {

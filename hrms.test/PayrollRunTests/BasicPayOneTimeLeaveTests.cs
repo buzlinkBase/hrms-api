@@ -3,7 +3,7 @@ using Hrms.Core.Services;
 namespace hrms.test.PayrollRunTests;
 
 /// <summary>
-/// PayrollProcessorService.CountOneTimeLeaveCalendarDays / GetBasicPay — a FIXED employee's
+/// EmployeePayrollLineService.CountOneTimeLeaveCalendarDays / GetBasicPay — a FIXED employee's
 /// flat MonthlyRate/divisor implicitly pays for every calendar day in the period unless
 /// explicitly deducted; OneTime-payout leave days (e.g. a Shared-funded SSS maternity lump
 /// sum, paid via ApplyOneTimeLeavePayoutsToGross) generate no Late/UT/Absent/UnpaidLeave, so
@@ -36,7 +36,7 @@ public class BasicPayOneTimeLeaveTests
     public void CountOneTimeLeaveCalendarDays_NoLeavesForEmployee_ReturnsZero()
     {
         var payload = new CalculatorPayload();
-        PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, Guid.NewGuid(),
+        EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, Guid.NewGuid(),
             new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 15)).Should().Be(0);
     }
 
@@ -52,7 +52,7 @@ public class BasicPayOneTimeLeaveTests
 
         // 8 days inclusive (Aug 3–10), including whatever rest days fall inside — the flat
         // rate itself already implicitly covers rest days as part of the period share.
-        PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, empId,
+        EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, empId,
             new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 15)).Should().Be(8);
     }
 
@@ -67,7 +67,7 @@ public class BasicPayOneTimeLeaveTests
             OneTimeLeave(new DateOnly(2026, 7, 20), new DateOnly(2026, 11, 1)),
         };
 
-        PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, empId,
+        EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, empId,
             new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 15)).Should().Be(15);
     }
 
@@ -81,7 +81,7 @@ public class BasicPayOneTimeLeaveTests
             OneTimeLeave(new DateOnly(2026, 8, 3), new DateOnly(2026, 8, 10), mode: PayoutMode.PerDay),
         };
 
-        PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, empId,
+        EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, empId,
             new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 15)).Should().Be(0);
     }
 
@@ -95,7 +95,7 @@ public class BasicPayOneTimeLeaveTests
             OneTimeLeave(new DateOnly(2026, 8, 3), new DateOnly(2026, 8, 10), payType: PayType.WithoutPay),
         };
 
-        PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, empId,
+        EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, empId,
             new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 15)).Should().Be(0);
     }
 
@@ -110,7 +110,7 @@ public class BasicPayOneTimeLeaveTests
             OneTimeLeave(new DateOnly(2026, 8, 10), new DateOnly(2026, 8, 12)), // 3 days
         };
 
-        PayrollProcessorService.CountOneTimeLeaveCalendarDays(payload, empId,
+        EmployeePayrollLineService.CountOneTimeLeaveCalendarDays(payload, empId,
             new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 15)).Should().Be(5);
     }
 
@@ -123,7 +123,7 @@ public class BasicPayOneTimeLeaveTests
         var line = new PayrollSummaryLine { PayPeriodStart = new DateOnly(2026, 8, 1) };
         var timeCalc = new List<DTRPayModel> { new() { LateAmount = 100, UTAmount = 50 } };
 
-        PayrollProcessorService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 0);
+        EmployeePayrollLineService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 0);
 
         // SEMI_MONTHLY divisor is 2: 30,000/2 - 150 = 14,850
         line.BasicPay.Should().Be(14_850);
@@ -136,7 +136,7 @@ public class BasicPayOneTimeLeaveTests
         var line = new PayrollSummaryLine { PayPeriodStart = new DateOnly(2026, 8, 1) };
         var timeCalc = new List<DTRPayModel>();
 
-        PayrollProcessorService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 8);
+        EmployeePayrollLineService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 8);
 
         // 30,000/2 - (8 * 1,000) = 7,000 — the flat rate no longer double-pays the 8
         // maternity-leave days already compensated via the OneTime lump sum.
@@ -152,7 +152,7 @@ public class BasicPayOneTimeLeaveTests
         var employee = FixedEmployee(monthlyRate: 30_000, dailyRate: 1_000);
         var line = new PayrollSummaryLine { PayPeriodStart = new DateOnly(2026, 8, 1) };
 
-        PayrollProcessorService.GetBasicPay(line, new List<DTRPayModel>(), employee, oneTimeLeaveDays: 5);
+        EmployeePayrollLineService.GetBasicPay(line, new List<DTRPayModel>(), employee, oneTimeLeaveDays: 5);
 
         line.BasicPay.Should().Be(30_000m / 2 - 5_000);
     }
@@ -168,7 +168,7 @@ public class BasicPayOneTimeLeaveTests
         // returns before that term is ever used. Once IsEligibleForVirtualAttendance excludes
         // OneTime-leave days from virtual attendance, those days simply never contribute
         // RegularDayPay in the first place.
-        PayrollProcessorService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 8);
+        EmployeePayrollLineService.GetBasicPay(line, timeCalc, employee, oneTimeLeaveDays: 8);
 
         line.BasicPay.Should().Be(7_500);
     }
