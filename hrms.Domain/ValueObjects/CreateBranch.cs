@@ -14,6 +14,7 @@ public class CreateBranch
     public Polygon? Boundary { get; set; }
     public string Status { get; set; } = "Active";
     public string? RegionCode { get; set; }
+    public string? WageOrderClass { get; set; }
 }
 public class UpdateBranch : CreateBranch
 {

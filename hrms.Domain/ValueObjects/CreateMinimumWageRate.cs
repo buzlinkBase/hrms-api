@@ -7,6 +7,7 @@ public class CreateMinimumWageRate
     public decimal DailyRate { get; set; }
     public DateOnly EffectiveDate { get; set; }
     public string? WageOrderNo { get; set; }
+    public string? WageOrderClass { get; set; }
 }
 
 public class UpdateMinimumWageRate : CreateMinimumWageRate

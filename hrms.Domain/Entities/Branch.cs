@@ -17,6 +17,12 @@ public class Branch : BaseEntity
     // applicable MinimumWageRate for employees at this branch. See
     // PayrollReportService.GetMonthlyRemittanceReturnAsync.
     public string? RegionCode { get; set; }
+    // Sector/class this establishment is registered under (e.g. "Non-Agriculture",
+    // "Retail/Service establishments employing 10 workers or less") — matched against
+    // MinimumWageRate.WageOrderClass for the same RegionCode. Null = unspecified, falls
+    // back to the region's general (class-less) rate. See
+    // PayrollReportService.ResolveRegionRate.
+    public string? WageOrderClass { get; set; }
 
 }
 

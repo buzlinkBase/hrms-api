@@ -327,15 +327,6 @@ public class PayrollReportService : BaseService<Payroll>
                 .GroupBy(x => x.EmployeeId)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
 
-        decimal? ResolveRegionRate(string? regionCode, DateOnly asOf) =>
-            string.IsNullOrEmpty(regionCode)
-                ? null
-                : minimumWageRates
-                    .Where(r => r.RegionCode == regionCode && r.EffectiveDate <= asOf)
-                    .OrderByDescending(r => r.EffectiveDate)
-                    .Select(r => (decimal?)r.DailyRate)
-                    .FirstOrDefault();
-
         var regularByEmployee = regularRows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
         var thirteenthByEmployee = thirteenthMonthRows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
 
@@ -348,16 +339,20 @@ public class PayrollReportService : BaseService<Payroll>
             regRows ??= new List<Payroll>();
             tmRows ??= new List<Payroll>();
 
-            var regionCode = employee?.BranchId.HasValue == true && branchMap.TryGetValue(employee.BranchId!.Value, out var branch)
-                ? branch.RegionCode
+            Branch? branch = employee?.BranchId.HasValue == true && branchMap.TryGetValue(employee.BranchId!.Value, out var foundBranch)
+                ? foundBranch
                 : null;
+            var regionCode = branch?.RegionCode;
+            var wageOrderClass = branch?.WageOrderClass;
 
             // MWE status is assessed from the employee's most recent regular row in the
             // period, against the region rate effective as of that same row's period — not
             // stored on Employee, so a later wage-rate change never retroactively reclassifies
             // an already-filed period.
             var latestRow = regRows.OrderByDescending(x => x.PostingPeriod).FirstOrDefault();
-            var regionRate = latestRow != null ? ResolveRegionRate(regionCode, latestRow.PostingPeriod) : null;
+            var regionRate = latestRow != null
+                ? ResolveRegionRate(minimumWageRates, regionCode, wageOrderClass, latestRow.PostingPeriod)
+                : null;
             // Has payroll data to check but no Branch/Region/MinimumWageRate to check it
             // against — defaulted to non-MWE below, but flagged so it's never silent.
             var isUnclassified = latestRow != null && regionRate == null;
@@ -428,6 +423,36 @@ public class PayrollReportService : BaseService<Payroll>
             HasUnwithheldTaxWarning = line18 > 0 && line19 == 0,
             UnclassifiedEmployeeCount = employees.Count(x => x.IsUnclassified),
         };
+    }
+
+    // internal (not private), static — pure lookup over an already-fetched rate list,
+    // testable without a DB (same reasoning as SummarizeMonthlyRemittanceReturn above).
+    // Wage orders often set different rates within the same region depending on the
+    // establishment's registered sector/class (Branch.WageOrderClass) — tries an exact class
+    // match first (including both-null, the legacy/general-rate case), then falls back to the
+    // region's class-less rate if the branch's specific class has no rate of its own
+    // configured, so setting a class on a branch can never make a previously working
+    // region-only setup regress to Unclassified.
+    internal static decimal? ResolveRegionRate(
+        List<MinimumWageRate> minimumWageRates, string? regionCode, string? wageOrderClass, DateOnly asOf)
+    {
+        if (string.IsNullOrEmpty(regionCode)) return null;
+        var normalizedClass = string.IsNullOrEmpty(wageOrderClass) ? null : wageOrderClass;
+        var candidates = minimumWageRates.Where(r => r.RegionCode == regionCode && r.EffectiveDate <= asOf);
+
+        var exact = candidates
+            .Where(r => (string.IsNullOrEmpty(r.WageOrderClass) ? null : r.WageOrderClass) == normalizedClass)
+            .OrderByDescending(r => r.EffectiveDate)
+            .Select(r => (decimal?)r.DailyRate)
+            .FirstOrDefault();
+        if (exact != null) return exact;
+        if (normalizedClass == null) return null;
+
+        return candidates
+            .Where(r => string.IsNullOrEmpty(r.WageOrderClass))
+            .OrderByDescending(r => r.EffectiveDate)
+            .Select(r => (decimal?)r.DailyRate)
+            .FirstOrDefault();
     }
 
     // BIR Alphalist — one row per employee for the year. TaxableIncome/NonTaxableIncome only

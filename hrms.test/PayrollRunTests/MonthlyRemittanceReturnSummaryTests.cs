@@ -1,4 +1,5 @@
 using Hrms.Core.Services;
+using Hrms.Domain.Entities;
 
 namespace hrms.test.PayrollRunTests;
 
@@ -153,5 +154,112 @@ public class MonthlyRemittanceReturnSummaryTests
         var summary = PayrollReportService.SummarizeMonthlyRemittanceReturn(employees, From, To, amendedReturn: false);
 
         summary.UnclassifiedEmployeeCount.Should().Be(0);
+    }
+}
+
+/// <summary>
+/// PayrollReportService.ResolveRegionRate — the region+class minimum-wage-rate lookup behind
+/// BIR 1601-C's Minimum-Wage-Earner classification. Pure over an already-fetched rate list, so
+/// testable without a database — same reasoning as MonthlyRemittanceReturnSummaryTests above.
+/// </summary>
+public class ResolveRegionRateTests
+{
+    private static readonly DateOnly AsOf = new(2026, 1, 15);
+
+    private static MinimumWageRate Rate(string region, decimal dailyRate, string? wageOrderClass = null, DateOnly? effectiveDate = null) => new()
+    {
+        RegionCode = region,
+        RegionName = region,
+        DailyRate = dailyRate,
+        EffectiveDate = effectiveDate ?? new DateOnly(2025, 1, 1),
+        WageOrderClass = wageOrderClass,
+    };
+
+    [Fact]
+    public void RegionWithOnlyClasslessRate_BranchHasNoClass_ResolvesToThatRate()
+    {
+        var rates = new List<MinimumWageRate> { Rate("NCR", 610) };
+
+        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", null, AsOf);
+
+        result.Should().Be(610);
+    }
+
+    [Fact]
+    public void RegionWithTwoClasses_BranchAssignedToClassA_MatchesClassAOnly()
+    {
+        var rates = new List<MinimumWageRate>
+        {
+            Rate("NCR", 610, wageOrderClass: "Non-Agriculture"),
+            Rate("NCR", 573, wageOrderClass: "Retail/Service <=10 workers"),
+        };
+
+        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", "Non-Agriculture", AsOf);
+
+        result.Should().Be(610);
+    }
+
+    [Fact]
+    public void BranchClassHasNoMatchingRate_FallsBackToClasslessRegionRate()
+    {
+        var rates = new List<MinimumWageRate>
+        {
+            Rate("NCR", 610), // general/class-less rate
+        };
+
+        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", "Agriculture-Plantation", AsOf);
+
+        result.Should().Be(610);
+    }
+
+    [Fact]
+    public void BranchClassHasNoMatch_AndNoClasslessRateExists_IsUnclassified()
+    {
+        var rates = new List<MinimumWageRate>
+        {
+            Rate("NCR", 610, wageOrderClass: "Non-Agriculture"),
+        };
+
+        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", "Agriculture-Plantation", AsOf);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void NoRegionCode_ReturnsNull()
+    {
+        var rates = new List<MinimumWageRate> { Rate("NCR", 610) };
+
+        var result = PayrollReportService.ResolveRegionRate(rates, null, null, AsOf);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void MostRecentEffectiveDateWins_WithinSameClass()
+    {
+        var rates = new List<MinimumWageRate>
+        {
+            Rate("NCR", 570, effectiveDate: new DateOnly(2024, 1, 1)),
+            Rate("NCR", 610, effectiveDate: new DateOnly(2025, 6, 1)),
+        };
+
+        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", null, AsOf);
+
+        result.Should().Be(610);
+    }
+
+    [Fact]
+    public void RateEffectiveAfterAsOfDate_IsIgnored()
+    {
+        var rates = new List<MinimumWageRate>
+        {
+            Rate("NCR", 610, effectiveDate: new DateOnly(2025, 1, 1)),
+            Rate("NCR", 650, effectiveDate: new DateOnly(2026, 6, 1)), // future relative to AsOf
+        };
+
+        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", null, AsOf);
+
+        result.Should().Be(610);
     }
 }
