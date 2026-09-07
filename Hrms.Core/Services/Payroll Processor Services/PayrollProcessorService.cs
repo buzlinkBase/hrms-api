@@ -126,6 +126,9 @@ public class PayrollProcessorService
     public Task<List<OtherIncomeSchedules>> GetAvailableOtherIncomeAsync(List<Guid> employeeIds, CancellationToken token) =>
         _lastPayrollService.GetAvailableOtherIncomeAsync(employeeIds, token);
 
+    public Task<List<LastPayAttendanceWarning>> GetLastPayAttendanceWarningsAsync(List<Guid> employeeIds, CancellationToken token) =>
+        _lastPayrollService.GetAttendanceWarningsAsync(employeeIds, token);
+
     public Task PostBatchAsync(Guid payrollBatchId, CancellationToken token) =>
         _batchLifecycleService.PostBatchAsync(payrollBatchId, token);
 

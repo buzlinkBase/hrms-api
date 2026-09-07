@@ -31,6 +31,18 @@ public class PayrollService : BaseService<Payroll>
         return await GetOneAsync(Id, token);
     }
 
+    // The last regular-payroll period end this employee was ever actually paid for — null if
+    // they've never had a regular payroll row. Used by LastPayrollService to find the gap
+    // between "the last cutoff that actually ran for them" and their separation date, both
+    // for Salary Adjustment/Other Income consumption windows and the DTR attendance warning.
+    public async Task<DateOnly?> GetLatestRegularPayPeriodEndAsync(Guid employeeId, CancellationToken token)
+    {
+        return await GetQueryable(x => x.EmployeeId == employeeId && x.PayrollType == PayrollType.Regular)
+            .OrderByDescending(x => x.PayPeriodEnd)
+            .Select(x => (DateOnly?)x.PayPeriodEnd)
+            .FirstOrDefaultAsync(token);
+    }
+
     public async Task Delete(Guid Id, CancellationToken token)
     {
         await RemoveAsync(Id, token);

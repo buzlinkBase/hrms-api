@@ -27,6 +27,20 @@ public class DailyRecordService : BaseService<DailyRecord>
         _reconciliation = reconciliation;
         _payrollBatchService = payrollBatchService;
     }
+    // Posted attendance/DTR days for this employee in (fromDate, toDate] — used by
+    // LastPayrollService's safety check: days worked after their last regular payroll's
+    // period end that no regular run has ever paid out. fromDate is exclusive since it's
+    // meant to be passed the last-paid period's own end date.
+    public async Task<int> CountPostedDaysAsync(Guid employeeId, DateOnly fromDate, DateOnly toDate, CancellationToken token)
+    {
+        return await GetQueryable(x =>
+                x.EmployeeId == employeeId &&
+                x.Posted &&
+                x.WorkDate > fromDate &&
+                x.WorkDate <= toDate)
+            .CountAsync(token);
+    }
+
     public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token)
     {
         var employeeIds = records.Select(x => x.EmployeeId).Distinct().ToList();

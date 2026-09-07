@@ -30,6 +30,7 @@ public class LastPayrollService
     private readonly SalaryAdjustmentService _salaryAdjustmentService;
     private readonly IncomeAplDtlService _incomeAplDtlService;
     private readonly PayrollInputConsumptionService _consumptionService;
+    private readonly DailyRecordService _dtrService;
 
     public LastPayrollService(
         EmployeeService employeeService,
@@ -45,7 +46,8 @@ public class LastPayrollService
         StatutoryContributionLedgerService statutoryLedgerService,
         SalaryAdjustmentService salaryAdjustmentService,
         IncomeAplDtlService incomeAplDtlService,
-        PayrollInputConsumptionService consumptionService)
+        PayrollInputConsumptionService consumptionService,
+        DailyRecordService dtrService)
     {
         _employeeService = employeeService;
         _payrollService = payrollService;
@@ -61,6 +63,42 @@ public class LastPayrollService
         _salaryAdjustmentService = salaryAdjustmentService;
         _incomeAplDtlService = incomeAplDtlService;
         _consumptionService = consumptionService;
+        _dtrService = dtrService;
+    }
+
+    // Safety check for the Last Pay review screen — flags employees who have posted
+    // attendance/DTR days after their last regular payroll's period end, through their
+    // separation date, that no regular run has ever paid out. Informational only (never
+    // blocks generation): some separations legitimately have zero final attendance, e.g. an
+    // employee already on leave through their last day. Does not touch the DTR pipeline or
+    // compute any wages — just counts already-posted days in that gap.
+    public async Task<List<LastPayAttendanceWarning>> GetAttendanceWarningsAsync(List<Guid> employeeIds, CancellationToken token)
+    {
+        var employees = await _employeeService.GetSeparatedEmployeesForLastPayAsync(employeeIds, token);
+        var warnings = new List<LastPayAttendanceWarning>();
+
+        foreach (var employee in employees)
+        {
+            if (employee.DateResigned == null) continue;
+            var asOfDate = DateOnly.FromDateTime(employee.DateResigned.Value);
+            var lastCutoffEnd = await _payrollService.GetLatestRegularPayPeriodEndAsync(employee.Id, token);
+            var checkFrom = lastCutoffEnd ?? DateOnly.MinValue;
+            if (checkFrom >= asOfDate) continue;
+
+            var unpaidDayCount = await _dtrService.CountPostedDaysAsync(employee.Id, checkFrom, asOfDate, token);
+            if (unpaidDayCount == 0) continue;
+
+            warnings.Add(new LastPayAttendanceWarning
+            {
+                EmployeeId = employee.Id,
+                FullName = $"{employee.FirstName} {employee.LastName}".Trim(),
+                LastRegularPayPeriodEnd = lastCutoffEnd,
+                SeparationDate = asOfDate,
+                UnpaidAttendanceDayCount = unpaidDayCount,
+            });
+        }
+
+        return warnings;
     }
 
     // Review-step data for the Last Pay generation screen — every SalaryAdjustment not yet
@@ -311,4 +349,15 @@ public class LastPayrollService
             kvp => kvp.Key.employeeId,
             kvp => kvp.Value.Where(x => x.Type == DeductionInfoType.Loan).Sum(x => x.Amount));
     }
+}
+
+// See LastPayrollService.GetAttendanceWarningsAsync.
+public class LastPayAttendanceWarning
+{
+    public Guid EmployeeId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    // Null = this employee has never had a regular payroll row at all.
+    public DateOnly? LastRegularPayPeriodEnd { get; set; }
+    public DateOnly SeparationDate { get; set; }
+    public int UnpaidAttendanceDayCount { get; set; }
 }

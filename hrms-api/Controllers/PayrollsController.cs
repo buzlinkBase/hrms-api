@@ -87,6 +87,16 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        // Informational only — flags employees with posted attendance after their last
+        // regular payroll that no regular run has ever paid out. Never blocks generation.
+        [HttpGet("last-pay/attendance-warnings")]
+        [ProducesResponseType(typeof(ResponseModel<List<LastPayAttendanceWarning>>), 200)]
+        public async Task<IActionResult> GetLastPayAttendanceWarnings([FromQuery] List<Guid> employeeIds, CancellationToken token)
+        {
+            var data = await _service.GetLastPayAttendanceWarningsAsync(employeeIds, token);
+            return Ok(new { data, total = data.Count });
+        }
+
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> Get(
