@@ -402,6 +402,16 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         if (to.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= to.Value);
         return query.ProjectToType<LeaveApplicationModel>(_config).ToListAsync(token);
     }
+
+    // Self-service "My Applications" — every status (ForApproval/Approved/Declined/Cancelled),
+    // newest first, scoped to one employee. See MeController.GetMyLeaveApplications.
+    public Task<List<LeaveApplicationModel>> FindAllForEmployeeAsync(Guid employeeId, CancellationToken token)
+    {
+        return GetQueryable(x => x.EmployeeId == employeeId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ProjectToType<LeaveApplicationModel>(_config)
+            .ToListAsync(token);
+    }
     public async Task<LeaveApplicationModel?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return _mapper.Map<LeaveApplicationModel>(await GetOneAsync(Id, token));

@@ -24,19 +24,25 @@ namespace Hrms.Api.Controllers
         private readonly CompanyService _companyService;
         private readonly DTRCalcService _dtrCalcService;
         private readonly EmployeeFixedScheduleService _fixedScheduleService;
+        private readonly LeaveLedgerService _leaveLedgerService;
+        private readonly LeaveApplicationService _leaveApplicationService;
 
         public MeController(
             EmployeeService employeeService,
             PayrollService payrollService,
             CompanyService companyService,
             DTRCalcService dtrCalcService,
-            EmployeeFixedScheduleService fixedScheduleService)
+            EmployeeFixedScheduleService fixedScheduleService,
+            LeaveLedgerService leaveLedgerService,
+            LeaveApplicationService leaveApplicationService)
         {
             _employeeService = employeeService;
             _payrollService = payrollService;
             _companyService = companyService;
             _dtrCalcService = dtrCalcService;
             _fixedScheduleService = fixedScheduleService;
+            _leaveLedgerService = leaveLedgerService;
+            _leaveApplicationService = leaveApplicationService;
         }
 
         private async Task<Guid?> ResolveMyEmployeeIdAsync(CancellationToken token)
@@ -118,6 +124,43 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             return Ok(await _fixedScheduleService.GetByEmployeeAsync(employeeId.Value, token));
+        }
+
+        [HttpGet("leave-credits")]
+        [ProducesResponseType(typeof(ResponseModel<List<LeaveCreditsBalanceModel>>), 200)]
+        public async Task<IActionResult> GetMyLeaveCredits([FromQuery] int? year, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _leaveLedgerService.GetBalancesForEmployeeAsync(employeeId.Value, year ?? DateTime.UtcNow.Year, token));
+        }
+
+        [HttpGet("leave-applications")]
+        [ProducesResponseType(typeof(ResponseModel<List<LeaveApplicationModel>>), 200)]
+        public async Task<IActionResult> GetMyLeaveApplications(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _leaveApplicationService.FindAllForEmployeeAsync(employeeId.Value, token));
+        }
+
+        // EmployeeId and ApprovalStatus are forced here, never trusted from the client — the
+        // same guard rail as every other write in this controller. Without it, a self-service
+        // caller could file leave under a coworker's EmployeeId or self-approve it outright.
+        [HttpPost("leave-applications")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CreateMyLeaveApplication([FromBody] CreateLeaveApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.EmployeeId = employeeId.Value;
+            payload.ApprovalStatus = ApprovalStatus.ForApproval;
+            await _leaveApplicationService.AddAsync(payload, token);
+            await _leaveApplicationService.CommitChangesAsync(token);
+            return Ok();
         }
     }
 }

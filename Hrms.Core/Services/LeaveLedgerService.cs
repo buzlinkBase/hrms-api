@@ -164,6 +164,34 @@ public class LeaveLedgerService : BaseService<LeaveLedger>
         };
     }
 
+    // Self-service "My Leave Credits" — every leave type this employee has a credits row for
+    // in the given year, in one call (GetBalanceAsync above is single-leave-type only). See
+    // MeController.GetMyLeaveCredits.
+    public async Task<List<LeaveCreditsBalanceModel>> GetBalancesForEmployeeAsync(Guid employeeId, int year, CancellationToken token)
+    {
+        var employee = await Context.Employees.AsNoTracking().FirstOrDefaultAsync(x => x.Id == employeeId, token);
+        if (employee == null) return [];
+
+        return await Context.LeaveCredits.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.PeriodYear == year)
+            .Join(Context.Leaves.AsNoTracking(), c => c.LeaveId, l => l.Id, (c, l) => new LeaveCreditsBalanceModel
+            {
+                EmployeeId = employeeId,
+                EmployeeNo = employee.EmployeeNo,
+                FullName = employee.FullName(),
+                LeaveId = l.Id,
+                LeaveCode = l.Code,
+                LeaveDescription = l.Description,
+                PeriodYear = c.PeriodYear,
+                Granted = c.Granted,
+                Used = c.Used,
+                Balance = c.Balance,
+                Reserved = c.Reserved,
+                AvailableToFile = c.AvailableToFile,
+            })
+            .ToListAsync(token);
+    }
+
     public async Task<Dictionary<EmployeeLeaveCreditsKey, decimal>> LoadCreditsAsync(List<Guid> employeeIds,
         CancellationToken token)
     {

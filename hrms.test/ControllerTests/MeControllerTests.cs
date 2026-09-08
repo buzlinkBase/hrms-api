@@ -1,11 +1,14 @@
+using System.Linq.Expressions;
 using System.Security.Claims;
 using Hrms.Api.Controllers;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MapsterMapper;
+using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using MockQueryable.NSubstitute;
 using NSubstitute;
 
@@ -44,22 +47,53 @@ public class MeControllerTests
         PayPeriodEnd = new DateOnly(2026, 9, 15),
     };
 
+    // GenderRestriction.None + AllowHalfDay=true + AllowNegativeBalance=true is enough for
+    // EnsurePolicyAsync to pass without also needing to seed an Employee (gender check) or
+    // LeaveCredits (balance check) lookup.
+    private static Leave BuildLeave() => new()
+    {
+        Id = Guid.NewGuid(),
+        Code = "VL",
+        Description = "Vacation Leave",
+        AllowHalfDay = true,
+        AllowNegativeBalance = true,
+    };
+
+    private static LeaveApplication BuildLeaveApplication(Guid employeeId, Leave leave) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        LeaveId = leave.Id,
+        Leave = leave,
+        ApprovalStatus = ApprovalStatus.ForApproval,
+    };
+
     private static (MeController Controller, Guid CallerUserId) BuildController(
-        Employee? caller, Payroll? payroll = null, EmployeeFixedSchedule[]? fixedSchedules = null)
+        Employee? caller,
+        Payroll? payroll = null,
+        EmployeeFixedSchedule[]? fixedSchedules = null,
+        Leave[]? leaves = null,
+        LeaveApplication[]? leaveApplications = null)
     {
         var repo = Substitute.For<IRepository>();
         var employees = caller is null ? Array.Empty<Employee>() : [caller];
         var schedules = fixedSchedules ?? [];
+        var leaveTypes = leaves ?? [];
+        var applications = leaveApplications ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
         repo.FindAll<Company>().Returns(_ => new List<Company>().BuildMockDbSet());
         repo.FindAll<EmployeeFixedSchedule>().Returns(_ => schedules.ToList().BuildMockDbSet());
+        repo.FindAll<LeaveApplication>().Returns(_ => applications.ToList().BuildMockDbSet());
+        repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
+            .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => payroll != null && call.Arg<Guid>() == payroll.Id ? payroll : null);
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
+        uow.CommitChangesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
 
         TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
 
@@ -76,6 +110,14 @@ public class MeControllerTests
         var payrollService = new PayrollService(uow, Substitute.For<IMapper>());
         var companyService = new CompanyService(uow);
         var fixedScheduleService = new EmployeeFixedScheduleService(uow);
+        var leaveLedgerService = new LeaveLedgerService(uow);
+        // Bare IMapper substitute: LeaveApplicationService.AddAsync's Map<LeaveApplication>()
+        // call returns null with it, which short-circuits AddAsync before it ever persists —
+        // fine for these tests, which only assert on the EmployeeId/ApprovalStatus forced onto
+        // the payload BEFORE AddAsync is called, not on what (if anything) gets saved.
+        var leaveApplicationService = new LeaveApplicationService(
+            uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
+            Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>());
 
         var callerUserId = caller?.UserId ?? Guid.NewGuid();
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -86,7 +128,9 @@ public class MeControllerTests
 
         // DTRCalcService is never used by the no-linked-employee guard tests (they 404 before
         // it's touched) and its full pipeline is impractical to construct here — see class doc.
-        var controller = new MeController(employeeService, payrollService, companyService, null!, fixedScheduleService)
+        var controller = new MeController(
+            employeeService, payrollService, companyService, null!, fixedScheduleService,
+            leaveLedgerService, leaveApplicationService)
         {
             ControllerContext = new ControllerContext
             {
@@ -179,5 +223,74 @@ public class MeControllerTests
         schedule.Should().ContainSingle();
         schedule[0].EmployeeId.Should().Be(caller.Id);
         schedule[0].TimeShiftName.Should().Be("Day Shift");
+    }
+
+    [Fact]
+    public async Task GetMyLeaveCredits_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyLeaveCredits(2026, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMyLeaveApplications_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyLeaveApplications(CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMyLeaveApplications_ReturnsOnlyCallersOwnApplications()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var someoneElse = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        var myApplication = BuildLeaveApplication(caller.Id, leave);
+        var othersApplication = BuildLeaveApplication(someoneElse.Id, leave);
+        var (controller, _) = BuildController(caller, leaveApplications: [myApplication, othersApplication]);
+
+        var result = await controller.GetMyLeaveApplications(CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var applications = ok.Value.Should().BeAssignableTo<List<LeaveApplicationModel>>().Subject;
+        applications.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CreateMyLeaveApplication_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+        var payload = new CreateLeaveApplication { LeaveId = Guid.NewGuid() };
+
+        var result = await controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task CreateMyLeaveApplication_ForcesCallersOwnEmployeeIdAndForApprovalStatus()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        // A malicious/buggy client tries to file under someone else's identity, pre-approved.
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            EmployeeId = Guid.NewGuid(),
+            ApprovalStatus = ApprovalStatus.Approved,
+        };
+
+        var result = await controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        payload.EmployeeId.Should().Be(caller.Id);
+        payload.ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
     }
 }
