@@ -90,6 +90,20 @@ public class MeControllerTests
         ApprovalStatus = ApprovalStatus.ForApproval,
     };
 
+    // FindList groups by (BatchCode, EmployeeId, Employee.FirstName, Employee.LastName), so
+    // Employee must be populated to avoid a null-reference during the in-memory GroupBy.
+    private static ChangeRestDay BuildChangeRestDay(Guid employeeId, string batchCode) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        Employee = BuildEmployee(Guid.NewGuid()),
+        BatchCode = batchCode,
+        PayrollDate = new DateOnly(2026, 9, 6),
+        DayName = DayName.Sunday,
+        State = ChangeSchedState.REPLACEMENT,
+        ApprovalStatus = ApprovalStatus.ForApproval,
+    };
+
     private static (MeController Controller, Guid CallerUserId) BuildController(
         Employee? caller,
         Payroll? payroll = null,
@@ -97,7 +111,8 @@ public class MeControllerTests
         Leave[]? leaves = null,
         LeaveApplication[]? leaveApplications = null,
         OverTimeApplication[]? overtimeApplications = null,
-        TravelOrderApplication[]? travelOrderApplications = null)
+        TravelOrderApplication[]? travelOrderApplications = null,
+        ChangeRestDay[]? changeRestDays = null)
     {
         var repo = Substitute.For<IRepository>();
         var employees = caller is null ? Array.Empty<Employee>() : [caller];
@@ -106,6 +121,7 @@ public class MeControllerTests
         var applications = leaveApplications ?? [];
         var overtimeApps = overtimeApplications ?? [];
         var travelOrderApps = travelOrderApplications ?? [];
+        var changeRestDayRows = changeRestDays ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
@@ -114,6 +130,7 @@ public class MeControllerTests
         repo.FindAll<LeaveApplication>().Returns(_ => applications.ToList().BuildMockDbSet());
         repo.FindAll<OverTimeApplication>().Returns(_ => overtimeApps.ToList().BuildMockDbSet());
         repo.FindAll<TravelOrderApplication>().Returns(_ => travelOrderApps.ToList().BuildMockDbSet());
+        repo.FindAll<ChangeRestDay>().Returns(_ => changeRestDayRows.ToList().BuildMockDbSet());
         repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
             .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -149,6 +166,7 @@ public class MeControllerTests
         var overtimeApplicationService = new OvertimeApplicationService(uow);
         var travelOrderApplicationService = new TravelOrderApplicationService(uow);
         var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow));
+        var changeRestDayService = new ChangeRestDayService(uow);
 
         // Unlike Leave's bare mapper above, Overtime/TravelOrder/PassSlip's controller actions
         // map to a NEW entity themselves (their services take the entity, not the raw DTO), so
@@ -174,7 +192,7 @@ public class MeControllerTests
         var controller = new MeController(
             employeeService, payrollService, companyService, null!, fixedScheduleService,
             leaveLedgerService, leaveApplicationService, overtimeApplicationService,
-            travelOrderApplicationService, passSlipApplicationService, mapper)
+            travelOrderApplicationService, passSlipApplicationService, changeRestDayService, mapper)
         {
             ControllerContext = new ControllerContext
             {
@@ -492,5 +510,49 @@ public class MeControllerTests
 
         result.Should().BeOfType<OkResult>();
         payload.EmployeeId.Should().Be(caller.Id);
+    }
+
+    [Fact]
+    public async Task GetMyChangeRestDayRequests_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyChangeRestDayRequests(CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMyChangeRestDayRequests_ReturnsOnlyCallersOwnRequests()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var someoneElse = BuildEmployee(Guid.NewGuid());
+        var mine = BuildChangeRestDay(caller.Id, "COFF-MINE");
+        var others = BuildChangeRestDay(someoneElse.Id, "COFF-OTHERS");
+        var (controller, _) = BuildController(caller, changeRestDays: [mine, others]);
+
+        var result = await controller.GetMyChangeRestDayRequests(CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var requests = ok.Value.Should().BeAssignableTo<List<RestDayRecordResponse>>().Subject;
+        requests.Should().ContainSingle();
+        requests[0].EmployeeId.Should().Be(caller.Id);
+    }
+
+    [Fact]
+    public async Task CreateMyChangeRestDayRequest_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+        var payload = new RequestChangeRestDay
+        {
+            FromDay = DayName.Sunday,
+            ToDay = DayName.Monday,
+            PayrollDateFrom = new DateOnly(2026, 9, 6),
+            PayrollDateTo = new DateOnly(2026, 9, 7),
+        };
+
+        var result = await controller.CreateMyChangeRestDayRequest(payload, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
     }
 }

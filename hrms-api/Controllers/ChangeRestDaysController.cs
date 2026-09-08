@@ -49,5 +49,21 @@ namespace Hrms.Api.Controllers
             await _service.DeleteBatch(batchCode, token);
             return Ok("success");
         }
+
+        [HttpPut("approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Approve([FromQuery] Guid employeeId, [FromQuery] string batchCode, CancellationToken token)
+        {
+            await _service.ApproveChangeOffAsync(batchCode, employeeId, token);
+            return Ok();
+        }
+
+        [HttpPut("decline")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Decline([FromQuery] Guid employeeId, [FromQuery] string batchCode, CancellationToken token)
+        {
+            await _service.DeclineChangeOffAsync(batchCode, employeeId, token);
+            return Ok();
+        }
     }
 }

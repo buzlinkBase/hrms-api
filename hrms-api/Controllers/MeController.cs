@@ -30,6 +30,7 @@ namespace Hrms.Api.Controllers
         private readonly OvertimeApplicationService _overtimeApplicationService;
         private readonly TravelOrderApplicationService _travelOrderApplicationService;
         private readonly PassSlipApplicationService _passSlipApplicationService;
+        private readonly ChangeRestDayService _changeRestDayService;
         private readonly IMapper _mapper;
 
         public MeController(
@@ -43,6 +44,7 @@ namespace Hrms.Api.Controllers
             OvertimeApplicationService overtimeApplicationService,
             TravelOrderApplicationService travelOrderApplicationService,
             PassSlipApplicationService passSlipApplicationService,
+            ChangeRestDayService changeRestDayService,
             IMapper mapper)
         {
             _employeeService = employeeService;
@@ -55,6 +57,7 @@ namespace Hrms.Api.Controllers
             _overtimeApplicationService = overtimeApplicationService;
             _travelOrderApplicationService = travelOrderApplicationService;
             _passSlipApplicationService = passSlipApplicationService;
+            _changeRestDayService = changeRestDayService;
             _mapper = mapper;
         }
 
@@ -257,6 +260,31 @@ namespace Hrms.Api.Controllers
             payload.EmployeeId = employeeId.Value;
             var entity = _mapper.Map<PassSlipApplication>(payload);
             await _passSlipApplicationService.AddAsync(entity, token);
+            return Ok();
+        }
+
+        [HttpGet("change-rest-day")]
+        [ProducesResponseType(typeof(ResponseModel<List<RestDayRecordResponse>>), 200)]
+        public async Task<IActionResult> GetMyChangeRestDayRequests(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _changeRestDayService.FindList(new RestDayListFilter { EmployeeId = employeeId }, token));
+        }
+
+        // EmployeeId is resolved server-side and never trusted from the client, same guard rail
+        // as every other create action here. RequestChangeOffAsync always files ForApproval —
+        // see ChangeRestDayService for why that's safe against the DTR calculation path.
+        [HttpPost("change-rest-day")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CreateMyChangeRestDayRequest([FromBody] RequestChangeRestDay payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            await _changeRestDayService.RequestChangeOffAsync(
+                employeeId.Value, payload.FromDay, payload.ToDay, payload.PayrollDateFrom, payload.PayrollDateTo, token);
             return Ok();
         }
     }

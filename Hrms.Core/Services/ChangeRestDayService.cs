@@ -23,13 +23,46 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
            .ToListAsync(token);
 
         await RemoveRangeAsync(existing, token);
-        await AddNewDayOffAsync(changeOffs, token);
+        await AddNewDayOffAsync(changeOffs, ApprovalStatus.Approved, token);
         await SaveChangesAsync(token);
         await CommitChangesAsync(token);
 
     }
 
-    private async Task AddNewDayOffAsync(ChangeOffModel changeOff, CancellationToken token)
+    // Self-service "My Change Rest Day" request — a single employee, ForApproval by default, so
+    // it never takes effect (see GetChangeRestDays below) until an admin approves it via
+    // ApproveChangeOffAsync. See MeController.CreateMyChangeRestDayRequest.
+    public async Task RequestChangeOffAsync(Guid employeeId, DayName fromDay, DayName toDay,
+        DateOnly payrollDateFrom, DateOnly payrollDateTo, CancellationToken token)
+    {
+        var changeOff = new ChangeOffModel
+        {
+            FromDay = fromDay,
+            ToDay = toDay,
+            PayrolLDateFrom = payrollDateFrom,
+            PayrolLDateTo = payrollDateTo,
+            EmployeeIds = [employeeId],
+        };
+        await AddNewDayOffAsync(changeOff, ApprovalStatus.ForApproval, token);
+        await SaveChangesAsync(token);
+        await CommitChangesAsync(token);
+    }
+
+    public async Task ApproveChangeOffAsync(string batchCode, Guid employeeId, CancellationToken token)
+    {
+        await Context.ChangeRestDays
+            .Where(x => x.BatchCode == batchCode && x.EmployeeId == employeeId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ApprovalStatus, ApprovalStatus.Approved), token);
+    }
+
+    public async Task DeclineChangeOffAsync(string batchCode, Guid employeeId, CancellationToken token)
+    {
+        await Context.ChangeRestDays
+            .Where(x => x.BatchCode == batchCode && x.EmployeeId == employeeId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ApprovalStatus, ApprovalStatus.Declined), token);
+    }
+
+    private async Task AddNewDayOffAsync(ChangeOffModel changeOff, ApprovalStatus status, CancellationToken token)
     {
         var yr = DateTime.UtcNow.Year;
         var count = Context.ChangeRestDays
@@ -46,6 +79,7 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
                 PayrollDate = changeOff.PayrolLDateFrom,
                 EmployeeId = emp,
                 BatchCode = batchCode,
+                ApprovalStatus = status,
             };
             var entity2 = new ChangeRestDay()
             {
@@ -54,6 +88,7 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
                 PayrollDate = changeOff.PayrolLDateTo,
                 EmployeeId = emp,
                 BatchCode = batchCode,
+                ApprovalStatus = status,
             };
             models.Add(entity1);
             models.Add(entity2);
@@ -68,7 +103,8 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
         return await _uow.Repository
          .Find<ChangeRestDay>(x => empIds.Any(xx => xx == x.EmployeeId) &&
                 x.PayrollDate >= fromDate
-                && x.PayrollDate <= toDate)
+                && x.PayrollDate <= toDate
+                && x.ApprovalStatus == ApprovalStatus.Approved)
          .GroupBy(x => new ResDaykey(x.EmployeeId, x.PayrollDate))
          .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
          ;
@@ -98,7 +134,11 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
                 // Construct string directly inside SQL projection
                 FullName = $"{g.Key.FirstName} {g.Key.LastName}".Trim(),
                 FromDate = g.Min(x => x.PayrollDate),
-                ToDate = g.Max(x => x.PayrollDate)
+                ToDate = g.Max(x => x.PayrollDate),
+                // Both rows in a batch+employee group always share the same status (updated
+                // atomically by Approve/DeclineChangeOffAsync), so Max is just a safe,
+                // EF-translatable way to pull one value out of the grouped set.
+                ApprovalStatus = g.Max(x => x.ApprovalStatus),
             })
             .OrderBy(x => x.FromDate)
             .ToListAsync(token);
@@ -137,6 +177,7 @@ public class RestDayRecordResponse
     public string FullName { get; set; }
     public DateOnly FromDate { get; set; }
     public DateOnly ToDate { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; }
 }
 
 public class RestDayListFilter
@@ -144,4 +185,14 @@ public class RestDayListFilter
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
     public Guid? EmployeeId { get; set; }
+}
+
+// Self-service request payload — deliberately singular (no EmployeeIds array), unlike the admin
+// batch-shaped ChangeOffModel above. See MeController.CreateMyChangeRestDayRequest.
+public class RequestChangeRestDay
+{
+    public DayName FromDay { get; set; }
+    public DayName ToDay { get; set; }
+    public DateOnly PayrollDateFrom { get; set; }
+    public DateOnly PayrollDateTo { get; set; }
 }
