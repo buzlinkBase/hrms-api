@@ -14,6 +14,7 @@ public class PayrollBatchLifecycleService
     private readonly TaxContributionService _taxContributionService;
     private readonly DailyRecordService _dtrServie;
     private readonly PayrollInputConsumptionService _consumptionService;
+    private readonly YearLockService _yearLockService;
 
     public PayrollBatchLifecycleService(
         PayrollBatchService payrollBatchService,
@@ -23,7 +24,8 @@ public class PayrollBatchLifecycleService
         HDMFContributionService hdmfContributionService,
         TaxContributionService taxContributionService,
         DailyRecordService dtrServie,
-        PayrollInputConsumptionService consumptionService)
+        PayrollInputConsumptionService consumptionService,
+        YearLockService yearLockService)
     {
         _payrollBatchService = payrollBatchService;
         _payrollService = payrollService;
@@ -33,17 +35,27 @@ public class PayrollBatchLifecycleService
         _taxContributionService = taxContributionService;
         _dtrServie = dtrServie;
         _consumptionService = consumptionService;
+        _yearLockService = yearLockService;
     }
 
     // Locks a whole Generate run in as final — an employee's payroll is never posted on its
     // own, since it was never generated on its own either. Updates the canonical
     // PayrollBatch.IsPosted plus each child Payroll row's denormalized copy (see
     // Payroll.PayrollBatchId doc comment) so existing per-row report filters keep working
-    // unchanged.
+    // unchanged. Posting a YearEndAdjustment batch additionally locks that calendar year (its
+    // PayPeriodStart is always Jan 1 of the target year — see TaxAnnualizationService.GenerateAsync)
+    // so no further Regular/13th-Month/Last-Pay/Year-End-Adjustment data can be generated or
+    // deleted for it without an explicit Reopen Year — see YearLockService.
     public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token)
     {
         await _payrollBatchService.PostAsync(payrollBatchId, token);
         await _payrollService.PostBatchAsync(payrollBatchId, token);
+
+        var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token);
+        if (batch?.PayrollType == PayrollType.YearEndAdjustment)
+        {
+            await _yearLockService.LockYearAsync(batch.PayPeriodStart.Year, token);
+        }
     }
 
     // Deletes every row from one Generate run (same PayrollBatchId) in a single action, plus
@@ -71,8 +83,21 @@ public class PayrollBatchLifecycleService
         // Captured before deletion — releases whatever SalaryAdjustment/OtherIncomeSchedules
         // rows this batch's own Payroll rows had claimed (see PayrollInputConsumptionService),
         // the same "undo what this run reserved" logic already applied below to DTR posting.
-        var payrollIds = (await _payrollService.GetByBatchIdAsync(payrollBatchId, token))
-            .Select(x => x.Id).ToList();
+        // Also doubles as the source for the year-lock check right below, so this draft can't
+        // be deleted if its own PostingPeriod falls in a year some OTHER batch's posting has
+        // already locked.
+        var payrollRows = await _payrollService.GetByBatchIdAsync(payrollBatchId, token);
+        var touchedYears = payrollRows.Select(x => x.PostingPeriod.Year).Distinct().ToList();
+        foreach (var year in touchedYears)
+        {
+            if (await _yearLockService.IsYearLockedAsync(year, token))
+            {
+                throw new ValidationException(
+                    $"Payroll for {year} is locked — the Year-End Tax Adjustment has already been posted for " +
+                    "this year. Reopen the year first if changes are required.");
+            }
+        }
+        var payrollIds = payrollRows.Select(x => x.Id).ToList();
 
         await _sssContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _phicContributionService.DeleteByBatchIdAsync(payrollBatchId, token);

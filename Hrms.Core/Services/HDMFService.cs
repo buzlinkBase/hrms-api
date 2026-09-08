@@ -17,6 +17,9 @@ public class HDMFService : BaseService<HDMFTable>
     }
     public async Task AddAsync(HDMFTable model, CancellationToken token)
     {
+        // Effectivity dating/versioning is not in use — every new bracket defaults to the
+        // minimum date so it always applies, regardless of what the client sends.
+        model.EffectiveDate = DateOnly.MinValue;
         model.TotalContribution = model.EmployeeShare + model.EmployerShare;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -28,11 +31,10 @@ public class HDMFService : BaseService<HDMFTable>
         {
             throw new NotFoundException("Record not found");
         }
+        var effectiveDate = existing.EffectiveDate;
         payload.Adapt(existing);
-        if (existing != null)
-        {
-            existing.TotalContribution = existing.EmployeeShare + existing.EmployerShare;
-        }
+        existing.EffectiveDate = effectiveDate; // not editable via the UI anymore — preserve it
+        existing.TotalContribution = existing.EmployeeShare + existing.EmployerShare;
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
@@ -47,39 +49,19 @@ public class HDMFService : BaseService<HDMFTable>
         await CommitChangesAsync(token);
     }
 
-
-    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
+    public async Task<List<HDMFTable>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable()
-            .GroupBy(x => x.EffectiveDate)
-            .Select(x => x.Key)
-            .OrderByDescending(x => x)
-            .ToListAsync(token);
-    }
-
-    public async Task<List<HDMFTable>> FindAllAsync(DateOnly effectivity,
-        CancellationToken token)
-    {
-        return await GetQueryable()
-            .Where(x => x.EffectiveDate == effectivity)
             .OrderBy(x => x.MinSalaryBase)
             .ToListAsync(token);
     }
 
-    public async Task<List<HDMFModel>> LoadForPayrollrunAsync(DateOnly effectivity,
-        CancellationToken token)
+    public async Task<List<HDMFModel>> LoadForPayrollrunAsync(CancellationToken token)
     {
-
-        var latest = await _uow.Context.GovPHICs
-            .Where(x => x.EffectiveDate <= effectivity)
-            .OrderByDescending(x => x.EffectiveDate)
-            .FirstOrDefaultAsync(token);
-
         return await GetQueryable()
-            .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
+            .OrderBy(x => x.MinSalaryBase)
             .ProjectToType<HDMFModel>(_config)
             .ToListAsync(token);
-
     }
 
     public async Task<HDMFTable?> FineOneAsync(Guid Id, CancellationToken token)

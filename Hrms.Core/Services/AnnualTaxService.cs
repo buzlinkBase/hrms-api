@@ -18,6 +18,9 @@ public class AnnualTaxService : BaseService<AnnualTaxTable>
 
     public async Task AddAsync(AnnualTaxTable model, CancellationToken token)
     {
+        // Effectivity dating/versioning is not in use — every new bracket defaults to the
+        // minimum date so it always applies, regardless of what the client sends.
+        model.EffectiveDate = DateOnly.MinValue;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
@@ -28,24 +31,17 @@ public class AnnualTaxService : BaseService<AnnualTaxTable>
         if (existing == null)
             throw new NotFoundException("Record not found");
 
+        var effectiveDate = existing.EffectiveDate;
         payload.Adapt(existing);
+        existing.EffectiveDate = effectiveDate; // not editable via the UI anymore — preserve it
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
-    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
+    public async Task<List<AnnualTaxTable>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable()
-            .GroupBy(x => x.EffectiveDate)
-            .Select(x => x.Key)
-            .OrderByDescending(x => x)
-            .ToListAsync(token);
-    }
-
-    public async Task<List<AnnualTaxTable>> FindAllAsync(DateOnly effectivity, CancellationToken token)
-    {
-        return await GetQueryable()
-            .Where(x => x.EffectiveDate == effectivity)
+            .OrderBy(x => x.RangeFrom)
             .ToListAsync(token);
     }
 

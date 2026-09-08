@@ -18,6 +18,9 @@ public class PHICService : BaseService<PHICTable>
     }
     public async Task AddAsync(PHICTable model, CancellationToken token)
     {
+        // Effectivity dating/versioning is not in use — every new bracket defaults to the
+        // minimum date so it always applies, regardless of what the client sends.
+        model.EffectiveDate = DateOnly.MinValue;
         model.TotalContribution = model.EmployeeShare + model.EmployerShare;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -29,45 +32,27 @@ public class PHICService : BaseService<PHICTable>
         {
             throw new NotFoundException("Record not found");
         }
+        var effectiveDate = existing.EffectiveDate;
         payload.Adapt(existing);
-        if (existing != null)
-        {
-            existing.TotalContribution = existing.EmployeeShare + existing.EmployerShare;
-        }
+        existing.EffectiveDate = effectiveDate; // not editable via the UI anymore — preserve it
+        existing.TotalContribution = existing.EmployeeShare + existing.EmployerShare;
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
-
-    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
+    public async Task<List<PHICTable>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable()
-            .GroupBy(x => x.EffectiveDate)
-            .Select(x => x.Key)
-            .OrderByDescending(x => x)
-            .ToListAsync(token);
-    }
-
-    public async Task<List<PHICTable>> FindAllAsync(DateOnly effectivity, CancellationToken token)
-    {
-        return await GetQueryable()
-            .Where(x => x.EffectiveDate == effectivity)
             .OrderBy(x => x.MinSalaryBase)
             .ToListAsync(token);
     }
 
-    public async Task<List<PHICModel>> LoadForPayrollrunAsync(DateOnly effectivity, CancellationToken token)
+    public async Task<List<PHICModel>> LoadForPayrollrunAsync(CancellationToken token)
     {
-        var latest = await _uow.Context.GovPHICs
-            .Where(x => x.EffectiveDate <= effectivity)
-            .OrderByDescending(x => x.EffectiveDate)
-            .FirstOrDefaultAsync(token);
-
         return await GetQueryable()
-            .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
+            .OrderBy(x => x.MinSalaryBase)
             .ProjectToType<PHICModel>(_config)
             .ToListAsync(token);
-
     }
 
 

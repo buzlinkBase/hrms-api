@@ -18,6 +18,9 @@ public class TaxService : BaseService<TaxTable>
     }
     public async Task AddAsync(TaxTable model, CancellationToken token)
     {
+        // Effectivity dating/versioning is not in use — every new bracket defaults to the
+        // minimum date so it always applies, regardless of what the client sends.
+        model.EffectiveDate = DateOnly.MinValue;
         model.PercentageInAmountOf = model.RangeFrom;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -29,42 +32,26 @@ public class TaxService : BaseService<TaxTable>
         {
             throw new NotFoundException("Record not found");
         }
+        var effectiveDate = existing.EffectiveDate;
         payload.Adapt(existing);
-        if (existing != null)
-        {
-            existing.PercentageInAmountOf = existing.RangeFrom;
-        }
+        existing.EffectiveDate = effectiveDate; // not editable via the UI anymore — preserve it
+        existing.PercentageInAmountOf = existing.RangeFrom;
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
-    public async Task<List<DateOnly>> VersionsAsync(string payrollType, CancellationToken token)
+    public async Task<List<TaxTable>> FindAllAsync(string payrollType, CancellationToken token)
     {
         return await GetQueryable()
             .Where(x => x.PayrollType == payrollType)
-            .GroupBy(x => x.EffectiveDate)
-            .Select(x => x.Key)
-            .OrderByDescending(x => x)
-            .ToListAsync(token);
-    }
-
-    public async Task<List<TaxTable>> FindAllAsync(DateOnly effectivity, string payrollType, CancellationToken token)
-    {
-        return await GetQueryable()
-            .Where(x => x.EffectiveDate == effectivity && x.PayrollType == payrollType)
             .OrderBy(x => x.RangeFrom)
             .ToListAsync(token);
     }
 
-    public async Task<List<WTaxModel>> LoadForPayrollrunAsync(DateOnly effectivity, CancellationToken token)
+    public async Task<List<WTaxModel>> LoadForPayrollrunAsync(CancellationToken token)
     {
-        var latest = await _uow.Context.GovTaxes
-            .Where(x => x.EffectiveDate <= effectivity)
-            .OrderByDescending(x => x.EffectiveDate)
-            .FirstOrDefaultAsync(token);
-
         return await GetQueryable()
-            .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
+            .OrderBy(x => x.RangeFrom)
             .ProjectToType<WTaxModel>(_config)
             .ToListAsync(token);
     }

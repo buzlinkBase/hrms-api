@@ -33,6 +33,19 @@ public record ThirteenthMonthRunPayload(int Year)
     public DateOnly? PayDate { get; init; }
     public string? Remarks { get; init; }
 }
+
+// Payload for the "Year-End Tax Adjustment" run — recomputes each employee's true annual
+// income tax (against AnnualTaxTable) and nets it against the withholding tax already
+// collected all year, producing a refund or additional-collection PayrollType.YearEndAdjustment
+// row. Same scoping convention as ThirteenthMonthRunPayload: both null/empty means everyone
+// with a computable, non-zero adjustment for Year. See TaxAnnualizationService.
+public record TaxAnnualizationRunPayload(int Year)
+{
+    public List<Guid>? PayrollGroupIds { get; init; }
+    public List<Guid>? EmployeeIds { get; init; }
+    public DateOnly? PayDate { get; init; }
+    public string? Remarks { get; init; }
+}
 // EmployeeIds is required (not optional like ThirteenthMonthRunPayload's) — Last Pay is
 // never run "for everyone", only for specific separated employees being settled. Each
 // employee's own DateResigned anchors their proration window, so no Year/PayrollGroupIds

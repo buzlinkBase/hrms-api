@@ -11,10 +11,12 @@ namespace Hrms.Core.Services;
 public class PayrollReportService : BaseService<Payroll>
 {
     private readonly EmployeeService _employeeService;
+    private readonly PayrollOpeningBalanceService _payrollOpeningBalanceService;
 
-    public PayrollReportService(IUnitOfWorkService uow, EmployeeService employeeService) : base(uow)
+    public PayrollReportService(IUnitOfWorkService uow, EmployeeService employeeService, PayrollOpeningBalanceService payrollOpeningBalanceService) : base(uow)
     {
         _employeeService = employeeService;
+        _payrollOpeningBalanceService = payrollOpeningBalanceService;
     }
 
     public async Task<List<BankDisbursementModel>> GetBankDisbursementAsync(DateOnly from, DateOnly to, CancellationToken token)
@@ -194,30 +196,46 @@ public class PayrollReportService : BaseService<Payroll>
     public async Task<List<YtdPayrollSummaryModel>> GetYtdSummaryAsync(int year, Guid? employeeId, CancellationToken token)
     {
         var rows = await GetQueryable(x => x.PayPeriodStart.Year == year && x.IsPosted && (employeeId == null || x.EmployeeId == employeeId)).ToListAsync(token);
-        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
 
-        return rows.GroupBy(x => x.EmployeeId).Select(g =>
+        // Fold in each employee's pre-system-cutover Opening Balance (see
+        // PayrollOpeningBalance) so a company onboarding mid-year isn't understated for the
+        // months before this system existed. Employees present only via an Opening Balance
+        // (no Payroll rows yet this year) still get a row, not just the ones with Payroll data.
+        var openingBalances = await _payrollOpeningBalanceService.FindAllByYearAsync(year, token);
+        if (employeeId != null)
         {
-            employeeMap.TryGetValue(g.Key, out var e);
+            openingBalances = openingBalances.Where(x => x.Key == employeeId).ToDictionary(x => x.Key, x => x.Value);
+        }
+
+        var payrollGroups = rows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+        var employeeIds = payrollGroups.Keys.Union(openingBalances.Keys).ToList();
+        var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
+
+        return employeeIds.Select(id =>
+        {
+            employeeMap.TryGetValue(id, out var e);
+            payrollGroups.TryGetValue(id, out var g);
+            g ??= new List<Payroll>();
+            openingBalances.TryGetValue(id, out var ob);
             return new YtdPayrollSummaryModel
             {
-                EmployeeId = g.Key,
+                EmployeeId = id,
                 EmployeeNo = e?.EmployeeNo ?? "",
                 FullName = e.FullName(),
                 Year = year,
-                TotalBasicPay = g.Sum(x => x.BasicPay),
-                TotalOvertimePay = g.Sum(x => x.OvertimePay),
-                TotalHolidayPay = g.Sum(x => x.HolidayPay),
-                TotalAllowances = g.Sum(x => x.TotalRegularAllowances),
-                TotalOtherIncome = g.Sum(x => x.TotalOtherIncome),
-                TotalGrossIncome = g.Sum(x => x.GrossIncome),
-                TotalSSS = g.Sum(x => x.SSSContribution),
-                TotalPhilHealth = g.Sum(x => x.PhilHealthContribution),
-                TotalPagIbig = g.Sum(x => x.PagIbigContribution),
-                TotalWithholdingTax = g.Sum(x => x.WithholdingTax),
-                TotalOtherDeductions = g.Sum(x => x.OtherDeductions),
-                TotalDeductions = g.Sum(x => x.TotalDeductions),
-                TotalNetPay = g.Sum(x => x.NetPay),
+                TotalBasicPay = g.Sum(x => x.BasicPay) + (ob?.BasicPay ?? 0),
+                TotalOvertimePay = g.Sum(x => x.OvertimePay) + (ob?.OvertimePay ?? 0),
+                TotalHolidayPay = g.Sum(x => x.HolidayPay) + (ob?.HolidayPay ?? 0),
+                TotalAllowances = g.Sum(x => x.TotalRegularAllowances) + (ob?.Allowances ?? 0),
+                TotalOtherIncome = g.Sum(x => x.TotalOtherIncome) + (ob?.OtherIncome ?? 0),
+                TotalGrossIncome = g.Sum(x => x.GrossIncome) + (ob?.GrossIncome ?? 0),
+                TotalSSS = g.Sum(x => x.SSSContribution) + (ob?.SSSContribution ?? 0),
+                TotalPhilHealth = g.Sum(x => x.PhilHealthContribution) + (ob?.PhilHealthContribution ?? 0),
+                TotalPagIbig = g.Sum(x => x.PagIbigContribution) + (ob?.PagIbigContribution ?? 0),
+                TotalWithholdingTax = g.Sum(x => x.WithholdingTax) + (ob?.WithholdingTax ?? 0),
+                TotalOtherDeductions = g.Sum(x => x.OtherDeductions) + (ob?.OtherDeductions ?? 0),
+                TotalDeductions = g.Sum(x => x.TotalDeductions) + (ob?.TotalDeductions ?? 0),
+                TotalNetPay = g.Sum(x => x.NetPay) + (ob?.NetPay ?? 0),
             };
         }).OrderBy(x => x.FullName).ToList();
     }
@@ -239,7 +257,11 @@ public class PayrollReportService : BaseService<Payroll>
                 x.PostingPeriod.Year == year && x.IsPosted && x.PayrollType == PayrollType.Regular &&
                 (asOfDate == null || x.PostingPeriod <= asOfDate))
             .ToListAsync(token);
-        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
+
+        // Opening Balance (pre-system-cutover) BasicPay/Bonuses are always fully in the past
+        // relative to any asOfDate within the same year, so they're folded in unconditionally
+        // regardless of the asOfDate slice — see PayrollOpeningBalance's doc comment.
+        var openingBalances = await _payrollOpeningBalanceService.FindAllByYearAsync(year, token);
 
         // This year's own 13th month payout row, if generated — used to surface a
         // released/unreleased Status per employee (NotGenerated/Draft/Posted), independent
@@ -253,15 +275,22 @@ public class PayrollReportService : BaseService<Payroll>
             .GroupBy(x => x.EmployeeId)
             .ToDictionary(g => g.Key, g => g.First());
 
-        return rows.GroupBy(x => x.EmployeeId).Select(g =>
+        var payrollGroups = rows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+        var employeeIds = payrollGroups.Keys.Union(openingBalances.Keys).ToList();
+        var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
+
+        return employeeIds.Select(id =>
         {
-            employeeMap.TryGetValue(g.Key, out var e);
-            var totalBasic = g.Sum(x => x.BasicPay);
-            var totalSpecialBonuses = g.Sum(x => x.TotalBonuses);
-            runByEmployee.TryGetValue(g.Key, out var run);
+            employeeMap.TryGetValue(id, out var e);
+            payrollGroups.TryGetValue(id, out var g);
+            g ??= new List<Payroll>();
+            openingBalances.TryGetValue(id, out var ob);
+            var totalBasic = g.Sum(x => x.BasicPay) + (ob?.BasicPay ?? 0);
+            var totalSpecialBonuses = g.Sum(x => x.TotalBonuses) + (ob?.Bonuses ?? 0);
+            runByEmployee.TryGetValue(id, out var run);
             return new ThirteenthMonthModel
             {
-                EmployeeId = g.Key,
+                EmployeeId = id,
                 EmployeeNo = e?.EmployeeNo ?? "",
                 FullName = e.FullName(),
                 Year = year,
@@ -271,6 +300,91 @@ public class PayrollReportService : BaseService<Payroll>
                 Status = run == null ? "NotGenerated" : run.IsPosted ? "Posted" : "Draft",
                 NetPay = run?.NetPay,
                 PayrollId = run?.Id,
+            };
+        }).OrderBy(x => x.FullName).ToList();
+    }
+
+    // Year-End Tax Annualization's per-employee RAW annual aggregate (RR 11-2018 §2.79.4) —
+    // deliberately not netted/clamped here (see TaxAnnualizationInputModel's doc comment) so
+    // TaxAnnualizationService.ComputeAsync can consolidate these with any PriorEmployerTaxRecord
+    // before flooring at 0 and running the bracket lookup. Per-row taxable-gross formula
+    // mirrors TableWTaxCalculator's own per-period calculation (GrossIncome - SSS.EE - PHIC.EE
+    // - HDMF.EE), additionally netting out NonTaxableBenefits (immaterial per-period, matters
+    // for an accurate annual figure):
+    //   CurrentGrossIncome = Sum(GrossIncome)
+    //   CurrentNonTaxableBenefits = Sum(NonTaxableBenefits)
+    //   CurrentStatutoryDeductions = Sum(SSSContribution + PhilHealthContribution + PagIbigContribution)
+    // Source rows: PostingPeriod.Year == year && IsPosted && PayrollType IN (Regular,
+    // ThirteenthMonth, LastPay) — explicitly enumerated (not != YearEndAdjustment) so a future
+    // PayrollType is excluded by default rather than silently leaking in. ThirteenthMonth/
+    // LastPay rows are INCLUDED (unlike GetThirteenthMonthAsync's own sourcing query, which
+    // deliberately excludes ThirteenthMonth to avoid a payout feeding its own entitlement calc)
+    // because their TaxableBenefits/WithholdingTax already reflect the
+    // ThirteenthMonthExemptionCeiling split applied at payout time — excluding them would
+    // undercount both annual taxable income and tax already withheld for the year.
+    public async Task<List<TaxAnnualizationInputModel>> GetAnnualTaxAnnualizationInputsAsync(int year, CancellationToken token)
+    {
+        var rows = await GetQueryable(x =>
+                x.PostingPeriod.Year == year && x.IsPosted &&
+                (x.PayrollType == PayrollType.Regular || x.PayrollType == PayrollType.ThirteenthMonth || x.PayrollType == PayrollType.LastPay))
+            .ToListAsync(token);
+
+        // Fold in pre-system-cutover Opening Balance figures as more "Current" employer data
+        // (same employer, just pre-dating this system) — this is why TaxAnnualizationService
+        // itself needs no changes: it already treats these five Current* fields as one bucket,
+        // regardless of whether they came from real Payroll rows or an Opening Balance.
+        var openingBalances = await _payrollOpeningBalanceService.FindAllByYearAsync(year, token);
+
+        var payrollGroups = rows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+        var employeeIds = payrollGroups.Keys.Union(openingBalances.Keys).ToList();
+        var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
+
+        var branchIds = employeeMap.Values.Where(x => x.BranchId.HasValue).Select(x => x.BranchId!.Value).Distinct().ToList();
+        var branchMap = (await Context.Branches.AsNoTracking()
+            .Where(x => branchIds.Contains(x.Id)).ToListAsync(token))
+            .ToDictionary(x => x.Id);
+
+        var minimumWageRates = await Context.MinimumWageRates.AsNoTracking().ToListAsync(token);
+
+        return employeeIds.Select(id =>
+        {
+            employeeMap.TryGetValue(id, out var employee);
+            payrollGroups.TryGetValue(id, out var g);
+            g ??= new List<Payroll>();
+            openingBalances.TryGetValue(id, out var ob);
+            Branch? branch = employee?.BranchId.HasValue == true && branchMap.TryGetValue(employee.BranchId!.Value, out var foundBranch)
+                ? foundBranch
+                : null;
+
+            // Only Regular-type rows feed MWE detection — ThirteenthMonth/LastPay rows have
+            // DailyRate == 0 and would corrupt the "latest row" pick (see
+            // MinimumWageEarnerResolver's doc comment). An employee with only an Opening
+            // Balance (no Regular row in this system yet) can't be classified from here and
+            // falls back to IsUnclassified via the resolver's own empty-list handling.
+            var regularRows = g.Where(x => x.PayrollType == PayrollType.Regular).ToList();
+            var (isMWE, isUnclassified) = MinimumWageEarnerResolver.IsMinimumWageEarner(
+                regularRows, branch?.RegionCode, branch?.WageOrderClass, minimumWageRates);
+
+            var latestGroupRow = g.OrderByDescending(x => x.PostingPeriod).FirstOrDefault();
+
+            return new TaxAnnualizationInputModel
+            {
+                EmployeeId = id,
+                EmployeeNo = employee?.EmployeeNo ?? "",
+                FullName = employee.FullName(),
+                Year = year,
+                PayrollGroupId = latestGroupRow?.PayrollGroupId,
+                AreaId = latestGroupRow?.AreaId,
+                ClientId = latestGroupRow?.ClientId,
+                SalaryType = latestGroupRow?.SalaryType ?? default,
+                CurrentGrossIncome = g.Sum(x => x.GrossIncome) + (ob?.GrossIncome ?? 0),
+                CurrentNonTaxableBenefits = g.Sum(x => x.NonTaxableBenefits) + (ob?.NonTaxableIncome ?? 0),
+                CurrentStatutoryDeductions = g.Sum(x => x.SSSContribution + x.PhilHealthContribution + x.PagIbigContribution)
+                    + (ob == null ? 0 : ob.SSSContribution + ob.PhilHealthContribution + ob.PagIbigContribution),
+                CurrentWithholdingTaxYTD = g.Sum(x => x.WithholdingTax) + (ob?.WithholdingTax ?? 0),
+                CurrentAverageMonthlyNetPay = (g.Sum(x => x.NetPay) + (ob?.NetPay ?? 0)) / 12,
+                IsMinimumWageEarner = isMWE,
+                IsUnclassified = isUnclassified,
             };
         }).OrderBy(x => x.FullName).ToList();
     }
@@ -298,8 +412,19 @@ public class PayrollReportService : BaseService<Payroll>
                 x.PostingPeriod >= from && x.PostingPeriod <= to)
             .ToListAsync(token);
 
+        // Year-End Tax Adjustment rows (see TaxAnnualizationService) — per RR 11-2018
+        // §2.79.4(B), an under-withheld year-end collection must be remitted with that month's
+        // 1601-C, and an over-withheld refund is netted against it. Kept in its own bucket
+        // (never merged into regRows) since its DailyRate/BasicPay/etc. are always 0 and would
+        // corrupt the MWE "latest regular row" pick above if merged in.
+        var yearEndAdjustmentRows = await GetQueryable(x =>
+                x.PayrollType == PayrollType.YearEndAdjustment && x.IsPosted &&
+                x.PostingPeriod >= from && x.PostingPeriod <= to)
+            .ToListAsync(token);
+
         var employeeIds = regularRows.Select(x => x.EmployeeId)
             .Concat(thirteenthMonthRows.Select(x => x.EmployeeId))
+            .Concat(yearEndAdjustmentRows.Select(x => x.EmployeeId))
             .Distinct().ToList();
 
         var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
@@ -329,6 +454,7 @@ public class PayrollReportService : BaseService<Payroll>
 
         var regularByEmployee = regularRows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
         var thirteenthByEmployee = thirteenthMonthRows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+        var yeaByEmployee = yearEndAdjustmentRows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
 
         var employees = new List<MonthlyRemittanceReturnEmployeeModel>();
         foreach (var employeeId in employeeIds)
@@ -348,15 +474,10 @@ public class PayrollReportService : BaseService<Payroll>
             // MWE status is assessed from the employee's most recent regular row in the
             // period, against the region rate effective as of that same row's period — not
             // stored on Employee, so a later wage-rate change never retroactively reclassifies
-            // an already-filed period.
-            var latestRow = regRows.OrderByDescending(x => x.PostingPeriod).FirstOrDefault();
-            var regionRate = latestRow != null
-                ? ResolveRegionRate(minimumWageRates, regionCode, wageOrderClass, latestRow.PostingPeriod)
-                : null;
-            // Has payroll data to check but no Branch/Region/MinimumWageRate to check it
-            // against — defaulted to non-MWE below, but flagged so it's never silent.
-            var isUnclassified = latestRow != null && regionRate == null;
-            var isMWE = latestRow != null && regionRate.HasValue && latestRow.DailyRate <= regionRate.Value;
+            // an already-filed period. Shared with TaxAnnualizationService via
+            // MinimumWageEarnerResolver so both use the exact same determination.
+            var (isMWE, isUnclassified) = MinimumWageEarnerResolver.IsMinimumWageEarner(
+                regRows, regionCode, wageOrderClass, minimumWageRates);
 
             hazardPayByEmployee.TryGetValue(employeeId, out var hazardPay);
 
@@ -369,7 +490,14 @@ public class PayrollReportService : BaseService<Payroll>
             // 13th month exempt portion is already ceiling-capped by ComputeThirteenthMonthTaxSplit.
             var line16C = regRows.Sum(x => x.SSSContribution + x.PhilHealthContribution + x.PagIbigContribution + x.TotalDeminimises)
                 + tmRows.Sum(x => x.NonTaxableBenefits);
-            var taxWithheld = regRows.Sum(x => x.WithholdingTax) + tmRows.Sum(x => x.WithholdingTax);
+            yeaByEmployee.TryGetValue(employeeId, out var yeaRows);
+            yeaRows ??= new List<Payroll>();
+            // Includes any posted Year-End Tax Adjustment row for the period — a positive
+            // WithholdingTax there is an additional collection to remit this period, a negative
+            // one is a refund netted against it. Both nets correctly into one Sum since every
+            // other field on a YearEndAdjustment row (GrossIncome/BasicPay/etc.) is always 0,
+            // so it never affects Lines 15/16A/16B/16C above.
+            var taxWithheld = regRows.Sum(x => x.WithholdingTax) + tmRows.Sum(x => x.WithholdingTax) + yeaRows.Sum(x => x.WithholdingTax);
 
             employees.Add(new MonthlyRemittanceReturnEmployeeModel
             {
@@ -425,62 +553,43 @@ public class PayrollReportService : BaseService<Payroll>
         };
     }
 
-    // internal (not private), static — pure lookup over an already-fetched rate list,
-    // testable without a DB (same reasoning as SummarizeMonthlyRemittanceReturn above).
-    // Wage orders often set different rates within the same region depending on the
-    // establishment's registered sector/class (Branch.WageOrderClass) — tries an exact class
-    // match first (including both-null, the legacy/general-rate case), then falls back to the
-    // region's class-less rate if the branch's specific class has no rate of its own
-    // configured, so setting a class on a branch can never make a previously working
-    // region-only setup regress to Unclassified.
-    internal static decimal? ResolveRegionRate(
-        List<MinimumWageRate> minimumWageRates, string? regionCode, string? wageOrderClass, DateOnly asOf)
-    {
-        if (string.IsNullOrEmpty(regionCode)) return null;
-        var normalizedClass = string.IsNullOrEmpty(wageOrderClass) ? null : wageOrderClass;
-        var candidates = minimumWageRates.Where(r => r.RegionCode == regionCode && r.EffectiveDate <= asOf);
-
-        var exact = candidates
-            .Where(r => (string.IsNullOrEmpty(r.WageOrderClass) ? null : r.WageOrderClass) == normalizedClass)
-            .OrderByDescending(r => r.EffectiveDate)
-            .Select(r => (decimal?)r.DailyRate)
-            .FirstOrDefault();
-        if (exact != null) return exact;
-        if (normalizedClass == null) return null;
-
-        return candidates
-            .Where(r => string.IsNullOrEmpty(r.WageOrderClass))
-            .OrderByDescending(r => r.EffectiveDate)
-            .Select(r => (decimal?)r.DailyRate)
-            .FirstOrDefault();
-    }
-
     // BIR Alphalist — one row per employee for the year. TaxableIncome/NonTaxableIncome only
     // exist on Payroll rows generated after that migration landed (see Payroll.cs); earlier
     // rows read as 0 here.
     public async Task<List<AlphalistEntryModel>> GetAlphalistAsync(int year, CancellationToken token)
     {
         var rows = await GetQueryable(x => x.PostingPeriod.Year == year && x.IsPosted).ToListAsync(token);
-        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
 
-        return rows.GroupBy(x => x.EmployeeId).Select(g =>
+        // See PayrollOpeningBalance's doc comment — folds pre-system-cutover figures into
+        // this full-year BIR return so a mid-year onboarded company isn't understated.
+        var openingBalances = await _payrollOpeningBalanceService.FindAllByYearAsync(year, token);
+
+        var payrollGroups = rows.GroupBy(x => x.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+        var employeeIds = payrollGroups.Keys.Union(openingBalances.Keys).ToList();
+        var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
+
+        return employeeIds.Select(id =>
         {
-            employeeMap.TryGetValue(g.Key, out var e);
+            employeeMap.TryGetValue(id, out var e);
+            payrollGroups.TryGetValue(id, out var g);
+            g ??= new List<Payroll>();
+            openingBalances.TryGetValue(id, out var ob);
+            var obTaxable = ob?.DerivedTaxableIncome ?? 0;
             return new AlphalistEntryModel
             {
-                EmployeeId = g.Key,
+                EmployeeId = id,
                 EmployeeNo = e?.EmployeeNo ?? "",
                 FullName = e.FullName(),
                 TIN = e?.TIN ?? "",
                 Year = year,
-                GrossCompensation = g.Sum(x => x.GrossIncome),
-                NonTaxableCompensation = g.Sum(x => x.NonTaxableIncome),
-                TaxableCompensation = g.Sum(x => x.TaxableIncome),
-                ThirteenthMonthPay = g.Sum(x => x.BasicPay) / 12,
-                TotalSSS = g.Sum(x => x.SSSContribution),
-                TotalPhilHealth = g.Sum(x => x.PhilHealthContribution),
-                TotalPagIbig = g.Sum(x => x.PagIbigContribution),
-                TotalTaxWithheld = g.Sum(x => x.WithholdingTax),
+                GrossCompensation = g.Sum(x => x.GrossIncome) + (ob?.GrossIncome ?? 0),
+                NonTaxableCompensation = g.Sum(x => x.NonTaxableIncome) + (ob?.NonTaxableIncome ?? 0),
+                TaxableCompensation = g.Sum(x => x.TaxableIncome) + obTaxable,
+                ThirteenthMonthPay = (g.Sum(x => x.BasicPay) + (ob?.BasicPay ?? 0)) / 12,
+                TotalSSS = g.Sum(x => x.SSSContribution) + (ob?.SSSContribution ?? 0),
+                TotalPhilHealth = g.Sum(x => x.PhilHealthContribution) + (ob?.PhilHealthContribution ?? 0),
+                TotalPagIbig = g.Sum(x => x.PagIbigContribution) + (ob?.PagIbigContribution ?? 0),
+                TotalTaxWithheld = g.Sum(x => x.WithholdingTax) + (ob?.WithholdingTax ?? 0),
             };
         }).OrderBy(x => x.FullName).ToList();
     }
@@ -490,7 +599,14 @@ public class PayrollReportService : BaseService<Payroll>
     public async Task<Bir2316Model?> Get2316DataAsync(Guid employeeId, int year, CancellationToken token)
     {
         var rows = await GetQueryable(x => x.EmployeeId == employeeId && x.PostingPeriod.Year == year && x.IsPosted).ToListAsync(token);
-        if (rows.Count == 0) return null;
+
+        // An employee whose only data for the year is a pre-cutover Opening Balance (no
+        // Payroll rows posted here yet) still gets a certificate, not a null.
+        var openingBalances = await _payrollOpeningBalanceService.FindAllByYearAsync(year, token);
+        openingBalances.TryGetValue(employeeId, out var ob);
+        if (rows.Count == 0 && ob == null) return null;
+
+        var obTaxable = ob?.DerivedTaxableIncome ?? 0;
 
         var employee = await _employeeService.GetFullByIdAsync(employeeId, token);
         return new Bir2316Model
@@ -504,14 +620,14 @@ public class PayrollReportService : BaseService<Payroll>
                 .Where(s => !string.IsNullOrWhiteSpace(s))),
             CivilStatus = employee?.CivilStatus ?? "",
             Year = year,
-            GrossCompensation = rows.Sum(x => x.GrossIncome),
-            NonTaxableCompensation = rows.Sum(x => x.NonTaxableIncome),
-            TaxableCompensation = rows.Sum(x => x.TaxableIncome),
-            ThirteenthMonthPay = rows.Sum(x => x.BasicPay) / 12,
-            TotalSSS = rows.Sum(x => x.SSSContribution),
-            TotalPhilHealth = rows.Sum(x => x.PhilHealthContribution),
-            TotalPagIbig = rows.Sum(x => x.PagIbigContribution),
-            TotalTaxWithheld = rows.Sum(x => x.WithholdingTax),
+            GrossCompensation = rows.Sum(x => x.GrossIncome) + (ob?.GrossIncome ?? 0),
+            NonTaxableCompensation = rows.Sum(x => x.NonTaxableIncome) + (ob?.NonTaxableIncome ?? 0),
+            TaxableCompensation = rows.Sum(x => x.TaxableIncome) + obTaxable,
+            ThirteenthMonthPay = (rows.Sum(x => x.BasicPay) + (ob?.BasicPay ?? 0)) / 12,
+            TotalSSS = rows.Sum(x => x.SSSContribution) + (ob?.SSSContribution ?? 0),
+            TotalPhilHealth = rows.Sum(x => x.PhilHealthContribution) + (ob?.PhilHealthContribution ?? 0),
+            TotalPagIbig = rows.Sum(x => x.PagIbigContribution) + (ob?.PagIbigContribution ?? 0),
+            TotalTaxWithheld = rows.Sum(x => x.WithholdingTax) + (ob?.WithholdingTax ?? 0),
         };
     }
 

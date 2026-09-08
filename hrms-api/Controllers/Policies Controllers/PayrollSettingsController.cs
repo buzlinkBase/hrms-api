@@ -14,6 +14,7 @@ public class PayrollSettingsController : ControllerBase
     private const string IdentityType = PayrollSettingsIdentity.IdentityType;
     private const string KeyFiscalYearStartMonth = PayrollSettingsIdentity.KeyFiscalYearStartMonth;
     private const string KeyThirteenthMonthExemptionCeiling = PayrollSettingsIdentity.KeyThirteenthMonthExemptionCeiling;
+    private const string KeyLargeTaxCollectionWarningMultiplier = PayrollSettingsIdentity.KeyLargeTaxCollectionWarningMultiplier;
 
     private readonly GeneralSettingService _settingService;
     public PayrollSettingsController(GeneralSettingService settingService)
@@ -35,6 +36,9 @@ public class PayrollSettingsController : ControllerBase
             ThirteenthMonthExemptionCeiling = settings.TryGetValue(KeyThirteenthMonthExemptionCeiling, out var ceiling) && ceiling.Value != null
                 ? GeneralSettingsUtil.ParseDouble(ceiling.Value, 0)
                 : 0,
+            LargeTaxCollectionWarningMultiplier = settings.TryGetValue(KeyLargeTaxCollectionWarningMultiplier, out var multiplier) && multiplier.Value != null
+                ? GeneralSettingsUtil.ParseDouble(multiplier.Value, 1.0)
+                : 1.0,
         });
     }
 
@@ -46,6 +50,7 @@ public class PayrollSettingsController : ControllerBase
         {
             new() { IdentityType = IdentityType, Description = KeyFiscalYearStartMonth, Value = request.FiscalYearStartMonth.ToString() },
             new() { IdentityType = IdentityType, Description = KeyThirteenthMonthExemptionCeiling, Value = request.ThirteenthMonthExemptionCeiling.ToString() },
+            new() { IdentityType = IdentityType, Description = KeyLargeTaxCollectionWarningMultiplier, Value = request.LargeTaxCollectionWarningMultiplier.ToString() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync(IdentityType, incoming, null, token);
@@ -58,4 +63,5 @@ public class PayrollSettingsDto
 {
     public int FiscalYearStartMonth { get; set; }
     public double ThirteenthMonthExemptionCeiling { get; set; }
-} 
+    public double LargeTaxCollectionWarningMultiplier { get; set; }
+}

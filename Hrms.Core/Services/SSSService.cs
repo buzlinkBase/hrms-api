@@ -18,6 +18,9 @@ public class SSSService : BaseService<SSSTable>
     }
     public async Task AddAsync(SSSTable model, CancellationToken token)
     {
+        // Effectivity dating/versioning is not in use — every new bracket defaults to the
+        // minimum date so it always applies, regardless of what the client sends.
+        model.EffectiveDate = DateOnly.MinValue;
         model.TotalContibution = model.EE + model.ER + model.EC;
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -29,45 +32,25 @@ public class SSSService : BaseService<SSSTable>
         {
             throw new NotFoundException("Record not found");
         }
+        var effectiveDate = existing.EffectiveDate;
         payload.Adapt(existing);
-        if (existing != null)
-        {
-            existing.TotalContibution = existing.EE + existing.ER + existing.EC;
-        }
+        existing.EffectiveDate = effectiveDate; // not editable via the UI anymore — preserve it
+        existing.TotalContibution = existing.EE + existing.ER + existing.EC;
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
-
-    public async Task<List<DateOnly>> VersionsAsync(CancellationToken token)
+    public async Task<List<SSSTable>> FindAllAsync(CancellationToken token)
     {
         return await GetQueryable()
-            .GroupBy(x => x.EffectiveDate)
-            .Select(x => x.Key)
-            .OrderByDescending(x => x)
-            .ToListAsync(token);
-    }
-
-    public async Task<List<SSSTable>> FindAllAsync(DateOnly effectivity,
-        CancellationToken token)
-    {
-        return await GetQueryable()
-            .Where(x => x.EffectiveDate == effectivity)
             .OrderBy(x=>x.RangeFrom)
             .ToListAsync(token);
     }
 
-    public async Task<List<SSSModel>> LoadForPayrollrunAsync(DateOnly effectivity,
-        CancellationToken token)
+    public async Task<List<SSSModel>> LoadForPayrollrunAsync(CancellationToken token)
     {
-        //find applicable version
-        var latest = await _uow.Context.GovSSSes
-            .Where(x => x.EffectiveDate <= effectivity)
-            .OrderByDescending(x => x.EffectiveDate)
-            .FirstOrDefaultAsync(token);
-
         return await GetQueryable()
-            .Where(x => latest == null || x.EffectiveDate == latest.EffectiveDate)
+            .OrderBy(x => x.RangeFrom)
             .ProjectToType<SSSModel>(_config)
             .ToListAsync(token);
     }

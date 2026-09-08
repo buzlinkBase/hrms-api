@@ -446,6 +446,25 @@ public class EmployeePayrollLineService
         payrollLine.EmployerPhilHealthContribution = deductionPipeLine.PHIC.Total;
         payrollLine.EmployerPagIbigContribution = deductionPipeLine.HDMF.Total;
         payrollLine.EmployerECContribution = deductionPipeLine.SSS.EC;
+        ApplyTaxableIncomeSplit(payrollLine);
+    }
+
+    // Populates the persisted TaxableIncome/NonTaxableIncome columns (BIR Alphalist/2316
+    // rollups — see PayrollReportService.GetAlphalistAsync/Get2316DataAsync) with the same
+    // formula already used for Year-End Tax Annualization
+    // (TaxAnnualizationService.ComputeAsync) and PayrollOpeningBalance.DerivedTaxableIncome, so
+    // all three agree on what "taxable income" means for the year. SSSContribution/
+    // PhilHealthContribution/PagIbigContribution are always 0 on ThirteenthMonth/LastPay/
+    // YearEndAdjustment lines, so this one formula naturally reduces to the right thing for
+    // every PayrollType without per-type branches. internal (not private) so
+    // ThirteenthMonthPayrollService/LastPayrollService can call it too, and so hrms.test can
+    // exercise it directly without a DB.
+    internal static void ApplyTaxableIncomeSplit(PayrollSummaryLine payrollLine)
+    {
+        var nonTaxable = payrollLine.NonTaxableBenefits
+            + payrollLine.SSSContribution + payrollLine.PhilHealthContribution + payrollLine.PagIbigContribution;
+        payrollLine.NonTaxableIncome = nonTaxable;
+        payrollLine.TaxableIncome = Math.Max(0, payrollLine.GrossIncome - nonTaxable);
     }
 
     // Injects an approved OneTime leave payout (see LeaveApplication.PayoutMode) matched to

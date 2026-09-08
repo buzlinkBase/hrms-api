@@ -113,6 +113,23 @@ public class PayrollService : BaseService<Payroll>
         return ids.ToHashSet();
     }
 
+    // Employees who already have a Year-End Tax Adjustment Payroll row for the given calendar
+    // year — annual like 13th month (not one-time-ever like Last Pay), so year-bound. Used by
+    // TaxAnnualizationService.GenerateAsync to block regenerating for an employee already
+    // adjusted. Filtered on PostingPeriod (not PayPeriodStart) — the BIR-reporting-period-
+    // aligned field every other annualization/BIR aggregation keys off (see
+    // PayrollReportService.GetAnnualTaxAnnualizationInputsAsync/GetMonthlyRemittanceReturnAsync),
+    // robust even if a caller sets an explicit PayDate that lands outside PayPeriodStart/End's
+    // own year.
+    public async Task<HashSet<Guid>> GetYearEndAdjustmentGeneratedEmployeeIdsAsync(int year, CancellationToken token)
+    {
+        var ids = await GetQueryable(x => x.PayrollType == PayrollType.YearEndAdjustment && x.PostingPeriod.Year == year)
+            .Select(x => x.EmployeeId)
+            .Distinct()
+            .ToListAsync(token);
+        return ids.ToHashSet();
+    }
+
     public async Task<List<Payroll>> GetAsync(
         DateOnly from, DateOnly to,
         Guid? employeeId, Guid? clientId, Guid? payrollGroupId,

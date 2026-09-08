@@ -23,17 +23,10 @@ namespace Hrms.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<PHICModel>>), 200)]
-        public async Task<IActionResult> Get([FromQuery] DateOnly effectivity, CancellationToken token)
+        public async Task<IActionResult> Get(CancellationToken token)
         {
-            var data = await _service.FindAllAsync(effectivity, token);
+            var data = await _service.FindAllAsync(token);
             return Ok(_mapper.Map<List<PHICModel>>(data));
-        }
-
-        [HttpGet("versions")]
-        [ProducesResponseType(typeof(ResponseModel<List<DateOnly>>), 200)]
-        public async Task<IActionResult> GetVersions(CancellationToken token)
-        {
-            return Ok(await _service.VersionsAsync(token));
         }
 
         [HttpGet("{id:guid}")]

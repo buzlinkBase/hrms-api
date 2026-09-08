@@ -70,6 +70,7 @@ public class PayslipDocument : IDocument
                 {
                     PayrollType.ThirteenthMonth => "13TH MONTH PAY",
                     PayrollType.LastPay => "LAST PAY",
+                    PayrollType.YearEndAdjustment => "YEAR-END TAX ADJUSTMENT",
                     _ => "PAYSLIP",
                 }).FontSize(9).FontColor(LabelColor);
                 if (!string.IsNullOrWhiteSpace(_company?.Address) || !string.IsNullOrWhiteSpace(_company?.Contact))
@@ -185,6 +186,11 @@ public class PayslipDocument : IDocument
         if (_p.PayrollType == PayrollType.LastPay)
         {
             ComposeLastPayEarnings(c);
+            return;
+        }
+        if (_p.PayrollType == PayrollType.YearEndAdjustment)
+        {
+            ComposeYearEndAdjustmentEarnings(c);
             return;
         }
         c.Border(1).BorderColor(BorderColor).Column(col =>
@@ -326,6 +332,31 @@ public class PayslipDocument : IDocument
         });
     }
 
+    // Year-End Tax Annualization (RR 11-2018 §2.79.4): the row's WithholdingTax is the signed
+    // adjustment amount computed by TaxAnnualizationService (positive = additional tax
+    // collected, negative = refund) — GrossIncome is always 0 for this PayrollType, so there's
+    // no DTR/earnings breakdown to show, only the result. The full annual computation trail
+    // (annual gross/taxable income/tax due/withheld YTD) isn't persisted on the row itself, so
+    // it can't be reprinted here — only the final adjustment amount and its sign.
+    void ComposeYearEndAdjustmentEarnings(IContainer c)
+    {
+        var isRefund = _p.WithholdingTax < 0;
+        c.Border(1).BorderColor(BorderColor).Column(col =>
+        {
+            col.Item().Element(c2 => SectionHeader(c2, "YEAR-END TAX ADJUSTMENT"));
+            col.Item().Padding(4).Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    cols.RelativeColumn(3);
+                    cols.RelativeColumn(1);
+                });
+
+                AmountRow(table, isRefund ? "Tax Refund" : "Additional Tax Collected", Math.Abs(_p.WithholdingTax), bold: true);
+            });
+        });
+    }
+
     void ComposeDeductions(IContainer c)
     {
         c.Border(1).BorderColor(BorderColor).Column(col =>
@@ -341,7 +372,8 @@ public class PayslipDocument : IDocument
 
                 var isThirteenthMonth = _p.PayrollType == PayrollType.ThirteenthMonth;
                 var isLastPay = _p.PayrollType == PayrollType.LastPay;
-                var isRegular = !isThirteenthMonth && !isLastPay;
+                var isYearEndAdjustment = _p.PayrollType == PayrollType.YearEndAdjustment;
+                var isRegular = !isThirteenthMonth && !isLastPay && !isYearEndAdjustment;
                 if (isRegular)
                 {
                     AmountRow(table, "SSS Contribution", _p.SSSContribution);

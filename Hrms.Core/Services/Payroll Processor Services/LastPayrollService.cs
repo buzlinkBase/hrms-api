@@ -31,6 +31,7 @@ public class LastPayrollService
     private readonly IncomeAplDtlService _incomeAplDtlService;
     private readonly PayrollInputConsumptionService _consumptionService;
     private readonly DailyRecordService _dtrService;
+    private readonly YearLockService _yearLockService;
 
     public LastPayrollService(
         EmployeeService employeeService,
@@ -47,7 +48,8 @@ public class LastPayrollService
         SalaryAdjustmentService salaryAdjustmentService,
         IncomeAplDtlService incomeAplDtlService,
         PayrollInputConsumptionService consumptionService,
-        DailyRecordService dtrService)
+        DailyRecordService dtrService,
+        YearLockService yearLockService)
     {
         _employeeService = employeeService;
         _payrollService = payrollService;
@@ -64,6 +66,7 @@ public class LastPayrollService
         _incomeAplDtlService = incomeAplDtlService;
         _consumptionService = consumptionService;
         _dtrService = dtrService;
+        _yearLockService = yearLockService;
     }
 
     // Safety check for the Last Pay review screen — flags employees who have posted
@@ -167,7 +170,14 @@ public class LastPayrollService
             : 90_000;
 
         var effectiveDate = payload.PayDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        var taxTable = await _taxService.LoadForPayrollrunAsync(effectiveDate, token);
+        if (await _yearLockService.IsYearLockedAsync(effectiveDate.Year, token))
+        {
+            throw new ValidationException(
+                $"Payroll for {effectiveDate.Year} is locked — the Year-End Tax Adjustment has already been " +
+                "posted for this year. Reopen the year first if changes are required.");
+        }
+
+        var taxTable = await _taxService.LoadForPayrollrunAsync(token);
         var batchId = Guid.CreateVersion7();
 
         // Employees separated on the same date share the same GetThirteenthMonthAsync
@@ -275,6 +285,7 @@ public class LastPayrollService
                 ApplyConfirmedOtherIncome(employeeOtherIncome, line);
             }
 
+            EmployeePayrollLineService.ApplyTaxableIncomeSplit(line);
             lines.Add(line);
         }
 

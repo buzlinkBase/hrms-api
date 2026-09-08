@@ -22,6 +22,7 @@ public class ThirteenthMonthPayrollService
     private readonly EmployeeService _employeeService;
     private readonly TaxService _taxService;
     private readonly StatutoryContributionLedgerService _statutoryLedgerService;
+    private readonly YearLockService _yearLockService;
 
     public ThirteenthMonthPayrollService(
         PayrollService payrollService,
@@ -31,7 +32,8 @@ public class ThirteenthMonthPayrollService
         GeneralSettingService generalSettingService,
         EmployeeService employeeService,
         TaxService taxService,
-        StatutoryContributionLedgerService statutoryLedgerService)
+        StatutoryContributionLedgerService statutoryLedgerService,
+        YearLockService yearLockService)
     {
         _payrollService = payrollService;
         _mapper = mapper;
@@ -41,10 +43,18 @@ public class ThirteenthMonthPayrollService
         _employeeService = employeeService;
         _taxService = taxService;
         _statutoryLedgerService = statutoryLedgerService;
+        _yearLockService = yearLockService;
     }
 
     public async Task<List<PayrollSummaryLine>> GenerateAsync(ThirteenthMonthRunPayload payload, CancellationToken token)
     {
+        if (await _yearLockService.IsYearLockedAsync(payload.Year, token))
+        {
+            throw new ValidationException(
+                $"Payroll for {payload.Year} is locked — the Year-End Tax Adjustment has already been posted " +
+                "for this year. Reopen the year first if changes are required.");
+        }
+
         var figures = await _payrollReportService.GetThirteenthMonthAsync(payload.Year, token);
         if (payload.EmployeeIds is { Count: > 0 })
             figures = figures.Where(x => payload.EmployeeIds.Contains(x.EmployeeId)).ToList();
@@ -72,7 +82,7 @@ public class ThirteenthMonthPayrollService
             : 90_000;
 
         var effectiveDate = payload.PayDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        var taxTable = await _taxService.LoadForPayrollrunAsync(effectiveDate, token);
+        var taxTable = await _taxService.LoadForPayrollrunAsync(token);
         var periodStart = new DateOnly(payload.Year, 1, 1);
         var periodEnd = new DateOnly(payload.Year, 12, 31);
         var batchId = Guid.CreateVersion7();
@@ -138,6 +148,7 @@ public class ThirteenthMonthPayrollService
                 ClientId = employee.ClientId,
             };
             line.NetPay = PayrollProcessorUtil.GetNetPay(line, wtaxResult);
+            EmployeePayrollLineService.ApplyTaxableIncomeSplit(line);
             lines.Add(line);
         }
 

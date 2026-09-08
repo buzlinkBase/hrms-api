@@ -67,6 +67,28 @@ namespace Hrms.Api.Controllers
             return Ok(response);
         }
 
+        // Year-End Tax Annualization review step — recomputes each in-scope employee's true
+        // annual tax due vs. tax withheld YTD without persisting anything, so HR can review
+        // before Generate is called. MWE-excluded and already-generated employees are returned
+        // flagged, not omitted, so it's clear why they show no (or zero) adjustment.
+        [HttpPost("preview-year-end-adjustment")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> PreviewYearEndAdjustment([FromBody] TaxAnnualizationRunPayload payload, CancellationToken token)
+        {
+            var preview = await _service.PreviewYearEndAdjustmentAsync(payload, token);
+            var response = new { data = preview, total = preview.Count };
+            return Ok(response);
+        }
+
+        [HttpPost("generate-year-end-adjustment")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> GenerateYearEndAdjustment([FromBody] TaxAnnualizationRunPayload payload, CancellationToken token)
+        {
+            var payrolls = await _service.GenerateYearEndAdjustmentAsync(payload, token);
+            var response = new { data = payrolls, total = payrolls.Count };
+            return Ok(response);
+        }
+
         // Review-step data for the Last Pay generation screen — every Salary Adjustment /
         // Other Income row not yet consumed by any payroll run for these employees, for HR to
         // check off before Generate is called (LastPayRunPayload.SalaryAdjustmentIds /

@@ -23,19 +23,10 @@ namespace Hrms.Api.Controllers
 
         [HttpGet()]
         [ProducesResponseType(typeof(ResponseModel<List<WTaxModel>>), 200)]
-        public async Task<IActionResult> Get([FromQuery] DateOnly effectivity,
-            [FromQuery] string payrollType,
-            CancellationToken token)
+        public async Task<IActionResult> Get([FromQuery] string payrollType, CancellationToken token)
         {
-            var data = await _service.FindAllAsync(effectivity, payrollType, token);
+            var data = await _service.FindAllAsync(payrollType, token);
             return Ok(_mapper.Map<List<WTaxModel>>(data));
-        }
-
-        [HttpGet("versions")]
-        [ProducesResponseType(typeof(ResponseModel<List<DateOnly>>), 200)]
-        public async Task<IActionResult> GetVersions([FromQuery] string payrollType, CancellationToken token)
-        {
-            return Ok(await _service.VersionsAsync(payrollType, token));
         }
 
         [HttpGet("{id:guid}")]

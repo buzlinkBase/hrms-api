@@ -151,6 +151,83 @@ public class ThirteenthMonthModel
     public Guid? PayrollId { get; set; }
 }
 
+// One employee's raw annual aggregate for Year-End Tax Annualization, sourced ONLY from this
+// employer's own posted Regular/ThirteenthMonth/LastPay Payroll rows for the year — deliberately
+// NOT netted/clamped yet, so TaxAnnualizationService.ComputeAsync can combine these with any
+// PriorEmployerTaxRecord (a job-changer's previous employer's BIR 2316 figures) before applying
+// the negative-income floor and bracket lookup. See PayrollReportService.GetAnnualTaxAnnualizationInputsAsync.
+public class TaxAnnualizationInputModel
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public int Year { get; set; }
+    // From this employee's most-recent-by-PostingPeriod row for the year — used only to scope
+    // a run by TaxAnnualizationRunPayload.PayrollGroupIds and to stamp the resulting
+    // YearEndAdjustment Payroll row, not part of the tax computation itself.
+    public Guid? PayrollGroupId { get; set; }
+    public Guid? AreaId { get; set; }
+    public Guid? ClientId { get; set; }
+    public SalaryType SalaryType { get; set; }
+    // Raw current-employer components — Sum(GrossIncome), Sum(NonTaxableBenefits),
+    // Sum(SSSContribution + PhilHealthContribution + PagIbigContribution) across the year's
+    // included rows. Consolidated with any PriorEmployerTaxRecord and netted/clamped in
+    // TaxAnnualizationService.ComputeAsync — see GetAnnualTaxAnnualizationInputsAsync's doc
+    // comment for the full per-row formula these are built from.
+    public decimal CurrentGrossIncome { get; set; }
+    public decimal CurrentNonTaxableBenefits { get; set; }
+    public decimal CurrentStatutoryDeductions { get; set; }
+    public decimal CurrentWithholdingTaxYTD { get; set; }
+    // Sum(NetPay) / 12 across this employee's included rows — used only to gauge whether a
+    // computed collection is "large" relative to this employee's typical take-home pay (see
+    // TaxAnnualizationPreviewModel.ExceedsLargeCollectionWarning), same "divide by 12"
+    // convention ThirteenthMonthPay already uses elsewhere.
+    public decimal CurrentAverageMonthlyNetPay { get; set; }
+    // Minimum Wage Earners are excluded from annualization entirely (zero adjustment) — see
+    // MinimumWageEarnerResolver.IsMinimumWageEarner. Gated on current-employer wage
+    // classification only — outside/prior income never affects MWE status for this job.
+    public bool IsMinimumWageEarner { get; set; }
+    // Mirrors MonthlyRemittanceReturnEmployeeModel.IsUnclassified — MWE status couldn't be
+    // resolved (missing Branch/Region/MinimumWageRate data), defaulted to non-MWE. Flagged so
+    // HR can fix the employee's Branch/Region setup before relying on the computed adjustment.
+    public bool IsUnclassified { get; set; }
+}
+
+// The Year-End Tax Annualization preview/review-screen row — the fully consolidated
+// (current + prior employer), netted, floored, rounded figures plus the annual bracket lookup
+// and the resulting adjustment. See TaxAnnualizationService.ComputeAsync.
+public class TaxAnnualizationPreviewModel : TaxAnnualizationInputModel
+{
+    // True when a PriorEmployerTaxRecord with HasPriorEmployer=true exists for this
+    // employee/year — surfaced so HR can confirm the BIR 2316 figures were actually picked up.
+    public bool HasPriorEmployerData { get; set; }
+    public decimal PriorEmployerGrossIncome { get; set; }
+    public decimal PriorEmployerTaxWithheld { get; set; }
+    // Current + prior employer gross — informational only, not used in the taxable-income
+    // formula itself.
+    public decimal AnnualGrossIncome { get; set; }
+    // (CurrentGrossIncome - CurrentNonTaxableBenefits - CurrentStatutoryDeductions) +
+    // (PriorEmployerGrossIncome - prior non-taxable - prior statutory deductions), floored at 0
+    // and rounded to 2dp (MidpointRounding.AwayFromZero) — see ComputeAsync.
+    public decimal AnnualTaxableIncome { get; set; }
+    // CurrentWithholdingTaxYTD + PriorEmployerTaxWithheld.
+    public decimal AnnualWithholdingTaxYTD { get; set; }
+    // AnnualTaxCalculator.GetAnnualTaxDue(brackets, AnnualTaxableIncome), rounded to 2dp — 0 for MWEs.
+    public decimal AnnualTaxDue { get; set; }
+    // AnnualTaxDue - AnnualWithholdingTaxYTD, rounded to 2dp. Positive = additional tax to
+    // collect (employee under-withheld this year); negative = refund (employee over-withheld).
+    // Always 0 for MWEs.
+    public decimal AdjustmentAmount { get; set; }
+    public bool IsRefund { get; set; }
+    // AdjustmentAmount is a collection (not a refund) larger than
+    // CurrentAverageMonthlyNetPay * PayrollSettingsIdentity.KeyLargeTaxCollectionWarningMultiplier
+    // — informational only, never blocks Generate. See TaxAnnualizationService.ComputeAsync.
+    public bool ExceedsLargeCollectionWarning { get; set; }
+    // True when this employee already has a PayrollType.YearEndAdjustment row for Year —
+    // shown for HR transparency in Preview, excluded (not silently skipped) from Generate.
+    public bool AlreadyGenerated { get; set; }
+}
+
 // BIR Form 1601-C's actual return figures for one posting period, matching the physical
 // form's own Line 15/16A/16B/16C/17/18/19 layout — company-wide totals, summed from the
 // per-employee MonthlyRemittanceReturnEmployeeModel rows below. Filed through eBIRForms/eFPS

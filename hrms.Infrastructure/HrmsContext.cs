@@ -72,6 +72,8 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<Skill> Skills { get; set; }
     public DbSet<Education> Educations { get; set; }
     public DbSet<Dependent> Dependents { get; set; }
+    public DbSet<PriorEmployerTaxRecord> PriorEmployerTaxRecords { get; set; }
+    public DbSet<PayrollOpeningBalance> PayrollOpeningBalances { get; set; }
     public DbSet<EmploymentHistory> Employments { get; set; }
     public DbSet<EmployeeRecord> EmployeeRecords { get; set; }
     public DbSet<AssignAsset> AssignAssets { get; set; }
@@ -124,6 +126,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<WTaxContribution> TaxContributions { get; set; }
     public DbSet<ThirteenthMonthLedger> ThirteenthMonthLedgers { get; set; }
     public DbSet<GeneralSetting> GeneralSettings { get; set; }
+    public DbSet<YearLock> YearLocks { get; set; }
     public DbSet<ChangeRestDay> ChangeRestDays { get; set; }
     public DbSet<SalaryAdjustment> SalaryAdjustments { get; set; } 
 

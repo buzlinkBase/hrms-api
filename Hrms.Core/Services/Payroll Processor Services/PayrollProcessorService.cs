@@ -22,9 +22,11 @@ public class PayrollProcessorService
     private readonly EmployeePayrollLineService _lineService;
     private readonly ThirteenthMonthPayrollService _thirteenthMonthPayrollService;
     private readonly LastPayrollService _lastPayrollService;
+    private readonly TaxAnnualizationService _taxAnnualizationService;
     private readonly PayrollBatchLifecycleService _batchLifecycleService;
     private readonly StatutoryContributionLedgerService _statutoryLedgerService;
     private readonly PayrollInputConsumptionService _consumptionService;
+    private readonly YearLockService _yearLockService;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
@@ -37,9 +39,11 @@ public class PayrollProcessorService
         EmployeePayrollLineService lineService,
         ThirteenthMonthPayrollService thirteenthMonthPayrollService,
         LastPayrollService lastPayrollService,
+        TaxAnnualizationService taxAnnualizationService,
         PayrollBatchLifecycleService batchLifecycleService,
         StatutoryContributionLedgerService statutoryLedgerService,
-        PayrollInputConsumptionService consumptionService)
+        PayrollInputConsumptionService consumptionService,
+        YearLockService yearLockService)
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
@@ -51,9 +55,11 @@ public class PayrollProcessorService
         _lineService = lineService;
         _thirteenthMonthPayrollService = thirteenthMonthPayrollService;
         _lastPayrollService = lastPayrollService;
+        _taxAnnualizationService = taxAnnualizationService;
         _batchLifecycleService = batchLifecycleService;
         _statutoryLedgerService = statutoryLedgerService;
         _consumptionService = consumptionService;
+        _yearLockService = yearLockService;
     }
 
     public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, Guid batch, CancellationToken token)
@@ -69,6 +75,18 @@ public class PayrollProcessorService
 
         var lines = await CalculateAsync(payload, batch,token);
         if (lines.Count() == 0) return lines;
+
+        var touchedYears = lines.Select(x => x.PostingPeriod.Year).Distinct().ToList();
+        foreach (var year in touchedYears)
+        {
+            if (await _yearLockService.IsYearLockedAsync(year, token))
+            {
+                throw new ValidationException(
+                    $"Payroll for {year} is locked — the Year-End Tax Adjustment has already been posted for " +
+                    "this year. Reopen the year first if changes are required.");
+            }
+        }
+
         var savingBatch = batch.ToString();
 
         // CalculateAsync already stamped every line's PayrollBatchId with the id it wants to
@@ -117,6 +135,12 @@ public class PayrollProcessorService
 
     public Task<List<PayrollSummaryLine>> GenerateLastPayAsync(LastPayRunPayload payload, CancellationToken token) =>
         _lastPayrollService.GenerateAsync(payload, token);
+
+    public Task<List<TaxAnnualizationPreviewModel>> PreviewYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, CancellationToken token) =>
+        _taxAnnualizationService.PreviewAsync(payload, token);
+
+    public Task<List<PayrollSummaryLine>> GenerateYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, CancellationToken token) =>
+        _taxAnnualizationService.GenerateAsync(payload, token);
 
     // Review-step data for the Last Pay generation screen — see LastPayrollService's own
     // doc comments on these two.

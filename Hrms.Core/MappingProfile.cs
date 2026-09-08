@@ -108,6 +108,14 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateDependent, Dependent>();
         config.NewConfig<Dependent, DependentModel>();
 
+        config.NewConfig<CreatePriorEmployerTaxRecord, PriorEmployerTaxRecord>();
+        config.NewConfig<UpdatePriorEmployerTaxRecord, PriorEmployerTaxRecord>();
+        config.NewConfig<PriorEmployerTaxRecord, PriorEmployerTaxRecordModel>();
+
+        config.NewConfig<CreatePayrollOpeningBalance, PayrollOpeningBalance>();
+        config.NewConfig<UpdatePayrollOpeningBalance, PayrollOpeningBalance>();
+        config.NewConfig<PayrollOpeningBalance, PayrollOpeningBalanceModel>();
+
         config.NewConfig<CreateAssignAsset, AssignAsset>();
         config.NewConfig<UpdateAssignAsset, AssignAsset>();
         config.NewConfig<AssignAsset, AssignAssetModel>().TwoWays();

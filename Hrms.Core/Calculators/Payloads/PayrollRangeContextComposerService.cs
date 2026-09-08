@@ -112,10 +112,10 @@ public class PayrollRangeContextComposerService
             //var taxContriTask = await _taxcontriService.LoadContributionsAsync(wtaxCreditDate, dtrPayload.ToDate, token);
 
             // Gov Tables & Holidays
-            var sssTableTask = await _govSSSService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var phicTableTask = await _govPHICService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var hdmfTableTask = await _govHDMFService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
-            var taxTableTask = await _govTaxService.LoadForPayrollrunAsync(dtrPayload.ToDate, token);
+            var sssTableTask = await _govSSSService.LoadForPayrollrunAsync(token);
+            var phicTableTask = await _govPHICService.LoadForPayrollrunAsync(token);
+            var hdmfTableTask = await _govHDMFService.LoadForPayrollrunAsync(token);
+            var taxTableTask = await _govTaxService.LoadForPayrollrunAsync(token);
 
             // 3. Wait for all to complete
             //await Task.WhenAll(

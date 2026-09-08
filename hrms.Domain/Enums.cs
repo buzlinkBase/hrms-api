@@ -125,6 +125,7 @@ public enum PayrollType
     Regular,
     ThirteenthMonth,
     LastPay,
+    YearEndAdjustment,
 }
 
 public enum BillingCycle

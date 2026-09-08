@@ -158,8 +158,9 @@ public class MonthlyRemittanceReturnSummaryTests
 }
 
 /// <summary>
-/// PayrollReportService.ResolveRegionRate — the region+class minimum-wage-rate lookup behind
-/// BIR 1601-C's Minimum-Wage-Earner classification. Pure over an already-fetched rate list, so
+/// MinimumWageEarnerResolver.ResolveRegionRate (extracted from PayrollReportService, now also
+/// used by TaxAnnualizationService) — the region+class minimum-wage-rate lookup behind BIR
+/// 1601-C's Minimum-Wage-Earner classification. Pure over an already-fetched rate list, so
 /// testable without a database — same reasoning as MonthlyRemittanceReturnSummaryTests above.
 /// </summary>
 public class ResolveRegionRateTests
@@ -180,7 +181,7 @@ public class ResolveRegionRateTests
     {
         var rates = new List<MinimumWageRate> { Rate("NCR", 610) };
 
-        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", null, AsOf);
+        var result = MinimumWageEarnerResolver.ResolveRegionRate(rates, "NCR", null, AsOf);
 
         result.Should().Be(610);
     }
@@ -194,7 +195,7 @@ public class ResolveRegionRateTests
             Rate("NCR", 573, wageOrderClass: "Retail/Service <=10 workers"),
         };
 
-        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", "Non-Agriculture", AsOf);
+        var result = MinimumWageEarnerResolver.ResolveRegionRate(rates, "NCR", "Non-Agriculture", AsOf);
 
         result.Should().Be(610);
     }
@@ -207,7 +208,7 @@ public class ResolveRegionRateTests
             Rate("NCR", 610), // general/class-less rate
         };
 
-        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", "Agriculture-Plantation", AsOf);
+        var result = MinimumWageEarnerResolver.ResolveRegionRate(rates, "NCR", "Agriculture-Plantation", AsOf);
 
         result.Should().Be(610);
     }
@@ -220,7 +221,7 @@ public class ResolveRegionRateTests
             Rate("NCR", 610, wageOrderClass: "Non-Agriculture"),
         };
 
-        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", "Agriculture-Plantation", AsOf);
+        var result = MinimumWageEarnerResolver.ResolveRegionRate(rates, "NCR", "Agriculture-Plantation", AsOf);
 
         result.Should().BeNull();
     }
@@ -230,7 +231,7 @@ public class ResolveRegionRateTests
     {
         var rates = new List<MinimumWageRate> { Rate("NCR", 610) };
 
-        var result = PayrollReportService.ResolveRegionRate(rates, null, null, AsOf);
+        var result = MinimumWageEarnerResolver.ResolveRegionRate(rates, null, null, AsOf);
 
         result.Should().BeNull();
     }
@@ -244,7 +245,7 @@ public class ResolveRegionRateTests
             Rate("NCR", 610, effectiveDate: new DateOnly(2025, 6, 1)),
         };
 
-        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", null, AsOf);
+        var result = MinimumWageEarnerResolver.ResolveRegionRate(rates, "NCR", null, AsOf);
 
         result.Should().Be(610);
     }
@@ -258,8 +259,95 @@ public class ResolveRegionRateTests
             Rate("NCR", 650, effectiveDate: new DateOnly(2026, 6, 1)), // future relative to AsOf
         };
 
-        var result = PayrollReportService.ResolveRegionRate(rates, "NCR", null, AsOf);
+        var result = MinimumWageEarnerResolver.ResolveRegionRate(rates, "NCR", null, AsOf);
 
         result.Should().Be(610);
+    }
+}
+
+/// <summary>
+/// MinimumWageEarnerResolver.IsMinimumWageEarner — picks the latest-by-PostingPeriod row from
+/// whatever Regular-type rows it's given and compares its DailyRate against the region rate
+/// effective as of that same row's period. Used identically by the monthly BIR 1601-C report
+/// and Year-End Tax Annualization (TaxAnnualizationService) so both classify an employee the
+/// same way.
+/// </summary>
+public class IsMinimumWageEarnerTests
+{
+    private static MinimumWageRate Rate(string region, decimal dailyRate, DateOnly effectiveDate) => new()
+    {
+        RegionCode = region,
+        RegionName = region,
+        DailyRate = dailyRate,
+        EffectiveDate = effectiveDate,
+    };
+
+    private static Payroll Row(decimal dailyRate, DateOnly postingPeriod) => new()
+    {
+        DailyRate = dailyRate,
+        PostingPeriod = postingPeriod,
+        PayrollType = PayrollType.Regular,
+    };
+
+    [Fact]
+    public void DailyRateAtOrBelowRegionRate_IsClassifiedAsMWE()
+    {
+        var rows = new List<Payroll> { Row(600, new DateOnly(2026, 3, 15)) };
+        var rates = new List<MinimumWageRate> { Rate("NCR", 610, new DateOnly(2025, 1, 1)) };
+
+        var (isMWE, isUnclassified) = MinimumWageEarnerResolver.IsMinimumWageEarner(rows, "NCR", null, rates);
+
+        isMWE.Should().BeTrue();
+        isUnclassified.Should().BeFalse();
+    }
+
+    [Fact]
+    public void DailyRateAboveRegionRate_IsNotMWE()
+    {
+        var rows = new List<Payroll> { Row(1_200, new DateOnly(2026, 3, 15)) };
+        var rates = new List<MinimumWageRate> { Rate("NCR", 610, new DateOnly(2025, 1, 1)) };
+
+        var (isMWE, isUnclassified) = MinimumWageEarnerResolver.IsMinimumWageEarner(rows, "NCR", null, rates);
+
+        isMWE.Should().BeFalse();
+        isUnclassified.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MultipleRows_UsesTheLatestByPostingPeriod_NotTheFirstOrHighest()
+    {
+        // Latest row's rate (1,200, non-MWE) must win even though an earlier row in the same
+        // set would have classified as MWE — a wage-rate change mid-scope must not average out.
+        var rows = new List<Payroll>
+        {
+            Row(600, new DateOnly(2026, 1, 15)),
+            Row(1_200, new DateOnly(2026, 11, 15)),
+        };
+        var rates = new List<MinimumWageRate> { Rate("NCR", 610, new DateOnly(2025, 1, 1)) };
+
+        var (isMWE, _) = MinimumWageEarnerResolver.IsMinimumWageEarner(rows, "NCR", null, rates);
+
+        isMWE.Should().BeFalse();
+    }
+
+    [Fact]
+    public void NoRegionConfigured_IsUnclassified_DefaultsToNonMWE_NotSilent()
+    {
+        var rows = new List<Payroll> { Row(600, new DateOnly(2026, 3, 15)) };
+
+        var (isMWE, isUnclassified) = MinimumWageEarnerResolver.IsMinimumWageEarner(rows, null, null, new List<MinimumWageRate>());
+
+        isMWE.Should().BeFalse();
+        isUnclassified.Should().BeTrue();
+    }
+
+    [Fact]
+    public void NoRowsInScope_NeitherMWENorUnclassified()
+    {
+        var (isMWE, isUnclassified) = MinimumWageEarnerResolver.IsMinimumWageEarner(
+            new List<Payroll>(), "NCR", null, new List<MinimumWageRate> { Rate("NCR", 610, new DateOnly(2025, 1, 1)) });
+
+        isMWE.Should().BeFalse();
+        isUnclassified.Should().BeFalse();
     }
 }
