@@ -27,7 +27,7 @@ namespace Hrms.adms.Controllers
         public async Task<IActionResult> Post([FromBody] CreateBiometricDevice payload, CancellationToken token)
         {
             var tenantId = HttpContext.ParseTenant();
-            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+            if (tenantId == Guid.Empty) return Forbid("cannot parse account");
             var data = await _service.AddAsync(payload, tenantId, token);
             return Ok(data);
         }
@@ -37,7 +37,7 @@ namespace Hrms.adms.Controllers
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBiometricDevice payload, CancellationToken token)
         {
             var tenantId = HttpContext.ParseTenant();
-            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+            if (tenantId == Guid.Empty) return Forbid("cannot parse account");
             var data = await _service.UpdateStatusAsync(payload, tenantId, token);
             return Ok(data);
         }
@@ -47,7 +47,7 @@ namespace Hrms.adms.Controllers
         public async Task<IActionResult> Get(CancellationToken token)
         {
             var tenantId = HttpContext.ParseTenant();
-            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+            if (tenantId == Guid.Empty) return Forbid("cannot parse account");
             var data = await _service.FindAllAsync(tenantId, token);
             return Ok(data);
         }
@@ -57,7 +57,7 @@ namespace Hrms.adms.Controllers
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
             var tenantId = HttpContext.ParseTenant();
-            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+            if (tenantId == Guid.Empty) return Forbid("cannot parse account");
             var data = await _service.FineOneAsync(id, tenantId, token);
             return Ok(data);
         }
@@ -67,7 +67,7 @@ namespace Hrms.adms.Controllers
         public async Task<IActionResult> GetBySerial(string sn, CancellationToken token)
         {
             var tenantId = HttpContext.ParseTenant();
-            if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
+            if (tenantId == Guid.Empty) return Forbid("cannot parse account");
 
             var data = await _service.GetBySerial(sn, tenantId, token);
             return Ok(data);

@@ -1,12 +1,11 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+﻿using MessagePack;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.adms.Exceptions;
 
-public sealed class GlobalExceptionHandler(
-    IProblemDetailsService problemDetailsService,
-    IHostEnvironment env) // Use Primary Constructor for brevity
+public sealed class GlobalExceptionHandler(IHostEnvironment env) // Use Primary Constructor for brevity
     : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
@@ -43,12 +42,27 @@ public sealed class GlobalExceptionHandler(
             }
         }
 
-        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        var response = new ResponseModel<ProblemDetails>
         {
-            HttpContext = httpContext,
-            Exception = exception,
-            ProblemDetails = problemDetails
-        });
+            Status = statusCode,
+            Message = "Error",
+            Data = problemDetails
+        };
+
+        var acceptHeader = httpContext.Request.Headers.Accept.ToString();
+
+        if (acceptHeader.Contains("application/x-msgpack"))
+        {
+            httpContext.Response.ContentType = "application/x-msgpack";
+            await MessagePackSerializer.SerializeAsync(httpContext.Response.Body, response, MessagePackSerializer.DefaultOptions, cancellationToken);
+        }
+        else
+        {
+            httpContext.Response.ContentType = "application/json";
+            await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
+        }
+
+        return true;
     }
 
     private static string GetTitleForStatus(int statusCode) => statusCode switch
