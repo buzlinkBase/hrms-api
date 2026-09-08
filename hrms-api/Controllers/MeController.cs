@@ -22,12 +22,21 @@ namespace Hrms.Api.Controllers
         private readonly EmployeeService _employeeService;
         private readonly PayrollService _payrollService;
         private readonly CompanyService _companyService;
+        private readonly DTRCalcService _dtrCalcService;
+        private readonly EmployeeFixedScheduleService _fixedScheduleService;
 
-        public MeController(EmployeeService employeeService, PayrollService payrollService, CompanyService companyService)
+        public MeController(
+            EmployeeService employeeService,
+            PayrollService payrollService,
+            CompanyService companyService,
+            DTRCalcService dtrCalcService,
+            EmployeeFixedScheduleService fixedScheduleService)
         {
             _employeeService = employeeService;
             _payrollService = payrollService;
             _companyService = companyService;
+            _dtrCalcService = dtrCalcService;
+            _fixedScheduleService = fixedScheduleService;
         }
 
         private async Task<Guid?> ResolveMyEmployeeIdAsync(CancellationToken token)
@@ -75,6 +84,40 @@ namespace Hrms.Api.Controllers
             var document = new PayslipDocument(payroll, employee, company);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
+        }
+
+        [HttpGet("dtr-detail")]
+        [ProducesResponseType(typeof(ResponseModel<ObjectCollection<DTRDetailModel>>), 200)]
+        public async Task<IActionResult> GetMyDtrDetail([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var payload = new DTRRequestPayload { FromDate = DateOnly.FromDateTime(from), ToDate = DateOnly.FromDateTime(to), EmployeeId = employeeId };
+            var result = await _dtrCalcService.GetDTRInfoAsync<DTRDetailModel>(payload, ProcessorType.DTRDetail, token, IncludeNullResponse.Include);
+            return Ok(result);
+        }
+
+        [HttpGet("incomplete-punches")]
+        [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
+        public async Task<IActionResult> GetMyIncompletePunches([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var payload = new DTRRequestPayload { FromDate = DateOnly.FromDateTime(from), ToDate = DateOnly.FromDateTime(to), EmployeeId = employeeId };
+            var result = await _dtrCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload, ProcessorType.CleanColumnarLog, token, IncludeNullResponse.Include, false);
+            return Ok(result);
+        }
+
+        [HttpGet("fixed-schedule")]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeFixedScheduleModel>>), 200)]
+        public async Task<IActionResult> GetMyFixedSchedule(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _fixedScheduleService.GetByEmployeeAsync(employeeId.Value, token));
         }
     }
 }
