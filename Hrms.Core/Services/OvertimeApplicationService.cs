@@ -29,6 +29,15 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
         if (to.HasValue) query = query.Where(x => DateOnly.FromDateTime(x.CreatedAt) <= to.Value);
         return await query.ToListAsync(token);
     }
+    // Self-service "My Overtime Applications" — every status, newest first, scoped to one
+    // employee. See MeController.GetMyOvertimeApplications.
+    public Task<List<OverTimeApplication>> FindAllForEmployeeAsync(Guid employeeId, CancellationToken token)
+    {
+        return GetQueryable(x => x.EmployeeId == employeeId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(token);
+    }
+
     public async Task<OverTimeApplication?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return await GetOneAsync(Id, token);

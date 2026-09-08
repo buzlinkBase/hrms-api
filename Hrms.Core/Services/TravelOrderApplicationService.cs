@@ -48,6 +48,15 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         return data;
     }
 
+    // Self-service "My Official Business Applications" — every status, newest first, scoped to
+    // one employee. See MeController.GetMyTravelOrderApplications.
+    public Task<List<TravelOrderApplication>> FindAllForEmployeeAsync(Guid employeeId, CancellationToken token)
+    {
+        return GetQueryable(x => x.EmployeeId == employeeId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(token);
+    }
+
     public async Task<TravelOrderApplication?> FineOneAsync(Guid id, CancellationToken token)
     {
         return await GetOneAsync(id, token);

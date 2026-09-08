@@ -68,24 +68,52 @@ public class MeControllerTests
         ApprovalStatus = ApprovalStatus.ForApproval,
     };
 
+    private static OverTimeApplication BuildOvertimeApplication(Guid employeeId) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        Employee = BuildEmployee(Guid.NewGuid()),
+        ApprovalStatus = ApprovalStatus.ForApproval,
+    };
+
+    private static TravelOrderApplication BuildTravelOrderApplication(Guid employeeId) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        ApprovalStatus = ApprovalStatus.ForApproval,
+    };
+
+    private static PassSlipApplication BuildPassSlipApplication(Guid employeeId) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        ApprovalStatus = ApprovalStatus.ForApproval,
+    };
+
     private static (MeController Controller, Guid CallerUserId) BuildController(
         Employee? caller,
         Payroll? payroll = null,
         EmployeeFixedSchedule[]? fixedSchedules = null,
         Leave[]? leaves = null,
-        LeaveApplication[]? leaveApplications = null)
+        LeaveApplication[]? leaveApplications = null,
+        OverTimeApplication[]? overtimeApplications = null,
+        TravelOrderApplication[]? travelOrderApplications = null)
     {
         var repo = Substitute.For<IRepository>();
         var employees = caller is null ? Array.Empty<Employee>() : [caller];
         var schedules = fixedSchedules ?? [];
         var leaveTypes = leaves ?? [];
         var applications = leaveApplications ?? [];
+        var overtimeApps = overtimeApplications ?? [];
+        var travelOrderApps = travelOrderApplications ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
         repo.FindAll<Company>().Returns(_ => new List<Company>().BuildMockDbSet());
         repo.FindAll<EmployeeFixedSchedule>().Returns(_ => schedules.ToList().BuildMockDbSet());
         repo.FindAll<LeaveApplication>().Returns(_ => applications.ToList().BuildMockDbSet());
+        repo.FindAll<OverTimeApplication>().Returns(_ => overtimeApps.ToList().BuildMockDbSet());
+        repo.FindAll<TravelOrderApplication>().Returns(_ => travelOrderApps.ToList().BuildMockDbSet());
         repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
             .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -118,6 +146,21 @@ public class MeControllerTests
         var leaveApplicationService = new LeaveApplicationService(
             uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
             Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>());
+        var overtimeApplicationService = new OvertimeApplicationService(uow);
+        var travelOrderApplicationService = new TravelOrderApplicationService(uow);
+        var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow));
+
+        // Unlike Leave's bare mapper above, Overtime/TravelOrder/PassSlip's controller actions
+        // map to a NEW entity themselves (their services take the entity, not the raw DTO), so
+        // the mapper here needs to actually map — real Mapster Adapt() via the scanned global
+        // config, not a stub — otherwise every Create*Application test would see a null entity.
+        var mapper = Substitute.For<IMapper>();
+        mapper.Map<OverTimeApplication>(Arg.Any<object>())
+            .Returns(call => ((CreateOverTimeApplication)call.Arg<object>()).Adapt<OverTimeApplication>());
+        mapper.Map<TravelOrderApplication>(Arg.Any<object>())
+            .Returns(call => ((CreateTravelOrderApplication)call.Arg<object>()).Adapt<TravelOrderApplication>());
+        mapper.Map<PassSlipApplication>(Arg.Any<object>())
+            .Returns(call => ((CreatePassSlipApplication)call.Arg<object>()).Adapt<PassSlipApplication>());
 
         var callerUserId = caller?.UserId ?? Guid.NewGuid();
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -130,7 +173,8 @@ public class MeControllerTests
         // it's touched) and its full pipeline is impractical to construct here — see class doc.
         var controller = new MeController(
             employeeService, payrollService, companyService, null!, fixedScheduleService,
-            leaveLedgerService, leaveApplicationService)
+            leaveLedgerService, leaveApplicationService, overtimeApplicationService,
+            travelOrderApplicationService, passSlipApplicationService, mapper)
         {
             ControllerContext = new ControllerContext
             {
@@ -292,5 +336,161 @@ public class MeControllerTests
         result.Should().BeOfType<OkResult>();
         payload.EmployeeId.Should().Be(caller.Id);
         payload.ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
+    }
+
+    [Fact]
+    public async Task GetMyOvertimeApplications_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyOvertimeApplications(CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMyOvertimeApplications_ReturnsOnlyCallersOwnApplications()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var someoneElse = BuildEmployee(Guid.NewGuid());
+        var mine = BuildOvertimeApplication(caller.Id);
+        var others = BuildOvertimeApplication(someoneElse.Id);
+        var (controller, _) = BuildController(caller, overtimeApplications: [mine, others]);
+
+        var result = await controller.GetMyOvertimeApplications(CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var applications = ok.Value.Should().BeAssignableTo<List<OverTimeApplication>>().Subject;
+        applications.Should().ContainSingle();
+        applications[0].EmployeeId.Should().Be(caller.Id);
+    }
+
+    [Fact]
+    public async Task CreateMyOvertimeApplication_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+        var payload = new CreateOverTimeApplication { OTDate = new DateOnly(2026, 9, 9) };
+
+        var result = await controller.CreateMyOvertimeApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task CreateMyOvertimeApplication_ForcesCallersOwnEmployeeId()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var (controller, _) = BuildController(caller);
+        // A malicious/buggy client tries to file under someone else's identity.
+        var payload = new CreateOverTimeApplication
+        {
+            OTDate = new DateOnly(2026, 9, 9),
+            EmployeeId = Guid.NewGuid(),
+        };
+
+        var result = await controller.CreateMyOvertimeApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        payload.EmployeeId.Should().Be(caller.Id);
+    }
+
+    [Fact]
+    public async Task GetMyTravelOrderApplications_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyTravelOrderApplications(CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMyTravelOrderApplications_ReturnsOnlyCallersOwnApplications()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var someoneElse = BuildEmployee(Guid.NewGuid());
+        var mine = BuildTravelOrderApplication(caller.Id);
+        var others = BuildTravelOrderApplication(someoneElse.Id);
+        var (controller, _) = BuildController(caller, travelOrderApplications: [mine, others]);
+
+        var result = await controller.GetMyTravelOrderApplications(CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var applications = ok.Value.Should().BeAssignableTo<List<TravelOrderApplication>>().Subject;
+        applications.Should().ContainSingle();
+        applications[0].EmployeeId.Should().Be(caller.Id);
+    }
+
+    [Fact]
+    public async Task CreateMyTravelOrderApplication_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+        var payload = new CreateTravelOrderApplication { StartDate = new DateOnly(2026, 9, 9), EndDate = new DateOnly(2026, 9, 9) };
+
+        var result = await controller.CreateMyTravelOrderApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task CreateMyTravelOrderApplication_ForcesCallersOwnEmployeeIdAndZeroCost()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var (controller, _) = BuildController(caller);
+        // A malicious/buggy client tries to file under someone else's identity with a padded cost.
+        var payload = new CreateTravelOrderApplication
+        {
+            StartDate = new DateOnly(2026, 9, 9),
+            EndDate = new DateOnly(2026, 9, 9),
+            EmployeeId = Guid.NewGuid(),
+            Cost = 5000,
+        };
+
+        var result = await controller.CreateMyTravelOrderApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        payload.EmployeeId.Should().Be(caller.Id);
+        payload.Cost.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetMyPassSlipApplications_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyPassSlipApplications(CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task CreateMyPassSlipApplication_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+        var payload = new CreatePassSlipApplication { ApplicationDate = new DateOnly(2026, 9, 9), DepartureTime = DateTime.UtcNow, Remarks = "Bank errand" };
+
+        var result = await controller.CreateMyPassSlipApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task CreateMyPassSlipApplication_ForcesCallersOwnEmployeeId()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var (controller, _) = BuildController(caller);
+        // A malicious/buggy client tries to file under someone else's identity.
+        var payload = new CreatePassSlipApplication
+        {
+            ApplicationDate = new DateOnly(2026, 9, 9),
+            DepartureTime = DateTime.UtcNow,
+            Remarks = "Bank errand",
+            EmployeeId = Guid.NewGuid(),
+        };
+
+        var result = await controller.CreateMyPassSlipApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        payload.EmployeeId.Should().Be(caller.Id);
     }
 }

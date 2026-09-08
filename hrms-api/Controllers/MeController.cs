@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Extensions;
 using Hrms.Domain.Entities;
+using MapsterMapper;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 
@@ -26,6 +27,10 @@ namespace Hrms.Api.Controllers
         private readonly EmployeeFixedScheduleService _fixedScheduleService;
         private readonly LeaveLedgerService _leaveLedgerService;
         private readonly LeaveApplicationService _leaveApplicationService;
+        private readonly OvertimeApplicationService _overtimeApplicationService;
+        private readonly TravelOrderApplicationService _travelOrderApplicationService;
+        private readonly PassSlipApplicationService _passSlipApplicationService;
+        private readonly IMapper _mapper;
 
         public MeController(
             EmployeeService employeeService,
@@ -34,7 +39,11 @@ namespace Hrms.Api.Controllers
             DTRCalcService dtrCalcService,
             EmployeeFixedScheduleService fixedScheduleService,
             LeaveLedgerService leaveLedgerService,
-            LeaveApplicationService leaveApplicationService)
+            LeaveApplicationService leaveApplicationService,
+            OvertimeApplicationService overtimeApplicationService,
+            TravelOrderApplicationService travelOrderApplicationService,
+            PassSlipApplicationService passSlipApplicationService,
+            IMapper mapper)
         {
             _employeeService = employeeService;
             _payrollService = payrollService;
@@ -43,6 +52,10 @@ namespace Hrms.Api.Controllers
             _fixedScheduleService = fixedScheduleService;
             _leaveLedgerService = leaveLedgerService;
             _leaveApplicationService = leaveApplicationService;
+            _overtimeApplicationService = overtimeApplicationService;
+            _travelOrderApplicationService = travelOrderApplicationService;
+            _passSlipApplicationService = passSlipApplicationService;
+            _mapper = mapper;
         }
 
         private async Task<Guid?> ResolveMyEmployeeIdAsync(CancellationToken token)
@@ -160,6 +173,90 @@ namespace Hrms.Api.Controllers
             payload.ApprovalStatus = ApprovalStatus.ForApproval;
             await _leaveApplicationService.AddAsync(payload, token);
             await _leaveApplicationService.CommitChangesAsync(token);
+            return Ok();
+        }
+
+        [HttpGet("overtime-applications")]
+        [ProducesResponseType(typeof(ResponseModel<List<OverTimeApplication>>), 200)]
+        public async Task<IActionResult> GetMyOvertimeApplications(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _overtimeApplicationService.FindAllForEmployeeAsync(employeeId.Value, token));
+        }
+
+        // EmployeeId is forced on the payload before mapping, never trusted from the client —
+        // same guard rail as CreateMyLeaveApplication. ApprovalStatus isn't on
+        // CreateOverTimeApplication at all (only the admin Update DTO carries it), so the
+        // entity default (ForApproval) already applies — set explicitly on the entity anyway
+        // for clarity, since nothing on the wire could override it either way.
+        [HttpPost("overtime-applications")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CreateMyOvertimeApplication([FromBody] CreateOverTimeApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.EmployeeId = employeeId.Value;
+            var entity = _mapper.Map<OverTimeApplication>(payload);
+            entity.ApprovalStatus = ApprovalStatus.ForApproval;
+            await _overtimeApplicationService.AddAsync(entity, token);
+            return Ok();
+        }
+
+        [HttpGet("travel-order-applications")]
+        [ProducesResponseType(typeof(ResponseModel<List<TravelOrderApplication>>), 200)]
+        public async Task<IActionResult> GetMyTravelOrderApplications(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _travelOrderApplicationService.FindAllForEmployeeAsync(employeeId.Value, token));
+        }
+
+        // EmployeeId forced on the payload before mapping, same as Overtime — CreateTravelOrder
+        // Application also has no ApprovalStatus field, so the entity default already applies;
+        // set explicitly for clarity. Cost is zeroed on the payload too — the admin form already
+        // treats it as finance-only and always sends 0 regardless of input, so self-service
+        // filing follows the same convention rather than inventing a new one.
+        [HttpPost("travel-order-applications")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CreateMyTravelOrderApplication([FromBody] CreateTravelOrderApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.EmployeeId = employeeId.Value;
+            payload.Cost = 0;
+            var entity = _mapper.Map<TravelOrderApplication>(payload);
+            entity.ApprovalStatus = ApprovalStatus.ForApproval;
+            await _travelOrderApplicationService.AddAsync(entity, token);
+            return Ok();
+        }
+
+        [HttpGet("pass-slip-applications")]
+        [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplication>>), 200)]
+        public async Task<IActionResult> GetMyPassSlipApplications(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _passSlipApplicationService.FindAllAsync(null, null, employeeId.Value, token));
+        }
+
+        // EmployeeId forced as above — PassSlipApplicationService.AddAsync already forces
+        // ApprovalStatus.ForApproval itself, so this endpoint doesn't need to duplicate that.
+        [HttpPost("pass-slip-applications")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CreateMyPassSlipApplication([FromBody] CreatePassSlipApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.EmployeeId = employeeId.Value;
+            var entity = _mapper.Map<PassSlipApplication>(payload);
+            await _passSlipApplicationService.AddAsync(entity, token);
             return Ok();
         }
     }
