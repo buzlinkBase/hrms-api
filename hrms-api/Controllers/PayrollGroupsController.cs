@@ -26,7 +26,7 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Get(
         [FromQuery] PayrollGroupQuery query, CancellationToken token)
         {
-            var data = await _service.FindAllAsync(query.Status);
+            var data = await _service.FindAllAsync(token, query.Status);
             var result = _mapper.Map<List<PayrollGroupModel>>(data);
             return Ok(result);
         }

@@ -333,6 +333,29 @@ public class EmployeeService : BaseService<Employee>
             .ProjectToType<EmployeeFullModel>(_config)
             .FirstOrDefaultAsync(token);
     }
+    // Resolves the calling user's own Employee record for the self-service portal. UserId is
+    // the primary match (backfilled by UserOnboardedWorker when an invitation names an
+    // EmployeeId); email is a fallback for employees whose UserId link hasn't been made yet.
+    public async Task<EmployeeFullModel?> GetFullByUserOrEmailAsync(Guid userId, string? email, CancellationToken token)
+    {
+        return await GetQueryable(x => x.UserId == userId || (email != null && x.Email == email))
+            .Include(x => x.Skills)
+            .Include(x => x.Dependents)
+            .Include(x => x.Educations)
+            .Include(x => x.Assets)
+            .Include(x => x.EmployeeRecords)
+            .Include(x => x.Employments)
+            .ProjectToType<EmployeeFullModel>(_config)
+            .FirstOrDefaultAsync(token);
+    }
+
+    public async Task<Guid?> ResolveEmployeeIdAsync(Guid userId, string? email, CancellationToken token)
+    {
+        return await GetQueryable(x => x.UserId == userId || (email != null && x.Email == email))
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync(token);
+    }
+
     public async Task<Employee?> FineOneAsync(Guid Id, CancellationToken token)
     {
         var result = await GetQueryable(x => x.Id == Id)

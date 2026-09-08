@@ -92,12 +92,28 @@ public class PayrollGroupService : BaseService<PayrollGroup>
         await CommitChangesAsync(token);
 
     }
-    public async Task<List<PayrollGroup>> FindAllAsync(RecordStatus? status = RecordStatus.Any)
+    public async Task<List<PayrollGroup>> FindAllAsync(CancellationToken token,RecordStatus? status = RecordStatus.Any)
+    {
+        var query = GetQueryable();
+
+        if (status.HasValue && status != RecordStatus.Any)
+        {
+            string statusStr = status.ToString()!;
+            query = query.Where(pg => pg.CutoffDays.Any(cd => cd.Status.Contains(statusStr)));
+        }
+         
+        return await query
+            .GroupBy(pg => pg.Id)
+            .Select(g => g.OrderBy(pg => pg.CutoffDays.Min(cd => (int?)cd.Day) ?? int.MaxValue).First())
+            .ToListAsync(token);
+    }
+
+    public async Task<List<PayrollGroup>> FindAllForListAsync()
     {
         return await GetQueryable()
-            .Where(x => status == null || status == RecordStatus.Any ? true : x.Status.Contains(status.ToString()))
             .ToListAsync();
     }
+
     public async Task<PayrollGroup?> FineOneAsync(Guid Id, CancellationToken token)
     {
         var group = await GetOneAsync(Id, token);

@@ -38,7 +38,7 @@ public class EmployeeSeederService
         if (count < 1 || count > MaxSeedCount)
             throw new ValidationException($"Count must be between 1 and {MaxSeedCount}.");
 
-        var payrollGroups = await _payrollGroupService.FindAllAsync();
+        var payrollGroups = await _payrollGroupService.Context.PayrollGroups.ToListAsync(token);
         if (payrollGroups.Count == 0)
             throw new ValidationException("No Payroll Groups exist yet — Employee.PayrollGroupId is required. Set up at least one Payroll Group first.");
 
