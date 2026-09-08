@@ -817,7 +817,7 @@ public class AccountInitService : BaseService<Company>
                 OTStart = new TimeSpan(17, 0, 0),
                 OverTimeThreshold = 60,
                 MaxOvertimeHours = null, // no cap by default — see TimeShift.MaxOvertimeHours
-                MinimumWorkMinutes = 240,
+                MinimumWorkMinutes = 0,
                 MaxWorkingMinutes = 480,
             }
         };

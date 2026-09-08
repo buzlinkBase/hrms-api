@@ -242,20 +242,30 @@ public class PayrollReportService : BaseService<Payroll>
 
     // Standard PH formula: total Basic Pay earned in the calendar year / 12. Reflects
     // whatever Payroll rows exist for that employee in the year — not specially prorated
-    // for employees hired/separated mid-year beyond that. Filters on PostingPeriod (not
-    // PayPeriodStart) to match GetAlphalistAsync/GetMonthlyRemittanceReturnAsync's
+    // for employees hired/separated mid-year beyond that. The YEAR filter uses PostingPeriod
+    // (not PayPeriodStart) to match GetAlphalistAsync/GetMonthlyRemittanceReturnAsync's
     // BIR-year-boundary convention, and excludes PayrollType.ThirteenthMonth rows so a
     // year's own 13th month payout can never fold into a later year's calculation.
     // asOfDate, when given, bounds BasicPay/Special Bonuses to what was actually earned up to
     // that date instead of the full calendar year — PD 851 self-prorates the resulting
     // ThirteenthMonthPay simply by summing less. Used by Last Pay's prorated 13th month
-    // component (PayrollProcessorService.GenerateLastPayAsync); the regular 13th month run
-    // and reports pass none and keep today's full-year behavior.
+    // component (LastPayrollService.GenerateAsync); the regular 13th month run and reports
+    // pass none and keep today's full-year behavior.
+    //
+    // The asOfDate cutoff deliberately compares against PayPeriodStart, not PostingPeriod:
+    // PostingPeriod is a BIR statutory-credit date (resolved per CrossMonthStatutoryCreditPolicy,
+    // often the cutoff's END date or even the pay date — see StatutoryCreditDateResolver), which
+    // can legitimately fall AFTER an employee's separation date even though the cutoff's basic
+    // pay was already correctly capped to their actual last day worked (attendance can't exist
+    // past separation). Gating on PostingPeriod would wrongly drop an employee's own final,
+    // already-posted partial cutoff out of their Last Pay's 13th month proration whenever they
+    // separated mid-cutoff. A cutoff that STARTED on or before asOfDate necessarily contains at
+    // least some pre-separation work, so it always belongs in the proration.
     public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token, DateOnly? asOfDate = null)
     {
         var rows = await GetQueryable(x =>
                 x.PostingPeriod.Year == year && x.IsPosted && x.PayrollType == PayrollType.Regular &&
-                (asOfDate == null || x.PostingPeriod <= asOfDate))
+                (asOfDate == null || x.PayPeriodStart <= asOfDate))
             .ToListAsync(token);
 
         // Opening Balance (pre-system-cutover) BasicPay/Bonuses are always fully in the past
