@@ -23,7 +23,10 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
 
     protected override async Task<EvaluationResult> CreateValidatorAsync(DeductionApplication model, CancellationToken token)
     {
-        var validator = new DeductionApplicationValidator(_DeductionService, _employeeService).Validate(model);
+        // The validator has MustAsync rules (Deduction/Employee existence checks), so it must be
+        // invoked via ValidateAsync — calling the synchronous Validate() here made every create,
+        // update, approve, and decline on this service throw AsyncValidatorInvokedSynchronouslyException.
+        var validator = await new DeductionApplicationValidator(_DeductionService, _employeeService).ValidateAsync(model, token);
         if (!validator.IsValid)
         {
             return EvaluationResult.Fail(validator.Errors);
@@ -57,9 +60,10 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         var toRemove = existing.Where(x => !model.Breakdown.Any(d => d.Id == x.Id));
         _uow.Context.DeductionApplicationDetails.RemoveRange(toRemove);
     }
-    public async Task<DeductionApplication> AddAsync(CreateDeductionApplication payload, CancellationToken token)
+    public async Task<DeductionApplication> AddAsync(CreateDeductionApplication payload, ApprovalStatus status, CancellationToken token)
     {
         var model = _mapper.Map<DeductionApplication>(payload);
+        model.ApprovalStatus = status;
         foreach (var item in payload.Breakdown)
         {
             var detail = new DeductionApplicationDetail
@@ -110,6 +114,35 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         return GetQueryable().ToListAsync(token);
     }
 
+    // Self-service "My Loan Ledger" — every status, newest first, scoped to one employee, with
+    // the installment schedule included so the ledger can show per-payment detail. See
+    // MeController.GetMyLoanApplications.
+    public Task<List<DeductionApplication>> FindAllForEmployeeAsync(Guid employeeId, CancellationToken token)
+    {
+        return GetQueryable(x => x.EmployeeId == employeeId)
+            .Include(x => x.Breakdown)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(token);
+    }
+
+    public async Task ApproveAsync(Guid id, CancellationToken token)
+    {
+        var existing = await GetOneAsync(id, token);
+        if (existing == null) return;
+        existing.ApprovalStatus = ApprovalStatus.Approved;
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
+
+    public async Task DeclineAsync(Guid id, CancellationToken token)
+    {
+        var existing = await GetOneAsync(id, token);
+        if (existing == null) return;
+        existing.ApprovalStatus = ApprovalStatus.Declined;
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
+
     public Task<List<DeductionApplicationDetail>> FindDetail(Expression<Func<DeductionApplicationDetail, bool>> expression)
     {
         return _uow.Repository.Find(expression).ToListAsync();
@@ -156,7 +189,15 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
             join category in Context.DeductionTypes.AsNoTracking()
                 on deduction!.CategoryId equals category.Id into categoryJoin
             from category in categoryJoin.DefaultIfEmpty()
+            // Self-service loan applications file ForApproval and must not affect payroll until
+            // an admin approves them — ApplicationId is a required FK so `application == null`
+            // should never actually happen, kept only for consistency with the defensive
+            // null-safety style already used for the deduction/category joins above.
+            join application in Context.DeductionApplications.AsNoTracking()
+                on detail.ApplicationId equals application.Id into applicationJoin
+            from application in applicationJoin.DefaultIfEmpty()
             where detail.Date <= toDate && employeeIds.Contains(detail.EmployeeId) && detail.Balance > 0
+                && (application == null || application.ApprovalStatus == ApprovalStatus.Approved)
             select new
             {
                 detail.Id,

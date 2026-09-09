@@ -31,6 +31,7 @@ namespace Hrms.Api.Controllers
         private readonly TravelOrderApplicationService _travelOrderApplicationService;
         private readonly PassSlipApplicationService _passSlipApplicationService;
         private readonly ChangeRestDayService _changeRestDayService;
+        private readonly DeductionApplicationService _deductionApplicationService;
         private readonly IMapper _mapper;
 
         public MeController(
@@ -45,6 +46,7 @@ namespace Hrms.Api.Controllers
             TravelOrderApplicationService travelOrderApplicationService,
             PassSlipApplicationService passSlipApplicationService,
             ChangeRestDayService changeRestDayService,
+            DeductionApplicationService deductionApplicationService,
             IMapper mapper)
         {
             _employeeService = employeeService;
@@ -58,6 +60,7 @@ namespace Hrms.Api.Controllers
             _travelOrderApplicationService = travelOrderApplicationService;
             _passSlipApplicationService = passSlipApplicationService;
             _changeRestDayService = changeRestDayService;
+            _deductionApplicationService = deductionApplicationService;
             _mapper = mapper;
         }
 
@@ -285,6 +288,32 @@ namespace Hrms.Api.Controllers
 
             await _changeRestDayService.RequestChangeOffAsync(
                 employeeId.Value, payload.FromDay, payload.ToDay, payload.PayrollDateFrom, payload.PayrollDateTo, token);
+            return Ok();
+        }
+
+        [HttpGet("loan-applications")]
+        [ProducesResponseType(typeof(ResponseModel<List<DeductionApplicationModel>>), 200)]
+        public async Task<IActionResult> GetMyLoanApplications(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var data = await _deductionApplicationService.FindAllForEmployeeAsync(employeeId.Value, token);
+            return Ok(_mapper.Map<List<DeductionApplicationModel>>(data));
+        }
+
+        // EmployeeId is resolved server-side and never trusted from the client, same guard rail
+        // as every other create action here. Always files ForApproval — an untrusted amortization
+        // schedule must not reach payroll until HR approves it. See DeductionAplDtlService.LoadAsync.
+        [HttpPost("loan-applications")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CreateMyLoanApplication([FromBody] CreateDeductionApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.EmployeeId = employeeId.Value;
+            await _deductionApplicationService.AddAsync(payload, ApprovalStatus.ForApproval, token);
             return Ok();
         }
     }

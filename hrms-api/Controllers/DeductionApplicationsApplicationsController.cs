@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Domain;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -41,7 +42,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateDeductionApplication payload, CancellationToken token)
         {
-            var data = await _service.AddAsync(payload, token);
+            var data = await _service.AddAsync(payload, ApprovalStatus.Approved, token);
             var respModel = _mapper.Map<DeductionApplicationModel>(data);
             return Ok(respModel);
         }
@@ -68,6 +69,22 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> DeleteItem(Guid id, CancellationToken token)
         {
             await _service.DeleteChildAsync(id, token);
+            return Ok();
+        }
+
+        [HttpPut("{id}/approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Approve(Guid id, CancellationToken token)
+        {
+            await _service.ApproveAsync(id, token);
+            return Ok();
+        }
+
+        [HttpPut("{id}/decline")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Decline(Guid id, CancellationToken token)
+        {
+            await _service.DeclineAsync(id, token);
             return Ok();
         }
     }

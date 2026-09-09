@@ -16,6 +16,11 @@ public class DeductionApplication : BaseEntity
     public string Note { get; set; }
     public string Remarks { get; set; }
     public virtual ICollection<DeductionApplicationDetail> Breakdown { get; set; }
+    // Defaults to Approved so the existing admin creation flow keeps taking immediate effect
+    // with no code changes — only the self-service creation path (MeController.
+    // CreateMyLoanApplication) explicitly files ForApproval. See DeductionAplDtlService.LoadAsync,
+    // the only query the payroll deduction pipeline reads through.
+    public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Approved;
 
 }
 

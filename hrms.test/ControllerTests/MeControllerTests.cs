@@ -104,6 +104,14 @@ public class MeControllerTests
         ApprovalStatus = ApprovalStatus.ForApproval,
     };
 
+    private static DeductionApplication BuildDeductionApplication(Guid employeeId) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        Breakdown = [],
+        ApprovalStatus = ApprovalStatus.ForApproval,
+    };
+
     private static (MeController Controller, Guid CallerUserId) BuildController(
         Employee? caller,
         Payroll? payroll = null,
@@ -112,7 +120,8 @@ public class MeControllerTests
         LeaveApplication[]? leaveApplications = null,
         OverTimeApplication[]? overtimeApplications = null,
         TravelOrderApplication[]? travelOrderApplications = null,
-        ChangeRestDay[]? changeRestDays = null)
+        ChangeRestDay[]? changeRestDays = null,
+        DeductionApplication[]? deductionApplications = null)
     {
         var repo = Substitute.For<IRepository>();
         var employees = caller is null ? Array.Empty<Employee>() : [caller];
@@ -122,6 +131,7 @@ public class MeControllerTests
         var overtimeApps = overtimeApplications ?? [];
         var travelOrderApps = travelOrderApplications ?? [];
         var changeRestDayRows = changeRestDays ?? [];
+        var deductionApps = deductionApplications ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
@@ -131,6 +141,7 @@ public class MeControllerTests
         repo.FindAll<OverTimeApplication>().Returns(_ => overtimeApps.ToList().BuildMockDbSet());
         repo.FindAll<TravelOrderApplication>().Returns(_ => travelOrderApps.ToList().BuildMockDbSet());
         repo.FindAll<ChangeRestDay>().Returns(_ => changeRestDayRows.ToList().BuildMockDbSet());
+        repo.FindAll<DeductionApplication>().Returns(_ => deductionApps.ToList().BuildMockDbSet());
         repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
             .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -167,6 +178,8 @@ public class MeControllerTests
         var travelOrderApplicationService = new TravelOrderApplicationService(uow);
         var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow));
         var changeRestDayService = new ChangeRestDayService(uow);
+        var deductionApplicationService = new DeductionApplicationService(
+            uow, new DeductionService(uow), employeeService, Substitute.For<IMapper>());
 
         // Unlike Leave's bare mapper above, Overtime/TravelOrder/PassSlip's controller actions
         // map to a NEW entity themselves (their services take the entity, not the raw DTO), so
@@ -179,6 +192,8 @@ public class MeControllerTests
             .Returns(call => ((CreateTravelOrderApplication)call.Arg<object>()).Adapt<TravelOrderApplication>());
         mapper.Map<PassSlipApplication>(Arg.Any<object>())
             .Returns(call => ((CreatePassSlipApplication)call.Arg<object>()).Adapt<PassSlipApplication>());
+        mapper.Map<List<DeductionApplicationModel>>(Arg.Any<object>())
+            .Returns(call => ((List<DeductionApplication>)call.Arg<object>()).Adapt<List<DeductionApplicationModel>>());
 
         var callerUserId = caller?.UserId ?? Guid.NewGuid();
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -192,7 +207,8 @@ public class MeControllerTests
         var controller = new MeController(
             employeeService, payrollService, companyService, null!, fixedScheduleService,
             leaveLedgerService, leaveApplicationService, overtimeApplicationService,
-            travelOrderApplicationService, passSlipApplicationService, changeRestDayService, mapper)
+            travelOrderApplicationService, passSlipApplicationService, changeRestDayService,
+            deductionApplicationService, mapper)
         {
             ControllerContext = new ControllerContext
             {
@@ -552,6 +568,50 @@ public class MeControllerTests
         };
 
         var result = await controller.CreateMyChangeRestDayRequest(payload, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMyLoanApplications_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyLoanApplications(CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMyLoanApplications_ReturnsOnlyCallersOwnApplications()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var someoneElse = BuildEmployee(Guid.NewGuid());
+        var mine = BuildDeductionApplication(caller.Id);
+        var others = BuildDeductionApplication(someoneElse.Id);
+        var (controller, _) = BuildController(caller, deductionApplications: [mine, others]);
+
+        var result = await controller.GetMyLoanApplications(CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var applications = ok.Value.Should().BeAssignableTo<List<DeductionApplicationModel>>().Subject;
+        applications.Should().ContainSingle();
+        applications[0].EmployeeId.Should().Be(caller.Id);
+    }
+
+    [Fact]
+    public async Task CreateMyLoanApplication_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+        var payload = new CreateDeductionApplication
+        {
+            DeductionId = Guid.NewGuid(),
+            StartDate = new DateOnly(2026, 9, 9),
+            EndDate = new DateOnly(2026, 12, 9),
+            Breakdown = [],
+        };
+
+        var result = await controller.CreateMyLoanApplication(payload, CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
     }
