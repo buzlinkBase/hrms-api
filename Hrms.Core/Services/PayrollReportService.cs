@@ -261,24 +261,33 @@ public class PayrollReportService : BaseService<Payroll>
     // already-posted partial cutoff out of their Last Pay's 13th month proration whenever they
     // separated mid-cutoff. A cutoff that STARTED on or before asOfDate necessarily contains at
     // least some pre-separation work, so it always belongs in the proration.
-    public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token, DateOnly? asOfDate = null)
+    // employeeId, when given, scopes every query to that one employee instead of computing for
+    // the whole company — used by MeController.GetMy13thMonth so a self-service lookup doesn't
+    // pay the cost of (and can never accidentally leak) every other employee's figures.
+    public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token, DateOnly? asOfDate = null, Guid? employeeId = null)
     {
         var rows = await GetQueryable(x =>
                 x.PostingPeriod.Year == year && x.IsPosted && x.PayrollType == PayrollType.Regular &&
-                (asOfDate == null || x.PayPeriodStart <= asOfDate))
+                (asOfDate == null || x.PayPeriodStart <= asOfDate) &&
+                (employeeId == null || x.EmployeeId == employeeId))
             .ToListAsync(token);
 
         // Opening Balance (pre-system-cutover) BasicPay/Bonuses are always fully in the past
         // relative to any asOfDate within the same year, so they're folded in unconditionally
         // regardless of the asOfDate slice — see PayrollOpeningBalance's doc comment.
         var openingBalances = await _payrollOpeningBalanceService.FindAllByYearAsync(year, token);
+        if (employeeId != null)
+        {
+            openingBalances = openingBalances.Where(x => x.Key == employeeId).ToDictionary(x => x.Key, x => x.Value);
+        }
 
         // This year's own 13th month payout row, if generated — used to surface a
         // released/unreleased Status per employee (NotGenerated/Draft/Posted), independent
         // of the `rows` query above (which deliberately excludes ThirteenthMonth rows so a
         // payout can never fold into its own entitlement calculation).
         var thirteenthMonthRuns = await GetQueryable(x =>
-                x.PayrollType == PayrollType.ThirteenthMonth && x.PayPeriodStart.Year == year)
+                x.PayrollType == PayrollType.ThirteenthMonth && x.PayPeriodStart.Year == year &&
+                (employeeId == null || x.EmployeeId == employeeId))
             .Select(x => new { x.Id, x.EmployeeId, x.IsPosted, x.NetPay })
             .ToListAsync(token);
         var runByEmployee = thirteenthMonthRuns

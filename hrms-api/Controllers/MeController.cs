@@ -32,6 +32,7 @@ namespace Hrms.Api.Controllers
         private readonly PassSlipApplicationService _passSlipApplicationService;
         private readonly ChangeRestDayService _changeRestDayService;
         private readonly DeductionApplicationService _deductionApplicationService;
+        private readonly PayrollReportService _payrollReportService;
         private readonly IMapper _mapper;
 
         public MeController(
@@ -47,6 +48,7 @@ namespace Hrms.Api.Controllers
             PassSlipApplicationService passSlipApplicationService,
             ChangeRestDayService changeRestDayService,
             DeductionApplicationService deductionApplicationService,
+            PayrollReportService payrollReportService,
             IMapper mapper)
         {
             _employeeService = employeeService;
@@ -61,6 +63,7 @@ namespace Hrms.Api.Controllers
             _passSlipApplicationService = passSlipApplicationService;
             _changeRestDayService = changeRestDayService;
             _deductionApplicationService = deductionApplicationService;
+            _payrollReportService = payrollReportService;
             _mapper = mapper;
         }
 
@@ -315,6 +318,20 @@ namespace Hrms.Api.Controllers
             payload.EmployeeId = employeeId.Value;
             await _deductionApplicationService.AddAsync(payload, ApprovalStatus.ForApproval, token);
             return Ok();
+        }
+
+        // Scoped server-side to the caller's own EmployeeId via GetThirteenthMonthAsync's
+        // employeeId filter — never computes or returns another employee's figures.
+        [HttpGet("13th-month")]
+        [ProducesResponseType(typeof(ResponseModel<ThirteenthMonthModel>), 200)]
+        public async Task<IActionResult> GetMy13thMonth([FromQuery] int? year, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var data = await _payrollReportService.GetThirteenthMonthAsync(
+                year ?? DateTime.UtcNow.Year, token, employeeId: employeeId.Value);
+            return Ok(data.FirstOrDefault());
         }
     }
 }

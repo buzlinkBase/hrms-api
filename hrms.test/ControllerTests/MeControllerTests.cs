@@ -104,6 +104,18 @@ public class MeControllerTests
         ApprovalStatus = ApprovalStatus.ForApproval,
     };
 
+    private static Payroll BuildRegularPayroll(Guid employeeId, int year, decimal basicPay) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        PostingPeriod = new DateOnly(year, 6, 15),
+        PayPeriodStart = new DateOnly(year, 6, 1),
+        PayPeriodEnd = new DateOnly(year, 6, 15),
+        IsPosted = true,
+        PayrollType = PayrollType.Regular,
+        BasicPay = basicPay,
+    };
+
     private static DeductionApplication BuildDeductionApplication(Guid employeeId) => new()
     {
         Id = Guid.NewGuid(),
@@ -121,7 +133,8 @@ public class MeControllerTests
         OverTimeApplication[]? overtimeApplications = null,
         TravelOrderApplication[]? travelOrderApplications = null,
         ChangeRestDay[]? changeRestDays = null,
-        DeductionApplication[]? deductionApplications = null)
+        DeductionApplication[]? deductionApplications = null,
+        Payroll[]? payrollRows = null)
     {
         var repo = Substitute.For<IRepository>();
         var employees = caller is null ? Array.Empty<Employee>() : [caller];
@@ -132,6 +145,7 @@ public class MeControllerTests
         var travelOrderApps = travelOrderApplications ?? [];
         var changeRestDayRows = changeRestDays ?? [];
         var deductionApps = deductionApplications ?? [];
+        var payrollRowsList = payrollRows ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
@@ -142,6 +156,8 @@ public class MeControllerTests
         repo.FindAll<TravelOrderApplication>().Returns(_ => travelOrderApps.ToList().BuildMockDbSet());
         repo.FindAll<ChangeRestDay>().Returns(_ => changeRestDayRows.ToList().BuildMockDbSet());
         repo.FindAll<DeductionApplication>().Returns(_ => deductionApps.ToList().BuildMockDbSet());
+        repo.FindAll<Payroll>().Returns(_ => payrollRowsList.ToList().BuildMockDbSet());
+        repo.FindAll<PayrollOpeningBalance>().Returns(_ => new List<PayrollOpeningBalance>().BuildMockDbSet());
         repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
             .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -180,6 +196,8 @@ public class MeControllerTests
         var changeRestDayService = new ChangeRestDayService(uow);
         var deductionApplicationService = new DeductionApplicationService(
             uow, new DeductionService(uow), employeeService, Substitute.For<IMapper>());
+        var payrollReportService = new PayrollReportService(
+            uow, employeeService, new PayrollOpeningBalanceService(uow));
 
         // Unlike Leave's bare mapper above, Overtime/TravelOrder/PassSlip's controller actions
         // map to a NEW entity themselves (their services take the entity, not the raw DTO), so
@@ -208,7 +226,7 @@ public class MeControllerTests
             employeeService, payrollService, companyService, null!, fixedScheduleService,
             leaveLedgerService, leaveApplicationService, overtimeApplicationService,
             travelOrderApplicationService, passSlipApplicationService, changeRestDayService,
-            deductionApplicationService, mapper)
+            deductionApplicationService, payrollReportService, mapper)
         {
             ControllerContext = new ControllerContext
             {
@@ -614,5 +632,32 @@ public class MeControllerTests
         var result = await controller.CreateMyLoanApplication(payload, CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMy13thMonth_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMy13thMonth(2026, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetMy13thMonth_ReturnsOnlyCallersOwnFigure()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var someoneElse = BuildEmployee(Guid.NewGuid());
+        var mine = BuildRegularPayroll(caller.Id, 2026, 120_000);
+        var others = BuildRegularPayroll(someoneElse.Id, 2026, 240_000);
+        var (controller, _) = BuildController(caller, payrollRows: [mine, others]);
+
+        var result = await controller.GetMy13thMonth(2026, CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var model = ok.Value.Should().BeOfType<ThirteenthMonthModel>().Subject;
+        model.EmployeeId.Should().Be(caller.Id);
+        model.ThirteenthMonthPay.Should().Be(120_000m / 12);
     }
 }
