@@ -279,10 +279,6 @@ public class MappingProfile : IRegister
 
         config.NewConfig<CreateRestDayDate, RestDayDate>();
         config.NewConfig<RestDayDate, RestDayDateModel>();
-
-        config.NewConfig<Permission, PermissionModel>();
-        config.NewConfig<Role, RoleModel>()
-            .Map(dest => dest.Permissions, src => src.RolePermissions.Select(rp => rp.Permission));
     }
 
     /// <summary>

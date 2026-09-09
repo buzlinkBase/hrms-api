@@ -112,10 +112,6 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<DeductionApplicationDetail> DeductionApplicationDetails { get; set; }
     public DbSet<IncomePayment> IncomePayments { get; set; }
     public DbSet<DeductionPayment> DeductionPayments { get; set; }
-    public DbSet<Permission> Permissions { get; set; }
-    public DbSet<Role> Roles { get; set; }
-    public DbSet<RolePermission> RolePermissions { get; set; }
-    public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<LeaveApplication> leaveApplications { get; set; }
 
     public DbSet<SSSTable> GovSSSes { get; set; }

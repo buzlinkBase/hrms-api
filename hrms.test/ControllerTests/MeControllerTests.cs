@@ -134,9 +134,7 @@ public class MeControllerTests
         TravelOrderApplication[]? travelOrderApplications = null,
         ChangeRestDay[]? changeRestDays = null,
         DeductionApplication[]? deductionApplications = null,
-        Payroll[]? payrollRows = null,
-        UserRole[]? userRoles = null,
-        RolePermission[]? rolePermissions = null)
+        Payroll[]? payrollRows = null)
     {
         var repo = Substitute.For<IRepository>();
         var employees = caller is null ? Array.Empty<Employee>() : [caller];
@@ -148,8 +146,6 @@ public class MeControllerTests
         var changeRestDayRows = changeRestDays ?? [];
         var deductionApps = deductionApplications ?? [];
         var payrollRowsList = payrollRows ?? [];
-        var userRoleRows = userRoles ?? [];
-        var rolePermissionRows = rolePermissions ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
@@ -164,10 +160,6 @@ public class MeControllerTests
         repo.FindAll<PayrollOpeningBalance>().Returns(_ => new List<PayrollOpeningBalance>().BuildMockDbSet());
         repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
             .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
-        repo.Find<UserRole>(Arg.Any<Expression<Func<UserRole, bool>>>())
-            .Returns(call => userRoleRows.Where(call.Arg<Expression<Func<UserRole, bool>>>().Compile()).ToList().BuildMockDbSet());
-        repo.Find<RolePermission>(Arg.Any<Expression<Func<RolePermission, bool>>>())
-            .Returns(call => rolePermissionRows.Where(call.Arg<Expression<Func<RolePermission, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => payroll != null && call.Arg<Guid>() == payroll.Id ? payroll : null);
 
@@ -206,7 +198,6 @@ public class MeControllerTests
             uow, new DeductionService(uow), employeeService, Substitute.For<IMapper>());
         var payrollReportService = new PayrollReportService(
             uow, employeeService, new PayrollOpeningBalanceService(uow));
-        var userRoleService = new UserRoleService(uow);
 
         // Unlike Leave's bare mapper above, Overtime/TravelOrder/PassSlip's controller actions
         // map to a NEW entity themselves (their services take the entity, not the raw DTO), so
@@ -235,7 +226,7 @@ public class MeControllerTests
             employeeService, payrollService, companyService, null!, fixedScheduleService,
             leaveLedgerService, leaveApplicationService, overtimeApplicationService,
             travelOrderApplicationService, passSlipApplicationService, changeRestDayService,
-            deductionApplicationService, payrollReportService, userRoleService, mapper)
+            deductionApplicationService, payrollReportService, mapper)
         {
             ControllerContext = new ControllerContext
             {
@@ -668,35 +659,5 @@ public class MeControllerTests
         var model = ok.Value.Should().BeOfType<ThirteenthMonthModel>().Subject;
         model.EmployeeId.Should().Be(caller.Id);
         model.ThirteenthMonthPay.Should().Be(120_000m / 12);
-    }
-
-    [Fact]
-    public async Task GetMyPermissions_ReturnsUnionAcrossAllAssignedRoles()
-    {
-        var callerUserId = Guid.NewGuid();
-        var caller = BuildEmployee(callerUserId);
-        var roleA = Guid.NewGuid();
-        var roleB = Guid.NewGuid();
-        var shared = new Permission { Id = Guid.NewGuid(), Code = "PayrollRun:View" };
-        var onlyA = new Permission { Id = Guid.NewGuid(), Code = "PayrollRun:Approve" };
-        var onlyB = new Permission { Id = Guid.NewGuid(), Code = "Users:Manage" };
-        var (controller, _) = BuildController(
-            caller,
-            userRoles: [
-                new UserRole { UserId = callerUserId, RoleId = roleA },
-                new UserRole { UserId = callerUserId, RoleId = roleB },
-            ],
-            rolePermissions: [
-                new RolePermission { RoleId = roleA, PermissionId = shared.Id, Permission = shared },
-                new RolePermission { RoleId = roleA, PermissionId = onlyA.Id, Permission = onlyA },
-                new RolePermission { RoleId = roleB, PermissionId = shared.Id, Permission = shared },
-                new RolePermission { RoleId = roleB, PermissionId = onlyB.Id, Permission = onlyB },
-            ]);
-
-        var result = await controller.GetMyPermissions(CancellationToken.None);
-
-        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        var codes = ok.Value.Should().BeAssignableTo<List<string>>().Subject;
-        codes.Should().BeEquivalentTo(["PayrollRun:View", "PayrollRun:Approve", "Users:Manage"]);
     }
 }

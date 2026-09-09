@@ -33,7 +33,6 @@ namespace Hrms.Api.Controllers
         private readonly ChangeRestDayService _changeRestDayService;
         private readonly DeductionApplicationService _deductionApplicationService;
         private readonly PayrollReportService _payrollReportService;
-        private readonly UserRoleService _userRoleService;
         private readonly IMapper _mapper;
 
         public MeController(
@@ -50,7 +49,6 @@ namespace Hrms.Api.Controllers
             ChangeRestDayService changeRestDayService,
             DeductionApplicationService deductionApplicationService,
             PayrollReportService payrollReportService,
-            UserRoleService userRoleService,
             IMapper mapper)
         {
             _employeeService = employeeService;
@@ -66,7 +64,6 @@ namespace Hrms.Api.Controllers
             _changeRestDayService = changeRestDayService;
             _deductionApplicationService = deductionApplicationService;
             _payrollReportService = payrollReportService;
-            _userRoleService = userRoleService;
             _mapper = mapper;
         }
 
@@ -335,18 +332,6 @@ namespace Hrms.Api.Controllers
             var data = await _payrollReportService.GetThirteenthMonthAsync(
                 year ?? DateTime.UtcNow.Year, token, employeeId: employeeId.Value);
             return Ok(data.FirstOrDefault());
-        }
-
-        // RBAC Phase 1 groundwork only — nothing in the app calls or enforces this yet (see
-        // RbacServices.cs). Returns the deduped union of "{Feature}:{Action}" codes across every
-        // Role assigned to the caller's own UserId.
-        [HttpGet("permissions")]
-        [ProducesResponseType(typeof(ResponseModel<List<string>>), 200)]
-        public async Task<IActionResult> GetMyPermissions(CancellationToken token)
-        {
-            var userId = User.GetRequiredUserId();
-            var data = await _userRoleService.GetEffectivePermissionCodesAsync(userId, token);
-            return Ok(data);
         }
     }
 }
