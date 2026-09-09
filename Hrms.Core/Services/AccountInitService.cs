@@ -7,14 +7,18 @@ namespace Hrms.Core.Services;
 public class AccountInitService : BaseService<Company>
 {
     private readonly GeneralSettingService _settingService;
-    public AccountInitService(IUnitOfWorkService uow, 
-        GeneralSettingService settingService) : base(uow)
+    private readonly PermissionCatalogSeederService _permissionCatalogSeeder;
+    public AccountInitService(IUnitOfWorkService uow,
+        GeneralSettingService settingService,
+        PermissionCatalogSeederService permissionCatalogSeeder) : base(uow)
     {
         _settingService = settingService;
+        _permissionCatalogSeeder = permissionCatalogSeeder;
     }
 
     public async Task Create(CancellationToken token)
     {
+        await _permissionCatalogSeeder.EnsureSeededAsync(token);
         await SetDefaultLeaves(token);
         await SetDefaultRates(token);
         await SetDefaultIncomeTypes(token);
