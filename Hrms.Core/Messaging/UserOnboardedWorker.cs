@@ -24,8 +24,10 @@ public class UserOnboardedWorker : IConsumer<UserOnboarded>
         }
 
         employee.UserId = msg.UserId;
-        if (string.IsNullOrWhiteSpace(employee.Email))
-            employee.Email = msg.Email;
+        employee.Email = msg.Email;
+
+        //if (string.IsNullOrWhiteSpace(employee.Email))
+        //    employee.Email = msg.Email;
 
         await _employeeService.CommitChangesAsync(context.CancellationToken);
     }
