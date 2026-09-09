@@ -225,18 +225,16 @@ public class DeviceService : BaseService<BiometricDevice>
 
     public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, Guid tenantId, CancellationToken token)
     {
-        var model = new BiometricDevice
-        {
-            Id = payload.Id,
-            SN = payload.SN,
-            Description = payload.Description ?? "",
-            BranchId = payload.BranchId,
-            ClientId = payload.ClientId,
-            OperationAreaId = payload.AreaId,
-            Status = payload.Status,
-            TenantId = tenantId,
-        };
-        await ModifyAsync(model, token);
+        await Context.BiometricDevices
+        .Where(x => x.Id == payload.Id && x.TenantId == tenantId)
+        .ExecuteUpdateAsync(x => x
+            .SetProperty(b => b.Status, payload.Status)
+            .SetProperty(b => b.SN, payload.SN)
+            .SetProperty(b => b.Description, payload.Description ?? "")
+            .SetProperty(b => b.BranchId, payload.BranchId)
+            .SetProperty(b => b.ClientId, payload.ClientId)
+            .SetProperty(b => b.OperationAreaId, payload.AreaId),
+            token);
         await CommitChangesAsync(token);
         return payload;
     }
