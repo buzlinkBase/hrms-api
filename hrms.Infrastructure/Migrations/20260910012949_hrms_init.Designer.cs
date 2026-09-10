@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    [Migration("20260907001957_finalpay")]
-    partial class finalpay
+    [Migration("20260910012949_hrms_init")]
+    partial class hrms_init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -228,6 +228,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("WageOrderClass")
+                        .HasColumnType("longtext");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "DeletedAt");
@@ -289,6 +292,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
 
                     b.Property<string>("BatchCode")
                         .IsRequired()
@@ -1013,6 +1019,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -1999,6 +2008,145 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("PHICRates");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.PayrollOpeningBalance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Allowances")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("BasicPay")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("Bonuses")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("GrossIncome")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("HolidayPay")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("NetPay")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("NonTaxableIncome")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("OtherDeductions")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("OtherIncome")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("OvertimePay")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("PagIbigContribution")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("PhilHealthContribution")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("SSSContribution")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("TotalDeductions")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("WithholdingTax")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId", "Year")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("PayrollOpeningBalances");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.PriorEmployerTaxRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("GrossIncomeYtd")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<bool>("HasPriorEmployer")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal>("NonTaxableYtd")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("PriorEmployerName")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal>("StatutoryDeductionsYtd")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("TaxWithheldYtd")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId", "Year")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("PriorEmployerTaxRecords");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.RestDay", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2385,6 +2533,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("DayOfWeek")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
@@ -2416,6 +2567,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("WeekOfMonth")
+                        .HasColumnType("int");
 
                     b.Property<int>("WorkType")
                         .HasColumnType("int");
@@ -2929,6 +3083,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("WageOrderClass")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("WageOrderNo")
                         .HasColumnType("longtext");
@@ -4660,6 +4817,50 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("WorkSchedulePlans");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.YearLock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ReopenedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.HasIndex("TenantId", "Year")
+                        .IsUnique();
+
+                    b.ToTable("YearLocks");
+                });
+
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.InboxState", b =>
                 {
                     b.Property<long>("Id")
@@ -5096,6 +5297,28 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
                         .WithOne("PHICRate")
                         .HasForeignKey("Hrms.Domain.Entities.EmployeeEntities.PHICRate", "EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.PayrollOpeningBalance", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.PriorEmployerTaxRecord", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

@@ -2,9 +2,6 @@
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.Configuration;
 namespace Hrms.Infrastructure;
 
