@@ -101,6 +101,7 @@ public static class ServiceRegistrationsExt
         builder.Services.AddControllers(options =>
         {
             options.Filters.Add<ResponseWrapperFilter>();
+            options.Filters.Add<EmployeeOnlyRestrictionFilter>();
             options.RespectBrowserAcceptHeader = true;
         })
          .AddNewtonsoftJson(options =>
