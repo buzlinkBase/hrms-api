@@ -160,6 +160,22 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         await CommitChangesAsync(token);
     }
 
+    // Self-service cancel of the employee's own still-pending loan request. A ForApproval
+    // application never touched payroll (see AddAsync's comment on the portal path), so nothing
+    // needs to be unwound. See MeController's loan-applications/{id}/withdraw endpoint.
+    public async Task WithdrawAsync(Guid id, Guid employeeId, CancellationToken token)
+    {
+        var existing = await GetOneAsync(id, token);
+        if (existing == null || existing.EmployeeId != employeeId)
+            throw new NotFoundException("Application not found");
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("Only pending applications can be withdrawn.");
+
+        existing.ApprovalStatus = ApprovalStatus.Withdrawn;
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
+
     public Task<List<DeductionApplicationDetail>> FindDetail(Expression<Func<DeductionApplicationDetail, bool>> expression)
     {
         return _uow.Repository.Find(expression).ToListAsync();

@@ -62,6 +62,21 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         return await GetOneAsync(id, token);
     }
 
+    // Self-service cancel of the employee's own still-pending application. See
+    // MeController's travel-order-applications/{id}/withdraw endpoint.
+    public async Task WithdrawAsync(Guid id, Guid employeeId, CancellationToken token)
+    {
+        var existing = await GetOneAsync(id, token);
+        if (existing == null || existing.EmployeeId != employeeId)
+            throw new NotFoundException("Application not found");
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("Only pending applications can be withdrawn.");
+
+        existing.ApprovalStatus = ApprovalStatus.Withdrawn;
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
+
     public async Task Delete(Guid id, CancellationToken token)
     {
         await RemoveAsync(id, token);

@@ -377,7 +377,8 @@ public enum ApprovalStatus
     ForApproval,
     Approved,
     Cancelled,
-    Declined
+    Declined,
+    Withdrawn // employee cancelled their own still-pending (ForApproval) application
 }
 
 public enum LedgerEntryType

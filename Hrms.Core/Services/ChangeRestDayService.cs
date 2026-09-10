@@ -62,6 +62,19 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ApprovalStatus, ApprovalStatus.Declined), token);
     }
 
+    // Self-service cancel of the employee's own still-pending request. The ApprovalStatus.ForApproval
+    // filter in the WHERE doubles as the "only pending" guard -- an already-approved/declined
+    // batch simply matches zero rows and the update is a no-op, so the caller can't withdraw
+    // something already acted on. See MeController's change-rest-day/{batchCode}/withdraw endpoint.
+    public async Task<bool> WithdrawChangeOffAsync(string batchCode, Guid employeeId, CancellationToken token)
+    {
+        var rows = await Context.ChangeRestDays
+            .Where(x => x.BatchCode == batchCode && x.EmployeeId == employeeId
+                && x.ApprovalStatus == ApprovalStatus.ForApproval)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ApprovalStatus, ApprovalStatus.Withdrawn), token);
+        return rows > 0;
+    }
+
     private async Task AddNewDayOffAsync(ChangeOffModel changeOff, ApprovalStatus status, CancellationToken token)
     {
         var yr = DateTime.UtcNow.Year;

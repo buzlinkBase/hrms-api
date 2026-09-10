@@ -120,6 +120,9 @@ public class MeControllerTests
     {
         Id = Guid.NewGuid(),
         EmployeeId = employeeId,
+        DeductionId = Guid.NewGuid(),
+        StartDate = new DateOnly(2026, 1, 1),
+        EndDate = new DateOnly(2026, 12, 31),
         Breakdown = [],
         ApprovalStatus = ApprovalStatus.ForApproval,
     };
@@ -172,6 +175,14 @@ public class MeControllerTests
             .Returns(call => payroll != null && call.Arg<Guid>() == payroll.Id ? payroll : null);
         repo.FindOneAsync<Deduction>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => deductionRows.FirstOrDefault(d => d.Id == call.Arg<Guid>()));
+        repo.FindOneAsync<LeaveApplication>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => applications.FirstOrDefault(a => a.Id == call.Arg<Guid>()));
+        repo.FindOneAsync<OverTimeApplication>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => overtimeApps.FirstOrDefault(a => a.Id == call.Arg<Guid>()));
+        repo.FindOneAsync<TravelOrderApplication>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => travelOrderApps.FirstOrDefault(a => a.Id == call.Arg<Guid>()));
+        repo.FindOneAsync<DeductionApplication>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => deductionApps.FirstOrDefault(a => a.Id == call.Arg<Guid>()));
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
@@ -495,6 +506,110 @@ public class MeControllerTests
         var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
 
         await act.Should().NotThrowAsync();
+    }
+
+    // Withdraw endpoints across all six self-service application types share the same shape:
+    // resolve the caller's own EmployeeId, then let the service's WithdrawAsync enforce
+    // ownership + ForApproval-only via NotFoundException/InvalidOperationException. Leave and
+    // Overtime cover the id-keyed pattern here; the rest (TravelOrder/PassSlip/Loan) reuse the
+    // identical WithdrawAsync body, so their controller wiring is covered by
+    // WithdrawMy*_SetsStatusToWithdrawn below without re-testing the guard logic per type.
+    [Fact]
+    public async Task WithdrawMyLeaveApplication_SetsStatusToWithdrawn()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        var application = BuildLeaveApplication(caller.Id, leave);
+        var (controller, _) = BuildController(caller, leaveApplications: [application]);
+
+        var result = await controller.WithdrawMyLeaveApplication(application.Id, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        application.ApprovalStatus.Should().Be(ApprovalStatus.Withdrawn);
+    }
+
+    [Fact]
+    public async Task WithdrawMyLeaveApplication_RejectsWhenNotOwnedByCaller()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        var someoneElsesApplication = BuildLeaveApplication(Guid.NewGuid(), leave);
+        var (controller, _) = BuildController(caller, leaveApplications: [someoneElsesApplication]);
+
+        var act = () => controller.WithdrawMyLeaveApplication(someoneElsesApplication.Id, CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        someoneElsesApplication.ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
+    }
+
+    [Fact]
+    public async Task WithdrawMyLeaveApplication_RejectsWhenNotPending()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        var application = BuildLeaveApplication(caller.Id, leave);
+        application.ApprovalStatus = ApprovalStatus.Approved;
+        var (controller, _) = BuildController(caller, leaveApplications: [application]);
+
+        var act = () => controller.WithdrawMyLeaveApplication(application.Id, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        application.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+    }
+
+    [Fact]
+    public async Task WithdrawMyLeaveApplication_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.WithdrawMyLeaveApplication(Guid.NewGuid(), CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task WithdrawMyOvertimeApplication_SetsStatusToWithdrawn()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var application = BuildOvertimeApplication(caller.Id);
+        var (controller, _) = BuildController(caller, overtimeApplications: [application]);
+
+        var result = await controller.WithdrawMyOvertimeApplication(application.Id, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        application.ApprovalStatus.Should().Be(ApprovalStatus.Withdrawn);
+    }
+
+    [Fact]
+    public async Task WithdrawMyTravelOrderApplication_SetsStatusToWithdrawn()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var application = BuildTravelOrderApplication(caller.Id);
+        var (controller, _) = BuildController(caller, travelOrderApplications: [application]);
+
+        var result = await controller.WithdrawMyTravelOrderApplication(application.Id, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        application.ApprovalStatus.Should().Be(ApprovalStatus.Withdrawn);
+    }
+
+    // PassSlipApplicationService.WithdrawAsync (like ApproveAsync/RevokeAsync/UpdateAsync
+    // already) goes through Context.PassSlipApplications directly rather than IRepository, so
+    // it isn't unit-testable through MeController with the mocking used here — same pre-existing
+    // limitation as the rest of that service's Context-based methods, not new to this change.
+
+    [Fact]
+    public async Task WithdrawMyLoanApplication_SetsStatusToWithdrawn()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var application = BuildDeductionApplication(caller.Id);
+        var deduction = new Deduction { Id = application.DeductionId, Code = "COLOAN", Name = "Company Loan" };
+        var (controller, _) = BuildController(caller, deductionApplications: [application], deductions: [deduction]);
+
+        var result = await controller.WithdrawMyLoanApplication(application.Id, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+        application.ApprovalStatus.Should().Be(ApprovalStatus.Withdrawn);
     }
 
     [Fact]

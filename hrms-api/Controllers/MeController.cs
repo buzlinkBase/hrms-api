@@ -185,6 +185,21 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        // Ownership + pending-only guard lives in LeaveApplicationService.WithdrawAsync -- it
+        // throws NotFoundException (also for "belongs to someone else", so a caller can't probe
+        // whether another employee's application id exists) or InvalidOperationException (not
+        // ForApproval anymore), both handled by the standard exception pipeline.
+        [HttpPatch("leave-applications/{id:guid}/withdraw")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> WithdrawMyLeaveApplication(Guid id, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            await _leaveApplicationService.WithdrawAsync(id, employeeId.Value, token);
+            return Ok();
+        }
+
         [HttpGet("overtime-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<OverTimeApplication>>), 200)]
         public async Task<IActionResult> GetMyOvertimeApplications(CancellationToken token)
@@ -211,6 +226,17 @@ namespace Hrms.Api.Controllers
             var entity = _mapper.Map<OverTimeApplication>(payload);
             entity.ApprovalStatus = ApprovalStatus.ForApproval;
             await _overtimeApplicationService.AddAsync(entity, token);
+            return Ok();
+        }
+
+        [HttpPatch("overtime-applications/{id:guid}/withdraw")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> WithdrawMyOvertimeApplication(Guid id, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            await _overtimeApplicationService.WithdrawAsync(id, employeeId.Value, token);
             return Ok();
         }
 
@@ -244,6 +270,17 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [HttpPatch("travel-order-applications/{id:guid}/withdraw")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> WithdrawMyTravelOrderApplication(Guid id, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            await _travelOrderApplicationService.WithdrawAsync(id, employeeId.Value, token);
+            return Ok();
+        }
+
         [HttpGet("pass-slip-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplication>>), 200)]
         public async Task<IActionResult> GetMyPassSlipApplications(CancellationToken token)
@@ -266,6 +303,17 @@ namespace Hrms.Api.Controllers
             payload.EmployeeId = employeeId.Value;
             var entity = _mapper.Map<PassSlipApplication>(payload);
             await _passSlipApplicationService.AddAsync(entity, token);
+            return Ok();
+        }
+
+        [HttpPatch("pass-slip-applications/{id:guid}/withdraw")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> WithdrawMyPassSlipApplication(Guid id, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            await _passSlipApplicationService.WithdrawAsync(id, employeeId.Value, token);
             return Ok();
         }
 
@@ -294,6 +342,22 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        // Change Rest Day is batch-shaped (batchCode+employeeId, not a single id) -- see
+        // ChangeRestDayService.WithdrawChangeOffAsync. employeeId is resolved server-side same as
+        // everywhere else, so a caller can only ever match rows under their own batches.
+        [HttpPatch("change-rest-day/{batchCode}/withdraw")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 404)]
+        public async Task<IActionResult> WithdrawMyChangeRestDayRequest(string batchCode, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var withdrawn = await _changeRestDayService.WithdrawChangeOffAsync(batchCode, employeeId.Value, token);
+            if (!withdrawn) return NotFound("No pending request found for that batch.");
+            return Ok();
+        }
+
         [HttpGet("loan-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<DeductionApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyLoanApplications(CancellationToken token)
@@ -317,6 +381,17 @@ namespace Hrms.Api.Controllers
 
             payload.EmployeeId = employeeId.Value;
             await _deductionApplicationService.AddAsync(payload, ApprovalStatus.ForApproval, token, isSelfService: true);
+            return Ok();
+        }
+
+        [HttpPatch("loan-applications/{id:guid}/withdraw")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> WithdrawMyLoanApplication(Guid id, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            await _deductionApplicationService.WithdrawAsync(id, employeeId.Value, token);
             return Ok();
         }
 

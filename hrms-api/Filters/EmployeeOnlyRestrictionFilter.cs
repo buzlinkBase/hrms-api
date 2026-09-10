@@ -7,8 +7,14 @@ namespace Hrms.Api.Filters;
 /// <summary>
 /// Backend mirror of the frontend's Employee-only portal restriction (see
 /// rootRoute.beforeLoad in hrms-ui-onepunch). A caller whose role set for the current tenant is
-/// exactly ["Employee"] (no Admin/Owner/Member/Custom role alongside it) can only reach
-/// self-service ("/me/*") endpoints -- everything else is 403. Role claims are embedded in the
+/// exactly ["Employee"] (no Admin/Owner/Member/Custom role alongside it) can only *write* outside
+/// self-service ("/me/*") endpoints -- POST/PUT/PATCH/DELETE elsewhere is 403. GET is left alone
+/// everywhere: several portal pages legitimately call non-"/me/*" endpoints for read-only
+/// reference/lookup data that isn't employee-specific (e.g. My Daily Time Record resolving shift
+/// names via GET /api/v1/timeshifts, or the Leave/Loan filing forms reading leave types and
+/// deduction types) -- blocking those GETs too broke that, since this filter was only ever meant
+/// to stop an employee-only account from reaching admin CRUD actions, not from reading the same
+/// shared config data every portal page already needs to render. Role claims are embedded in the
 /// JWT at mint time by AuthApi's JwtService; a caller with no role claims at all (e.g. tokens
 /// minted before this existed) is left alone, since there's nothing to restrict against.
 /// </summary>
@@ -21,8 +27,9 @@ public class EmployeeOnlyRestrictionFilter : IAsyncActionFilter
             .Select(c => c.Value)
             .ToList();
         var isEmployeeOnly = roles.Count > 0 && roles.All(r => r == "Employee");
+        var isRead = HttpMethods.IsGet(context.HttpContext.Request.Method);
 
-        if (isEmployeeOnly && !IsSelfServicePath(context.HttpContext.Request.Path))
+        if (isEmployeeOnly && !isRead && !IsSelfServicePath(context.HttpContext.Request.Path))
         {
             context.Result = new ObjectResult(new ProblemDetails
             {

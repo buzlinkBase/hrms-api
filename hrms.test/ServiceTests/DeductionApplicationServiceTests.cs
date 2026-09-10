@@ -124,4 +124,45 @@ public class DeductionApplicationServiceTests
 
         application.ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
     }
+
+    [Fact]
+    public async Task WithdrawAsync_SetsStatusToWithdrawn()
+    {
+        var employeeId = Guid.NewGuid();
+        var deductionId = Guid.NewGuid();
+        var application = BuildApplication(Guid.NewGuid(), employeeId, deductionId, ApprovalStatus.ForApproval);
+        var service = BuildService(application, BuildEmployee(employeeId), BuildDeduction(deductionId));
+
+        await service.WithdrawAsync(application.Id, employeeId, CancellationToken.None);
+
+        application.ApprovalStatus.Should().Be(ApprovalStatus.Withdrawn);
+    }
+
+    [Fact]
+    public async Task WithdrawAsync_RejectsWhenNotOwnedByCaller()
+    {
+        var employeeId = Guid.NewGuid();
+        var deductionId = Guid.NewGuid();
+        var application = BuildApplication(Guid.NewGuid(), employeeId, deductionId, ApprovalStatus.ForApproval);
+        var service = BuildService(application, BuildEmployee(employeeId), BuildDeduction(deductionId));
+
+        var act = () => service.WithdrawAsync(application.Id, Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        application.ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
+    }
+
+    [Fact]
+    public async Task WithdrawAsync_RejectsWhenNotPending()
+    {
+        var employeeId = Guid.NewGuid();
+        var deductionId = Guid.NewGuid();
+        var application = BuildApplication(Guid.NewGuid(), employeeId, deductionId, ApprovalStatus.Approved);
+        var service = BuildService(application, BuildEmployee(employeeId), BuildDeduction(deductionId));
+
+        var act = () => service.WithdrawAsync(application.Id, employeeId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        application.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+    }
 }

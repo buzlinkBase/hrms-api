@@ -92,6 +92,23 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         await CommitChangesAsync(token);
     }
 
+    // Self-service cancel of the employee's own still-pending application. A ForApproval pass
+    // slip never went through ApproveAsync, so it has no BatchCode/attendance records to unwind
+    // -- unlike RevokeAsync, which reverses an already-approved one. See MeController's
+    // pass-slip-applications/{id}/withdraw endpoint.
+    public async Task WithdrawAsync(Guid id, Guid employeeId, CancellationToken token)
+    {
+        var passSlip = await Context.PassSlipApplications.FindAsync(new object[] { id }, token);
+        if (passSlip == null || passSlip.EmployeeId != employeeId)
+            throw new NotFoundException("Application not found");
+        if (passSlip.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("Only pending applications can be withdrawn.");
+
+        passSlip.ApprovalStatus = ApprovalStatus.Withdrawn;
+        await ModifyAsync(passSlip, token);
+        await CommitChangesAsync(token);
+    }
+
     public async Task<List<PassSlipApplication>> FindAllAsync(DateOnly? from, DateOnly? to, Guid? employeeId, CancellationToken token)
     {
         var query = Context.PassSlipApplications
