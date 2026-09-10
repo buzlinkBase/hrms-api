@@ -164,6 +164,7 @@ public partial class EmployeeModel : EmployeePackModel
 }
 public class EmployeeFullModel
 {
+    public Guid Id { get; set; }
     public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
