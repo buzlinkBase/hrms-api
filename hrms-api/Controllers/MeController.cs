@@ -316,7 +316,7 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             payload.EmployeeId = employeeId.Value;
-            await _deductionApplicationService.AddAsync(payload, ApprovalStatus.ForApproval, token);
+            await _deductionApplicationService.AddAsync(payload, ApprovalStatus.ForApproval, token, isSelfService: true);
             return Ok();
         }
 

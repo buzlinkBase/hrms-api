@@ -31,6 +31,7 @@ public class CreateLeave
     public bool AllowHalfDay { get; set; } = true;
     public bool AllowPartial { get; set; }
     public bool AllowNegativeBalance { get; set; }
+    public bool RequiresCredits { get; set; } = true;
     public double? MaxDaysPerYear { get; set; }
     public int? MaxConsecutiveDays { get; set; }
 

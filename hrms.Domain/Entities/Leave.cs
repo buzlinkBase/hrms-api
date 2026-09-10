@@ -33,6 +33,7 @@ public class Leave : BaseEntity
     public bool AllowHalfDay { get; set; } = true;
     public bool AllowPartial { get; set; }            // time-based (hours) leave
     public bool AllowNegativeBalance { get; set; }    // advance leave
+    public bool RequiresCredits { get; set; } = true; // false = never credit-tracked (skip balance check)
     public double? MaxDaysPerYear { get; set; }       // annual cap (null = unlimited)
     public int? MaxConsecutiveDays { get; set; }      // per-application cap
 

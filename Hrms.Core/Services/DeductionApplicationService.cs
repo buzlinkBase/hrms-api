@@ -60,8 +60,15 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         var toRemove = existing.Where(x => !model.Breakdown.Any(d => d.Id == x.Id));
         _uow.Context.DeductionApplicationDetails.RemoveRange(toRemove);
     }
-    public async Task<DeductionApplication> AddAsync(CreateDeductionApplication payload, ApprovalStatus status, CancellationToken token)
+    public async Task<DeductionApplication> AddAsync(CreateDeductionApplication payload, ApprovalStatus status,
+        CancellationToken token, bool isSelfService = false)
     {
+        // Only the Employee Portal's own filing path is gated here — an HR-initiated application
+        // (isSelfService = false, the default) can still use any Deduction regardless of
+        // AllowEmployeeFiling, since that flag only controls what employees can file themselves.
+        if (isSelfService)
+            await EnsurePortalFileableAsync(payload.DeductionId, token);
+
         var model = _mapper.Map<DeductionApplication>(payload);
         model.ApprovalStatus = status;
         foreach (var item in payload.Breakdown)
@@ -84,6 +91,16 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         await CommitChangesAsync(token);
         return model;
     }
+    private async Task EnsurePortalFileableAsync(Guid deductionId, CancellationToken token)
+    {
+        var deduction = await _DeductionService.FineOneAsync(deductionId, token)
+            ?? throw new NotFoundException("Deduction not found");
+
+        if (!deduction.AllowEmployeeFiling)
+            throw new InvalidOperationException(
+                $"\"{deduction.Name}\" cannot be filed through the Employee Portal. Please coordinate with HR.");
+    }
+
     public async Task<DeductionApplication> UpdateAsync(UpdateDeductionApplication payload,
         CancellationToken token)
     {

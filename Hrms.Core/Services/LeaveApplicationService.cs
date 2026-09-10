@@ -59,7 +59,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             .FirstOrDefaultAsync(token)
             ?? throw new NotFoundException("Leave type not found");
 
-        if (leave.GenderRestriction != GenderRestriction.None)
+        if (leave.GenderRestriction != GenderRestriction.None || leave.MinServiceMonths > 0)
         {
             var employee = await _uow.Repository
                 .Find<Employee>(x => x.Id == payload.EmployeeId)
@@ -67,10 +67,26 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                 .FirstOrDefaultAsync(token)
                 ?? throw new NotFoundException("Employee not found");
 
-            var requiredGender = leave.GenderRestriction == GenderRestriction.MaleOnly ? "Male" : "Female";
-            if (!string.Equals(employee.Gender, requiredGender, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException(
-                    $"\"{leave.Description}\" is restricted to {requiredGender.ToLower()} employees only.");
+            if (leave.GenderRestriction != GenderRestriction.None)
+            {
+                var requiredGender = leave.GenderRestriction == GenderRestriction.MaleOnly ? "Male" : "Female";
+                if (!string.Equals(employee.Gender, requiredGender, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"\"{leave.Description}\" is restricted to {requiredGender.ToLower()} employees only.");
+            }
+
+            // Previously only enforced client-side (the admin form's minServiceError warning) --
+            // neither the admin nor self-service submit path actually rejected an application
+            // filed before the required tenure, so either could bypass it by ignoring/not seeing
+            // the warning, or by calling the API directly.
+            if (leave.MinServiceMonths > 0)
+            {
+                var monthsServed = MonthsBetween(employee.HireDate, payload.LeaveDateFrom);
+                if (monthsServed < leave.MinServiceMonths)
+                    throw new InvalidOperationException(
+                        $"This employee has {monthsServed} month{(monthsServed != 1 ? "s" : "")} of service. " +
+                        $"\"{leave.Description}\" requires at least {leave.MinServiceMonths} month{(leave.MinServiceMonths != 1 ? "s" : "")}.");
+            }
         }
 
         if (!leave.AllowHalfDay &&
@@ -130,7 +146,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         }
 
         // Credits balance check — only for paid applications on leave types that disallow negative balance
-        if (!leave.AllowNegativeBalance && payload.PayType != PayType.WithoutPay)
+        if (!leave.AllowNegativeBalance && payload.PayType != PayType.WithoutPay && leave.RequiresCredits)
         {
             var credits = await _uow.Repository
                 .Find<LeaveCredits>(x =>
@@ -140,16 +156,36 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                 .AsNoTracking()
                 .FirstOrDefaultAsync(token);
 
-            if (credits != null)
+            if (credits == null)
             {
-                if ((double)credits.AvailableToFile < newDays)
+                // PerEvent types only get their LeaveCredits row created by LeaveGrantOnEventWorker
+                // off this very filing -- so no row yet is expected on the first filing of the year,
+                // not a sign anything is misconfigured. Every other accrual basis is pre-provisioned
+                // ahead of time, so a missing row there means credits were never set up.
+                if (leave.AccrualBasis != AccrualBasis.PerEvent)
                     throw new InvalidOperationException(
-                        $"Insufficient leave credits for \"{leave.Description}\". " +
-                        $"Available to file: {credits.AvailableToFile:0.##} day(s)" +
-                        $" (Balance: {credits.Balance:0.##}, Reserved: {credits.Reserved:0.##})," +
-                        $" Applying: {newDays:0.##} day(s).");
+                        $"No leave credits have been set up for \"{leave.Description}\" ({payload.LeaveDateFrom.Year}). " +
+                        "Please configure this employee's leave credits before filing, or if this leave type " +
+                        "isn't meant to be credit-tracked, turn off \"Requires Leave Credits\" in its setup.");
+            }
+            else if ((double)credits.AvailableToFile < newDays)
+            {
+                throw new InvalidOperationException(
+                    $"Insufficient leave credits for \"{leave.Description}\". " +
+                    $"Available to file: {credits.AvailableToFile:0.##} day(s)" +
+                    $" (Balance: {credits.Balance:0.##}, Reserved: {credits.Reserved:0.##})," +
+                    $" Applying: {newDays:0.##} day(s).");
             }
         }
+    }
+
+    // Whole months elapsed between two dates -- e.g. hired 2026-01-15, filing on 2026-06-10 is
+    // only 4 completed months (the day-of-month hasn't come around again yet), not 5.
+    private static int MonthsBetween(DateOnly from, DateOnly to)
+    {
+        var months = (to.Year - from.Year) * 12 + (to.Month - from.Month);
+        if (to.Day < from.Day) months--;
+        return Math.Max(months, 0);
     }
 
     private static double ComputeDays(

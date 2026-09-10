@@ -13,4 +13,5 @@ public class Deduction : BaseEntity
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public int PriorityLevel { get; set; }
+    public bool AllowEmployeeFiling { get; set; } = true; // false = hidden from Employee Portal, admin-only
 }

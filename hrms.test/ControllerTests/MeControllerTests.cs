@@ -130,10 +130,12 @@ public class MeControllerTests
         EmployeeFixedSchedule[]? fixedSchedules = null,
         Leave[]? leaves = null,
         LeaveApplication[]? leaveApplications = null,
+        LeaveCredits[]? leaveCredits = null,
         OverTimeApplication[]? overtimeApplications = null,
         TravelOrderApplication[]? travelOrderApplications = null,
         ChangeRestDay[]? changeRestDays = null,
         DeductionApplication[]? deductionApplications = null,
+        Deduction[]? deductions = null,
         Payroll[]? payrollRows = null)
     {
         var repo = Substitute.For<IRepository>();
@@ -141,10 +143,12 @@ public class MeControllerTests
         var schedules = fixedSchedules ?? [];
         var leaveTypes = leaves ?? [];
         var applications = leaveApplications ?? [];
+        var credits = leaveCredits ?? [];
         var overtimeApps = overtimeApplications ?? [];
         var travelOrderApps = travelOrderApplications ?? [];
         var changeRestDayRows = changeRestDays ?? [];
         var deductionApps = deductionApplications ?? [];
+        var deductionRows = deductions ?? [];
         var payrollRowsList = payrollRows ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
@@ -160,8 +164,14 @@ public class MeControllerTests
         repo.FindAll<PayrollOpeningBalance>().Returns(_ => new List<PayrollOpeningBalance>().BuildMockDbSet());
         repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
             .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
+        repo.Find<Employee>(Arg.Any<Expression<Func<Employee, bool>>>())
+            .Returns(call => employees.Where(call.Arg<Expression<Func<Employee, bool>>>().Compile()).ToList().BuildMockDbSet());
+        repo.Find<LeaveCredits>(Arg.Any<Expression<Func<LeaveCredits, bool>>>())
+            .Returns(call => credits.Where(call.Arg<Expression<Func<LeaveCredits, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => payroll != null && call.Arg<Guid>() == payroll.Id ? payroll : null);
+        repo.FindOneAsync<Deduction>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => deductionRows.FirstOrDefault(d => d.Id == call.Arg<Guid>()));
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
@@ -388,6 +398,103 @@ public class MeControllerTests
         result.Should().BeOfType<OkResult>();
         payload.EmployeeId.Should().Be(caller.Id);
         payload.ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
+    }
+
+    // Guards against the self-service path (or a direct API call bypassing the admin form's
+    // client-side-only warning) filing leave before the required tenure. Previously this was
+    // enforced nowhere server-side -- see EnsurePolicyAsync's new MinServiceMonths check.
+    [Fact]
+    public async Task CreateMyLeaveApplication_RejectsWhenMinimumServiceNotMet()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        caller.HireDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-2));
+        var leave = BuildLeave();
+        leave.MinServiceMonths = 6;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*requires at least 6 month*");
+    }
+
+    // Guards the fail-closed side of the RequiresCredits flag: a leave type that's meant to be
+    // credit-tracked but has no LeaveCredits row provisioned for this employee/year (e.g. no one
+    // ran the grant yet) must block filing rather than silently allow it -- see RequiresCredits on
+    // Leave and EnsurePolicyAsync's credit-balance check.
+    [Fact]
+    public async Task CreateMyLeaveApplication_RejectsWhenNoCreditsConfigured()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.AllowNegativeBalance = false;
+        leave.RequiresCredits = true;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*No leave credits have been set up*");
+    }
+
+    // A leave type explicitly opted out of credit tracking (RequiresCredits = false) must skip
+    // the balance check entirely, even with no LeaveCredits row -- the admin's escape hatch for
+    // leave types that are never meant to be balance-checked.
+    [Fact]
+    public async Task CreateMyLeaveApplication_AllowsWhenRequiresCreditsIsFalse()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.AllowNegativeBalance = false;
+        leave.RequiresCredits = false;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    // Regression guard for the reason RequiresCredits doesn't just fail-closed on every missing
+    // row: PerEvent leave types (Maternity, Paternity, etc.) only get their LeaveCredits row
+    // created by LeaveGrantOnEventWorker off this very filing, so the first filing of the year
+    // legitimately has no row yet and must still be allowed.
+    [Fact]
+    public async Task CreateMyLeaveApplication_AllowsPerEventFirstFilingWithNoCreditsRow()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.AllowNegativeBalance = false;
+        leave.RequiresCredits = true;
+        leave.AccrualBasis = AccrualBasis.PerEvent;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
     }
 
     [Fact]
@@ -632,6 +739,36 @@ public class MeControllerTests
         var result = await controller.CreateMyLoanApplication(payload, CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
+    }
+
+    // Server-side mirror of the Employee Portal's Loan Type dropdown filtering — a hand-crafted
+    // API call referencing a Deduction with AllowEmployeeFiling = false must still be rejected,
+    // not just hidden client-side. See DeductionApplicationService.EnsurePortalFileableAsync,
+    // only invoked for the self-service path (isSelfService: true from MeController).
+    [Fact]
+    public async Task CreateMyLoanApplication_RejectsWhenDeductionNotPortalFileable()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var deduction = new Deduction
+        {
+            Id = Guid.NewGuid(),
+            Code = "CALOAN",
+            Name = "Calamity Loan",
+            AllowEmployeeFiling = false,
+        };
+        var (controller, _) = BuildController(caller, deductions: [deduction]);
+        var payload = new CreateDeductionApplication
+        {
+            DeductionId = deduction.Id,
+            StartDate = new DateOnly(2026, 9, 9),
+            EndDate = new DateOnly(2026, 12, 9),
+            Breakdown = [],
+        };
+
+        var act = () => controller.CreateMyLoanApplication(payload, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*cannot be filed through the Employee Portal*");
     }
 
     [Fact]
