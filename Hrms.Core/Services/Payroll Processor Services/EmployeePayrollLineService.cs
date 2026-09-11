@@ -345,7 +345,7 @@ public class EmployeePayrollLineService
         // regardless of PaySource since the flat rate has no PaySource awareness at all.
         var oneTimeLeaveDeduction = Math.Max(0, oneTimeLeaveDays) * employee.DailyRate;
         basicTotal = basicTotal - deductions - oneTimeLeaveDeduction;
-        payrollLine.BasicPay += basicTotal;
+        payrollLine.BasicPay = Math.Max(0, basicTotal);
     }
 
     // Sums the calendar days of this employee's approved OneTime-payout leave application(s)
