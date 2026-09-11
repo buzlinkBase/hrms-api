@@ -145,6 +145,8 @@ public class EmployeeImportService
         await _employeeService.AddOrUpdateRange(employees, token);
         await _employeeService.SaveChangesAsync(token);
         await _uow.CommitChangesAsync("", token);
+
+
     }
 
     private async Task<List<BasicEmployeeInfo>> GetAllEmployees(CancellationToken token)
@@ -555,8 +557,8 @@ public class EmployeeImportService
     {
         return new List<CutoffDay>()
         {
-            new CutoffDay(){ Day= 15, IsEndOfMonth= false},
-            new CutoffDay(){ Day=  30, IsEndOfMonth=  true},
+            new CutoffDay(){ Day= 10, IsEndOfMonth= false},
+            new CutoffDay(){ Day=  25, IsEndOfMonth=  true},
         };
         //var pg = EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.MONTHLY);
         //if (pg == PayrollFrequency.DAILY) return new List<CutoffDay>();
@@ -702,7 +704,7 @@ public class TemplateDownloaderService
         worksheet.Cell("B3").Value = branchList.FirstOrDefault();
 
         //salary Type
-        var SalaryTypes = new List<string>() { "VARIABLE", "FIXED" };
+        var SalaryTypes = new List<string>() { "Variable", "Fixed" };
         helperSheet = workbook.Worksheets.Add("SalaryType");
         CreateSheet(helperSheet, SalaryTypes);
         range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);
@@ -731,8 +733,6 @@ public class TemplateDownloaderService
         //eom2
         //worksheet.Cell("AA3").CreateDataValidation().List(range);
         //worksheet.Cell("AA3").Value = yesNo[1];
-
-
         //pyFrequency
         //var pyFrequencies = new List<string>() { "Daily", "Weekly", "Semi Montly", "Monthly" };
         //helperSheet = workbook.Worksheets.Add("PayrollFrequency");
@@ -741,7 +741,6 @@ public class TemplateDownloaderService
         //var cell = worksheet.Cell("W3");
         //cell.CreateDataValidation().List(range);
         //cell.Value = pyFrequencies[2];
-
         var stream = new MemoryStream();
         workbook.SaveAs(stream);
         stream.Position = 0; // Crucial: Reset the stream position to the beginning!
