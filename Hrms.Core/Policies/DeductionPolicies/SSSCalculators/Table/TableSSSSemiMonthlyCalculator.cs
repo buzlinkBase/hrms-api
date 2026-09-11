@@ -37,7 +37,7 @@ public class TableSSSSemiMonthlyCalculator : IDeductionCalculator
                 var payload = new SSSTablePayload(
                     strategy.AllocateFirstCutoffShare(table.EE, balances.EEBalance, context, divisor),
                     strategy.AllocateFirstCutoffShare(table.ER, balances.ERBalance, context, divisor),
-                    strategy.AllocateFirstCutoffShare(table.EC, balances.ECBalance, context, divisor));
+                    table.EC);
 
                 return SSSHelper.ApplyTable(context, line, payload, date);
             }
