@@ -3,44 +3,49 @@ namespace Hrms.Api.Documents.Bir;
 // Field placements for wwwroot/Bir/2316Sep2021ENCS_Final.pdf -- confirmed via the template's
 // own /MediaBox to be a single 612x936pt (8.5x13in) page.
 //
-// IMPORTANT: these X/Y coordinates are placeholders, not calibrated against the real form --
-// this environment has no PDF-to-image rendering available to verify them visually. They're
-// laid out as a simple, readable two-column list purely so the mechanism can be exercised
-// end-to-end; before relying on this for real filing/employee handout, generate a PDF with
-// ?debug=true (Development only -- see PayrollReportsController), compare it against the blank
-// official form, and adjust every X/Y below to match.
+// Calibrated against a real generated PDF compared to the actual form (round 1): "Year" was
+// already well-placed. Everything else needed correction -- the real form has no box for
+// EmployeeNo or CivilStatus (removed here; EmployeeNo has no BuildValues counterpart either,
+// CivilStatus is still on Bir2316Model, just unprinted), Employee fields belong to Part I (rows
+// 3-6, 25pt/row pitch, anchored on row 6 "Registered Address" = Y180), Employer fields belong
+// to Part II "Employer Information (Present)" (rows 12-14, same pitch continued -- and Part II
+// has no RDO Code box either, so Employer.RDOCode is also unprinted), and the aggregate
+// compensation/tax figures belong to Part IVA "Summary" (rows 19-21+), not the itemized
+// Part IV-B breakdown they were originally (wrongly) placed against. Part IVA's rows past 21
+// and the signature block weren't visible in the calibration screenshot -- still estimates,
+// re-verify against a fresh debug PDF.
 public static class Bir2316FieldMap
 {
     public static readonly IReadOnlyList<PdfField> Fields =
     [
         // ── Header ───────────────────────────────────────────────────────────────────
-        new("Year", 0, 480, 150, 9, Bold: true),
+        new("Year", 0, 480, 150, 9, Bold: true), // row 1 "For the Year (YYYY)" -- confirmed well-placed
 
-        // ── Employee ─────────────────────────────────────────────────────────────────
-        new("Employee.FullName", 0, 150, 180, 9),
-        new("Employee.EmployeeNo", 0, 400, 180, 9),
-        new("Employee.TIN", 0, 150, 205, 9),
-        new("Employee.RDOCode", 0, 400, 205, 9),
-        new("Employee.CivilStatus", 0, 150, 230, 9),
-        new("Employee.Address", 0, 150, 255, 9),
+        // ── Part I — Employee Information (rows 3-6, anchored on row 6 = Y180) ──────
+        new("Employee.TIN", 0, 150, 105, 9), // row 3 "TIN"
+        new("Employee.FullName", 0, 150, 130, 9), // row 4 "Employee's Name"
+        new("Employee.RDOCode", 0, 400, 155, 9), // row 5 "RDO Code"
+        new("Employee.Address", 0, 150, 180, 9), // row 6 "Registered Address"
 
-        // ── Employer ─────────────────────────────────────────────────────────────────
-        new("Employer.RegisteredName", 0, 150, 300, 9),
-        new("Employer.TIN", 0, 400, 300, 9),
-        new("Employer.RDOCode", 0, 150, 325, 9),
-        new("Employer.Address", 0, 150, 350, 9),
+        // ── Part II — Employer Information (Present) (rows 12-14, same pitch) ───────
+        new("Employer.TIN", 0, 150, 330, 9), // row 12 "TIN"
+        new("Employer.RegisteredName", 0, 150, 355, 9), // row 13 "Employer's Name"
+        new("Employer.Address", 0, 150, 380, 9), // row 14 "Registered Address"
 
-        // ── Compensation and tax withheld ────────────────────────────────────────────
-        new("GrossCompensation", 0, 400, 400, 9),
-        new("NonTaxableCompensation", 0, 400, 425, 9),
-        new("ThirteenthMonthPay", 0, 400, 450, 9),
-        new("TaxableCompensation", 0, 400, 475, 9, Bold: true),
-        new("TotalSSS", 0, 400, 510, 9),
-        new("TotalPhilHealth", 0, 400, 535, 9),
-        new("TotalPagIbig", 0, 400, 560, 9),
-        new("TotalTaxWithheld", 0, 400, 595, 9, Bold: true),
+        // ── Part IVA — Summary (rows 19-21+, same pitch) ────────────────────────────
+        new("GrossCompensation", 0, 480, 505, 9), // row 19 "Gross Compensation Income from Present Employer"
+        new("NonTaxableCompensation", 0, 480, 530, 9), // row 20 "Less: Total Non-Taxable/Exempt Compensation Income"
+        new("TaxableCompensation", 0, 480, 555, 9, Bold: true), // row 21 "Taxable Compensation Income from Present Employer"
+        // Rows past 21 (13th month pay, SSS/PhilHealth/Pag-IBIG, total tax withheld) weren't
+        // visible in the calibration screenshot -- placed continuing the same 25pt/row pitch as
+        // a starting estimate only.
+        new("ThirteenthMonthPay", 0, 480, 580, 9),
+        new("TotalSSS", 0, 480, 605, 9),
+        new("TotalPhilHealth", 0, 480, 630, 9),
+        new("TotalPagIbig", 0, 480, 655, 9),
+        new("TotalTaxWithheld", 0, 480, 680, 9, Bold: true),
 
-        // ── Signatories ──────────────────────────────────────────────────────────────
+        // ── Signatories (not visible in the calibration screenshot -- unconfirmed) ──
         new("Employer.SignatoryName", 0, 150, 850, 9, Bold: true),
         new("Employer.SignatoryTitle", 0, 150, 865, 8),
         new("Employee.SignatureName", 0, 400, 850, 9, Bold: true),

@@ -13,8 +13,10 @@ namespace hrms.test.DocumentTests;
 public class Bir2316FieldMapTests
 {
     // Bir2316Model properties that are NOT expected to appear as a printed field on the form --
-    // internal identifiers/keys, not certificate content.
-    private static readonly string[] ExcludedModelProperties = ["EmployeeId"];
+    // EmployeeId is an internal identifier, not certificate content; EmployeeNo and CivilStatus
+    // have no matching box on the real 2316 form (confirmed via visual calibration -- see
+    // Bir2316FieldMap).
+    private static readonly string[] ExcludedModelProperties = ["EmployeeId", "EmployeeNo", "CivilStatus"];
 
     [Fact]
     public void HasNoDuplicateFieldNames()

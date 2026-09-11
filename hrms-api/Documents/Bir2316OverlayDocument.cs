@@ -35,16 +35,16 @@ public class Bir2316OverlayDocument
     {
         ["Year"] = _data.Year.ToString(),
 
+        // EmployeeNo and CivilStatus have no matching box on the real form (see Bir2316FieldMap)
+        // -- left out of the map, but still available on Bir2316Model for other uses.
         ["Employee.FullName"] = _data.FullName,
-        ["Employee.EmployeeNo"] = _data.EmployeeNo,
         ["Employee.TIN"] = _data.TIN,
         ["Employee.RDOCode"] = _data.RDOCode,
-        ["Employee.CivilStatus"] = _data.CivilStatus,
         ["Employee.Address"] = _data.Address,
 
+        // Employer.RDOCode has no matching box in Part II either -- left out of the map.
         ["Employer.RegisteredName"] = ReportDocumentStyle.CompanyName(_company),
         ["Employer.TIN"] = _company?.TIN,
-        ["Employer.RDOCode"] = _company?.RDOCode,
         ["Employer.Address"] = _company?.Address,
 
         ["GrossCompensation"] = ReportDocumentStyle.Money(_data.GrossCompensation),
