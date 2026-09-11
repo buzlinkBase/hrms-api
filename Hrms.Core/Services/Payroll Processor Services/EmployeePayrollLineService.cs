@@ -202,7 +202,7 @@ public class EmployeePayrollLineService
         payrollLine.NightDifferentialOTPay = employeeBasicCalc.Sum(x => x.TotalNDOT);
         payrollLine.OTPremiumPay = employeeBasicCalc.Sum(x => x.OTPremiumPay);
         payrollLine.NDPremiumPay = employeeBasicCalc.Sum(x => x.NDPremiumPay);
-        payrollLine.AbsencesAmount = Math.Min(employeeBasicCalc.Sum(x => x.AbsentAmount), payrollLine.BasicPay);
+        payrollLine.AbsencesAmount = employeeBasicCalc.Sum(x => x.AbsentAmount);
 
         payrollLine.RegularDayPay = employeeBasicCalc.Sum(x => x.RegularDayPay);
         payrollLine.RegularOTPay = employeeBasicCalc.Sum(x => x.RegularOTPay);
