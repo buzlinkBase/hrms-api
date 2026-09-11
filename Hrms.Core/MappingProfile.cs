@@ -176,9 +176,15 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateOtherIncome, OtherIncome>();
         config.NewConfig<OtherIncome, OtherIncomeModel>();
 
-        config.NewConfig<CreateDeduction, Deduction>();
-        config.NewConfig<UpdateDeduction, Deduction>();
-        config.NewConfig<Deduction, DeductionModel>();
+        // DeductionTypeId <-> CategoryId names differ, so bare convention mapping silently
+        // drops it both ways -- never persisted on create/update, never returned on read, which
+        // is also why the admin edit form never had it to pre-fill from in the first place.
+        config.NewConfig<CreateDeduction, Deduction>()
+            .Map(dest => dest.CategoryId, src => src.DeductionTypeId);
+        config.NewConfig<UpdateDeduction, Deduction>()
+            .Map(dest => dest.CategoryId, src => src.DeductionTypeId);
+        config.NewConfig<Deduction, DeductionModel>()
+            .Map(dest => dest.DeductionTypeId, src => src.CategoryId);
 
         config.NewConfig<DeductionType, CreateDeduction>();
         config.NewConfig<UpdateDeduction, CreateDeduction>();
