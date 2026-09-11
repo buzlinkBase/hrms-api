@@ -15,8 +15,11 @@ public class Bir2316FieldMapTests
     // Bir2316Model properties that are NOT expected to appear as a printed field on the form --
     // EmployeeId is an internal identifier, not certificate content; EmployeeNo and CivilStatus
     // have no matching box on the real 2316 form (confirmed via visual calibration -- see
-    // Bir2316FieldMap).
-    private static readonly string[] ExcludedModelProperties = ["EmployeeId", "EmployeeNo", "CivilStatus"];
+    // Bir2316FieldMap); TotalSSS/TotalPhilHealth/TotalPagIbig are combined into the single
+    // "GovtContributions" field rather than mapped 1:1, since the real form has one shared box
+    // for "SSS, GSIS, PHIC, HDMF Mandatory Contributions & Union Dues", not three.
+    private static readonly string[] ExcludedModelProperties =
+        ["EmployeeId", "EmployeeNo", "CivilStatus", "TotalSSS", "TotalPhilHealth", "TotalPagIbig"];
 
     [Fact]
     public void HasNoDuplicateFieldNames()

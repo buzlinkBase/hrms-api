@@ -51,9 +51,9 @@ public class Bir2316OverlayDocument
         ["NonTaxableCompensation"] = ReportDocumentStyle.Money(_data.NonTaxableCompensation),
         ["ThirteenthMonthPay"] = ReportDocumentStyle.Money(_data.ThirteenthMonthPay),
         ["TaxableCompensation"] = ReportDocumentStyle.Money(_data.TaxableCompensation),
-        ["TotalSSS"] = ReportDocumentStyle.Money(_data.TotalSSS),
-        ["TotalPhilHealth"] = ReportDocumentStyle.Money(_data.TotalPhilHealth),
-        ["TotalPagIbig"] = ReportDocumentStyle.Money(_data.TotalPagIbig),
+        // The real form has one combined box for "SSS, GSIS, PHIC, HDMF Mandatory
+        // Contributions & Union Dues" (row 36) -- not three separate ones.
+        ["GovtContributions"] = ReportDocumentStyle.Money(_data.TotalSSS + _data.TotalPhilHealth + _data.TotalPagIbig),
         ["TotalTaxWithheld"] = ReportDocumentStyle.Money(_data.TotalTaxWithheld),
 
         ["Employer.SignatoryName"] = string.IsNullOrWhiteSpace(_company?.AuthorizedSignatoryName)
