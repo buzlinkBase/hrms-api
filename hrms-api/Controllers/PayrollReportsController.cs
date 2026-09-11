@@ -19,6 +19,7 @@ namespace Hrms.Api.Controllers
         private readonly TaxContributionService _taxService;
         private readonly PayrollReportService _reportService;
         private readonly CompanyService _companyService;
+        private readonly IWebHostEnvironment _environment;
 
         public PayrollReportsController(
             SSSContributionService sssService,
@@ -26,7 +27,8 @@ namespace Hrms.Api.Controllers
             HDMFContributionService hdmfService,
             TaxContributionService taxService,
             PayrollReportService reportService,
-            CompanyService companyService)
+            CompanyService companyService,
+            IWebHostEnvironment environment)
         {
             _sssService = sssService;
             _phicService = phicService;
@@ -34,6 +36,7 @@ namespace Hrms.Api.Controllers
             _taxService = taxService;
             _reportService = reportService;
             _companyService = companyService;
+            _environment = environment;
         }
 
         [HttpGet("sss-remittance")]
@@ -143,13 +146,16 @@ namespace Hrms.Api.Controllers
         [HttpGet("1601c/print")]
         public async Task<IActionResult> MonthlyRemittanceReturnPrint(
             [FromQuery] DateTime from, [FromQuery] DateTime to,
-            [FromQuery] bool amendedReturn, CancellationToken token)
+            [FromQuery] bool amendedReturn,
+            [FromQuery] bool debug,
+            CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var (summary, employees) = await _reportService.GetMonthlyRemittanceReturnAsync(fromDate, toDate, amendedReturn, token);
+            var (summary, _) = await _reportService.GetMonthlyRemittanceReturnAsync(fromDate, toDate, amendedReturn, token);
             var company = await _companyService.FineOneAsync(token);
-            var bytes = new MonthlyRemittanceReturnDocument(summary, employees, company).GeneratePdf();
+            var bytes = new MonthlyRemittanceReturnOverlayDocument(summary, company, _environment.WebRootPath)
+                .Generate(debug && _environment.IsDevelopment());
             return File(bytes, "application/pdf", $"bir-1601c-{fromDate:yyyyMM}.pdf");
         }
 
@@ -204,12 +210,14 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("2316/print")]
-        public async Task<IActionResult> Bir2316Print([FromQuery] Guid employeeId, [FromQuery] int year, CancellationToken token)
+        public async Task<IActionResult> Bir2316Print(
+            [FromQuery] Guid employeeId, [FromQuery] int year, [FromQuery] bool debug, CancellationToken token)
         {
             var data = await _reportService.Get2316DataAsync(employeeId, year, token);
             if (data == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
-            var bytes = new Bir2316Document(data, company).GeneratePdf();
+            var bytes = new Bir2316OverlayDocument(data, company, _environment.WebRootPath)
+                .Generate(debug && _environment.IsDevelopment());
             return File(bytes, "application/pdf", $"bir-2316-{data.EmployeeNo}-{year}.pdf");
         }
 

@@ -13,6 +13,7 @@
 		<PackageReference Include="Microsoft.Extensions.Http.Resilience" />
 		<PackageReference Include="ClosedXML" />
 		<PackageReference Include="QuestPDF" />
+		<PackageReference Include="PdfSharp" />
 		<PackageReference Include="ExcelToEnumerable" />
 		<PackageReference Include="MessagePack" /> 
 		<PackageReference Include="MessagePackAnalyzer">
@@ -45,10 +46,21 @@
         <ProjectReference Include="..\hrms.Infrastructure\hrms.Infrastructure.csproj" />
     </ItemGroup>
     <ItemGroup>
-      <Folder Include="wwwroot\" />
       <Folder Include="wwwroot\Templates\" />
     </ItemGroup>
     <ItemGroup>
+      <Content Update="wwwroot\Bir\1601CfinalJan2018.pdf">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+      <Content Update="wwwroot\Bir\2316Sep2021ENCS_Final.pdf">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+      <Content Update="wwwroot\Fonts\LiberationSans-Regular.ttf">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+      <Content Update="wwwroot\Fonts\LiberationSans-Bold.ttf">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
       <Content Update="wwwroot\Templates\employee_template.xlsx">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>

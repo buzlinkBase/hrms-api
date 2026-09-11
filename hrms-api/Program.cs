@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning.ApiExplorer;
+using Hrms.Api.Documents.Bir;
 using Hrms.Api.Middlewares;
 using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
@@ -7,6 +8,7 @@ using Hrms.Core.Hubs;
 using Mapster;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using PdfSharp.Fonts;
 using QuestPDF.Infrastructure;
 using Serilog;
 using DTR.Core.Extensions;
@@ -17,6 +19,12 @@ internal class Program
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var builder = WebApplication.CreateBuilder(args);
+
+        // PdfSharp 6.x has no built-in standard fonts -- every typeface must resolve to actual
+        // font bytes via GlobalFontSettings.FontResolver, registered once before any PDF is
+        // drawn. See BirFontResolver for why (Docker/Linux has no OS font to fall back to).
+        GlobalFontSettings.FontResolver = new BirFontResolver(
+            Path.Combine(builder.Environment.WebRootPath, "Fonts"));
         Log.Logger = new LoggerConfiguration()
        .ReadFrom.Configuration(builder.Configuration)
        .CreateLogger();
