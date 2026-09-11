@@ -20,6 +20,7 @@ public class AccountInitService : BaseService<Company>
         await SetDefaultIncomeTypes(token);
         await SetDefaultDeductionTypes(token);
         await SetBranch(token);
+        await SetDefaultDepartments(token);
         await SetDefaultHolidays(token);
         await SetDefaultSSSTable(token);
         await SetDefaultPHICTable(token);
@@ -47,6 +48,26 @@ public class AccountInitService : BaseService<Company>
             ManagerName = ""
         };
         await _uow.Repository.AddAsync(branch, token);
+    }
+
+    /// <summary>
+    /// Seeds a handful of common departments so a new tenant has real options to assign
+    /// employees to immediately, instead of an empty Setup > Department list. Made internal
+    /// (not private) specifically so this can be tested without a database — see Hrms.Core's
+    /// InternalsVisibleTo for hrms.test.
+    /// </summary>
+    internal async Task SetDefaultDepartments(CancellationToken token)
+    {
+        var departments = new List<Department>
+        {
+            new Department { Id = Guid.CreateVersion7(), Code = "HR", Name = "Human Resources" },
+            new Department { Id = Guid.CreateVersion7(), Code = "FIN", Name = "Finance" },
+            new Department { Id = Guid.CreateVersion7(), Code = "IT", Name = "Information Technology" },
+            new Department { Id = Guid.CreateVersion7(), Code = "OPS", Name = "Operations" },
+            new Department { Id = Guid.CreateVersion7(), Code = "SALES", Name = "Sales and Marketing" },
+            new Department { Id = Guid.CreateVersion7(), Code = "ADMIN", Name = "Administration" },
+        };
+        await _uow.Repository.AddRangeAsync(departments, token);
     }
 
     private async Task PayrollSettings(CancellationToken token)
