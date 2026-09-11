@@ -8,7 +8,7 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class hrms_init : Migration
+    public partial class init_config : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -553,6 +553,7 @@ namespace Hrms.Infrastructure.Migrations
                     AllowHalfDay = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     AllowPartial = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     AllowNegativeBalance = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    RequiresCredits = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     MaxDaysPerYear = table.Column<double>(type: "double", nullable: true),
                     MaxConsecutiveDays = table.Column<int>(type: "int", nullable: true),
                     CarryOverType = table.Column<string>(type: "longtext", nullable: false)
@@ -1311,6 +1312,7 @@ namespace Hrms.Infrastructure.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     PriorityLevel = table.Column<int>(type: "int", nullable: false),
+                    AllowEmployeeFiling = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     Status = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
@@ -2786,9 +2788,9 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ChangeRestDays_EmployeeId",
+                name: "IX_ChangeRestDays_EmployeeId_PayrollDate",
                 table: "ChangeRestDays",
-                column: "EmployeeId");
+                columns: new[] { "EmployeeId", "PayrollDate" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChangeRestDays_TenantId_DeletedAt",
@@ -3334,9 +3336,9 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_RestDayDates_EmployeeId",
+                name: "IX_RestDayDates_EmployeeId_PayrollDate",
                 table: "RestDayDates",
-                column: "EmployeeId");
+                columns: new[] { "EmployeeId", "PayrollDate" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_RestDayDates_TenantId_DeletedAt",
@@ -3466,9 +3468,9 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_WorkSchedulePlans_EmployeeId",
+                name: "IX_WorkSchedulePlans_EmployeeId_PayrollDate",
                 table: "WorkSchedulePlans",
-                column: "EmployeeId");
+                columns: new[] { "EmployeeId", "PayrollDate" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_WorkSchedulePlans_TenantId_DeletedAt",

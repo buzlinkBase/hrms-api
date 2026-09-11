@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    [Migration("20260910012949_hrms_init")]
-    partial class hrms_init
+    [Migration("20260911083129_init_config")]
+    partial class init_config
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -330,7 +330,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -974,6 +974,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
+
+                    b.Property<bool>("AllowEmployeeFiling")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("char(36)");
@@ -2214,7 +2217,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -2727,6 +2730,9 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<bool>("RequiresApproval")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("RequiresCredits")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("RequiresSupportingDocument")
@@ -4808,9 +4814,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
-
                     b.HasIndex("TimeShiftId");
+
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 

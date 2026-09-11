@@ -327,7 +327,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -2214,7 +2214,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -4811,9 +4811,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
-
                     b.HasIndex("TimeShiftId");
+
+                    b.HasIndex("EmployeeId", "PayrollDate");
 
                     b.HasIndex("TenantId", "DeletedAt");
 

@@ -13,5 +13,9 @@ internal class RestDayDateConfig : IEntityTypeConfiguration<RestDayDate>
        .WithMany()
        .HasForeignKey(x => x.EmployeeId)
        .IsRequired(false);
+
+        // RestDayDateService.LoadRestDayDate filters by EmployeeId set + PayrollDate range on
+        // every DTR run and roster report call.
+        builder.HasIndex(x => new { x.EmployeeId, x.PayrollDate });
     }
 }
