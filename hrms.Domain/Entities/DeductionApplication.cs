@@ -22,6 +22,15 @@ public class DeductionApplication : BaseEntity
     // the only query the payroll deduction pipeline reads through.
     public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Approved;
 
+    // ProcessBy is a NOT NULL column but neither CreateDeductionApplication nor
+    // UpdateDeductionApplication carry it (there's no "who processed this" input on the
+    // admin/portal Loan/Deduction Application forms), so Mapster's Map<DeductionApplication>()
+    // leaves it at the CLR default (null) unless defaulted here -- mirrors
+    // OtherIncomeApplication's identical ProcessBy default for the same reason.
+    public DeductionApplication()
+    {
+        ProcessBy = "";
+    }
 }
 
 public class DeductionApplicationDetail : BaseEntity
