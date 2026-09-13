@@ -32,4 +32,28 @@ public class AccountInitServiceTests
                 && departments.Select(d => d.Code).Distinct().Count() == departments.Count()),
             Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task SetDefaultMinimumWageRates_SeedsOneGeneralRatePerDistinctRegion()
+    {
+        var repo = Substitute.For<IRepository>();
+        var uow = Substitute.For<IUnitOfWorkService>();
+        uow.Repository.Returns(repo);
+
+        var sut = new AccountInitService(uow, null!);
+
+        await sut.SetDefaultMinimumWageRates(CancellationToken.None);
+
+        await repo.Received(1).AddRangeAsync(
+            Arg.Is<IEnumerable<MinimumWageRate>>(rates =>
+                rates.Count() > 0
+                && rates.All(r => !string.IsNullOrWhiteSpace(r.RegionCode) && !string.IsNullOrWhiteSpace(r.RegionName))
+                && rates.All(r => r.DailyRate > 0)
+                // WageOrderClass = null is the fallback rate MinimumWageEarnerResolver's
+                // ResolveRegionRate falls back to when no exact-class rate exists for a
+                // region -- every seeded row must provide that fallback.
+                && rates.All(r => r.WageOrderClass == null)
+                && rates.Select(r => r.RegionCode).Distinct().Count() == rates.Count()),
+            Arg.Any<CancellationToken>());
+    }
 }

@@ -27,6 +27,7 @@ public class AccountInitService : BaseService<Company>
         await SetDefaultHDMFTable(token);
         await SetDefaultWTaxTable(token);
         await SetDefaultAnnualTaxTable(token);
+        await SetDefaultMinimumWageRates(token);
         await SetDefaultPayrollGroups(token);
         await SetDefaultTimeShifts(token);
         await PayrollSettings(token);
@@ -758,6 +759,62 @@ public class AccountInitService : BaseService<Company>
             new AnnualTaxTable { Id = Guid.CreateVersion7(), EffectiveDate = effectiveDate, RangeFrom = 8000000.01m,    RangeTo = 999_999_999.99m, BaseTaxDue = 2202500m,    AddOnPercentage = 0.35m },
         };
         await _uow.Repository.AddRangeAsync(table, token);
+    }
+
+    /// <summary>
+    /// Seeds one general (WageOrderClass = null, per MinimumWageRate's own fallback design —
+    /// see MinimumWageEarnerResolver.ResolveRegionRate) daily minimum wage rate per DOLE/RTWPB
+    /// wage-order region, for BIR 1601-C Minimum-Wage-Earner classification
+    /// (PayrollReportService.GetMonthlyRemittanceReturnAsync/TaxAnnualizationService). Region
+    /// codes match the frontend's fixed PH_REGION_OPTIONS list exactly
+    /// (src/shared/constants/ph-regions.const.ts) so a seeded row is immediately usable from
+    /// Setup > Branch's region dropdown.
+    ///
+    /// These are the headline non-agriculture rate per each region's most recent wage order as
+    /// of this writing (aggregated from public wage-order trackers, not fetched live from
+    /// nwpc.dole.gov.ph) — treat as a starting baseline, not a verified-current source of
+    /// truth. Many regions also set a lower agriculture/small-retail rate under the same wage
+    /// order (a separate WageOrderClass row) which isn't seeded here. HR should verify every
+    /// row against the region's actual current wage order and add any needed
+    /// agriculture/retail-class rows via Setup > Minimum Wage Rate before relying on this for
+    /// real MWE classification.
+    /// </summary>
+    internal async Task SetDefaultMinimumWageRates(CancellationToken token)
+    {
+        var rates = new List<MinimumWageRate>
+        {
+            Rate("NCR", "NCR — National Capital Region", 755m, "NCR-27", new DateOnly(2026, 7, 25)),
+            Rate("CAR", "CAR — Cordillera Administrative Region", 505m, "CAR-24", new DateOnly(2025, 12, 30)),
+            Rate("I", "Region I — Ilocos Region", 505m, "RB 1-24", new DateOnly(2025, 11, 19)),
+            Rate("II", "Region II — Cagayan Valley", 500m, "RTWPB 2-24", new DateOnly(2025, 11, 5)),
+            Rate("III", "Region III — Central Luzon", 600m, "RBIII-26", new DateOnly(2026, 4, 16)),
+            Rate("IV-A", "Region IV-A — CALABARZON", 600m, "IVA-22", new DateOnly(2025, 10, 5)),
+            Rate("MIMAROPA", "MIMAROPA Region", 455m, "RB-MIMAROPA-13", new DateOnly(2026, 1, 1)),
+            Rate("V", "Region V — Bicol Region", 455m, "RBV-23", new DateOnly(2026, 4, 8)),
+            Rate("VI", "Region VI — Western Visayas", 550m, "RBVI-29", new DateOnly(2025, 11, 19)),
+            Rate("VII", "Region VII — Central Visayas", 540m, "ROVII-26", new DateOnly(2025, 10, 4)),
+            Rate("VIII", "Region VIII — Eastern Visayas", 470m, "RB VIII-25", new DateOnly(2026, 6, 1)),
+            Rate("IX", "Region IX — Zamboanga Peninsula", 464m, "RIX-24", new DateOnly(2026, 6, 1)),
+            Rate("X", "Region X — Northern Mindanao", 500m, "RX-24", new DateOnly(2026, 5, 1)),
+            Rate("XI", "Region XI — Davao Region", 540m, "RB XI-24", new DateOnly(2026, 9, 1)),
+            Rate("XII", "Region XII — SOCCSKSARGEN", 460m, "RB XII-25", new DateOnly(2025, 12, 15)),
+            Rate("XIII", "Region XIII — Caraga", 475m, "RXIII-20", new DateOnly(2026, 5, 1)),
+            Rate("BARMM", "BARMM — Bangsamoro Autonomous Region", 436m, "BARMM-05", new DateOnly(2026, 8, 6)),
+        };
+
+        await _uow.Repository.AddRangeAsync(rates, token);
+
+        static MinimumWageRate Rate(string regionCode, string regionName, decimal dailyRate, string wageOrderNo, DateOnly effectiveDate) =>
+            new()
+            {
+                Id = Guid.CreateVersion7(),
+                RegionCode = regionCode,
+                RegionName = regionName,
+                DailyRate = dailyRate,
+                WageOrderNo = wageOrderNo,
+                EffectiveDate = effectiveDate,
+                WageOrderClass = null,
+            };
     }
 
     /// <summary>

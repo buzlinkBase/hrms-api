@@ -10,5 +10,6 @@ public class SSSPolicy : PayrollPolicyBase<DeductionPipeData, DeductionPayloadCo
         if (line.IsLimit) return line;
         var calculator = SSSCalculatorFactory.Create(context);
         return calculator.Calculate(context, line);
+
     }
 }

@@ -1,4 +1,6 @@
 ﻿
+using NPOI.HSSF.Record;
+
 namespace Hrms.Core.Policies.DeductionPolicies;
 
 public record SSSTablePayload(decimal EE, decimal ER, decimal EC);
@@ -6,10 +8,20 @@ internal static class SSSHelper
 {
     public static SSSModel? GetTable(DeductionPayloadContext context, decimal gross)
     {
+        if (context.Employee.ClientId.HasValue)
+        {
+            var clientKey = new ClientStatutoryCapKey(context.Employee.ClientId.Value, StatutoryCapType.SSS);
+            if (context.Payload.ClientStatutoryCaps.TryGetValue(clientKey, out var rs) && rs > 0)
+            {
+                var ctable = context.Payload.SSSTableModel
+               .FirstOrDefault(x => x.EE >= rs && x.EE <= rs);
+                return ctable;
+            }
+        } 
         var table = context.Payload.SSSTableModel
             .FirstOrDefault(x => x.RangeFrom <= gross && x.RangeTo >= gross);
-
         return table;
+
     }
     public static DeductionPipeData ApplyTable(DeductionPayloadContext context, DeductionPipeData line, SSSTablePayload table, DateOnly applyToDate)
     {

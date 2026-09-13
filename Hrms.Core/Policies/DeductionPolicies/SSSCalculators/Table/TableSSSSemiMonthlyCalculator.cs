@@ -9,7 +9,6 @@ public class TableSSSSemiMonthlyCalculator : IDeductionCalculator
     {
         if (line.IsLimit) return line;
         var date = context.Payload.FromDate;
-
         var resolver = new CutoffPolicyResolver();
         var baseRate = StatutoryHelper.GetSemiMonthlyBracketBaseRate(context, resolver);
         var table = SSSHelper.GetTable(context, baseRate);

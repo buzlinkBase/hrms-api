@@ -6,11 +6,23 @@ internal static class HDMFHelper
 {
     public static HDMFModel? GetTable(DeductionPayloadContext context, decimal gross)
     {
+        if (context.Employee.ClientId.HasValue)
+        {
+            var clientKey = new ClientStatutoryCapKey(context.Employee.ClientId.Value, StatutoryCapType.PagIbig);
+            if (context.Payload.ClientStatutoryCaps.TryGetValue(clientKey, out var rs) && rs > 0)
+            {
+                var ctable = context.Payload.HDMFTableModel
+               .FirstOrDefault(x => x.EmployeeShare >= rs && x.EmployeeShare <= rs); 
+                return ctable;
+            }
+        }
+
         var table = context.Payload.HDMFTableModel
             .FirstOrDefault(x => x.MinSalaryBase <= gross && x.MaxSalaryBase >= gross);
 
         return table;
     }
+
     public static DeductionPipeData ApplyTable(DeductionPayloadContext context, DeductionPipeData line, HDMFTablePayload table, DateOnly applyToDate)
     {
         if (table == null || table.EE <= 0) return line;
