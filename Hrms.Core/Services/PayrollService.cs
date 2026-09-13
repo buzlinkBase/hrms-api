@@ -61,6 +61,17 @@ public class PayrollService : BaseService<Payroll>
         await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
     }
 
+    // A draft that's deleted before posting never had its DeductionApplicationDetail.Balance
+    // touched (see PostBatchAsync/ReduceDeductionBalancesAsync below — only Post does that), so
+    // this is pure cleanup of the now-orphaned breakdown rows, same reasoning as the SSS/PHIC/
+    // HDMF/WTax contribution ledger deletes already done by PayrollBatchLifecycleService.
+    // DeleteBatchAsync alongside this call.
+    public async Task DeleteDeductionDetailsByPayrollIdsAsync(List<Guid> payrollIds, CancellationToken token)
+    {
+        if (payrollIds.Count == 0) return;
+        await Context.PayrollDeductionDetails.Where(x => payrollIds.Contains(x.PayrollId)).ExecuteDeleteAsync(token);
+    }
+
     // Mirrors PayrollBatch.IsPosted onto every child row of the batch — PayrollBatch is the
     // canonical source for Post/Delete decisions, but the child rows keep their own copy so
     // hot-path report filters (PayrollReportService, LoadPostedPayrollAsync above) don't
@@ -78,7 +89,45 @@ public class PayrollService : BaseService<Payroll>
         if (payrolls.Count == 0) throw new ValidationException("Payroll batch not found.");
         foreach (var payroll in payrolls) payroll.IsPosted = true;
         await ModifyRangeAsync(payrolls, token);
+        await ReduceDeductionBalancesAsync(payrolls.Select(x => x.Id).ToList(), token);
         await CommitChangesAsync(token);
+    }
+
+    // Setup > Company Policy > Minimum Take-Home Pay / loan installments — only NOW, once the
+    // run is finalized, does a scheduled deduction actually count as paid. A loan installment's
+    // DeductionApplicationDetail.Balance is never touched at Generate/Preview time, so a draft
+    // that gets regenerated (recalculated from scratch) or deleted before posting can't corrupt
+    // it — this is the one and only place Balance moves. PayrollDeductionDetail rows (written
+    // at Generate time — see MappingProfile's DeductionInfo -> PayrollDeductionDetail config)
+    // record exactly which installment was charged and how much; amounts are summed per
+    // installment first since in principle more than one Payroll row in a batch could reference
+    // the same installment (e.g. a correction/adjustment run), even though one-row-each is the
+    // common case. A loan blocked by the minimum take-home floor (or any other reason it wasn't
+    // included in ScheduledDeductions — see ScheduledDeductionPolicy) simply has no
+    // PayrollDeductionDetail row at all, so its Balance stays untouched and it's naturally
+    // picked up again by DeductionAplDtlService.LoadAsync on the next payroll run.
+    private async Task ReduceDeductionBalancesAsync(List<Guid> payrollIds, CancellationToken token)
+    {
+        var applied = await Context.PayrollDeductionDetails
+            .Where(x => payrollIds.Contains(x.PayrollId))
+            .GroupBy(x => x.DeductionApplicationDetailId)
+            .Select(g => new { DetailId = g.Key, Amount = g.Sum(x => x.Amount) })
+            .ToListAsync(token);
+        if (applied.Count == 0) return;
+
+        var detailIds = applied.Select(x => x.DetailId).ToList();
+        var details = await Context.DeductionApplicationDetails
+            .Where(x => detailIds.Contains(x.Id))
+            .ToListAsync(token);
+
+        foreach (var detail in details)
+        {
+            var amount = applied.First(x => x.DetailId == detail.Id).Amount;
+            // Clamp defensively — Balance could have been hand-edited by HR, or reduced by an
+            // overlapping batch, between this run's Generate and its Post.
+            detail.Balance = Math.Max(detail.Balance - amount, 0);
+            if (detail.Balance == 0) detail.Status = "Paid";
+        }
     }
 
     public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token)

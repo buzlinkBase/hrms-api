@@ -263,6 +263,7 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
                 detail.Date,
                 detail.Balance,
                 detail.DeductionId,
+                detail.RecordOrder,
                 DeductionTypeCode = category != null ? category.Code : null,
             })
             .ToListAsync(token);
@@ -270,6 +271,13 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
         return rows
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionary(g => g.Key, g => g
+                // Oldest-due installment first (an amortization schedule is meant to be paid
+                // down in order), RecordOrder as the tiebreaker within the same date -- without
+                // this, ScheduledDeductionPolicy would process an employee's multiple loans/
+                // other deductions in whatever arbitrary order the database happened to return
+                // them, so which one gets paid when there isn't room for all of them (see
+                // DeductionValidator.CanApply / minimum take-home floor) was effectively random.
+                .OrderBy(x => x.Date).ThenBy(x => x.RecordOrder)
                 .Select(x => new DeductionInfo
                 {
                     Id = x.Id,

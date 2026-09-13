@@ -28,11 +28,20 @@ internal static class SSSHelper
     public static DeductionPipeData ApplyTable(DeductionPayloadContext context, DeductionPipeData line, SSSTablePayload table, DateOnly applyToDate)
     {
         if (table == null || table.EE <= 0) return line;
-        if (table.EE == 0) return line;
+
+        // Minimum Take-Home Pay — see DeductionValidator.CanApply. IsLimit is a pipeline-wide
+        // stop flag (every policy/calculator checks it on entry), so hitting the floor here
+        // halts PHIC/HDMF/WTax/ScheduledDeductions too, not just this one deduction.
+        if (!DeductionValidator.CanApply(table.EE, line, context))
+        {
+            line.IsLimit = true;
+            return line;
+        }
+
         line.SSS = new SSSInfo
         {
             PayrollDate = applyToDate,
-            EE = (table.EE == 0 || !DeductionValidator.CanApply(table.EE, line, context)) ? 0 : table.EE,
+            EE = table.EE,
             ER = table.ER,
             EC = table.EC,
         };

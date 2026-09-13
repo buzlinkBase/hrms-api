@@ -479,6 +479,9 @@ public enum SettingKey
     MaxSSSCapping,
     MaxPhilHealthCapping,
     MaxPagIbigCapping,
+    // Company-wide minimum take-home floor — see DeductionValidator.CanApply. Percentage of
+    // gross income (0-100) that scheduled/statutory deductions may never cut into.
+    RequiredTakehomePercentage,
 }
 
 // Which statutory contribution a ClientStatutoryCapKey caps — see StatutoryCapHelper.

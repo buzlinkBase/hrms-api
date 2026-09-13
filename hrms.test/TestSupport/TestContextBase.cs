@@ -180,6 +180,11 @@ public abstract class TestContextBase
         context.Payload.ClientStatutoryCaps[new ClientStatutoryCapKey(context.Employee.ClientId.Value, type)] = cap;
     }
 
+    // --- Minimum Take-Home Pay (Setup > Company Policy > Minimum Take-Home Pay) --------
+
+    protected static void SetRequiredTakehomePercentage(DeductionPayloadContext context, decimal percentage)
+        => context.Payload.CompanyPolicy.RequiredTakehomePercentage = percentage;
+
     // --- WTax -----------------------------------------------------------------------------
 
     protected static void SetTaxRate(DeductionPayloadContext context, ComputationBasis basis, decimal ee = 0)

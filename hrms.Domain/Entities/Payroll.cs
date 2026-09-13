@@ -166,7 +166,17 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     // DTR-to-payroll traceability. See PayrollDtrDetail below.
     public virtual List<PayrollDtrDetail> TimeHourPayResults { get; set; } = new();
     //public List<OtherIncomeSchedules> OtherIncomeCollection { get; set; } = new();
-    //public List<DeductionInfo> DeductionCollection { get; set; } = new();
+    // Persisted record of exactly which DeductionApplicationDetail installments (loans and
+    // other scheduled deductions) this Payroll actually withheld and how much — the saved
+    // counterpart of the calculation-only DeductionInfo list PayrollSummaryLine.
+    // DeductionCollection carries (same property name, DeductionInfo -> PayrollDeductionDetail
+    // element mapping configured explicitly in MappingProfile.cs, since DeductionInfo.Id means
+    // "the DeductionApplicationDetail this came from," not this entity's own Id). Written at
+    // Generate time like TimeHourPayResults above, but only READ back at Post time — see
+    // PayrollService.PostBatchAsync, which is what actually reduces DeductionApplicationDetail.
+    // Balance by these amounts. A draft that's regenerated or deleted before posting never
+    // touches Balance.
+    public virtual List<PayrollDeductionDetail> DeductionCollection { get; set; } = new();
     public bool IsPosted { get; set; }
     // Denormalized copy of PayrollBatch.PayrollType, kept in sync by PayrollProcessorService
     // — same pattern as IsPosted — so report queries (e.g. next year's 13th month/Alphalist
@@ -308,4 +318,16 @@ public class PayrollDtrDetail : BaseEntity
     public decimal TotalOT { get; set; }
     public decimal TotalND { get; set; }
     public decimal TotalNDOT { get; set; }
+}
+
+// Persisted record of one DeductionApplicationDetail installment (loan or other scheduled
+// deduction) actually withheld for this Payroll — the saved counterpart of the
+// calculation-only DeductionInfo. See Payroll.DeductionCollection and MappingProfile's
+// DeductionInfo -> PayrollDeductionDetail config.
+public class PayrollDeductionDetail : BaseEntity
+{
+    public Guid PayrollId { get; set; }
+    public Guid DeductionApplicationDetailId { get; set; }
+    public Guid DeductionId { get; set; }
+    public decimal Amount { get; set; }
 }

@@ -106,6 +106,11 @@ public class PayrollRangeContextComposerService
                 : CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
             var wtaxCreditDate = StatutoryCreditDateResolver.Resolve(dtrPayload.FromDate, dtrPayload.ToDate, wtaxCreditPolicy, payDate);
 
+            // Setup > Company Policy > Minimum Take-Home Pay — see DeductionValidator.CanApply.
+            var requiredTakehomePercentage = companySettings.TryGetValue(SettingKey.RequiredTakehomePercentage.ToString(), out var takehomeSetting)
+                ? GeneralSettingsUtil.ParseDouble(takehomeSetting.Value, 10)
+                : 10;
+
             // Setup > Client > Settings > Statutory Capping — only added when a client actually
             // has a positive cap set for that type; an absent key means uncapped (see
             // StatutoryCapHelper.ApplyClientCap).
@@ -179,7 +184,7 @@ public class PayrollRangeContextComposerService
                     ApplyStatutoryOnActualMonth = companyTask?.ApplyStatutoryOnActualMonth ?? true,
                     CrossMonthStatutoryCreditPolicy = crossMonthCreditPolicy,
                     WTaxCrossMonthCreditPolicy = wtaxCreditPolicy,
-                    RequiredTakehomePercentage = companyTask?.TakehomePercentage ?? 10,
+                    RequiredTakehomePercentage = (decimal)requiredTakehomePercentage,
                 }
             };
         }

@@ -11,7 +11,6 @@ internal class ScheduledDeductionPolicy : PayrollPolicyBase<DeductionPipeData, D
         var processDeductions = new List<DeductionInfo>();
         foreach (var deduction in deductions)
         {
-            var MinimumTakeHomeAmount = context.Payload.CompanyPolicy.RequiredTakehomePercentage;
             if (!DeductionValidator.CanApply(deduction.Amount, line, context))
             {
                 line.IsLimit = true;

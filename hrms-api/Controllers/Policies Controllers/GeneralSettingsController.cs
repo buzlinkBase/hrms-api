@@ -47,6 +47,7 @@ public class GeneralSettingsController : ControllerBase
             WaivePriorDayRequirement = policy.WaivePriorDayRequirement,
             CrossMonthStatutoryCreditPolicy = policy.CrossMonthStatutoryCreditPolicy.ToString(),
             WTaxCrossMonthCreditPolicy = policy.WTaxCrossMonthCreditPolicy.ToString(),
+            RequiredTakehomePercentage = policy.RequiredTakehomePercentage,
         };
         return Ok(response);
     }
@@ -75,6 +76,7 @@ public class GeneralSettingsController : ControllerBase
             new() { IdentityType = "Company", Description = SettingKey.WaivePriorDayRequirement.ToString(), Value = request.WaivePriorDayRequirement.ToString().ToLower() },
             new() { IdentityType = "Company", Description = SettingKey.CrossMonthStatutoryCreditPolicy.ToString(), Value = request.CrossMonthStatutoryCreditPolicy },
             new() { IdentityType = "Company", Description = SettingKey.WTaxCrossMonthCreditPolicy.ToString(), Value = request.WTaxCrossMonthCreditPolicy },
+            new() { IdentityType = "Company", Description = SettingKey.RequiredTakehomePercentage.ToString(), Value = request.RequiredTakehomePercentage.ToString() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync("Company", settings, null, token);
@@ -150,6 +152,7 @@ public class UpdateCompanyPolicyRequest
     public bool WaivePriorDayRequirement { get; set; }
     public string CrossMonthStatutoryCreditPolicy { get; set; } = "";
     public string WTaxCrossMonthCreditPolicy { get; set; } = "";
+    public double RequiredTakehomePercentage { get; set; } = 10;
 }
 public class CompanyPolicyResponse
 {
@@ -169,6 +172,7 @@ public class CompanyPolicyResponse
     public required bool WaivePriorDayRequirement { get; set; }
     public required string CrossMonthStatutoryCreditPolicy { get; set; } = "";
     public required string WTaxCrossMonthCreditPolicy { get; set; } = "";
+    public required double RequiredTakehomePercentage { get; set; }
 }
 public class ClientPolicyDto
 {

@@ -20,6 +20,9 @@ public class CompanyPolicyRule
     public CrossMonthStatutoryCreditPolicy CrossMonthStatutoryCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
     public CrossMonthStatutoryCreditPolicy WTaxCrossMonthCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
 
+    // Minimum take-home floor, as a percentage of gross income — see DeductionValidator.CanApply.
+    public double RequiredTakehomePercentage { get; set; } = 10;
+
 }
 
 public class CompanyPolicyService
@@ -41,6 +44,7 @@ public class CompanyPolicyService
         SetWaivePriorDayRequirement(policy, data);
         SetCrossMonthStatutoryCreditPolicy(policy, data);
         SetWTaxCrossMonthCreditPolicy(policy, data);
+        SetRequiredTakehomePercentage(policy, data);
         return policy;
     }
 
@@ -188,6 +192,16 @@ public class CompanyPolicyService
         {
             var settingvalue = GeneralSettingsUtil.ParseEnum(creditPolicy.Value, CrossMonthStatutoryCreditPolicy.CutoffEndMonth);
             policy.WTaxCrossMonthCreditPolicy = settingvalue;
+        }
+    }
+
+    private void SetRequiredTakehomePercentage(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.RequiredTakehomePercentage = 10;
+        if (data.TryGetValue(SettingKey.RequiredTakehomePercentage.ToString(), out GeneralSettingModel? takehome))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseDouble(takehome.Value, 10);
+            policy.RequiredTakehomePercentage = settingvalue;
         }
     }
 }

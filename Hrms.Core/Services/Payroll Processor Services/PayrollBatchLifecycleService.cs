@@ -103,6 +103,9 @@ public class PayrollBatchLifecycleService
         await _phicContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _hdmfContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _taxContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
+        // Never touched a loan's Balance (only PostBatchAsync does) — just cleanup of the
+        // now-orphaned per-installment breakdown rows this draft wrote at Generate time.
+        await _payrollService.DeleteDeductionDetailsByPayrollIdsAsync(payrollIds, token);
         await _payrollService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _payrollService.CommitChangesAsync(token);
         await _consumptionService.ReleaseAsync(payrollIds, token);

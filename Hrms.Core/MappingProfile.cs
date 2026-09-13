@@ -33,6 +33,16 @@ public class MappingProfile : IRegister
         // is the persisted counterpart with an added PayrollId FK).
         config.NewConfig<DTRPayModel, PayrollDtrDetail>();
         config.NewConfig<PayrollDtrDetail, DTRPayModel>();
+        // Element mapping for Payroll.DeductionCollection (List<PayrollDeductionDetail>) <-
+        // PayrollSummaryLine.DeductionCollection (List<DeductionInfo>) -- explicit and NOT a
+        // bare convention mapping, because DeductionInfo.Id means "the DeductionApplicationDetail
+        // this installment came from," not this entity's own primary key; a bare mapping would
+        // silently clobber PayrollDeductionDetail's own Id with a foreign value instead of
+        // filling DeductionApplicationDetailId. See PayrollService.PostBatchAsync, which reads
+        // this back to reduce DeductionApplicationDetail.Balance once the run is posted.
+        config.NewConfig<DeductionInfo, PayrollDeductionDetail>()
+            .Ignore(dest => dest.Id)
+            .Map(dest => dest.DeductionApplicationDetailId, src => src.Id);
         config.NewConfig<CreateDepartment, Department>().TwoWays();
         config.NewConfig<UpdateDepartment, Department>();
 
