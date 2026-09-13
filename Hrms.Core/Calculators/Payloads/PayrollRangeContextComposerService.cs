@@ -65,10 +65,10 @@ public class PayrollRangeContextComposerService
         _generalSettingService = generalSettingService;
     }
     public async Task<CalculatorPayload?> ComposePayload(
-   DateRangePayload dtrPayload,
-   List<EmployeeModelPayrollRun> employees,
-   CancellationToken token,
-   DateOnly? payDate = null)
+    DateRangePayload dtrPayload,
+    List<EmployeeModelPayrollRun> employees,
+    CancellationToken token,
+    DateOnly? payDate = null)
     {
         // 1. Validate inputs early to avoid unnecessary DB calls
         if (employees == null || !employees.Any()) return null;
@@ -80,6 +80,8 @@ public class PayrollRangeContextComposerService
             var ratesTask = await _rateTableService.FindAllAsync(token);
             var clientIds = employees.Where(e => e.ClientId.HasValue).Select(e => e.ClientId!.Value).ToHashSet();
             var clientRatesTask = await _clientRateTableService.FindByClientsAsync(clientIds, token);
+            var clientSettingsTask = await _generalSettingService.GetSettingsAsync(
+                "Client", clientIds.Select(id => id.ToString()).ToHashSet());
             var leavesTask = await _leaveService.FindByDateRangeAsync(dtrPayload.FromDate, dtrPayload.ToDate, hasEmpIds, token);
             var leaveCreditsTask = await _leaveLedgerService.LoadCreditsAsync(empIds, token);
             var otherIncomeTask = await _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
@@ -103,6 +105,24 @@ public class PayrollRangeContextComposerService
                 ? GeneralSettingsUtil.ParseEnum(wtaxCreditPolicySetting.Value, CrossMonthStatutoryCreditPolicy.CutoffEndMonth)
                 : CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
             var wtaxCreditDate = StatutoryCreditDateResolver.Resolve(dtrPayload.FromDate, dtrPayload.ToDate, wtaxCreditPolicy, payDate);
+
+            // Setup > Client > Settings > Statutory Capping — only added when a client actually
+            // has a positive cap set for that type; an absent key means uncapped (see
+            // StatutoryCapHelper.ApplyClientCap).
+            var clientStatutoryCaps = new Dictionary<ClientStatutoryCapKey, decimal>();
+            foreach (var (groupKey, settings) in clientSettingsTask)
+            {
+                void AddCap(SettingKey key, StatutoryCapType type)
+                {
+                    var cap = settings.TryGetValue(key.ToString(), out var setting)
+                        ? GeneralSettingsUtil.ParsePositiveDecimalOrNull(setting.Value)
+                        : null;
+                    if (cap.HasValue) clientStatutoryCaps[new ClientStatutoryCapKey(groupKey.IdentityId, type)] = cap.Value;
+                }
+                AddCap(SettingKey.MaxSSSCapping, StatutoryCapType.SSS);
+                AddCap(SettingKey.MaxPhilHealthCapping, StatutoryCapType.PhilHealth);
+                AddCap(SettingKey.MaxPagIbigCapping, StatutoryCapType.PagIbig);
+            }
 
             // Contributions
             var payrollsTask = await _payrollService.LoadPostedPayrollAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
@@ -136,6 +156,7 @@ public class PayrollRangeContextComposerService
                     .SelectMany(rows => rows)
                     .GroupBy(x => new ClientRateKey(x.ClientId, x.Type))
                     .ToDictionary(g => g.Key, g => g.First().Rate),
+                ClientStatutoryCaps = clientStatutoryCaps,
                 PostedPriorPayrolls = payrollsTask,
                 Leaves = leavesTask,
                 LeaveCredits = leaveCreditsTask,

@@ -31,19 +31,41 @@ public class BankDisbursementModel
     public decimal NetPay { get; set; }
 }
 
-public class LoanLedgerModel
+// Covers every DeductionType category with an amortization schedule — Loans, Cash Advances,
+// Cash Bond, etc. — not just loans; named generically since GetDeductionLedgerAsync queries
+// DeductionApplicationDetail rows across all categories, not a specific one.
+public class DeductionLedgerModel
 {
     public Guid EmployeeId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public Guid DeductionId { get; set; }
-    public string LoanTypeName { get; set; } = string.Empty;
-    public string LoanName { get; set; } = string.Empty;
+    public string DeductionTypeName { get; set; } = string.Empty;
+    public string DeductionName { get; set; } = string.Empty;
     public decimal TotalPrincipal { get; set; }
     public decimal InterestRate { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public decimal CurrentBalance { get; set; }
+}
+
+// One row per employee's Cash Bond DeductionApplication (DeductionType.Code == "CASHBOND") —
+// tracks how much has been withheld toward the target (the application's own TotalPrincipal;
+// there is no separate employee-profile target field) and how much is still outstanding. See
+// PayrollReportService.GetCashBondReportAsync.
+public class CashBondReportModel
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public Guid DeductionId { get; set; }
+    public Guid ApplicationId { get; set; }
+    public decimal TargetAmount { get; set; }
+    public decimal TotalCollected { get; set; }
+    public decimal Remaining { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; }
 }
 
 // One row per OneTime, employer-advanced government leave payout — tracks the employer's

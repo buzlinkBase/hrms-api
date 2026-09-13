@@ -357,6 +357,13 @@ public enum GenderRestriction
     FemaleOnly,
 }
 
+public enum LeaveEligibilityBasis
+{
+    TenureMonths,  // Leave.MinServiceMonths — calendar months since Employee.HireDate
+    PresentDays,   // Leave.MinPresentDays — count of posted DailyRecord days that aren't
+                   // Absent/Incomplete/Skipped (holidays and rest days, worked or not, count)
+}
+
 public enum RateType
 {
     REGULAR,
@@ -467,6 +474,19 @@ public enum SettingKey
     WaivePriorDayRequirement,
     CrossMonthStatutoryCreditPolicy,
     WTaxCrossMonthCreditPolicy,
+    // Client-only (no company-wide equivalent) — see StatutoryCapHelper.ApplyClientCap. Null or
+    // 0 (GeneralSettingsUtil.ParseDecimal's fallback) means no cap, i.e. unchanged behavior.
+    MaxSSSCapping,
+    MaxPhilHealthCapping,
+    MaxPagIbigCapping,
+}
+
+// Which statutory contribution a ClientStatutoryCapKey caps — see StatutoryCapHelper.
+public enum StatutoryCapType
+{
+    SSS,
+    PhilHealth,
+    PagIbig,
 }
 
 public enum IncludeNullResponse

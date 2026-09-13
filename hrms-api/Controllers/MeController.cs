@@ -180,7 +180,7 @@ namespace Hrms.Api.Controllers
 
             payload.EmployeeId = employeeId.Value;
             payload.ApprovalStatus = ApprovalStatus.ForApproval;
-            await _leaveApplicationService.AddAsync(payload, token);
+            await _leaveApplicationService.AddAsync(payload, token, isSelfService: true);
             await _leaveApplicationService.CommitChangesAsync(token);
             return Ok();
         }
@@ -393,6 +393,22 @@ namespace Hrms.Api.Controllers
 
             await _deductionApplicationService.WithdrawAsync(id, employeeId.Value, token);
             return Ok();
+        }
+
+        // "My Cash Bond" — a savings-style progress view, kept separate from My Loan Ledger
+        // above since a Cash Bond isn't debt the employee owes; it reuses the exact same
+        // DeductionApplication/Breakdown shape though, so the frontend can share the same
+        // amortization-schedule table component. See DeductionApplicationService.
+        // FindCashBondForEmployeeAsync.
+        [HttpGet("cash-bond")]
+        [ProducesResponseType(typeof(ResponseModel<List<DeductionApplicationModel>>), 200)]
+        public async Task<IActionResult> GetMyCashBond(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var data = await _deductionApplicationService.FindCashBondForEmployeeAsync(employeeId.Value, token);
+            return Ok(_mapper.Map<List<DeductionApplicationModel>>(data));
         }
 
         // Scoped server-side to the caller's own EmployeeId via GetThirteenthMonthAsync's

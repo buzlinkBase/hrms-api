@@ -26,6 +26,13 @@ public class MappingProfile : IRegister
 
         config.NewConfig<PayrollSummaryLine, Payroll>();
         config.NewConfig<Payroll, PayrollSummaryLine>();
+        // Element mapping for Payroll.TimeHourPayResults (List<PayrollDtrDetail>) <-
+        // PayrollSummaryLine.TimeHourPayResults (List<DTRPayModel>) — explicit rather than
+        // relying on Mapster inferring the nested-list element conversion implicitly, since
+        // the two list element types differ (DTRPayModel is calculation-only; PayrollDtrDetail
+        // is the persisted counterpart with an added PayrollId FK).
+        config.NewConfig<DTRPayModel, PayrollDtrDetail>();
+        config.NewConfig<PayrollDtrDetail, DTRPayModel>();
         config.NewConfig<CreateDepartment, Department>().TwoWays();
         config.NewConfig<UpdateDepartment, Department>();
 

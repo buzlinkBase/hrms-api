@@ -119,6 +119,17 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        // Informational only — each selected separated employee's Cash Bond collected-to-date
+        // vs. target, for HR to review. Never applied to NetPay automatically; see
+        // LastPayrollService.GetCashBondStatusAsync.
+        [HttpGet("last-pay/cash-bond-status")]
+        [ProducesResponseType(typeof(ResponseModel<List<CashBondReportModel>>), 200)]
+        public async Task<IActionResult> GetLastPayCashBondStatus([FromQuery] List<Guid> employeeIds, CancellationToken token)
+        {
+            var data = await _service.GetCashBondStatusAsync(employeeIds, token);
+            return Ok(new { data, total = data.Count });
+        }
+
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> Get(

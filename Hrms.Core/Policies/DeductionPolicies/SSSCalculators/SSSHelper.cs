@@ -30,7 +30,8 @@ internal static class SSSHelper
     public static (decimal EEBalance, decimal ERBalance, decimal ECBalance) GetBalance(DeductionPayloadContext context, decimal ee, decimal er, decimal ec)
     {
         var contributions = GetCurrentMonthContribution(context);
-        var eebalance = Math.Max(ee - contributions.Sum(x => x.EE), 0);
+        var eeTarget = StatutoryCapHelper.ApplyClientCap(context, StatutoryCapType.SSS, ee);
+        var eebalance = Math.Max(eeTarget - contributions.Sum(x => x.EE), 0);
         var erbalance = Math.Max(er - contributions.Sum(x => x.ER), 0);
         var ecbalance = Math.Max(ec - contributions.Sum(x => x.EC), 0);
         return (eebalance, erbalance, ecbalance);

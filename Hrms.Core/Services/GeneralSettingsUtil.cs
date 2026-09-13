@@ -34,4 +34,16 @@ public class GeneralSettingsUtil
         }
         return fallback;
     }
+
+    // Returns null (not just the fallback concept) when input is missing/unparseable/<= 0 — the
+    // caller-facing "no value set" state for a cap, since 0 and "not set" mean the same thing
+    // (see StatutoryCapHelper.ApplyClientCap).
+    public static decimal? ParsePositiveDecimalOrNull(string? input)
+    {
+        if (!string.IsNullOrWhiteSpace(input) && decimal.TryParse(input, out var result) && result > 0)
+        {
+            return result;
+        }
+        return null;
+    }
 }

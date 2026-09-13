@@ -104,6 +104,23 @@ public class LastPayrollService
         return warnings;
     }
 
+    // Cash Bond status for the Last Pay review screen — informational only, same role as
+    // GetAttendanceWarningsAsync below: HR sees each separated employee's cash bond collected-
+    // to-date vs. target and decides the refund manually (bonds are often conditional on
+    // clearance/no accountabilities, which this system has no way to verify). Never applied to
+    // NetPay or the deduction ledger — mirrors the "informational netting only" boundary already
+    // documented on the outstanding-loan line in GenerateAsync below. Uses the latest separation
+    // date among the selected employees as the "as of" cutoff, same simplifying convention
+    // LoadOutstandingLoansAsync uses.
+    public async Task<List<CashBondReportModel>> GetCashBondStatusAsync(List<Guid> employeeIds, CancellationToken token)
+    {
+        var employees = await _employeeService.GetSeparatedEmployeesForLastPayAsync(employeeIds, token);
+        if (employees.Count == 0) return [];
+
+        var latestSeparationDate = employees.Max(x => DateOnly.FromDateTime(x.DateResigned!.Value));
+        return await _payrollReportService.GetCashBondReportAsync(latestSeparationDate, token, employeeIds);
+    }
+
     // Review-step data for the Last Pay generation screen — every SalaryAdjustment not yet
     // consumed by any payroll run (regular or a prior Last Pay) for these employees. HR
     // confirms which of these to fold in via LastPayRunPayload.SalaryAdjustmentIds; nothing

@@ -157,7 +157,14 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     // identically-named members. Rows generated before this field existed will read 0.
     public decimal TaxableIncome { get; set; }
     public decimal NonTaxableIncome { get; set; }
-    //public List<DTRPayModel> TimeHourPayResults { get; set; } = new();
+    // Persisted per-day DTR breakdown (target of PayrollSummaryLine.TimeHourPayResults via
+    // Mapster's convention mapping — same property name, DTRPayModel -> PayrollDtrDetail
+    // element mapping configured explicitly in MappingProfile.cs). Replaces the DTRPayModel
+    // list that used to be calculation-only and never survived a save — now each day's
+    // DtrId/ClientId/DepartmentId/PayrollGroupId (and full pay/hour breakdown) round-trips
+    // through Generate/Save for later billing generation and other reporting that needs
+    // DTR-to-payroll traceability. See PayrollDtrDetail below.
+    public virtual List<PayrollDtrDetail> TimeHourPayResults { get; set; } = new();
     //public List<OtherIncomeSchedules> OtherIncomeCollection { get; set; } = new();
     //public List<DeductionInfo> DeductionCollection { get; set; } = new();
     public bool IsPosted { get; set; }
@@ -217,4 +224,88 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     public decimal OBHours { get; set; }
     public decimal PaidLeaveHours { get; set; }
     public decimal UnpaidLeaveHours { get; set; }
+}
+
+// Persisted per-day DTR breakdown for one Payroll line — the saved counterpart of the
+// calculation-only DTRPayModel (Hrms.Core/Calculators/Payloads/DTRPayModel.cs), which this
+// mirrors field-for-field. Child table pattern (PayrollId FK, no back-nav) — same convention
+// as DeductionApplication/DeductionApplicationDetail, not a JSON column. See Payroll.
+// TimeHourPayResults and MappingProfile's DTRPayModel -> PayrollDtrDetail config.
+public class PayrollDtrDetail : BaseEntity
+{
+    public Guid PayrollId { get; set; }
+    public Guid? DtrId { get; set; }
+    public string? DTRRef { get; set; }
+    public DateOnly Date { get; set; }
+    public Guid EmployeeId { get; set; }
+    // That specific day's own DailyRecord.ClientId/DepartmentId/PayrollGroupId (set at
+    // DTR-generation time from that day's attendance) — not the employee's current/master
+    // settings. See DTRPayModel's identical fields for why.
+    public Guid? ClientId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public Guid? PayrollGroupId { get; set; }
+    public decimal DailyRate { get; set; }
+    public SalaryType SalaryType { get; set; }
+    public WorkType WorkType { get; set; }
+
+    public decimal LateAmount { get; set; }
+    public decimal UTAmount { get; set; }
+    public decimal AbsentAmount { get; set; }
+    public decimal PaidLeave { get; set; }
+    public decimal UnpaidLeave { get; set; }
+
+    public decimal RegularDayPay { get; set; }
+    public decimal RegularOTPay { get; set; }
+    public decimal RegularNDPay { get; set; }
+    public decimal RegularNDOTPay { get; set; }
+
+    public decimal RestDayPay { get; set; }
+    public decimal RestDayOTPay { get; set; }
+    public decimal RestDayNDPay { get; set; }
+    public decimal RestDayNDOTPay { get; set; }
+
+    public decimal LegalPay { get; set; }
+    public decimal LegalOTPay { get; set; }
+    public decimal LegalNDPay { get; set; }
+    public decimal LegalNDOTPay { get; set; }
+
+    public decimal SpecialPay { get; set; }
+    public decimal SpecialOTPay { get; set; }
+    public decimal SpecialNDPay { get; set; }
+    public decimal SpecialNDOTPay { get; set; }
+
+    public decimal RestLegalPay { get; set; }
+    public decimal RestLegalOTPay { get; set; }
+    public decimal RestLegalNDPay { get; set; }
+    public decimal RestLegalNDOTPay { get; set; }
+
+    public decimal RestSpecialPay { get; set; }
+    public decimal RestSpecialOTPay { get; set; }
+    public decimal RestSpecialNDPay { get; set; }
+    public decimal RestSpecialNDOTPay { get; set; }
+
+    public decimal DoubleLegalPay { get; set; }
+    public decimal DoubleLegalOTPay { get; set; }
+    public decimal DoubleLegalNDPay { get; set; }
+    public decimal DoubleLegalNDOTPay { get; set; }
+
+    public decimal RestDoubleLegalPay { get; set; }
+    public decimal RestDoubleLegalOTPay { get; set; }
+    public decimal RestDoubleLegalNDPay { get; set; }
+    public decimal RestDoubleLegalNDOTPay { get; set; }
+
+    public decimal LegalWorked { get; set; }
+    public decimal LegalUnWorked { get; set; }
+    public decimal DoubleLegalWorked { get; set; }
+    public decimal DoubleLegalUnworked { get; set; }
+    public decimal RestDoubleLegalWorked { get; set; }
+    public decimal RestDoubleLegalUnworked { get; set; }
+    public decimal TotalExcludingBasic { get; set; }
+    public decimal Holiday { get; set; }
+    public decimal NDPremiumPay { get; set; }
+    public decimal OTPremiumPay { get; set; }
+
+    public decimal TotalOT { get; set; }
+    public decimal TotalND { get; set; }
+    public decimal TotalNDOT { get; set; }
 }

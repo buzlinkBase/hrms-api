@@ -142,6 +142,31 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
             .ToListAsync(token);
     }
 
+    // Self-service "My Cash Bond" — same shape as FindAllForEmployeeAsync above (every status,
+    // schedule included) but filtered to Cash Bond category deductions only (DeductionType.Code
+    // == "CASHBOND"), so the portal can show a savings-style progress view kept separate from
+    // My Loan Ledger. See MeController.GetMyCashBond. Uses raw Context access (not IRepository),
+    // same known EF-InMemory test-harness gap already documented on DeductionApplicationServiceTests.
+    public async Task<List<DeductionApplication>> FindCashBondForEmployeeAsync(Guid employeeId, CancellationToken token)
+    {
+        var cashBondTypeId = await Context.DeductionTypes.AsNoTracking()
+            .Where(x => x.Code == "CASHBOND")
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync(token);
+        if (cashBondTypeId == null) return [];
+
+        var cashBondDeductionIds = await Context.Deductions.AsNoTracking()
+            .Where(x => x.CategoryId == cashBondTypeId)
+            .Select(x => x.Id)
+            .ToListAsync(token);
+        if (cashBondDeductionIds.Count == 0) return [];
+
+        return await GetQueryable(x => x.EmployeeId == employeeId && cashBondDeductionIds.Contains(x.DeductionId))
+            .Include(x => x.Breakdown)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(token);
+    }
+
     public async Task ApproveAsync(Guid id, CancellationToken token)
     {
         var existing = await GetOneAsync(id, token);

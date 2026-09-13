@@ -15,7 +15,10 @@ public class LeavePeriodGrantWorkerTests : LeaveWorkerTestBase
     {
         var repo = CreateRepo();
         var uow = CreateUow(repo);
-        var worker = new LeavePeriodGrantWorker(uow, CreateLogger<LeavePeriodGrantWorker>());
+        // Real DailyRecordService — only ever called when a Leave uses EligibilityBasis.
+        // PresentDays (see LeavePeriodGrantWorker.Consume), so the tenure-based tests below
+        // never reach it, and the PresentDays-specific tests seed DailyRecord data for it.
+        var worker = new LeavePeriodGrantWorker(uow, CreateLogger<LeavePeriodGrantWorker>(), BuildDailyRecordService(uow));
         return (worker, repo);
     }
 
@@ -131,5 +134,57 @@ public class LeavePeriodGrantWorkerTests : LeaveWorkerTestBase
 
         addedCredits.Should().HaveCount(3); // (empX,leaveA) (empX,leaveB) (empY,leaveB) -- not (empY,leaveA)
         addedCredits.Should().NotContain(c => c.EmployeeId == empY.Id && c.LeaveId == leaveA.Id);
+    }
+
+    private static DailyRecord BuildPostedDay(Guid employeeId, DateOnly workDate, WorkType workType) => new()
+    {
+        Id = NewId(),
+        EmployeeId = employeeId,
+        WorkDate = workDate,
+        WorkTypeEnum = workType,
+        Posted = true,
+    };
+
+    [Fact]
+    public async Task PresentDaysBasis_EnoughPresentDays_Grants()
+    {
+        var (worker, repo) = BuildWorker();
+        var leave = BuildLeave(AccrualBasis.None, credits: 10,
+            eligibilityBasis: LeaveEligibilityBasis.PresentDays, minPresentDays: 2);
+        var employee = BuildEmployee(EmploymentStatus.Regular, hireDate: new DateOnly(2025, 12, 1));
+        SeedFind(repo, leave);
+        SeedFind(repo, employee);
+        SeedFind(repo, Array.Empty<LeaveCredits>());
+        // Two worked days plus one Absent day -- Absent must not count toward the 2-day minimum.
+        SeedFindAll(repo,
+            BuildPostedDay(employee.Id, new DateOnly(2025, 12, 15), WorkType.RegularWorkDay),
+            BuildPostedDay(employee.Id, new DateOnly(2025, 12, 22), WorkType.RestDay),
+            BuildPostedDay(employee.Id, new DateOnly(2025, 12, 29), WorkType.Absent));
+        var addedCredits = CaptureAdds<LeaveCredits>(repo);
+
+        var context = CreateConsumeContext(new RunLeavePeriodGrant(2026, FiscalYearStartMonth: 1));
+        await worker.Consume(context);
+
+        addedCredits.Should().ContainSingle();
+        addedCredits[0].EmployeeId.Should().Be(employee.Id);
+    }
+
+    [Fact]
+    public async Task PresentDaysBasis_NotEnoughPresentDays_IsSkipped()
+    {
+        var (worker, repo) = BuildWorker();
+        var leave = BuildLeave(AccrualBasis.None,
+            eligibilityBasis: LeaveEligibilityBasis.PresentDays, minPresentDays: 5);
+        var employee = BuildEmployee(EmploymentStatus.Regular, hireDate: new DateOnly(2025, 12, 1));
+        SeedFind(repo, leave);
+        SeedFind(repo, employee);
+        SeedFind(repo, Array.Empty<LeaveCredits>());
+        SeedFindAll(repo, BuildPostedDay(employee.Id, new DateOnly(2025, 12, 15), WorkType.RegularWorkDay));
+        var addedCredits = CaptureAdds<LeaveCredits>(repo);
+
+        var context = CreateConsumeContext(new RunLeavePeriodGrant(2026, FiscalYearStartMonth: 1));
+        await worker.Consume(context);
+
+        addedCredits.Should().BeEmpty();
     }
 }

@@ -74,11 +74,19 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
-        [HttpGet("loan-ledger")]
-        public async Task<IActionResult> LoanLedger([FromQuery] DateTime? asOf, CancellationToken token)
+        [HttpGet("deduction-ledger")]
+        public async Task<IActionResult> DeductionLedger([FromQuery] DateTime? asOf, CancellationToken token)
         {
             var asOfDate = asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
-            var data = await _reportService.GetLoanLedgerAsync(asOfDate, token);
+            var data = await _reportService.GetDeductionLedgerAsync(asOfDate, token);
+            return Ok(new { data, total = data.Count });
+        }
+
+        [HttpGet("cash-bond")]
+        public async Task<IActionResult> CashBond([FromQuery] DateTime? asOf, CancellationToken token)
+        {
+            var asOfDate = asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
+            var data = await _reportService.GetCashBondReportAsync(asOfDate, token);
             return Ok(new { data, total = data.Count });
         }
 

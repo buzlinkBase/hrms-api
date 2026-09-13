@@ -7,6 +7,14 @@ public class DTRPayModel
     public string? DTRRef { get; set; }
     public DateOnly Date { get; set; }
     public Guid EmployeeId { get; set; }
+    // Copied from this specific day's own DailyRecord (set at DTR-generation time from that
+    // day's attendance) -- NOT from the employee's current/master ClientId/PayrollGroupId
+    // (PayrollSummaryLine.ClientId/PayrollGroupId already use the latter, unchanged). An
+    // employee deployed to different clients on different days within one cutoff needs each
+    // day's breakdown to carry that day's own client/department/payroll group for billing.
+    public Guid? ClientId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public Guid? PayrollGroupId { get; set; }
     public decimal DailyRate { get; set; }
     public SalaryType SalaryType { get; set; }
     // Same enum PayrollContext.WorkType carries into this calculation — surfaced here purely

@@ -53,6 +53,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<CostCenters> Areas { get; set; }
     public DbSet<Department> Departments { get; set; }
     public DbSet<Payroll> Payrolls { get; set; }
+    public DbSet<PayrollDtrDetail> PayrollDtrDetails { get; set; }
     public DbSet<PayrollBatch> PayrollBatches { get; set; }
     public DbSet<PayrollGroup> PayrollGroups { get; set; }
     public DbSet<CutoffDay> CutoffDays { get; set; }

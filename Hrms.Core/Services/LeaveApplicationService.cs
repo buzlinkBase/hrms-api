@@ -13,17 +13,20 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     private readonly IMapper _mapper;
     private readonly IPublishEndpoint _publisher;
     private readonly ILogger<LeaveApplicationService> _logger;
+    private readonly DailyRecordService _dailyRecordService;
 
     public LeaveApplicationService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
         IMapper mapper,
         IPublishEndpoint publisher,
-        ILogger<LeaveApplicationService> logger) : base(uow)
+        ILogger<LeaveApplicationService> logger,
+        DailyRecordService dailyRecordService) : base(uow)
     {
         _config    = config;
         _mapper    = mapper;
         _publisher = publisher;
         _logger    = logger;
+        _dailyRecordService = dailyRecordService;
     }
 
     protected override Task<EvaluationResult> CreateValidatorAsync(LeaveApplication model, CancellationToken token = default)
@@ -32,9 +35,9 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         return base.CreateValidatorAsync(model, token);
     }
 
-    public async Task<LeaveApplicationModel?> AddAsync(CreateLeaveApplication payload, CancellationToken token)
+    public async Task<LeaveApplicationModel?> AddAsync(CreateLeaveApplication payload, CancellationToken token, bool isSelfService = false)
     {
-        await EnsurePolicyAsync(payload, token);
+        await EnsurePolicyAsync(payload, isSelfService, token);
         var model = _mapper.Map<LeaveApplication>(payload);
         if (model == null) return null;
         await CreateAsync(model, token);
@@ -69,7 +72,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         await CommitChangesAsync(token);
     }
 
-    private async Task EnsurePolicyAsync(CreateLeaveApplication payload, CancellationToken token)
+    private async Task EnsurePolicyAsync(CreateLeaveApplication payload, bool isSelfService, CancellationToken token)
     {
         var leave = await _uow.Repository
             .Find<Leave>(x => x.Id == payload.LeaveId)
@@ -77,7 +80,19 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             .FirstOrDefaultAsync(token)
             ?? throw new NotFoundException("Leave type not found");
 
-        if (leave.GenderRestriction != GenderRestriction.None || leave.MinServiceMonths > 0)
+        // Only the Employee Portal's own filing path is gated here — an HR-initiated
+        // application (isSelfService = false, the default) can still use any leave type
+        // regardless of AllowEmployeeFiling, since that flag only controls what employees can
+        // file themselves. Mirrors DeductionApplicationService.EnsurePortalFileableAsync.
+        if (isSelfService && !leave.AllowEmployeeFiling)
+            throw new InvalidOperationException(
+                $"\"{leave.Description}\" cannot be filed through the Employee Portal. Please coordinate with HR.");
+
+        var requiresServiceCheck = leave.EligibilityBasis == LeaveEligibilityBasis.PresentDays
+            ? leave.MinPresentDays > 0
+            : leave.MinServiceMonths > 0;
+
+        if (leave.GenderRestriction != GenderRestriction.None || requiresServiceCheck)
         {
             var employee = await _uow.Repository
                 .Find<Employee>(x => x.Id == payload.EmployeeId)
@@ -97,13 +112,18 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             // neither the admin nor self-service submit path actually rejected an application
             // filed before the required tenure, so either could bypass it by ignoring/not seeing
             // the warning, or by calling the API directly.
-            if (leave.MinServiceMonths > 0)
+            if (requiresServiceCheck)
             {
-                var monthsServed = MonthsBetween(employee.HireDate, payload.LeaveDateFrom);
-                if (monthsServed < leave.MinServiceMonths)
+                var monthsServed = 0;
+                var presentDays = 0;
+                if (leave.EligibilityBasis == LeaveEligibilityBasis.PresentDays)
+                    presentDays = await _dailyRecordService.CountPresentDaysAsync(employee.Id, payload.LeaveDateFrom, token);
+                else
+                    monthsServed = LeaveEligibilityCalculator.MonthsBetween(employee.HireDate, payload.LeaveDateFrom);
+
+                if (!LeaveEligibilityCalculator.IsServiceRequirementMet(leave, monthsServed, presentDays))
                     throw new InvalidOperationException(
-                        $"This employee has {monthsServed} month{(monthsServed != 1 ? "s" : "")} of service. " +
-                        $"\"{leave.Description}\" requires at least {leave.MinServiceMonths} month{(leave.MinServiceMonths != 1 ? "s" : "")}.");
+                        LeaveEligibilityCalculator.ServiceRequirementMessage(leave, monthsServed, presentDays));
             }
         }
 
@@ -195,15 +215,6 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                     $" Applying: {newDays:0.##} day(s).");
             }
         }
-    }
-
-    // Whole months elapsed between two dates -- e.g. hired 2026-01-15, filing on 2026-06-10 is
-    // only 4 completed months (the day-of-month hasn't come around again yet), not 5.
-    private static int MonthsBetween(DateOnly from, DateOnly to)
-    {
-        var months = (to.Year - from.Year) * 12 + (to.Month - from.Month);
-        if (to.Day < from.Day) months--;
-        return Math.Max(months, 0);
     }
 
     private static double ComputeDays(

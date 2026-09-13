@@ -29,7 +29,8 @@ internal static class PHICHelper
     public static (decimal EEBalance, decimal ERBalance) GetBalance(DeductionPayloadContext context, decimal ee, decimal er)
     {
         var contributions = GetCurrentMonthContribution(context);
-        var eebalance = Math.Max(ee - contributions.Sum(x => x.EmployeeShare), 0);
+        var eeTarget = StatutoryCapHelper.ApplyClientCap(context, StatutoryCapType.PhilHealth, ee);
+        var eebalance = Math.Max(eeTarget - contributions.Sum(x => x.EmployeeShare), 0);
         var erbalance = Math.Max(er - contributions.Sum(x => x.EmployerShare), 0);
         return (eebalance, erbalance);
     }

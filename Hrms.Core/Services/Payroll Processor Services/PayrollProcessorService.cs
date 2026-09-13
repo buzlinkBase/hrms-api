@@ -153,6 +153,9 @@ public class PayrollProcessorService
     public Task<List<LastPayAttendanceWarning>> GetLastPayAttendanceWarningsAsync(List<Guid> employeeIds, CancellationToken token) =>
         _lastPayrollService.GetAttendanceWarningsAsync(employeeIds, token);
 
+    public Task<List<CashBondReportModel>> GetCashBondStatusAsync(List<Guid> employeeIds, CancellationToken token) =>
+        _lastPayrollService.GetCashBondStatusAsync(employeeIds, token);
+
     public Task PostBatchAsync(Guid payrollBatchId, CancellationToken token) =>
         _batchLifecycleService.PostBatchAsync(payrollBatchId, token);
 

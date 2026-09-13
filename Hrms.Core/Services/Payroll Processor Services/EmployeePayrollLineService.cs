@@ -300,7 +300,7 @@ public class EmployeePayrollLineService
         var basicResultMoel = new List<DTRPayModel>();
         for (var date = payload.FromDate; date <= payload.ToDate; date = date.AddDays(1))
         {
-            var record = dtrs.FirstOrDefault(x => x.WorkDate == date && x.EmployeeId == employee.Id);
+            var record = SelectDtrRecordForDate(dtrs, employee.Id, date);
             if (record == null) continue;
             var context = new PayrollContextBuilder()
                 .SetEmployee(employee)
@@ -315,10 +315,32 @@ public class EmployeePayrollLineService
             result.Date = date;
             result.DTRRef = record.BatchCode;
             result.DtrId = record.Id;
+            result.ClientId = record.ClientId;
+            result.DepartmentId = record.DepartmentId;
+            result.PayrollGroupId = record.PayrollGroupId;
             result.SalaryType = employee.SalaryType;
             basicResultMoel.Add(result);
         }
         return basicResultMoel;
+    }
+
+    // Grouped, hours-aware pick rather than a plain FirstOrDefault: if more than one
+    // DailyRecord candidate exists for this employee+date (e.g. combining multiple DTR
+    // batches for a multi-client cutoff), prefer the hours-bearing one over a zero-hour
+    // placeholder. Falls back to whichever record exists when every candidate for the date is
+    // 0 hours -- the ordinary absent/holiday/unpaid-leave case -- so those days still get a
+    // DtrId captured, not skipped. internal (not private), static (doesn't touch instance
+    // state) so hrms.test can exercise this directly without a DB or the full calculator DI
+    // graph — matches GetBasicPay/ComputeHoursBreakdown's established pattern below.
+    internal static DailyRecordRunModel? SelectDtrRecordForDate(
+        List<DailyRecordRunModel> dtrs, Guid employeeId, DateOnly date)
+    {
+        return dtrs
+            .Where(x => x.WorkDate == date && x.EmployeeId == employeeId)
+            .OrderBy(x => x.TotalHours)
+            .GroupBy(x => x.WorkDate)
+            .Select(g => g.FirstOrDefault(x => x.TotalHours > 0) ?? g.First())
+            .FirstOrDefault();
     }
 
     // internal (not private), static (doesn't touch instance state) so hrms.test can exercise

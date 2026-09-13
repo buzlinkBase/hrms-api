@@ -22,10 +22,13 @@ public class CreateLeave
     public LeaveReset LeaveReset { get; set; } = LeaveReset.PerPeriod;
 
     // Eligibility
+    public LeaveEligibilityBasis EligibilityBasis { get; set; } = LeaveEligibilityBasis.TenureMonths;
     public int MinServiceMonths { get; set; }
+    public int MinPresentDays { get; set; }
     public GenderRestriction GenderRestriction { get; set; } = GenderRestriction.None;
     public bool RequiresApproval { get; set; } = true;
     public bool RequiresSupportingDocument { get; set; }
+    public bool AllowEmployeeFiling { get; set; } = true;
 
     // Application Rules
     public bool AllowHalfDay { get; set; } = true;

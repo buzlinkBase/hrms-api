@@ -210,7 +210,10 @@ public class MeControllerTests
         // the payload BEFORE AddAsync is called, not on what (if anything) gets saved.
         var leaveApplicationService = new LeaveApplicationService(
             uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
-            Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>());
+            Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>(),
+            // DailyRecordService — only reached when a Leave uses EligibilityBasis.PresentDays;
+            // none of these tests do, so it's never called.
+            null!);
         var overtimeApplicationService = new OvertimeApplicationService(uow);
         var travelOrderApplicationService = new TravelOrderApplicationService(uow);
         var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow));
@@ -433,6 +436,31 @@ public class MeControllerTests
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
             .WithMessage("*requires at least 6 month*");
+    }
+
+    // Server-side mirror of the Employee Portal's Leave Type dropdown filtering — a
+    // hand-crafted API call referencing a Leave with AllowEmployeeFiling = false must still be
+    // rejected, not just hidden client-side. Mirrors
+    // CreateMyLoanApplication_RejectsWhenDeductionNotPortalFileable. Only enforced for the
+    // self-service path (isSelfService: true from MeController) — see EnsurePolicyAsync.
+    [Fact]
+    public async Task CreateMyLeaveApplication_RejectsWhenLeaveNotPortalFileable()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.AllowEmployeeFiling = false;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*cannot be filed through the Employee Portal*");
     }
 
     // Guards the fail-closed side of the RequiresCredits flag: a leave type that's meant to be

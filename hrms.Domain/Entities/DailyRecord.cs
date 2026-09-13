@@ -90,6 +90,23 @@ public class DailyRecord : BaseEntity, IUserField
     public Guid? AreaId { get; set; }
     public double ShiftWorkingHour { get; set; }
     public bool Posted { get; set; }
+
+    // Sum of every mutually-exclusive Hrs/OT/ND/ND-OT bucket below — exactly one WorkType
+    // group is ever populated per day (see WorkTypeResolver), so this is a straight sum, not a
+    // max/first. Deliberately excludes OBHours/PaidLeaveHours/UnpaidLeaveHours — those aren't
+    // worked hours. Mirrors DTRDetailModel.TotalHours (that DTO's own copy of this same
+    // calculation); DailyRecord doesn't have the SpecialWorkDay* fields DTRDetailModel does
+    // (commented out above), so they're simply omitted here. Getter-only — EF Core won't map
+    // this to a column. Used to pick the hours-bearing record when more than one DailyRecord
+    // candidate exists for the same employee+date (see EmployeePayrollLineService.CalculateDTRTimePay).
+    public double TotalHours => RegularNetHours + RegularOTHours + RegularNDHours + RegularNDOTHours
+        + RestDayHours + RestDayOTHours + RestDayNDHours + RestDayNDOTHours
+        + LegalHolHours + LegalHolOTHours + LegalHolNightDiffHours + LegalHolNightDiffOTHours
+        + SpecialHolHours + SpecialHolOTHours + SpecialHolNightDiffHours + SpecialHolNightDiffOTHours
+        + RestLegalDayHours + RestLegalDayOTHours + RestLegalDayNDHours + RestLegalDayNDOTHours
+        + RestSpecialDayHours + RestSpecialDayOTHours + RestSpecialDayNDHours + RestSpecialDayNDOTHours
+        + DoubleLegalHours + DoubleLegalOTHours + DoubleLegalNDHours + DoubleLegalNDOTHours
+        + RestDoubleLegalHours + RestDoubleLegalOTHours + RestDoubleLegalNDHours + RestDoubleLegalNDOTHours;
 }
 
 [DisableSoftDelete]

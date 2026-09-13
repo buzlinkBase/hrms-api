@@ -172,6 +172,14 @@ public abstract class TestContextBase
         list.Add(new HDMFContributionModel { EmployeeId = context.Employee.Id, EmployeeShare = ee, EmployerShare = er });
     }
 
+    // --- Client statutory capping (Setup > Client > Settings > Statutory Capping) -------
+
+    protected static void SetClientStatutoryCap(DeductionPayloadContext context, StatutoryCapType type, decimal cap)
+    {
+        context.Employee.ClientId ??= Guid.NewGuid();
+        context.Payload.ClientStatutoryCaps[new ClientStatutoryCapKey(context.Employee.ClientId.Value, type)] = cap;
+    }
+
     // --- WTax -----------------------------------------------------------------------------
 
     protected static void SetTaxRate(DeductionPayloadContext context, ComputationBasis basis, decimal ee = 0)

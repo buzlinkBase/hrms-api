@@ -41,6 +41,37 @@ public class DailyRecordService : BaseService<DailyRecord>
             .CountAsync(token);
     }
 
+    // Leave.EligibilityBasis.PresentDays — counts posted days up to (and including) toDate
+    // that aren't Absent/Incomplete/Skipped (see LeaveEligibilityCalculator.NonPresentWorkTypes).
+    // No lower bound needed: DTR rows don't exist before an employee's hire date.
+    public async Task<int> CountPresentDaysAsync(Guid employeeId, DateOnly toDate, CancellationToken token)
+    {
+        return await GetQueryable(x =>
+                x.EmployeeId == employeeId &&
+                x.Posted &&
+                x.WorkDate <= toDate &&
+                !LeaveEligibilityCalculator.NonPresentWorkTypes.Contains(x.WorkTypeEnum))
+            .CountAsync(token);
+    }
+
+    // Batch form of CountPresentDaysAsync for LeavePeriodGrantWorker, which checks every
+    // active employee against every lump-sum leave type in one pass — one grouped query
+    // instead of one round-trip per employee.
+    public async Task<Dictionary<Guid, int>> CountPresentDaysBatchAsync(IEnumerable<Guid> employeeIds, DateOnly toDate, CancellationToken token)
+    {
+        var ids = employeeIds.ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, int>();
+
+        return await GetQueryable(x =>
+                ids.Contains(x.EmployeeId) &&
+                x.Posted &&
+                x.WorkDate <= toDate &&
+                !LeaveEligibilityCalculator.NonPresentWorkTypes.Contains(x.WorkTypeEnum))
+            .GroupBy(x => x.EmployeeId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, token);
+    }
+
     public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token)
     {
         var employeeIds = records.Select(x => x.EmployeeId).Distinct().ToList();

@@ -140,6 +140,7 @@ public class PayrollService : BaseService<Payroll>
                 (employeeId == null || x.EmployeeId == employeeId) &&
                 (clientId == null || x.ClientId == clientId) &&
                 (payrollGroupId == null || x.PayrollGroupId == payrollGroupId))
+            .Include(x => x.TimeHourPayResults)
             .OrderByDescending(x => x.PayPeriodStart)
             .ThenBy(x => x.FullName)
             .ToListAsync(token);

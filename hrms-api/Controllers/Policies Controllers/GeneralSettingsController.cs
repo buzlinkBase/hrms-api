@@ -94,9 +94,21 @@ public class GeneralSettingsController : ControllerBase
         {
             OtEligibility = dict.TryGetValue(SettingKey.OTEligibility.ToString(), out var e) ? e.Value : null,
             OtInclusionPolicy = dict.TryGetValue(SettingKey.OTInclusion.ToString(), out var i) ? i.Value : null,
+            MaxSSSCapping = dict.TryGetValue(SettingKey.MaxSSSCapping.ToString(), out var sss)
+                ? GeneralSettingsUtil.ParsePositiveDecimalOrNull(sss.Value) : null,
+            MaxPhilHealthCapping = dict.TryGetValue(SettingKey.MaxPhilHealthCapping.ToString(), out var phic)
+                ? GeneralSettingsUtil.ParsePositiveDecimalOrNull(phic.Value) : null,
+            MaxPagIbigCapping = dict.TryGetValue(SettingKey.MaxPagIbigCapping.ToString(), out var hdmf)
+                ? GeneralSettingsUtil.ParsePositiveDecimalOrNull(hdmf.Value) : null,
         });
     }
 
+    // Note: this always writes ALL currently-known client policy fields (OT + Statutory
+    // Capping), even ones the caller didn't intend to change — ReplaceByIdentityTypeAsync
+    // wholesale-replaces every "Client"+clientId row, so a partial request would silently wipe
+    // whichever fields it omits. The frontend's Client Settings modal enforces this by always
+    // submitting the full ClientPolicyFormValues object in one PUT regardless of which tab was
+    // edited.
     [HttpPut("client/{clientId:guid}")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> UpdateClientPolicy(Guid clientId, [FromBody] ClientPolicyRequest request, CancellationToken token)
@@ -106,6 +118,15 @@ public class GeneralSettingsController : ControllerBase
             settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTEligibility.ToString(), Value = request.OtEligibility });
         if (!string.IsNullOrWhiteSpace(request.OtInclusionPolicy))
             settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTInclusion.ToString(), Value = request.OtInclusionPolicy });
+        // Null or 0 (GeneralSettingsUtil.ParsePositiveDecimalOrNull's fallback) both mean "no
+        // cap" — so a 0/null request value is simply not persisted, which reads back the same
+        // way as never having been set.
+        if (request.MaxSSSCapping is > 0)
+            settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.MaxSSSCapping.ToString(), Value = request.MaxSSSCapping.Value.ToString() });
+        if (request.MaxPhilHealthCapping is > 0)
+            settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.MaxPhilHealthCapping.ToString(), Value = request.MaxPhilHealthCapping.Value.ToString() });
+        if (request.MaxPagIbigCapping is > 0)
+            settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.MaxPagIbigCapping.ToString(), Value = request.MaxPagIbigCapping.Value.ToString() });
         await _settingService.ReplaceByIdentityTypeAsync("Client", settings, clientId.ToString(), token);
         return Ok("success");
     }
@@ -153,9 +174,17 @@ public class ClientPolicyDto
 {
     public string? OtEligibility { get; set; }
     public string? OtInclusionPolicy { get; set; }
+    // Null (or 0, which the API never returns as such -- see GeneralSettingsUtil.
+    // ParsePositiveDecimalOrNull) means no cap on that statutory type's monthly EE deduction.
+    public decimal? MaxSSSCapping { get; set; }
+    public decimal? MaxPhilHealthCapping { get; set; }
+    public decimal? MaxPagIbigCapping { get; set; }
 }
 public class ClientPolicyRequest
 {
     public string? OtEligibility { get; set; }
     public string? OtInclusionPolicy { get; set; }
+    public decimal? MaxSSSCapping { get; set; }
+    public decimal? MaxPhilHealthCapping { get; set; }
+    public decimal? MaxPagIbigCapping { get; set; }
 }

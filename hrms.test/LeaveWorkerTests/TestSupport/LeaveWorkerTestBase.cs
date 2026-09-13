@@ -1,6 +1,9 @@
 using System.Linq.Expressions;
+using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Mapster;
+using MapsterMapper;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using MockQueryable.NSubstitute;
@@ -52,6 +55,28 @@ public abstract class LeaveWorkerTestBase
         return backing;
     }
 
+    // Wires repo.FindAll<T>() (used by BaseService.GetQueryable, unlike Find<T>(predicate)
+    // above) to a fixed backing list — sufficient for these tests since nothing re-seeds
+    // FindAll<T>() mid-test the way SeedFind's live predicate-compiling matters for.
+    protected static List<T> SeedFindAll<T>(IRepository repo, params T[] items) where T : class, IEntity
+    {
+        var backing = new List<T>(items);
+        repo.FindAll<T>().Returns(_ => backing.BuildMockDbSet());
+        return backing;
+    }
+
+    // Real DailyRecordService (not a mock — its methods aren't virtual, so NSubstitute can't
+    // intercept them) backed by the same repo/uow as the worker under test, for exercising
+    // Leave.EligibilityBasis.PresentDays. Its own LeaveDtrReconciliationService/
+    // PayrollBatchService dependencies are never invoked by CountPresentDays(Batch)Async.
+    protected static DailyRecordService BuildDailyRecordService(IUnitOfWorkService uow) =>
+        new(uow,
+            new TypeAdapterConfig(),
+            Substitute.For<IMapper>(),
+            CreateLogger<DailyRecordService>(),
+            new LeaveDtrReconciliationService(uow, CreateLogger<LeaveDtrReconciliationService>()),
+            new PayrollBatchService(uow));
+
     // Captures every entity handed to repo.Add<T>/AddRange<T> for a given T, in call order —
     // the workers never requery what they just added, they only Add then Commit, so a plain
     // capture list (rather than feeding adds back into SeedFind's backing list) is sufficient
@@ -81,6 +106,8 @@ public abstract class LeaveWorkerTestBase
         CarryOverType carryOverType = CarryOverType.Forfeit,
         double carryOverMaxDays = 0,
         int minServiceMonths = 0,
+        LeaveEligibilityBasis eligibilityBasis = LeaveEligibilityBasis.TenureMonths,
+        int minPresentDays = 0,
         string description = "Test Leave") => new()
         {
             Id = NewId(),
@@ -92,6 +119,8 @@ public abstract class LeaveWorkerTestBase
             CarryOverType = carryOverType,
             CarryOverMaxDays = carryOverMaxDays,
             MinServiceMonths = minServiceMonths,
+            EligibilityBasis = eligibilityBasis,
+            MinPresentDays = minPresentDays,
         };
 
     protected static LeaveCredits BuildCredits(

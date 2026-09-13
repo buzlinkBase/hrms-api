@@ -17,6 +17,10 @@ public class CalculatorPayload : BasePayloadContext
     public DateOnly ToDate { get; set; }
     public Dictionary<RateType, decimal> PremiumRates { get; set; } = new();
     public Dictionary<ClientRateKey, decimal> ClientPremiumRates { get; set; } = new();
+    // Per-client maximum monthly EE (employee) statutory deduction, aggregated across all
+    // cutoffs in the month — absent key (or a value <= 0) means uncapped. See
+    // StatutoryCapHelper.ApplyClientCap and Setup > Client > Settings > Statutory Capping.
+    public Dictionary<ClientStatutoryCapKey, decimal> ClientStatutoryCaps { get; set; } = new();
     public Dictionary<EmployeeKey, List<Payroll>> PostedPriorPayrolls { get; set; } = new();
     public Dictionary<Leavekey, List<LeaveApplication>> Leaves { get; set; } = new();
     public Dictionary<EmployeeLeaveCreditsKey, decimal> LeaveCredits { get; set; } = new();

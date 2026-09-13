@@ -1,3 +1,4 @@
+using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
@@ -16,11 +17,13 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
 {
     private readonly IUnitOfWorkService _uow;
     private readonly ILogger<LeavePeriodGrantWorker> _logger;
+    private readonly DailyRecordService _dailyRecordService;
 
-    public LeavePeriodGrantWorker(IUnitOfWorkService uow, ILogger<LeavePeriodGrantWorker> logger)
+    public LeavePeriodGrantWorker(IUnitOfWorkService uow, ILogger<LeavePeriodGrantWorker> logger, DailyRecordService dailyRecordService)
     {
         _uow    = uow;
         _logger = logger;
+        _dailyRecordService = dailyRecordService;
     }
 
     public async Task Consume(ConsumeContext<RunLeavePeriodGrant> context)
@@ -58,6 +61,13 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
             .Select(k => (k.EmployeeId, k.LeaveId))
             .ToHashSet();
 
+        // Only queried when at least one leave type actually uses the PresentDays basis — one
+        // grouped query up front rather than one round-trip per employee inside the loop below.
+        var periodStartDate = DateOnly.FromDateTime(periodStart);
+        var presentDaysByEmployee = leaves.Any(l => l.EligibilityBasis == LeaveEligibilityBasis.PresentDays)
+            ? await _dailyRecordService.CountPresentDaysBatchAsync(activeEmployees.Select(e => e.Id), periodStartDate, token)
+            : new Dictionary<Guid, int>();
+
         var newCredits = new List<LeaveCredits>();
         var newLedgers = new List<LeaveLedger>();
 
@@ -65,8 +75,9 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
         {
             foreach (var emp in activeEmployees)
             {
-                var serviceMonths = MonthsBetween(emp.HireDate.ToDateTime(TimeOnly.MinValue), periodStart);
-                if (serviceMonths < leave.MinServiceMonths) continue;
+                var monthsServed = LeaveEligibilityCalculator.MonthsBetween(emp.HireDate, periodStartDate);
+                var presentDays = presentDaysByEmployee.GetValueOrDefault(emp.Id);
+                if (!LeaveEligibilityCalculator.IsServiceRequirementMet(leave, monthsServed, presentDays)) continue;
 
                 if (existingSet.Contains((emp.Id, leave.Id))) continue;
 
@@ -122,9 +133,6 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
                 year);
         }
     }
-
-    private static int MonthsBetween(DateTime from, DateTime to) =>
-        (to.Year - from.Year) * 12 + (to.Month - from.Month);
 
     private static bool IsDuplicateKeyException(DbUpdateException ex) =>
         ex.InnerException?.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase) == true ||

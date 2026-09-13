@@ -24,10 +24,13 @@ public class Leave : BaseEntity
     public LeaveReset LeaveReset { get; set; } = LeaveReset.PerPeriod;
 
     // ── Eligibility ───────────────────────────────────────────────────────────
-    public int MinServiceMonths { get; set; }         // 0 = immediately eligible
+    public LeaveEligibilityBasis EligibilityBasis { get; set; } = LeaveEligibilityBasis.TenureMonths;
+    public int MinServiceMonths { get; set; }         // used when EligibilityBasis == TenureMonths; 0 = immediately eligible
+    public int MinPresentDays { get; set; }           // used when EligibilityBasis == PresentDays; 0 = immediately eligible
     public GenderRestriction GenderRestriction { get; set; } = GenderRestriction.None;
     public bool RequiresApproval { get; set; } = true;
     public bool RequiresSupportingDocument { get; set; }
+    public bool AllowEmployeeFiling { get; set; } = true; // false = hidden from Employee Portal, admin-only
 
     // ── Application Rules ─────────────────────────────────────────────────────
     public bool AllowHalfDay { get; set; } = true;
