@@ -8,8 +8,20 @@ internal static class HDMFHelper
     {
         var table = context.Payload.HDMFTableModel
             .FirstOrDefault(x => x.MinSalaryBase <= gross && x.MaxSalaryBase >= gross);
+        if (table == null) return null;
 
-        return table;
+        var cap = StatutoryCapHelper.GetClientCap(context, StatutoryCapType.PagIbig);
+        if (cap == null || table.EmployeeShare <= cap) return table;
+
+        // See SSSHelper.GetTable's identical comment — downgrade to the highest bracket that
+        // still respects the cap, keeping EE/ER as one self-consistent bracket.
+        return context.Payload.HDMFTableModel
+            .Where(x => x.EmployeeShare <= cap)
+            .OrderByDescending(x => x.EmployeeShare)
+            .FirstOrDefault()
+            ?? context.Payload.HDMFTableModel
+            .OrderBy(x => x.EmployeeShare)
+            .FirstOrDefault();
     }
     public static DeductionPipeData ApplyTable(DeductionPayloadContext context, DeductionPipeData line, HDMFTablePayload table, DateOnly applyToDate)
     {
@@ -28,9 +40,10 @@ internal static class HDMFHelper
 
     public static (decimal EEBalance, decimal ERBalance) GetBalance(DeductionPayloadContext context, decimal ee, decimal er)
     {
+        // Client capping is already fully applied in GetTable (by downgrading to a smaller,
+        // self-consistent bracket) — ee/er here are already the capped values.
         var contributions = GetCurrentMonthContribution(context);
-        var eeTarget = StatutoryCapHelper.ApplyClientCap(context, StatutoryCapType.PagIbig, ee);
-        var eebalance = Math.Max(eeTarget - contributions.Sum(x => x.EmployeeShare), 0);
+        var eebalance = Math.Max(ee - contributions.Sum(x => x.EmployeeShare), 0);
         var erbalance = Math.Max(er - contributions.Sum(x => x.EmployerShare), 0);
         return (eebalance, erbalance);
     }
