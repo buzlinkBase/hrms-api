@@ -7,7 +7,6 @@ using System.Linq;
 
 
 namespace Hrms.Core.Services;
-
 public class EmployeeImportService
 {
     private readonly IMapper _mapper;
@@ -77,6 +76,7 @@ public class EmployeeImportService
 
         foreach (var item in data)
         {
+            if (item == null) continue; 
             var startTime = GetStartTime(item);
             var endTime = GetEndTime(item);
             var lunchOut = GetLunchOut(item);
@@ -94,19 +94,25 @@ public class EmployeeImportService
 
             int.TryParse(item.BioId, out var bioIdNo);
             int? bioId = bioIdNo == 0 ? null : bioIdNo;
+
             var employee = new Employee()
             {
-                FirstName = item?.FirstName ?? "",
-                LastName = item?.LastName ?? "",
-                MiddleName = item?.MiddleName ?? "",
-                Suffix = item?.Suffix ?? "",
-                Gender = item?.Gender ?? "Male",
+                FirstName = item.FirstName ?? "",
+                LastName = item.LastName ?? "",
+                MiddleName = item.MiddleName ?? "",
+                Suffix = item.Suffix ?? "",
+                Gender = item.Gender ?? "Male",
                 TimeShiftId = timeShift?.Id,
                 ClientId = client?.Id,
                 PayrollGroupId = pg?.Id ?? Guid.Empty,
                 DepartmentId = department?.Id,
                 BioId = bioId,
                 BranchId = BranchId,
+                SSSNo = item.SSS ?? "",
+                PHICNo = item.PHIC ?? "",
+                HDMFNo = item.HDMF ?? "",
+                DailyRate = item.DailyRate ,
+                HireDate = item.HireDate == null ? DateOnly.FromDateTime(DateTime.UtcNow) : item.HireDate.Value,
             };
 
             var existing = allEmployees
@@ -200,6 +206,12 @@ public class EmployeeImportService
             {
                 item.RestDay2 = "";
             }
+
+            if (item.HireDate==null)
+            {
+                item.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            }
+
         }
     }
     private void MapFields(ExcelMapper mapper)
@@ -225,7 +237,11 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("Break Duration", p => p.BreakDuration);
         mapper.AddMapping<EmployeeImportModel>("Max Working Minutes", p => p.MaxWorkingMinutes);
         mapper.AddMapping<EmployeeImportModel>("PaidLunchBreak", p => p.PaidLunchBreak);
-        mapper.AddMapping<EmployeeImportModel>("SalaryType", p => p.SalaryType);
+        mapper.AddMapping<EmployeeImportModel>("SSS", p => p.SSS);
+        mapper.AddMapping<EmployeeImportModel>("PHIC", p => p.PHIC);
+        mapper.AddMapping<EmployeeImportModel>("HDMF", p => p.HDMF);
+        mapper.AddMapping<EmployeeImportModel>("DailyRate", p => p.DailyRate);
+
         //mapper.AddMapping<EmployeeImportModel>("PayrollFrequency", p => p.PayrollFrequency);
         //mapper.AddMapping<EmployeeImportModel>("CutoffDay1", p => p.CutoffDay1);
         //mapper.AddMapping<EmployeeImportModel>("1stCutoff_IsEndOfMonth", p => p.EOM1);
@@ -665,12 +681,12 @@ public class EmployeeImportModel
     public double MaxWorkingMinutes { get; set; }
     public string SalaryType { get; set; }
 
-    public string? SSS { get; set; }
-    public string? PHIC { get; set; }
-    public string? HDMF { get; set; }
-    public string? DailyRate { get; set; }
+    public string SSS { get; set; }
+    public string PHIC { get; set; }
+    public string HDMF { get; set; }
+    public decimal DailyRate { get; set; }
+    public DateOnly? HireDate { get; set; }
 
-    public DateOnly HireDate { get; set; }
     //public string PayrollFrequency { get; set; }
     //public int CutoffDay1 { get; set; }
     //public bool EOM1 { get; set; }
@@ -726,7 +742,7 @@ public class TemplateDownloaderService
         CreateSheet(helperSheet, payrollgroups);
         range = helperSheet.Range(1, 1, payrollgroups.Count, 1);
         worksheet.Cell("L3").CreateDataValidation().List(range);
-        worksheet.Cell("L3").Value = payrollgroups.FirstOrDefault(x=>x.Contains("Semi - Monthly"));
+        worksheet.Cell("L3").Value = payrollgroups.FirstOrDefault(x => x.Contains("Semi - Monthly"));
 
 
         var shiftTypes = new List<string>() { "Fixed", "Split" };
@@ -746,7 +762,7 @@ public class TemplateDownloaderService
         CreateSheet(helperSheet, SalaryTypes);
         range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);
         worksheet.Cell("V3").CreateDataValidation().List(range);
-        worksheet.Cell("V3").Value = SalaryTypes.LastOrDefault(); 
+        worksheet.Cell("V3").Value = SalaryTypes.LastOrDefault();
 
         var stream = new MemoryStream();
         workbook.SaveAs(stream);
