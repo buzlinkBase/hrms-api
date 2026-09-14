@@ -3,6 +3,7 @@ using Ganss.Excel;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Hosting;
+using System.Linq;
 
 
 namespace Hrms.Core.Services;
@@ -550,8 +551,8 @@ public class EmployeeImportService
     }
     private PayrollFrequency ResolveFrequency(EmployeeImportModel item)
     {
-        return PayrollFrequency.SEMI_MONTHLY;
-        //return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.SEMI_MONTHLY);
+        //return PayrollFrequency.SEMI_MONTHLY;
+        return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.SEMI_MONTHLY);
     }
     private List<CutoffDay> ResolveCutoff(EmployeeImportModel item)
     {
@@ -663,6 +664,13 @@ public class EmployeeImportModel
     public double BreakDuration { get; set; }
     public double MaxWorkingMinutes { get; set; }
     public string SalaryType { get; set; }
+
+    public string? SSS { get; set; }
+    public string? PHIC { get; set; }
+    public string? HDMF { get; set; }
+    public string? DailyRate { get; set; }
+
+    public DateOnly HireDate { get; set; }
     //public string PayrollFrequency { get; set; }
     //public int CutoffDay1 { get; set; }
     //public bool EOM1 { get; set; }
@@ -675,12 +683,16 @@ public class TemplateDownloaderService
 {
     private readonly IWebHostEnvironment _environment;
     private readonly BranchService _branchService;
+    private readonly PayrollGroupService _payrollGroupService;
 
     public TemplateDownloaderService(IWebHostEnvironment environment,
-        BranchService branchService)
+        BranchService branchService,
+        PayrollGroupService payrollGroupService
+        )
     {
         _environment = environment;
         _branchService = branchService;
+        _payrollGroupService = payrollGroupService;
     }
 
     public async Task<MemoryStream> GetEmployeeTemplate(CancellationToken token)
@@ -703,13 +715,18 @@ public class TemplateDownloaderService
         worksheet.Cell("B3").CreateDataValidation().List(range);
         worksheet.Cell("B3").Value = branchList.FirstOrDefault();
 
-        //salary Type
-        var SalaryTypes = new List<string>() { "Variable", "Fixed" };
-        helperSheet = workbook.Worksheets.Add("SalaryType");
-        CreateSheet(helperSheet, SalaryTypes);
-        range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);
-        worksheet.Cell("V3").CreateDataValidation().List(range);
-        worksheet.Cell("V3").Value = SalaryTypes.LastOrDefault();
+
+        //PayrollGroups
+        var payrollgroups = await _payrollGroupService
+           .GetQueryable()
+           .Select(x => x.Name)
+           .ToListAsync(token);
+        ;
+        helperSheet = workbook.Worksheets.Add("payrollgroups");
+        CreateSheet(helperSheet, payrollgroups);
+        range = helperSheet.Range(1, 1, payrollgroups.Count, 1);
+        worksheet.Cell("L3").CreateDataValidation().List(range);
+        worksheet.Cell("L3").Value = payrollgroups.FirstOrDefault(x=>x.Contains("Semi - Monthly"));
 
 
         var shiftTypes = new List<string>() { "Fixed", "Split" };
@@ -719,28 +736,18 @@ public class TemplateDownloaderService
         worksheet.Cell("N3").CreateDataValidation().List(range);
         worksheet.Cell("N3").Value = shiftTypes.FirstOrDefault();
 
-        //var yesNo = new List<string>() { "Yes", "No" };
-        //helperSheet = workbook.Worksheets.Add("yesNo");
-        //CreateSheet(helperSheet, yesNo);
-        //range = helperSheet.Range(1, 1, yesNo.Count, 1);
-
         //paid breaks
         worksheet.Cell("U3").CreateDataValidation().List(range);
         worksheet.Cell("U3").Value = "False";
-        //eom1
-        //worksheet.Cell("Y3").CreateDataValidation().List(range);
-        //worksheet.Cell("Y3").Value = yesNo[1];
-        //eom2
-        //worksheet.Cell("AA3").CreateDataValidation().List(range);
-        //worksheet.Cell("AA3").Value = yesNo[1];
-        //pyFrequency
-        //var pyFrequencies = new List<string>() { "Daily", "Weekly", "Semi Montly", "Monthly" };
-        //helperSheet = workbook.Worksheets.Add("PayrollFrequency");
-        //CreateSheet(helperSheet, pyFrequencies);
-        //range = helperSheet.Range(1, 1, pyFrequencies.Count, 1);
-        //var cell = worksheet.Cell("W3");
-        //cell.CreateDataValidation().List(range);
-        //cell.Value = pyFrequencies[2];
+
+        //salary Type
+        var SalaryTypes = new List<string>() { "Variable", "Fixed" };
+        helperSheet = workbook.Worksheets.Add("SalaryType");
+        CreateSheet(helperSheet, SalaryTypes);
+        range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);
+        worksheet.Cell("V3").CreateDataValidation().List(range);
+        worksheet.Cell("V3").Value = SalaryTypes.LastOrDefault(); 
+
         var stream = new MemoryStream();
         workbook.SaveAs(stream);
         stream.Position = 0; // Crucial: Reset the stream position to the beginning!

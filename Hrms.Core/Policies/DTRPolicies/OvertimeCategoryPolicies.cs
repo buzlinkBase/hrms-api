@@ -51,8 +51,7 @@ internal abstract class SingleCategoryOTPolicy : PayrollPolicyBase<BasicPipeline
         line.OTPremium += basePayForHours * pureOtPremiumMultiplier;
         // line.NdPremium is intentionally not altered here because no ND hours exist in this pipeline category.
         return line;
-    }
-
+    } 
 }
 
 internal class RegularOTPolicy : SingleCategoryOTPolicy
