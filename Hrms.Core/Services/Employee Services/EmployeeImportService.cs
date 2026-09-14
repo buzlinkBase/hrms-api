@@ -551,8 +551,8 @@ public class EmployeeImportService
     }
     private PayrollFrequency ResolveFrequency(EmployeeImportModel item)
     {
-        //return PayrollFrequency.SEMI_MONTHLY;
-        return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.SEMI_MONTHLY);
+        return PayrollFrequency.SEMI_MONTHLY;
+        //return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.SEMI_MONTHLY);
     }
     private List<CutoffDay> ResolveCutoff(EmployeeImportModel item)
     {
