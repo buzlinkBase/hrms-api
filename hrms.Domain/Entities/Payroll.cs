@@ -178,6 +178,13 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     // touches Balance.
     public virtual List<PayrollDeductionDetail> DeductionCollection { get; set; } = new();
     public bool IsPosted { get; set; }
+    // Setup > Payslip/13th Month/Last Pay > Received by Employee — set once the employee
+    // confirms receipt of this row's document in the Employee Portal (MeController.
+    // AcknowledgeMyPayslip). Null means not yet acknowledged; covers all three document types
+    // uniformly since Payslip/13th Month/Last Pay are all just Payroll rows differentiated by
+    // PayrollType, rendered by the same PayslipDocument class. Informational only — nothing
+    // else in the system reads or gates on this.
+    public DateTime? AcknowledgedAt { get; set; }
     // Denormalized copy of PayrollBatch.PayrollType, kept in sync by PayrollProcessorService
     // — same pattern as IsPosted — so report queries (e.g. next year's 13th month/Alphalist
     // calculation) can exclude a 13th month payout row without joining PayrollBatch.

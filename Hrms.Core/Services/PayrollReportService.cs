@@ -356,7 +356,7 @@ public class PayrollReportService : BaseService<Payroll>
         var thirteenthMonthRuns = await GetQueryable(x =>
                 x.PayrollType == PayrollType.ThirteenthMonth && x.PayPeriodStart.Year == year &&
                 (employeeId == null || x.EmployeeId == employeeId))
-            .Select(x => new { x.Id, x.EmployeeId, x.IsPosted, x.NetPay })
+            .Select(x => new { x.Id, x.EmployeeId, x.IsPosted, x.NetPay, x.AcknowledgedAt })
             .ToListAsync(token);
         var runByEmployee = thirteenthMonthRuns
             .GroupBy(x => x.EmployeeId)
@@ -387,6 +387,7 @@ public class PayrollReportService : BaseService<Payroll>
                 Status = run == null ? "NotGenerated" : run.IsPosted ? "Posted" : "Draft",
                 NetPay = run?.NetPay,
                 PayrollId = run?.Id,
+                AcknowledgedAt = run?.AcknowledgedAt,
             };
         }).OrderBy(x => x.FullName).ToList();
     }

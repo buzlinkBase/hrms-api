@@ -376,7 +376,22 @@ public enum RateType
     SPECIAL_WORKING,
     SPECIAL_NON_WORKING,
     RESTDAY_SPECIAL,
-    HOLIDAY_OT, 
+    HOLIDAY_OT,
+
+    // Setup > Client > Settings > Rate Multipliers — per-client "direct total" overrides for a
+    // holiday/rest-day OT category, entirely independent of the day-type rate above (LEGAL_
+    // HOLIDAY_DUTY, SPECIAL_NON_WORKING, etc.) that ALSO feeds that category's regular/non-OT
+    // pay. Setting one of these only ever changes that category's OT rate for that client — see
+    // ClientOverrideOtRateStrategy. Client-only by design (never seeded/edited company-wide) —
+    // absent for a client means "use the standard compounded formula," matching every other
+    // client unless a client's contract needs it.
+    LEGAL_HOLIDAY_OT,
+    SPECIAL_HOLIDAY_OT,
+    REST_DAY_OT,
+    REST_LEGAL_HOLIDAY_OT,
+    REST_SPECIAL_HOLIDAY_OT,
+    DOUBLE_LEGAL_HOLIDAY_OT,
+    REST_DOUBLE_LEGAL_HOLIDAY_OT,
 }
 
 public enum ApprovalStatus

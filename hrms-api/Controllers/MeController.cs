@@ -114,6 +114,22 @@ namespace Hrms.Api.Controllers
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }
 
+        // Setup > Payslip/13th Month/Last Pay > Received by Employee — informational only,
+        // records that the employee has received/viewed this document; nothing else in the
+        // system reads or gates on it. Covers all three document types uniformly since
+        // Payslip/13th Month/Last Pay are all just Payroll rows differentiated by PayrollType.
+        [HttpPost("payrolls/{id:guid}/acknowledge")]
+        [ProducesResponseType(typeof(ResponseModel<DateTime?>), 200)]
+        public async Task<IActionResult> AcknowledgeMyPayslip(Guid id, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var acknowledgedAt = await _payrollService.AcknowledgeAsync(id, employeeId.Value, token);
+            if (acknowledgedAt == null) return NotFound();
+            return Ok(acknowledgedAt);
+        }
+
         [HttpGet("dtr-detail")]
         [ProducesResponseType(typeof(ResponseModel<ObjectCollection<DTRDetailModel>>), 200)]
         public async Task<IActionResult> GetMyDtrDetail([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)

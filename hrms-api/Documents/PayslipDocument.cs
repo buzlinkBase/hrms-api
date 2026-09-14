@@ -104,6 +104,7 @@ public class PayslipDocument : IDocument
                 row.RelativeItem().Element(ComposeDeductions);
             });
             col.Item().Element(ComposeNetPay);
+            col.Item().Element(ComposeReceivedBy);
         });
     }
 
@@ -423,6 +424,37 @@ public class PayslipDocument : IDocument
             {
                 row.RelativeItem().Text("NET PAY").Bold().FontSize(12).FontColor(Primary);
                 row.ConstantItem(150).AlignRight().Text(Money(_p.NetPay)).Bold().FontSize(14).FontColor(Primary);
+            });
+        });
+    }
+
+    // Acknowledgment of receipt — a blank signature line for a printed copy, or (once the
+    // employee has confirmed receipt in the Employee Portal) a note showing when instead, so a
+    // re-print after digital acknowledgment doesn't ask for a redundant physical signature. See
+    // Payroll.AcknowledgedAt / MeController.AcknowledgeMyPayslip.
+    void ComposeReceivedBy(IContainer c)
+    {
+        if (_p.AcknowledgedAt.HasValue)
+        {
+            c.PaddingTop(16).Text(
+                $"Digitally acknowledged by {_e.FullName} via Employee Portal on {_p.AcknowledgedAt.Value:MMM dd, yyyy hh:mm tt}.")
+                .FontSize(8).Italic().FontColor(LabelColor);
+            return;
+        }
+
+        c.PaddingTop(20).Row(row =>
+        {
+            row.RelativeItem().Column(sig =>
+            {
+                sig.Item().PaddingTop(30).BorderTop(1).BorderColor(TextColor).PaddingTop(2)
+                    .Text(_e.FullName ?? "—").Bold();
+                sig.Item().Text("Received by (Employee Signature)").FontSize(8).FontColor(LabelColor);
+            });
+            row.ConstantItem(24);
+            row.ConstantItem(140).Column(sig =>
+            {
+                sig.Item().PaddingTop(30).BorderTop(1).BorderColor(TextColor);
+                sig.Item().Text("Date").FontSize(8).FontColor(LabelColor);
             });
         });
     }

@@ -31,6 +31,27 @@ public class PayrollService : BaseService<Payroll>
         return await GetOneAsync(Id, token);
     }
 
+    // Setup > Payslip/13th Month/Last Pay > Received by Employee (MeController.
+    // AcknowledgeMyPayslip) — idempotent: only the first acknowledgment sets the timestamp, so
+    // this records "when did they first receive it," not "when did they last click the
+    // button." Scoped to employeeId (not just id) so a caller can only ever acknowledge their
+    // own payslip, matching PrintMyPayslip's identical ownership check. Returns null if no
+    // matching row exists (not found or not this employee's).
+    public async Task<DateTime?> AcknowledgeAsync(Guid id, Guid employeeId, CancellationToken token)
+    {
+        var payroll = await GetQueryable(x => x.Id == id && x.EmployeeId == employeeId, noTracking: false)
+            .FirstOrDefaultAsync(token);
+        if (payroll == null) return null;
+
+        if (payroll.AcknowledgedAt == null)
+        {
+            payroll.AcknowledgedAt = DateTime.UtcNow;
+            await ModifyRangeAsync(new[] { payroll }, token);
+            await CommitChangesAsync(token);
+        }
+        return payroll.AcknowledgedAt;
+    }
+
     // The last regular-payroll period end this employee was ever actually paid for — null if
     // they've never had a regular payroll row. Used by LastPayrollService to find the gap
     // between "the last cutoff that actually ran for them" and their separation date, both

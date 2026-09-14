@@ -171,6 +171,9 @@ public class ThirteenthMonthModel
     // The generated Payroll row's own Id — needed to print its payslip (GET payrolls/{id}/print).
     // Null when Status == "NotGenerated".
     public Guid? PayrollId { get; set; }
+    // Setup > Payslip/13th Month/Last Pay > Received by Employee — mirrors the underlying
+    // Payroll row's AcknowledgedAt. Null when Status == "NotGenerated" or not yet acknowledged.
+    public DateTime? AcknowledgedAt { get; set; }
 }
 
 // One employee's raw annual aggregate for Year-End Tax Annualization, sourced ONLY from this
