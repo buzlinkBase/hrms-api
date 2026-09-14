@@ -7,9 +7,9 @@ using System.Linq;
 
 
 namespace Hrms.Core.Services;
+
 public class EmployeeImportService
 {
-    private readonly IMapper _mapper;
     private readonly IUnitOfWorkService _uow;
     private readonly EmployeeService _employeeService;
     private readonly TimeShiftService _timeShiftService;
@@ -20,7 +20,6 @@ public class EmployeeImportService
 
     public event Action<string> OnMessage;
     public EmployeeImportService(
-        IMapper mapper,
         IUnitOfWorkService uow,
         EmployeeService employeeService,
         TimeShiftService timeShiftService,
@@ -29,7 +28,6 @@ public class EmployeeImportService
         ClientService clientService,
         BranchService branchService)
     {
-        _mapper = mapper;
         _uow = uow;
         _employeeService = employeeService;
         _timeShiftService = timeShiftService;
@@ -51,7 +49,6 @@ public class EmployeeImportService
         var allEmployees = await GetAllEmployees(token);
         SetDefaults(data);
         ValidateImportData(data, allEmployees);
-
         var shifts = ExtractShifts(data);
         var branches = await ExtractBranchesAsync(data, token);
         var clients = ExtractClients(data);
@@ -76,7 +73,7 @@ public class EmployeeImportService
 
         foreach (var item in data)
         {
-            if (item == null) continue; 
+            if (item == null) continue;
             var startTime = GetStartTime(item);
             var endTime = GetEndTime(item);
             var lunchOut = GetLunchOut(item);
@@ -111,7 +108,7 @@ public class EmployeeImportService
                 SSSNo = item.SSS ?? "",
                 PHICNo = item.PHIC ?? "",
                 HDMFNo = item.HDMF ?? "",
-                DailyRate = item.DailyRate ,
+                DailyRate = item.DailyRate,
                 HireDate = item.HireDate == null ? DateOnly.FromDateTime(DateTime.UtcNow) : item.HireDate.Value,
             };
 
@@ -152,8 +149,6 @@ public class EmployeeImportService
         await _employeeService.AddOrUpdateRange(employees, token);
         await _employeeService.SaveChangesAsync(token);
         await _uow.CommitChangesAsync("", token);
-
-
     }
 
     private async Task<List<BasicEmployeeInfo>> GetAllEmployees(CancellationToken token)
@@ -206,12 +201,10 @@ public class EmployeeImportService
             {
                 item.RestDay2 = "";
             }
-
-            if (item.HireDate==null)
+            if (item.HireDate == null)
             {
                 item.HireDate = DateOnly.FromDateTime(DateTime.UtcNow);
             }
-
         }
     }
     private void MapFields(ExcelMapper mapper)
@@ -240,7 +233,14 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("SSS", p => p.SSS);
         mapper.AddMapping<EmployeeImportModel>("PHIC", p => p.PHIC);
         mapper.AddMapping<EmployeeImportModel>("HDMF", p => p.HDMF);
-        mapper.AddMapping<EmployeeImportModel>("DailyRate", p => p.DailyRate);
+        mapper.AddMapping<EmployeeImportModel>("Daily Rate", p => p.DailyRate);
+
+        mapper.AddMapping<EmployeeImportModel>("Cut-Off1", p => p.Cutoff1);
+        mapper.AddMapping<EmployeeImportModel>("Cut-Off2", p => p.Cutoff2);
+        mapper.AddMapping<EmployeeImportModel>("EOM1", p => p.EOM1);
+        mapper.AddMapping<EmployeeImportModel>("EOM2", p => p.EOM2);
+        mapper.AddMapping<EmployeeImportModel>("EOM3", p => p.EOM3);
+        mapper.AddMapping<EmployeeImportModel>("EOM4", p => p.EOM4);
 
         //mapper.AddMapping<EmployeeImportModel>("PayrollFrequency", p => p.PayrollFrequency);
         //mapper.AddMapping<EmployeeImportModel>("CutoffDay1", p => p.CutoffDay1);
@@ -293,12 +293,58 @@ public class EmployeeImportService
                 }
             }
         }
-
         if (errors.Any())
         {
             throw new ValidationException($"Import Validation Failed:\n{string.Join("\n", errors)}");
         }
     }
+
+    //private void CutoffValidation( List<CutoffDay> cutoffDays)
+    //{
+    //    var cutoffDays = model.CutoffDays?.ToList() ?? new List<CutoffDay>();
+
+    //    // GetCurrentCutoff throws the moment payroll runs for this group if it has none —
+    //    // every frequency needs at least one, including MONTHLY/DAILY.
+    //    if (cutoffDays.Count == 0)
+    //    {
+    //        return new EvaluationResult("At least one cutoff day is required.");
+    //    }
+
+    //    foreach (var cd in cutoffDays)
+    //    {
+    //        if (!cd.IsEndOfMonth && (cd.Day < 1 || cd.Day > 31))
+    //        {
+    //            var name = string.IsNullOrWhiteSpace(cd.Label) ? cd.Day.ToString() : cd.Label;
+    //            return new EvaluationResult($"Cutoff day '{name}' must be between 1 and 31.");
+    //        }
+    //    }
+
+    //    // Two rows pointing at the same actual day make CutoffPolicyResolver's
+    //    // first/second/last-cutoff detection ambiguous.
+    //    if (cutoffDays.Count(cd => cd.IsEndOfMonth) > 1)
+    //    {
+    //        return new EvaluationResult("Only one cutoff day can be marked as End of Month.");
+    //    }
+    //    var duplicateDay = cutoffDays
+    //        .Where(cd => !cd.IsEndOfMonth)
+    //        .GroupBy(cd => cd.Day)
+    //        .FirstOrDefault(g => g.Count() > 1);
+    //    if (duplicateDay != null)
+    //    {
+    //        return new EvaluationResult($"Cutoff day {duplicateDay.Key} is configured more than once.");
+    //    }
+
+    //    // Semi-Monthly and Weekly rely on a genuine "first" and "second" cutoff
+    //    // (CutoffPolicyResolver.GetFirstCutoff/GetSecondCutoff) — a single cutoff throws
+    //    // CutoffMismatchException as soon as a Fixed/PerPayroll statutory calculator runs.
+    //    if (model.PayrollFrequency is PayrollFrequency.SEMI_MONTHLY or PayrollFrequency.WEEKLY
+    //        && cutoffDays.Count < 2)
+    //    {
+    //        var frequencyName = model.PayrollFrequency == PayrollFrequency.SEMI_MONTHLY ? "Semi-Monthly" : "Weekly";
+    //        return new EvaluationResult($"{frequencyName} payroll requires at least two cutoff days.");
+    //    }
+    //}
+
     private bool NamesMatch(EmployeeImportModel import, BasicEmployeeInfo db)
     {
         return string.Equals(import.FirstName?.Trim(), db.FirstName?.Trim(), StringComparison.OrdinalIgnoreCase) &&
@@ -392,6 +438,7 @@ public class EmployeeImportService
         }
 
         var existing = await _payrollGroupService.GetQueryable()
+         .Include(x => x.CutoffDays)
          .GroupBy(x => x.Name)
          .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
 
@@ -554,8 +601,8 @@ public class EmployeeImportService
     private Dictionary<string, PayrollGroup> ExtractPayrollGroups(List<EmployeeImportModel> data)
     {
         return data
-            //.GroupBy(x => new { x.PayrollGroup, x.CutoffDay1, x.CutoffDay2, x.PayrollFrequency })
-            .GroupBy(x => new { x.PayrollGroup })
+            .GroupBy(x => new { x.PayrollGroup, x.Cutoff1, x.Cutoff2, x.Cutoff3, x.Cutoff4 })
+            //.GroupBy(x => new { x.PayrollGroup })
             .Select(g => new PayrollGroup
             {
                 PayrollFrequency = ResolveFrequency(g.First()),
@@ -563,29 +610,61 @@ public class EmployeeImportService
                 Name = string.IsNullOrWhiteSpace(g.First().PayrollGroup) ? "--" : g.First().PayrollGroup
             })
             .ToDictionary(x => x.Name, x => x);
-        ;
     }
+
     private PayrollFrequency ResolveFrequency(EmployeeImportModel item)
     {
-        return PayrollFrequency.SEMI_MONTHLY;
-        //return EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.SEMI_MONTHLY);
+        if (item.Cutoff1 > 0 && item.Cutoff2 > 0 && item.Cutoff3 > 0 && item.Cutoff4 > 0)
+        {
+            return EnumParserConfig.SafeParseEnum("WEEKLY", PayrollFrequency.WEEKLY);
+        }
+        if (item.Cutoff1 > 0 && item.Cutoff2 > 0)
+        {
+            return EnumParserConfig.SafeParseEnum("SEMI_MONTHLY", PayrollFrequency.SEMI_MONTHLY);
+        }
+        if (item.Cutoff1 > 0)
+        {
+            return EnumParserConfig.SafeParseEnum("MONTHLY", PayrollFrequency.MONTHLY);
+        }
+        return PayrollFrequency.DAILY;
     }
+
     private List<CutoffDay> ResolveCutoff(EmployeeImportModel item)
     {
-        return new List<CutoffDay>()
+        var pf = ResolveFrequency(item);
+        switch (pf)
         {
-            new CutoffDay(){ Day= 10, IsEndOfMonth= false},
-            new CutoffDay(){ Day=  25, IsEndOfMonth=  true},
-        };
-        //var pg = EnumParserConfig.SafeParseEnum(item.PayrollFrequency, PayrollFrequency.MONTHLY);
-        //if (pg == PayrollFrequency.DAILY) return new List<CutoffDay>();
-        //if (pg == PayrollFrequency.WEEKLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDay1, IsEndOfMonth = item.EOM1 } };
-        //if (pg == PayrollFrequency.MONTHLY) return new List<CutoffDay>() { new CutoffDay() { Day = item.CutoffDay1, IsEndOfMonth = item.EOM1 } };
-        //return new List<CutoffDay>()
-        //{
-        //    new CutoffDay(){ Day= item.CutoffDay1, IsEndOfMonth= item.EOM1},
-        //    new CutoffDay(){ Day= item.CutoffDay2, IsEndOfMonth= item.EOM2},
-        //};
+            case PayrollFrequency.DAILY:
+                return new List<CutoffDay>()
+                    {
+                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1}
+                    };
+            case PayrollFrequency.WEEKLY:
+                return new List<CutoffDay>()
+                    {
+                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1},
+                        new CutoffDay(){ Day= item.Cutoff2, IsEndOfMonth= item.EOM2},
+                        new CutoffDay(){ Day= item.Cutoff3, IsEndOfMonth= item.EOM3},
+                        new CutoffDay(){ Day= item.Cutoff4, IsEndOfMonth= item.EOM4},
+                    };
+            case PayrollFrequency.SEMI_MONTHLY:
+                return new List<CutoffDay>()
+                    {
+                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1},
+                        new CutoffDay(){ Day=  item.Cutoff2, IsEndOfMonth=  item.EOM2},
+                    };
+            case PayrollFrequency.MONTHLY:
+                return new List<CutoffDay>()
+                    {
+                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1},
+                    };
+            default:
+                return new List<CutoffDay>()
+                    {
+                        new CutoffDay(){ Day= 10, IsEndOfMonth= false},
+                        new CutoffDay(){ Day=  15, IsEndOfMonth=  false},
+                    };
+        }
     }
     private Dictionary<string, Department> ExtractDepartments(List<EmployeeImportModel> data)
     {
@@ -687,11 +766,15 @@ public class EmployeeImportModel
     public decimal DailyRate { get; set; }
     public DateOnly? HireDate { get; set; }
 
-    //public string PayrollFrequency { get; set; }
-    //public int CutoffDay1 { get; set; }
-    //public bool EOM1 { get; set; }
-    //public int CutoffDay2 { get; set; }
-    //public bool EOM2 { get; set; }
+    public int Cutoff1 { get; set; }
+    public int Cutoff2 { get; set; }
+    public int Cutoff3 { get; set; }
+    public int Cutoff4 { get; set; }
+
+    public bool EOM1 { get; set; }
+    public bool EOM2 { get; set; }
+    public bool EOM3 { get; set; }
+    public bool EOM4 { get; set; }
 
 }
 public readonly record struct ShiftKey(string ShiftName, TimeSpan start, TimeSpan end, TimeSpan? lunchout, TimeSpan? lunchIn);
@@ -737,32 +820,47 @@ public class TemplateDownloaderService
            .GetQueryable()
            .Select(x => x.Name)
            .ToListAsync(token);
-        ;
+
         helperSheet = workbook.Worksheets.Add("payrollgroups");
         CreateSheet(helperSheet, payrollgroups);
         range = helperSheet.Range(1, 1, payrollgroups.Count, 1);
         worksheet.Cell("L3").CreateDataValidation().List(range);
-        worksheet.Cell("L3").Value = payrollgroups.FirstOrDefault(x => x.Contains("Semi - Monthly"));
+        worksheet.Cell("L3").Value = payrollgroups.FirstOrDefault(x => x.Contains("Semi-Monthly"));
 
 
         var shiftTypes = new List<string>() { "Fixed", "Split" };
         helperSheet = workbook.Worksheets.Add("ShiftTypes");
         CreateSheet(helperSheet, shiftTypes);
         range = helperSheet.Range(1, 1, shiftTypes.Count, 1);
-        worksheet.Cell("N3").CreateDataValidation().List(range);
-        worksheet.Cell("N3").Value = shiftTypes.FirstOrDefault();
+        worksheet.Cell("V3").CreateDataValidation().List(range);
+        worksheet.Cell("V3").Value = shiftTypes.FirstOrDefault();
 
         //paid breaks
-        worksheet.Cell("U3").CreateDataValidation().List(range);
-        worksheet.Cell("U3").Value = "False";
+        var trueFalse = new List<string>() { "False", "True" };
+        helperSheet = workbook.Worksheets.Add("trueFalse");
+        CreateSheet(helperSheet, trueFalse);
+        var truFalserange = helperSheet.Range(1, 1, trueFalse.Count, 1);
+
+        worksheet.Cell("N").CreateDataValidation().List(truFalserange);
+        worksheet.Cell("N").Value = trueFalse.FirstOrDefault();
+        worksheet.Cell("P").CreateDataValidation().List(truFalserange);
+        worksheet.Cell("P").Value = trueFalse.FirstOrDefault();
+        worksheet.Cell("R").CreateDataValidation().List(truFalserange);
+        worksheet.Cell("R").Value = trueFalse.FirstOrDefault();
+        worksheet.Cell("T").CreateDataValidation().List(truFalserange);
+        worksheet.Cell("T").Value = trueFalse.FirstOrDefault();
+        worksheet.Cell("AC").CreateDataValidation().List(truFalserange);
+        worksheet.Cell("AC").Value = trueFalse.FirstOrDefault();
 
         //salary Type
         var SalaryTypes = new List<string>() { "Variable", "Fixed" };
         helperSheet = workbook.Worksheets.Add("SalaryType");
         CreateSheet(helperSheet, SalaryTypes);
         range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);
-        worksheet.Cell("V3").CreateDataValidation().List(range);
-        worksheet.Cell("V3").Value = SalaryTypes.LastOrDefault();
+        worksheet.Cell("AD").CreateDataValidation().List(range);
+        worksheet.Cell("AD").Value = SalaryTypes.LastOrDefault();
+
+        worksheet.Cell("AE").Value = DateTime.UtcNow.Date;
 
         var stream = new MemoryStream();
         workbook.SaveAs(stream);
