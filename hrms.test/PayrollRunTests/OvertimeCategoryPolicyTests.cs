@@ -16,14 +16,14 @@ public class OvertimeCategoryPolicyTests
     private const double ShiftHours = 8;
     private const decimal HourlyRate = 100m; // DailyRate / ShiftHours
 
-    private static PayrollContext CreateContext(Guid? clientId, double legalHolOtHours = 0, double specialHolOtHours = 0)
+    private static PayrollContext CreateContext(Guid? clientId, double legalHolOtHours = 0, double specialHolOtHours = 0, decimal? dailyRate = null)
     {
         return new PayrollContext
         {
             Employee = new EmployeeModelPayrollRun
             {
                 ClientId = clientId,
-                DailyRate = DailyRate,
+                DailyRate = dailyRate ?? DailyRate,
                 Settings = new EmployeeSettingModel { IsEligibleForOvertime = true },
             },
             DailyRecord = new DailyRecordRunModel
@@ -144,5 +144,78 @@ public class OvertimeCategoryPolicyTests
         var line = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
 
         line.Value.Should().Be(0m);
+    }
+
+    // Below: acceptance tests built directly from the client's two real spreadsheets
+    // ("Rate Per Detachment" + "Holiday Overtime Computation Per Detachment"), rather than the
+    // synthetic DailyRate=800 used above. Every Sample in the client's sheet is computed at
+    // exactly 4 OT hours, so all cases here fix legalHolOtHours/specialHolOtHours at 4 and vary
+    // only the per-detachment Rate. Confirms real production rates, not just round numbers,
+    // reconcile through CompoundedOtRateStrategy / ClientOverrideOtRateStrategy to the cent.
+    //
+    // Radisson Blu note: "Rate Per Detachment" splits RAD into two rates -- Detachment
+    // Commander=594.00 and Security Guards=540.00 -- but "Holiday Overtime Computation Per
+    // Detachment" has only one RAD row, whose Sample (702.00 / 456.30) reconciles against the
+    // Security Guards rate (540), not the Commander rate (594). Flagging this as a real
+    // discrepancy worth confirming with the client/HR rather than silently picking one.
+    [Fact]
+    public void RadissonBlu_SecurityGuardsRate540_MatchesSpreadsheetSample()
+    {
+        var context = CreateContext(clientId: Guid.NewGuid(), legalHolOtHours: 4, specialHolOtHours: 4, dailyRate: 540m);
+        SetCompanyRate(context, RateType.LEGAL_HOLIDAY_DUTY, 2.00m);
+        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
+        SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
+
+        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+
+        legalLine.Value.Should().Be(702.00m);
+        specialLine.Value.Should().Be(456.30m);
+    }
+
+    // Standard-override group (client override LEGAL_HOLIDAY_OT=1.25 / SPECIAL_HOLIDAY_OT=1.25),
+    // three distinct rate tiers actually present in "Rate Per Detachment": 435 (Density Steel),
+    // 470 (Glacier Samar / Christ The King / B. Vicencio / St. Camillus / SOS), and 540
+    // (Cebu Pacific / Municipality of Cordova / Balai Punta Engano / Singapore Cancer Center /
+    // Gothong Cargo / General Milling x3 / Waterfront Cebu).
+    [Theory]
+    [InlineData(435, 271.875)] // Density Steel
+    [InlineData(470, 293.75)] // Glacier Samar / Christ The King / B. Vicencio / St. Camillus / SOS
+    [InlineData(540, 337.50)] // Cebu Pacific / Cordova / Balai / Singapore / Gothong / General Milling x3 / Waterfront
+    public void StandardOverrideGroup_RealDetachmentRates_MatchSpreadsheetSamples(decimal rate, decimal expected)
+    {
+        var clientId = Guid.NewGuid();
+        var context = CreateContext(clientId, legalHolOtHours: 4, specialHolOtHours: 4, dailyRate: rate);
+        SetCompanyRate(context, RateType.LEGAL_HOLIDAY_DUTY, 2.00m);
+        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
+        SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
+        SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT, 1.25m);
+        SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT, 1.25m);
+
+        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+
+        legalLine.Value.Should().Be(expected);
+        specialLine.Value.Should().Be(expected); // this group's Legal and Special samples are identical
+    }
+
+    // Metro Retail Stores Group / Beneluxe Trading (18 detachments, all Rate=540): client
+    // override LEGAL_HOLIDAY_OT=2.25 / SPECIAL_HOLIDAY_OT=1.625, the additive-formula group.
+    [Fact]
+    public void MetroRetailBeneluxeGroup_RealDetachmentRate540_MatchesSpreadsheetSample()
+    {
+        var clientId = Guid.NewGuid();
+        var context = CreateContext(clientId, legalHolOtHours: 4, specialHolOtHours: 4, dailyRate: 540m);
+        SetCompanyRate(context, RateType.LEGAL_HOLIDAY_DUTY, 2.00m);
+        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
+        SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
+        SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT, 2.25m);
+        SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT, 1.625m);
+
+        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+
+        legalLine.Value.Should().Be(607.50m);
+        specialLine.Value.Should().Be(438.75m);
     }
 }
