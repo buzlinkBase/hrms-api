@@ -101,6 +101,18 @@ public enum AllowanceFrequency
     Monthly,
 }
 
+// Client.UniformAllowanceBasis — how the future Uniform Allowance accrual worker will count an
+// employee's elapsed service, mirroring the same two counting methods Leave Types already use
+// for eligibility (see LeaveEligibilityBasis below). Kept as its own enum rather than reusing
+// LeaveEligibilityBasis directly so Benefits' schema isn't coupled to a type whose name/doc
+// comments are scoped to Leave. Only the config field is added for now -- the worker that reads
+// this to compute an accruing balance is a later phase.
+public enum BenefitAccrualBasis
+{
+    TenureMonths,  // whole calendar months since Employee.HireDate -- see LeaveEligibilityCalculator.MonthsBetween
+    PresentDays,   // count of posted DailyRecord days that aren't Absent/Incomplete/Skipped -- see DailyRecordService.CountPresentDaysAsync
+}
+
 
 public enum ComputationBasis
 {
