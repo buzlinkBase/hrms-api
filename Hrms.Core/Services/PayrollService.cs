@@ -111,6 +111,7 @@ public class PayrollService : BaseService<Payroll>
         foreach (var payroll in payrolls) payroll.IsPosted = true;
         await ModifyRangeAsync(payrolls, token);
         await ReduceDeductionBalancesAsync(payrolls.Select(x => x.Id).ToList(), token);
+        await ProcessRetirementFundActivityAsync(payrolls, token);
         await CommitChangesAsync(token);
     }
 
@@ -149,6 +150,125 @@ public class PayrollService : BaseService<Payroll>
             detail.Balance = Math.Max(detail.Balance - amount, 0);
             if (detail.Balance == 0) detail.Status = "Paid";
         }
+    }
+
+    // Setup > Client > Settings > Allowances > Retirement (days/year) -- same "only move the
+    // running balance at Post" rule as ReduceDeductionBalancesAsync above, and for the same
+    // reason: Payroll.RetirementAccrual is computed at Generate time (EmployeePayrollLineService
+    // .ComputeRetirementAccrual) but must never touch RetirementFund.Balance until the run is
+    // actually finalized, so a regenerated or deleted draft can't corrupt it. Unlike deductions,
+    // no separate detail table/query is needed -- RetirementAccrual/RetirementPayout are already
+    // plain columns on the just-loaded `payrolls` (one scalar per employee per payroll row, not
+    // a fan-out across multiple installments), so this reads them straight from memory. Handles
+    // both directions in one pass (one funds dictionary, one query) since a single Payroll row
+    // could in principle carry both -- a Last Pay row cashing out RetirementPayout while a
+    // regular row elsewhere in the same mixed batch accrues, though in practice a Last Pay row
+    // never itself has RetirementAccrual (LastPayrollService builds its own PayrollSummaryLine
+    // and never calls EmployeePayrollLineService.ComputeRetirementAccrual).
+    private async Task ProcessRetirementFundActivityAsync(List<Payroll> payrolls, CancellationToken token)
+    {
+        var relevant = payrolls.Where(x => x.RetirementAccrual > 0 || x.RetirementPayout > 0).ToList();
+        if (relevant.Count == 0) return;
+
+        var employeeIds = relevant.Select(x => x.EmployeeId).Distinct().ToList();
+        var funds = await Context.RetirementFunds
+            .Where(x => employeeIds.Contains(x.EmployeeId))
+            .ToDictionaryAsync(x => x.EmployeeId, token);
+
+        foreach (var payroll in relevant)
+        {
+            if (!funds.TryGetValue(payroll.EmployeeId, out var fund))
+            {
+                fund = new RetirementFund { EmployeeId = payroll.EmployeeId, Balance = 0 };
+                Context.RetirementFunds.Add(fund);
+                funds[payroll.EmployeeId] = fund;
+            }
+
+            if (payroll.RetirementAccrual > 0)
+            {
+                fund.Balance += payroll.RetirementAccrual;
+                Context.RetirementLedgers.Add(new RetirementLedger
+                {
+                    EmployeeId = payroll.EmployeeId,
+                    RetirementFund = fund,
+                    EntryType = RetirementLedgerEntryType.Accrual,
+                    PayrollId = payroll.Id,
+                    EntryDate = payroll.PayPeriodEnd,
+                    Add = payroll.RetirementAccrual,
+                    Balance = fund.Balance,
+                    Particulars = $"Retirement accrual for payroll {payroll.PayrollPeriod}",
+                });
+            }
+
+            if (payroll.RetirementPayout > 0)
+            {
+                var payout = ClampRetirementPayout(payroll.RetirementPayout, fund.Balance);
+                fund.Balance -= payout;
+                Context.RetirementLedgers.Add(new RetirementLedger
+                {
+                    EmployeeId = payroll.EmployeeId,
+                    RetirementFund = fund,
+                    EntryType = RetirementLedgerEntryType.Payout,
+                    PayrollId = payroll.Id,
+                    EntryDate = payroll.PayPeriodEnd,
+                    Less = payout,
+                    Balance = fund.Balance,
+                    Particulars = $"Retirement fund payout — {payroll.PayrollPeriod}",
+                });
+            }
+        }
+    }
+
+    // Setup > Payroll Reports > Retirement Ledger — manual HR correction, e.g. seeding an
+    // employee's opening Retirement Fund balance when this system is adopted mid-year (before
+    // any payroll run here has ever accrued their history). An additive delta + direction, not
+    // "set a new balance" — mirrors UniformAllowanceFundService.AdjustAsync exactly. No
+    // PayrollId: this entry isn't tied to any specific payroll run.
+    public async Task AdjustRetirementBalanceAsync(
+        Guid employeeId, decimal amount, bool isAddition, string particulars, DateOnly entryDate, CancellationToken token)
+    {
+        var fund = await Context.RetirementFunds.FirstOrDefaultAsync(x => x.EmployeeId == employeeId, token);
+        if (fund == null)
+        {
+            fund = new RetirementFund { EmployeeId = employeeId, Balance = 0 };
+            Context.RetirementFunds.Add(fund);
+        }
+
+        var add = isAddition ? amount : 0m;
+        var less = isAddition ? 0m : ClampRetirementPayout(amount, fund.Balance);
+        fund.Balance += add - less;
+        Context.RetirementLedgers.Add(new RetirementLedger
+        {
+            EmployeeId = employeeId,
+            RetirementFund = fund,
+            EntryType = RetirementLedgerEntryType.Adjustment,
+            EntryDate = entryDate,
+            Add = add,
+            Less = less,
+            Balance = fund.Balance,
+            Particulars = particulars,
+        });
+
+        await CommitChangesAsync(token);
+    }
+
+    // Clamp defensively -- Balance could have shifted between this run's Generate and its Post
+    // (e.g. another of this employee's payrolls posted in between). Never pays out more than
+    // what's actually left, and never a negative amount if a stale/negative balance somehow
+    // got through. `internal` (not private) so it can be unit tested without a database.
+    internal static decimal ClampRetirementPayout(decimal requestedPayout, decimal currentBalance) =>
+        Math.Min(Math.Max(requestedPayout, 0), Math.Max(currentBalance, 0));
+
+    // LastPayrollService.GenerateAsync's IncludeRetirementPayout option -- the current
+    // RetirementFund.Balance per employee, read-only (mirrors LeaveLedgerService
+    // .GetConvertibleLeaveValueAsync's role for leave conversion). Unlike leave, no rate
+    // conversion is needed: the balance is already a peso amount.
+    public async Task<Dictionary<Guid, decimal>> GetRetirementBalancesAsync(List<Guid> employeeIds, CancellationToken token)
+    {
+        if (employeeIds.Count == 0) return new();
+        return await Context.RetirementFunds
+            .Where(x => employeeIds.Contains(x.EmployeeId))
+            .ToDictionaryAsync(x => x.EmployeeId, x => x.Balance, token);
     }
 
     public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token)

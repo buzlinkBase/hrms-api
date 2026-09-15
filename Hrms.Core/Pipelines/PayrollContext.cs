@@ -21,6 +21,9 @@ public class CalculatorPayload : BasePayloadContext
     // cutoffs in the month — absent key (or a value <= 0) means uncapped. See
     // StatutoryCapHelper.ApplyClientCap and Setup > Client > Settings > Statutory Capping.
     public Dictionary<ClientStatutoryCapKey, decimal> ClientStatutoryCaps { get; set; } = new();
+    // Client.RetirementDaysPerYear keyed by Client.Id -- absent key or a null value means that
+    // client gives no retirement benefit. See EmployeePayrollLineService.ComputeRetirementAccrual.
+    public Dictionary<Guid, decimal?> ClientRetirementDaysPerYear { get; set; } = new();
     public Dictionary<EmployeeKey, List<Payroll>> PostedPriorPayrolls { get; set; } = new();
     public Dictionary<Leavekey, List<LeaveApplication>> Leaves { get; set; } = new();
     public Dictionary<EmployeeLeaveCreditsKey, decimal> LeaveCredits { get; set; } = new();

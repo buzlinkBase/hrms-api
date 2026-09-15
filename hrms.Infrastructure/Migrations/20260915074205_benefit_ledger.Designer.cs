@@ -4,6 +4,7 @@ using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    partial class HrmsContextModelSnapshot : ModelSnapshot
+    [Migration("20260915074205_benefit_ledger")]
+    partial class benefit_ledger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4542,10 +4545,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateOnly>("EntryDate")
                         .HasColumnType("date");
 
-                    b.Property<string>("EntryType")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<decimal>("Less")
                         .HasColumnType("decimal(65,30)");
 
@@ -4553,7 +4552,7 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<Guid?>("PayrollId")
+                    b.Property<Guid>("PayrollId")
                         .HasColumnType("char(36)");
 
                     b.Property<Guid>("RetirementFundId")
@@ -6019,7 +6018,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasOne("Hrms.Domain.Entities.Payroll", "Payroll")
                         .WithMany()
-                        .HasForeignKey("PayrollId");
+                        .HasForeignKey("PayrollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Hrms.Domain.Entities.RetirementFund", "RetirementFund")
                         .WithMany()

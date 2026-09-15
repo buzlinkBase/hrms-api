@@ -204,6 +204,66 @@ public class PayrollReportService : BaseService<Payroll>
         }).OrderBy(x => x.FullName).ThenBy(x => x.LeaveCode).ToList();
     }
 
+    // Retirement Ledger — unlike GetLeaveLedgerAsync/GetDeductionLedgerAsync above (both
+    // current-balance snapshots), this is a real transaction log: every RetirementLedger entry
+    // (accrual or payout) posted within [from, to], oldest first per employee, mirroring
+    // RetirementFund.Balance's own running-total column as it stood after each entry.
+    public async Task<List<RetirementLedgerModel>> GetRetirementLedgerAsync(DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var rows = await Context.RetirementLedgers.AsNoTracking()
+            .Where(x => x.EntryDate >= from && x.EntryDate <= to)
+            .ToListAsync(token);
+
+        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
+
+        return rows.Select(r =>
+        {
+            employeeMap.TryGetValue(r.EmployeeId, out var e);
+            return new RetirementLedgerModel
+            {
+                EmployeeId = r.EmployeeId,
+                EmployeeNo = e?.EmployeeNo ?? "",
+                FullName = e.FullName(),
+                EntryType = r.EntryType.ToString(),
+                PayrollId = r.PayrollId,
+                EntryDate = r.EntryDate,
+                Add = r.Add,
+                Less = r.Less,
+                Balance = r.Balance,
+                Particulars = r.Particulars,
+            };
+        }).OrderBy(x => x.FullName).ThenBy(x => x.EntryDate).ToList();
+    }
+
+    // Uniform Allowance Ledger — same real-transaction-log shape as GetRetirementLedgerAsync
+    // above: every UniformAllowanceLedger entry (accrual, manual adjustment, or release) posted
+    // within [from, to], oldest first per employee.
+    public async Task<List<UniformAllowanceLedgerModel>> GetUniformAllowanceLedgerAsync(DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var rows = await Context.UniformAllowanceLedgers.AsNoTracking()
+            .Where(x => x.EntryDate >= from && x.EntryDate <= to)
+            .ToListAsync(token);
+
+        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
+
+        return rows.Select(r =>
+        {
+            employeeMap.TryGetValue(r.EmployeeId, out var e);
+            return new UniformAllowanceLedgerModel
+            {
+                EmployeeId = r.EmployeeId,
+                EmployeeNo = e?.EmployeeNo ?? "",
+                FullName = e.FullName(),
+                EntryType = r.EntryType.ToString(),
+                EntryDate = r.EntryDate,
+                Add = r.Add,
+                Less = r.Less,
+                Balance = r.Balance,
+                Particulars = r.Particulars,
+            };
+        }).OrderBy(x => x.FullName).ThenBy(x => x.EntryDate).ToList();
+    }
+
     public async Task<List<CostSummaryModel>> GetCostSummaryAsync(DateOnly from, DateOnly to, string groupBy, CancellationToken token)
     {
         var payrolls = await GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted).ToListAsync(token);

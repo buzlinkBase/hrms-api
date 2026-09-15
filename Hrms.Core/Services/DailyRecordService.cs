@@ -72,6 +72,27 @@ public class DailyRecordService : BaseService<DailyRecord>
             .ToDictionaryAsync(x => x.Key, x => x.Count, token);
     }
 
+    // Client.UniformAllowanceBasis.PresentDays -- present days WITHIN [fromDate, toDate] (one
+    // calendar month), unlike CountPresentDaysAsync/CountPresentDaysBatchAsync above, which are
+    // unbounded lifetime-to-date counts for Leave's tenure eligibility. See
+    // UniformAllowanceAccrualWorker.
+    public async Task<Dictionary<Guid, int>> CountPresentDaysInRangeBatchAsync(
+        IEnumerable<Guid> employeeIds, DateOnly fromDate, DateOnly toDate, CancellationToken token)
+    {
+        var ids = employeeIds.ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, int>();
+
+        return await GetQueryable(x =>
+                ids.Contains(x.EmployeeId) &&
+                x.Posted &&
+                x.WorkDate >= fromDate &&
+                x.WorkDate <= toDate &&
+                !LeaveEligibilityCalculator.NonPresentWorkTypes.Contains(x.WorkTypeEnum))
+            .GroupBy(x => x.EmployeeId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, token);
+    }
+
     public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token)
     {
         var employeeIds = records.Select(x => x.EmployeeId).Distinct().ToList();

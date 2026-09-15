@@ -203,6 +203,17 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     public decimal RegularNDHours { get; set; }
     public decimal RegularNDOTHours { get; set; }
 
+    // Setup > Client > Settings > Allowances > Retirement (days/year) -- this run's computed
+    // accrual, informational only (excluded from GrossIncome/NetPay above). Only read back at
+    // Post time to grow RetirementFund.Balance -- see PayrollService.ProcessRetirementFundActivityAsync.
+    public decimal RetirementAccrual { get; set; }
+    // Last Pay > IncludeRetirementPayout -- the employee's RetirementFund.Balance cashed out at
+    // separation (LastPayrollService.GenerateAsync), non-taxable so it's added straight to
+    // NetPay rather than GrossIncome, same treatment as an employer-advanced government leave
+    // payout. Only read back at Post time to debit RetirementFund.Balance -- see
+    // PayrollService.ProcessRetirementFundActivityAsync.
+    public decimal RetirementPayout { get; set; }
+
     public decimal RestDayHours { get; set; }
     public decimal RestDayOTHours { get; set; }
     public decimal RestDayNDHours { get; set; }

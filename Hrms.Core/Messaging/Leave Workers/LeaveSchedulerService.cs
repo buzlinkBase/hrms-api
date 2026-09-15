@@ -1,3 +1,4 @@
+using Hrms.Core.Messaging.BenefitWorkers;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +17,10 @@ public class LeaveSchedulerOptions
 // Wakes once per day at the configured hour. Discovers all active tenant IDs by querying the
 // distinct TenantId values present in the Leaves table (bypasses the per-tenant query filter).
 // Reads each tenant's FiscalYearStartMonth from GeneralSettings and publishes the appropriate
-// leave trigger message with an explicit X-Tenant-ID header.
+// leave trigger message with an explicit X-Tenant-ID header. Despite the name, this is now the
+// general "monthly tenant-scoped tick" trigger for more than just Leave -- Uniform Allowance's
+// accrual (a non-leave benefit) rides the same 1st-of-the-month publish below rather than a
+// second scheduler, since the daily-timer/tenant-enumeration machinery is identical either way.
 public class LeaveSchedulerService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -145,6 +149,16 @@ public class LeaveSchedulerService : BackgroundService
                 token);
             _logger.LogInformation(
                 "LeaveScheduler [{Tenant}]: published RunLeaveAccrual {Date}", tenantId, today);
+
+            // Uniform Allowance's monthly accrual rides this same tick -- see
+            // UniformAllowanceAccrualWorker (Hrms.Core.Messaging.BenefitWorkers). Not
+            // fiscal-year-anchored, so no FiscalYearStartMonth is needed here.
+            await publisher.Publish<RunUniformAllowanceAccrual>(
+                new RunUniformAllowanceAccrual(today),
+                SetTenantHeader(tenantId),
+                token);
+            _logger.LogInformation(
+                "LeaveScheduler [{Tenant}]: published RunUniformAllowanceAccrual {Date}", tenantId, today);
         }
 
         // ── Fiscal year-end carry-over — last day of the fiscal year ──────────

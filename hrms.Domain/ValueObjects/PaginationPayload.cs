@@ -58,6 +58,10 @@ public record LastPayRunPayload(List<Guid> EmployeeIds)
     // an existing caller that doesn't set these keeps working unchanged.
     public bool IncludeThirteenthMonth { get; init; } = true;
     public bool IncludeLeaveConversion { get; init; } = true;
+    // Cashes out the employee's current RetirementFund.Balance -- non-taxable, added straight
+    // to NetPay (see LastPayrollService.GenerateAsync), and settled (Balance debited,
+    // RetirementLedger entry written) at Post time like the accrual side.
+    public bool IncludeRetirementPayout { get; init; } = true;
     // Explicit opt-in only — omitted/empty means none applied. Sourced from
     // LastPayrollService.GetAvailableSalaryAdjustmentsAsync/GetAvailableOtherIncomeAsync and
     // confirmed by HR before Generate is called. See PayrollInputConsumptionService for how

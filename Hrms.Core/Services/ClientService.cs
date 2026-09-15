@@ -50,6 +50,15 @@ public class ClientService : BaseService<Client>
     {
         return await GetQueryable().ToListAsync(token);
     }
+    // Client.RetirementDaysPerYear per client, for PayrollRangeContextComposerService's
+    // per-run CalculatorPayload.ClientRetirementDaysPerYear lookup -- see
+    // EmployeePayrollLineService.ComputeRetirementAccrual.
+    public async Task<Dictionary<Guid, decimal?>> FindRetirementDaysPerYearAsync(HashSet<Guid> clientIds, CancellationToken token)
+    {
+        if (clientIds.Count == 0) return new();
+        return await GetQueryable(x => clientIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.RetirementDaysPerYear, token);
+    }
     public async Task<Client?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return await GetOneAsync(Id, token);

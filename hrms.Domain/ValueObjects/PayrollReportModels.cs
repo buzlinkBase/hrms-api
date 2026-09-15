@@ -150,6 +150,41 @@ public class LeaveCreditsBalanceModel
     public decimal AvailableToFile { get; set; }
 }
 
+// One row per RetirementLedger entry (a true transaction log, unlike LeaveCreditsBalanceModel/
+// DeductionLedgerModel above which are current-balance snapshots) — every accrual (Add) and
+// payout (Less) ever posted against an employee's RetirementFund, in chronological order. See
+// PayrollReportService.GetRetirementLedgerAsync.
+public class RetirementLedgerModel
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string EntryType { get; set; } = string.Empty;
+    public Guid? PayrollId { get; set; }
+    public DateOnly EntryDate { get; set; }
+    public decimal Add { get; set; }
+    public decimal Less { get; set; }
+    public decimal Balance { get; set; }
+    public string Particulars { get; set; } = string.Empty;
+}
+
+// One row per UniformAllowanceLedger entry -- a true transaction log like RetirementLedgerModel
+// above, but includes EntryType (Accrual/Adjustment/Release) since Uniform Allowance's ledger
+// has three distinct entry kinds the UI needs to tell apart, unlike Retirement's simpler
+// accrual/payout-only shape. See PayrollReportService.GetUniformAllowanceLedgerAsync.
+public class UniformAllowanceLedgerModel
+{
+    public Guid EmployeeId { get; set; }
+    public string EmployeeNo { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string EntryType { get; set; } = string.Empty;
+    public DateOnly EntryDate { get; set; }
+    public decimal Add { get; set; }
+    public decimal Less { get; set; }
+    public decimal Balance { get; set; }
+    public string Particulars { get; set; } = string.Empty;
+}
+
 public class ThirteenthMonthModel
 {
     public Guid EmployeeId { get; set; }

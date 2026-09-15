@@ -24,6 +24,7 @@ public class PayrollRangeContextComposerService
     private readonly PayrollService _payrollService;
     private readonly SalaryAdjustmentService _salaryAdjService;
     private readonly GeneralSettingService _generalSettingService;
+    private readonly ClientService _clientService;
 
     public PayrollRangeContextComposerService(RateTableService rateTableService,
         ClientRateTableService clientRateTableService,
@@ -42,7 +43,8 @@ public class PayrollRangeContextComposerService
         CompanyService companyService,
         PayrollService payrollService,
         SalaryAdjustmentService salaryAdjService,
-        GeneralSettingService generalSettingService
+        GeneralSettingService generalSettingService,
+        ClientService clientService
         )
     {
         _rateTableService = rateTableService;
@@ -63,6 +65,7 @@ public class PayrollRangeContextComposerService
         _payrollService = payrollService;
         _salaryAdjService = salaryAdjService;
         _generalSettingService = generalSettingService;
+        _clientService = clientService;
     }
     public async Task<CalculatorPayload?> ComposePayload(
     DateRangePayload dtrPayload,
@@ -82,6 +85,7 @@ public class PayrollRangeContextComposerService
             var clientRatesTask = await _clientRateTableService.FindByClientsAsync(clientIds, token);
             var clientSettingsTask = await _generalSettingService.GetSettingsAsync(
                 "Client", clientIds.Select(id => id.ToString()).ToHashSet());
+            var clientRetirementDaysPerYearTask = await _clientService.FindRetirementDaysPerYearAsync(clientIds, token);
             var leavesTask = await _leaveService.FindByDateRangeAsync(dtrPayload.FromDate, dtrPayload.ToDate, hasEmpIds, token);
             var leaveCreditsTask = await _leaveLedgerService.LoadCreditsAsync(empIds, token);
             var otherIncomeTask = await _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
@@ -162,6 +166,7 @@ public class PayrollRangeContextComposerService
                     .GroupBy(x => new ClientRateKey(x.ClientId, x.Type))
                     .ToDictionary(g => g.Key, g => g.First().Rate),
                 ClientStatutoryCaps = clientStatutoryCaps,
+                ClientRetirementDaysPerYear = clientRetirementDaysPerYearTask,
                 PostedPriorPayrolls = payrollsTask,
                 Leaves = leavesTask,
                 LeaveCredits = leaveCreditsTask,

@@ -181,6 +181,16 @@ public class PayrollSummaryLine
     public decimal RegularNDHours { get; set; }
     public decimal RegularNDOTHours { get; set; }
 
+    // Setup > Client > Settings > Allowances > Retirement (days/year) -- computed every payroll
+    // run by EmployeePayrollLineService.ComputeRetirementAccrual, purely informational on this
+    // run (never folds into GrossIncome/NetPay below). RetirementFund.Balance only grows by this
+    // amount at Post time -- see PayrollService.ProcessRetirementFundActivityAsync.
+    public decimal RetirementAccrual { get; set; }
+    // Last Pay > IncludeRetirementPayout -- set by LastPayrollService.GenerateAsync when cashing
+    // out RetirementFund.Balance at separation; added straight to NetPay (non-taxable), never to
+    // GrossIncome. RetirementFund.Balance only debits by this amount at Post time.
+    public decimal RetirementPayout { get; set; }
+
     public decimal RestDayHours { get; set; }
     public decimal RestDayOTHours { get; set; }
     public decimal RestDayNDHours { get; set; }

@@ -1,4 +1,5 @@
 ﻿using Hrms.Core.Messaging;
+using Hrms.Core.Messaging.BenefitWorkers;
 using Hrms.Core.Messaging.Filter;
 using Hrms.Core.Messaging.LeaveWorkers;
 using MassTransit;
@@ -24,6 +25,7 @@ public static class RabbitMqConfiguration
             x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
             x.AddConsumer<LeaveGrantOnEventWorker, LeaveGrantOnEventWorkerDefinition>();
             x.AddConsumer<LeaveAccrualWorker, LeaveAccrualWorkerDefinition>();
+            x.AddConsumer<UniformAllowanceAccrualWorker, UniformAllowanceAccrualWorkerDefinition>();
             x.AddConsumer<LeavePeriodGrantWorker, LeavePeriodGrantWorkerDefinition>();
             x.AddConsumer<LeaveCarryOverWorker, LeaveCarryOverWorkerDefinition>();
             x.AddConsumer<UserOnboardedWorker, UserOnboardedWorkerDefinition>();

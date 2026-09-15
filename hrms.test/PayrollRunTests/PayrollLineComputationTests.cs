@@ -203,4 +203,82 @@ public class PayrollLineComputationTests : TestContextBase
         // Company-funded (fail-safe) rather than inflating the non-company split.
         line.NonCompanyPaidLeaves.Should().Be(0);
     }
+
+    // --- ComputeRetirementAccrual -----------------------------------------------------------
+    // Setup > Client > Settings > Allowances > Retirement (days/year). Formula from the client:
+    // (dailyRate / 8) x (regularNetHours x retirementDaysPerYear / 12 / 30).
+
+    [Fact]
+    public void ComputeRetirementAccrual_ClientHasRetirementDaysConfigured_ComputesTheFormula()
+    {
+        var clientId = Guid.NewGuid();
+        var employee = new EmployeeModelPayrollRun { ClientId = clientId, DailyRate = 800m };
+        var payload = new CalculatorPayload
+        {
+            ClientRetirementDaysPerYear = new Dictionary<Guid, decimal?> { [clientId] = 22.5m },
+        };
+        var line = new PayrollSummaryLine { RegularNetHours = 176 };
+
+        EmployeePayrollLineService.ComputeRetirementAccrual(employee, payload, line);
+
+        // (800/8) x (176 x 22.5 / 12 / 30) = 100 x 11 = 1,100
+        line.RetirementAccrual.Should().Be(1_100m);
+    }
+
+    [Fact]
+    public void ComputeRetirementAccrual_ClientConfiguredWithNoRetirementBenefit_LeavesAccrualAtZero()
+    {
+        var clientId = Guid.NewGuid();
+        var employee = new EmployeeModelPayrollRun { ClientId = clientId, DailyRate = 800m };
+        var payload = new CalculatorPayload
+        {
+            // key present but null — "no retirement benefit" for this client, per the spreadsheet.
+            ClientRetirementDaysPerYear = new Dictionary<Guid, decimal?> { [clientId] = null },
+        };
+        var line = new PayrollSummaryLine { RegularNetHours = 176 };
+
+        EmployeePayrollLineService.ComputeRetirementAccrual(employee, payload, line);
+
+        line.RetirementAccrual.Should().Be(0);
+    }
+
+    [Fact]
+    public void ComputeRetirementAccrual_ClientIdNotInLookup_LeavesAccrualAtZero()
+    {
+        var employee = new EmployeeModelPayrollRun { ClientId = Guid.NewGuid(), DailyRate = 800m };
+        var payload = new CalculatorPayload(); // empty lookup — client not represented at all
+        var line = new PayrollSummaryLine { RegularNetHours = 176 };
+
+        EmployeePayrollLineService.ComputeRetirementAccrual(employee, payload, line);
+
+        line.RetirementAccrual.Should().Be(0);
+    }
+
+    [Fact]
+    public void ComputeRetirementAccrual_EmployeeHasNoClient_LeavesAccrualAtZero()
+    {
+        var employee = new EmployeeModelPayrollRun { ClientId = null, DailyRate = 800m };
+        var payload = new CalculatorPayload();
+        var line = new PayrollSummaryLine { RegularNetHours = 176 };
+
+        EmployeePayrollLineService.ComputeRetirementAccrual(employee, payload, line);
+
+        line.RetirementAccrual.Should().Be(0);
+    }
+
+    [Fact]
+    public void ComputeRetirementAccrual_ZeroRegularHours_ContributesNothing()
+    {
+        var clientId = Guid.NewGuid();
+        var employee = new EmployeeModelPayrollRun { ClientId = clientId, DailyRate = 800m };
+        var payload = new CalculatorPayload
+        {
+            ClientRetirementDaysPerYear = new Dictionary<Guid, decimal?> { [clientId] = 22.5m },
+        };
+        var line = new PayrollSummaryLine { RegularNetHours = 0 };
+
+        EmployeePayrollLineService.ComputeRetirementAccrual(employee, payload, line);
+
+        line.RetirementAccrual.Should().Be(0);
+    }
 }

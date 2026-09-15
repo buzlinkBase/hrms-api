@@ -97,6 +97,20 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [HttpGet("retirement-ledger")]
+        public async Task<IActionResult> RetirementLedger([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        {
+            var data = await _reportService.GetRetirementLedgerAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            return Ok(new { data, total = data.Count });
+        }
+
+        [HttpGet("uniform-allowance-ledger")]
+        public async Task<IActionResult> UniformAllowanceLedger([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        {
+            var data = await _reportService.GetUniformAllowanceLedgerAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            return Ok(new { data, total = data.Count });
+        }
+
         [HttpGet("reimbursement-list")]
         public async Task<IActionResult> ReimbursementList([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {

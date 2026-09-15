@@ -46,6 +46,7 @@ public class EmployeePayrollLineService
             dateRange, employee, batchId, period, creditPolicy, wtaxCreditPolicy, payDate, remarks);
 
         ComputeHoursBreakdown(empDtr, payrollLine);
+        ComputeRetirementAccrual(employee, rangePayload, payrollLine);
         payrollLine.PaidLeaveBreakdown = BuildPaidLeaveBreakdown(empLeaveInfo);
         ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine, leavePaySourceMap);
         rangePayload.Leaves.TryGetValue(new Leavekey(employee.Id), out var employeeLeaveApps);
@@ -163,6 +164,24 @@ public class EmployeePayrollLineService
             line.RestLegalDayOTHours + line.RestSpecialDayOTHours +
             line.DoubleLegalOTHours + line.RestDoubleLegalOTHours;
 
+    }
+
+    // Setup > Client > Settings > Allowances > Retirement (days/year). Runs every payroll per
+    // the client's own formula; purely informational on this run -- deliberately never folds
+    // into GrossIncome/NetPay (unlike ComputeAllowances/ApplySalaryAdjustments). The actual
+    // RetirementFund.Balance only grows by this amount at Post time (see
+    // PayrollService.ProcessRetirementFundActivityAsync), mirroring why DeductionApplicationDetail.
+    // Balance is deferred to Post: a regenerated or deleted draft must never corrupt a running
+    // balance.
+    internal static void ComputeRetirementAccrual(
+        EmployeeModelPayrollRun employee, CalculatorPayload rangePayload, PayrollSummaryLine payrollLine)
+    {
+        if (employee.ClientId is not { } clientId) return;
+        if (!rangePayload.ClientRetirementDaysPerYear.TryGetValue(clientId, out var daysPerYear) || daysPerYear is not { } days)
+            return; // no key, or a null value, means this client gives no retirement benefit
+
+        var hourlyRate = employee.DailyRate / 8m;
+        payrollLine.RetirementAccrual = hourlyRate * (payrollLine.RegularNetHours * days / 12m / 30m);
     }
 
     // Which leave type(s) made up this run's PaidLeaves/UnpaidLeaves totals, and how many

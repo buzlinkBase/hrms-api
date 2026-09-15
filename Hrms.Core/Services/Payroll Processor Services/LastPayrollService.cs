@@ -6,8 +6,9 @@ namespace Hrms.Core.Services;
 
 // Last Pay / Final Pay (DOLE Labor Advisory 06-20) for a separated employee: prorated 13th
 // month pay (basic pay actually earned up to DateResigned / 12) + cash conversion of
-// convertible leave credits, minus outstanding loan balance (informational netting only — the
-// loan ledger itself is untouched). Shares the SAME annual exemption ceiling as 13th month
+// convertible leave credits + cash-out of the accrued RetirementFund.Balance (non-taxable,
+// added to NetPay rather than Gross), minus outstanding loan balance (informational netting
+// only — the loan ledger itself is untouched). Shares the SAME annual exemption ceiling as 13th month
 // (see ThirteenthMonthCeilingCalculator), combined with Special Bonuses already paid that
 // year. Deliberately does NOT compute final DTR-attendance wages — those still flow through
 // the existing regular payroll run from whatever DTR batch covers the employee's last days
@@ -159,6 +160,7 @@ public class LastPayrollService
         }
 
         var convertibleLeaveValue = await _leaveLedgerService.GetConvertibleLeaveValueAsync(payload.EmployeeIds, token);
+        var retirementBalances = await _payrollService.GetRetirementBalancesAsync(payload.EmployeeIds, token);
         var outstandingLoans = await LoadOutstandingLoansAsync(payload.EmployeeIds, employees, token);
 
         // Only what HR explicitly confirmed in the review step gets applied — never an
@@ -226,6 +228,8 @@ public class LastPayrollService
             convertibleLeaveValue.TryGetValue(employeeId, out var leaveValue);
             var dailyRate = _dailyRateResolver.Resolve(employee, asOfDate);
             var leaveConversion = payload.IncludeLeaveConversion ? leaveValue * dailyRate : 0;
+            retirementBalances.TryGetValue(employeeId, out var retirementBalance);
+            var retirementPayout = payload.IncludeRetirementPayout ? retirementBalance : 0;
             outstandingLoans.TryGetValue(employeeId, out var outstandingLoanBalance);
 
             var gross = proratedThirteenthMonth + leaveConversion;
@@ -280,8 +284,15 @@ public class LastPayrollService
                 PayrollGroupId = employee.PayrollGroupId,
                 AreaId = employee.AreaId,
                 ClientId = employee.ClientId,
+                RetirementPayout = retirementPayout,
             };
             line.NetPay = PayrollProcessorUtil.GetNetPay(line, wtaxResult);
+            // Non-taxable (PH retirement benefits are generally tax-exempt at separation) --
+            // added straight to NetPay, never to GrossIncome/the WTax base above, same
+            // treatment as an employer-advanced government leave payout in the regular flow.
+            // Settled (RetirementFund.Balance debited, RetirementLedger entry written) only at
+            // Post time -- see PayrollService.ProcessRetirementFundActivityAsync.
+            line.NetPay += retirementPayout;
 
             // HR-confirmed Salary Adjustments — reuses EmployeePayrollLineService's exact
             // apply logic (same untaxed-addition behavior as the regular flow) via a small
