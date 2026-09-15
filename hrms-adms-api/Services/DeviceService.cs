@@ -23,11 +23,12 @@ public class DeviceService : BaseService<BiometricDevice>
     // (Inactive or soft-deleted) elsewhere is free to be re-registered.
     protected override async Task<EvaluationResult> CreateValidatorAsync(BiometricDevice model, CancellationToken token = default)
     {
-        var existing = await GetQueryable(x =>
-                x.SN == model.SN &&
+
+        var existing = await Uow.Context.BiometricDevices
+            .IgnoreQueryFilters()
+            .Where(x => x.SN == model.SN &&
                 x.DeletedAt == null &&
                 x.Id != model.Id)
-            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(token);
 
         if (existing == null) return EvaluationResult.OK;
@@ -35,6 +36,7 @@ public class DeviceService : BaseService<BiometricDevice>
         return existing.TenantId != model.TenantId
             ? EvaluationResult.Fail("This device is already registered to another company.")
             : EvaluationResult.Fail("This device (serial number) is already registered.");
+
     }
 
     public async Task<UpdateBiometricDevice> AddAsync(CreateBiometricDevice payload, Guid TenantId, CancellationToken token)
