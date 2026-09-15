@@ -127,6 +127,10 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             }
         }
 
+        if (leave.RequiresSupportingDocument && string.IsNullOrWhiteSpace(payload.SupportingDocumentUrl))
+            throw new InvalidOperationException(
+                $"\"{leave.Description}\" requires a supporting document to be attached.");
+
         if (!leave.AllowHalfDay &&
             (payload.DayFraction == DayFraction.AM || payload.DayFraction == DayFraction.PM))
             throw new InvalidOperationException(

@@ -139,7 +139,8 @@ public class MeControllerTests
         ChangeRestDay[]? changeRestDays = null,
         DeductionApplication[]? deductionApplications = null,
         Deduction[]? deductions = null,
-        Payroll[]? payrollRows = null)
+        Payroll[]? payrollRows = null,
+        DailyRecord[]? dailyRecords = null)
     {
         var repo = Substitute.For<IRepository>();
         var employees = caller is null ? Array.Empty<Employee>() : [caller];
@@ -153,6 +154,7 @@ public class MeControllerTests
         var deductionApps = deductionApplications ?? [];
         var deductionRows = deductions ?? [];
         var payrollRowsList = payrollRows ?? [];
+        var dailyRecordRows = dailyRecords ?? [];
         // BuildMockDbSet() itself uses NSubstitute internally, so it must be deferred inside
         // Returns(callInfo => ...) — see EmployeeServiceTests.SeedRepo for the full explanation.
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
@@ -165,6 +167,7 @@ public class MeControllerTests
         repo.FindAll<DeductionApplication>().Returns(_ => deductionApps.ToList().BuildMockDbSet());
         repo.FindAll<Payroll>().Returns(_ => payrollRowsList.ToList().BuildMockDbSet());
         repo.FindAll<PayrollOpeningBalance>().Returns(_ => new List<PayrollOpeningBalance>().BuildMockDbSet());
+        repo.FindAll<DailyRecord>().Returns(_ => dailyRecordRows.ToList().BuildMockDbSet());
         repo.Find<Leave>(Arg.Any<Expression<Func<Leave, bool>>>())
             .Returns(call => leaveTypes.Where(call.Arg<Expression<Func<Leave, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.Find<Employee>(Arg.Any<Expression<Func<Employee, bool>>>())
@@ -204,6 +207,12 @@ public class MeControllerTests
         var companyService = new CompanyService(uow);
         var fixedScheduleService = new EmployeeFixedScheduleService(uow);
         var leaveLedgerService = new LeaveLedgerService(uow);
+        // Real DailyRecordService (against the same mocked uow/repo) rather than null! -- needed
+        // by any test whose Leave uses EligibilityBasis.PresentDays; harmless for every other
+        // test since CountPresentDaysAsync is never called unless that basis is configured.
+        var dailyRecordService = new DailyRecordService(
+            uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
+            Substitute.For<ILogger<DailyRecordService>>(), null!, new PayrollBatchService(uow));
         // Bare IMapper substitute: LeaveApplicationService.AddAsync's Map<LeaveApplication>()
         // call returns null with it, which short-circuits AddAsync before it ever persists —
         // fine for these tests, which only assert on the EmployeeId/ApprovalStatus forced onto
@@ -211,9 +220,7 @@ public class MeControllerTests
         var leaveApplicationService = new LeaveApplicationService(
             uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
             Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>(),
-            // DailyRecordService — only reached when a Leave uses EligibilityBasis.PresentDays;
-            // none of these tests do, so it's never called.
-            null!);
+            dailyRecordService);
         var overtimeApplicationService = new OvertimeApplicationService(uow);
         var travelOrderApplicationService = new TravelOrderApplicationService(uow);
         var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow));
@@ -436,6 +443,155 @@ public class MeControllerTests
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
             .WithMessage("*requires at least 6 month*");
+    }
+
+    // Gender-restricted leave types (e.g. Maternity/Paternity) must reject a filer of the wrong
+    // gender server-side, not just via a client-side hidden dropdown option.
+    [Fact]
+    public async Task CreateMyLeaveApplication_RejectsWhenGenderRestrictionNotMet()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        caller.Gender = "Female";
+        var leave = BuildLeave();
+        leave.GenderRestriction = GenderRestriction.MaleOnly;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*restricted to male employees only*");
+    }
+
+    [Fact]
+    public async Task CreateMyLeaveApplication_AllowsWhenGenderRestrictionMet()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        caller.Gender = "Male";
+        var leave = BuildLeave();
+        leave.GenderRestriction = GenderRestriction.MaleOnly;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+
+        var result = await controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+    }
+
+    // Companion to CreateMyLeaveApplication_RejectsWhenMinimumServiceNotMet, but for the other
+    // EligibilityBasis branch — a leave type keyed on present days (not tenure) must reject a
+    // filer who hasn't posted enough attendance yet, counted via DailyRecordService.
+    [Fact]
+    public async Task CreateMyLeaveApplication_RejectsWhenMinimumPresentDaysNotMet()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.EligibilityBasis = LeaveEligibilityBasis.PresentDays;
+        leave.MinPresentDays = 5;
+        var filingDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var postedDays = Enumerable.Range(1, 3).Select(i => new DailyRecord
+        {
+            Id = Guid.NewGuid(),
+            EmployeeId = caller.Id,
+            Posted = true,
+            WorkDate = filingDate.AddDays(-i),
+            WorkTypeEnum = WorkType.RegularWorkDay,
+        }).ToArray();
+        var (controller, _) = BuildController(caller, leaves: [leave], dailyRecords: postedDays);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = filingDate,
+            LeaveDateTo = filingDate,
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*requires at least 5 present day*");
+    }
+
+    [Fact]
+    public async Task CreateMyLeaveApplication_AllowsWhenMinimumPresentDaysMet()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.EligibilityBasis = LeaveEligibilityBasis.PresentDays;
+        leave.MinPresentDays = 3;
+        var filingDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var postedDays = Enumerable.Range(1, 5).Select(i => new DailyRecord
+        {
+            Id = Guid.NewGuid(),
+            EmployeeId = caller.Id,
+            Posted = true,
+            WorkDate = filingDate.AddDays(-i),
+            WorkTypeEnum = WorkType.RegularWorkDay,
+        }).ToArray();
+        var (controller, _) = BuildController(caller, leaves: [leave], dailyRecords: postedDays);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = filingDate,
+            LeaveDateTo = filingDate,
+        };
+
+        var result = await controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
+    }
+
+    // RequiresSupportingDocument was previously an entity/DTO field with no enforcement
+    // anywhere -- an application could be filed with the flag on and no document attached.
+    // See EnsurePolicyAsync's new SupportingDocumentUrl check.
+    [Fact]
+    public async Task CreateMyLeaveApplication_RejectsWhenSupportingDocumentRequiredButMissing()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.RequiresSupportingDocument = true;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+            SupportingDocumentUrl = "   ",
+        };
+
+        var act = () => controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*requires a supporting document*");
+    }
+
+    [Fact]
+    public async Task CreateMyLeaveApplication_AllowsWhenSupportingDocumentRequiredAndAttached()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var leave = BuildLeave();
+        leave.RequiresSupportingDocument = true;
+        var (controller, _) = BuildController(caller, leaves: [leave]);
+        var payload = new CreateLeaveApplication
+        {
+            LeaveId = leave.Id,
+            LeaveDateFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+            LeaveDateTo = DateOnly.FromDateTime(DateTime.UtcNow),
+            SupportingDocumentUrl = "https://files.example.com/medcert.pdf",
+        };
+
+        var result = await controller.CreateMyLeaveApplication(payload, CancellationToken.None);
+
+        result.Should().BeOfType<OkResult>();
     }
 
     // Server-side mirror of the Employee Portal's Leave Type dropdown filtering — a
