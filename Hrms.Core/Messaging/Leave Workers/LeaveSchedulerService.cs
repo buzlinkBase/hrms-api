@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Onepunch.Common.Lib.Cache;
 
 namespace Hrms.Core.Messaging.LeaveWorkers;
 
@@ -117,6 +118,12 @@ public class LeaveSchedulerService : BackgroundService
         return int.TryParse(setting, out var month) && month >= 1 && month <= 12 ? month : 1;
     }
 
+    // Multi-instance safety: this BackgroundService runs independently on every hrms-api
+    // instance, each with its own timer -- with N instances behind a load balancer, all N would
+    // otherwise publish this same tenant's daily triggers redundantly. A Redis lock (via the
+    // already-DI-registered ICacheService, ICacheService.TryAcquireLockAsync) ensures only the
+    // instance that wins the lock for a given tenant+day actually evaluates and publishes; the
+    // rest see it held and skip, so no duplicate messages are ever published in the first place.
     private async Task PublishForTenant(Guid tenantId, DateOnly today, CancellationToken token)
     {
         var fiscalStartMonth = await GetFiscalYearStartMonthAsync(tenantId, token);
@@ -124,54 +131,75 @@ public class LeaveSchedulerService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
         var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
+        var cache = scope.ServiceProvider.GetRequiredService<ICacheService>();
 
         tenantProvider.SetTenantId(tenantId);
 
-        // ── Fiscal year period grant — first day of the fiscal year ────────────
-        if (FiscalYearHelper.IsFiscalYearStart(today, fiscalStartMonth))
+        // 2 hours is generous enough to cover the full publish sequence under load, and short
+        // enough that a crashed instance never permanently blocks this tenant's run -- the key
+        // is also date-scoped, so an unreleased lock only ever affects that one day.
+        var lockKey = $"scheduler-lock:{tenantId}:{today:yyyy-MM-dd}";
+        var lockToken = await cache.TryAcquireLockAsync(lockKey, TimeSpan.FromHours(2));
+        if (lockToken == null)
         {
-            var fiscalYear = FiscalYearHelper.FiscalYearOf(today, fiscalStartMonth);
-            await publisher.Publish<RunLeavePeriodGrant>(
-                new RunLeavePeriodGrant(fiscalYear, fiscalStartMonth),
-                SetTenantHeader(tenantId),
-                token);
             _logger.LogInformation(
-                "LeaveScheduler [{Tenant}]: published RunLeavePeriodGrant FY{Year} (startMonth={Month})",
-                tenantId, fiscalYear, fiscalStartMonth);
+                "LeaveScheduler [{Tenant}]: another instance already handled {Date}, skipping",
+                tenantId, today);
+            return;
         }
 
-        // ── Monthly accrual — 1st of every month ──────────────────────────────
-        if (today.Day == 1)
+        try
         {
-            await publisher.Publish<RunLeaveAccrual>(
-                new RunLeaveAccrual(today, fiscalStartMonth),
-                SetTenantHeader(tenantId),
-                token);
-            _logger.LogInformation(
-                "LeaveScheduler [{Tenant}]: published RunLeaveAccrual {Date}", tenantId, today);
+            // ── Fiscal year period grant — first day of the fiscal year ────────────
+            if (FiscalYearHelper.IsFiscalYearStart(today, fiscalStartMonth))
+            {
+                var fiscalYear = FiscalYearHelper.FiscalYearOf(today, fiscalStartMonth);
+                await publisher.Publish<RunLeavePeriodGrant>(
+                    new RunLeavePeriodGrant(fiscalYear, fiscalStartMonth),
+                    SetTenantHeader(tenantId),
+                    token);
+                _logger.LogInformation(
+                    "LeaveScheduler [{Tenant}]: published RunLeavePeriodGrant FY{Year} (startMonth={Month})",
+                    tenantId, fiscalYear, fiscalStartMonth);
+            }
 
-            // Uniform Allowance's monthly accrual rides this same tick -- see
-            // UniformAllowanceAccrualWorker (Hrms.Core.Messaging.BenefitWorkers). Not
-            // fiscal-year-anchored, so no FiscalYearStartMonth is needed here.
-            await publisher.Publish<RunUniformAllowanceAccrual>(
-                new RunUniformAllowanceAccrual(today),
-                SetTenantHeader(tenantId),
-                token);
-            _logger.LogInformation(
-                "LeaveScheduler [{Tenant}]: published RunUniformAllowanceAccrual {Date}", tenantId, today);
+            // ── Monthly accrual — 1st of every month ──────────────────────────────
+            if (today.Day == 1)
+            {
+                await publisher.Publish<RunLeaveAccrual>(
+                    new RunLeaveAccrual(today, fiscalStartMonth),
+                    SetTenantHeader(tenantId),
+                    token);
+                _logger.LogInformation(
+                    "LeaveScheduler [{Tenant}]: published RunLeaveAccrual {Date}", tenantId, today);
+
+                // Uniform Allowance's monthly accrual rides this same tick -- see
+                // UniformAllowanceAccrualWorker (Hrms.Core.Messaging.BenefitWorkers). Not
+                // fiscal-year-anchored, so no FiscalYearStartMonth is needed here.
+                await publisher.Publish<RunUniformAllowanceAccrual>(
+                    new RunUniformAllowanceAccrual(today),
+                    SetTenantHeader(tenantId),
+                    token);
+                _logger.LogInformation(
+                    "LeaveScheduler [{Tenant}]: published RunUniformAllowanceAccrual {Date}", tenantId, today);
+            }
+
+            // ── Fiscal year-end carry-over — last day of the fiscal year ──────────
+            if (FiscalYearHelper.IsFiscalYearEnd(today, fiscalStartMonth))
+            {
+                var fiscalYear = FiscalYearHelper.FiscalYearOf(today, fiscalStartMonth);
+                await publisher.Publish<RunLeaveCarryOver>(
+                    new RunLeaveCarryOver(fiscalYear, fiscalStartMonth),
+                    SetTenantHeader(tenantId),
+                    token);
+                _logger.LogInformation(
+                    "LeaveScheduler [{Tenant}]: published RunLeaveCarryOver FY{Year} (startMonth={Month})",
+                    tenantId, fiscalYear, fiscalStartMonth);
+            }
         }
-
-        // ── Fiscal year-end carry-over — last day of the fiscal year ──────────
-        if (FiscalYearHelper.IsFiscalYearEnd(today, fiscalStartMonth))
+        finally
         {
-            var fiscalYear = FiscalYearHelper.FiscalYearOf(today, fiscalStartMonth);
-            await publisher.Publish<RunLeaveCarryOver>(
-                new RunLeaveCarryOver(fiscalYear, fiscalStartMonth),
-                SetTenantHeader(tenantId),
-                token);
-            _logger.LogInformation(
-                "LeaveScheduler [{Tenant}]: published RunLeaveCarryOver FY{Year} (startMonth={Month})",
-                tenantId, fiscalYear, fiscalStartMonth);
+            await cache.ReleaseLockAsync(lockKey, lockToken);
         }
     }
 

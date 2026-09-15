@@ -21,5 +21,10 @@ public class UniformAllowanceLedgerConfig : IEntityTypeConfiguration<UniformAllo
             .HasConversion(
                 v => v.ToString(),
                 v => EnumParserConfig.SafeParseEnum(v, UniformAllowanceEntryType.Adjustment));
+
+        builder.Property(x => x.AccrualDedupeKey).HasMaxLength(100);
+        // Null for every non-Accrual entry -- multiple nulls never collide in a unique index,
+        // so this only actually constrains Accrual rows. See UniformAllowanceAccrualWorker.
+        builder.HasIndex(x => x.AccrualDedupeKey).IsUnique();
     }
 }

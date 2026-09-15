@@ -12,8 +12,11 @@ namespace Hrms.Core.Messaging.BenefitWorkers;
 // UniformAllowanceFund.Balance.
 //
 // Idempotency: before accruing each employee, checks whether an Accrual ledger entry already
-// exists for the same year+month -- mirrors LeaveAccrualWorker's exact idempotency shape. Safe
-// to redeliver.
+// exists for the same year+month (fast pre-check). UniformAllowanceLedger.AccrualDedupeKey (a
+// unique index, populated only for Accrual entries) is the hard stop if two instances/
+// redeliveries race past that check -- see UniformAllowanceFundService.AccrueAsync, which
+// commits per employee (not batched) specifically so one collision can't roll back another
+// employee's legitimate accrual in the same run. Mirrors LeaveAccrualWorker exactly.
 //
 // Eligibility: only employees whose EmploymentStatus is Regular/Probationary/Contract accrue
 // (mirrors LeavePeriodGrantWorker's active-employee whitelist) -- unlike Retirement's per-cutoff
@@ -100,12 +103,20 @@ public class UniformAllowanceAccrualWorker : IConsumer<RunUniformAllowanceAccrua
             var presentDaysThisMonth = presentDaysCounts.GetValueOrDefault(employee.Id);
             if (!IsMonthEarned(client.UniformAllowanceBasis, monthsServed, presentDaysThisMonth)) continue;
 
-            await _fundService.AccrueAsync(
+            var committed = await _fundService.AccrueAsync(
                 employee.Id, rate, processDate, $"Uniform allowance accrual — {processDate:MMM yyyy}", token);
-            count++;
+            if (committed)
+            {
+                count++;
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Duplicate accrual skipped for employee {EmployeeId} ({Date}) — already committed by another instance/redelivery",
+                    employee.Id, processDate);
+            }
         }
 
-        await _uow.CommitChangesAsync("", token);
         _logger.LogInformation("Uniform allowance accrual {Date}: processed {Count} employee(s)", processDate, count);
     }
 

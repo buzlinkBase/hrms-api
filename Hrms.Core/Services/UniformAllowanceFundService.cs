@@ -1,4 +1,5 @@
 using Hrms.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Hrms.Core.Services;
 
@@ -29,14 +30,18 @@ public class UniformAllowanceFundService : BaseService<UniformAllowanceFund>
         return fund;
     }
 
-    // UniformAllowanceAccrualWorker's monthly credit. Deliberately does NOT commit -- the worker
-    // calls this once per eligible employee within a single run and commits once at the end,
-    // matching LeaveAccrualWorker's one-commit-per-run shape.
-    public async Task AccrueAsync(Guid employeeId, decimal amount, DateOnly entryDate, string particulars, CancellationToken token)
+    // UniformAllowanceAccrualWorker's monthly credit. Commits per employee (not batched into one
+    // SaveChanges for the whole run) specifically so a duplicate-key collision on one employee
+    // can never roll back another employee's legitimate accrual in the same run -- this worker
+    // only fires once a month, so the extra round-trips are a non-issue. Returns false if this
+    // employee's accrual for this month was already committed by another instance/redelivery
+    // (caught via AccrualDedupeKey's unique index, the hard stop behind the worker's own
+    // pre-check query), true otherwise.
+    public async Task<bool> AccrueAsync(Guid employeeId, decimal amount, DateOnly entryDate, string particulars, CancellationToken token)
     {
         var fund = await GetOrCreateFundAsync(employeeId, token);
         fund.Balance += amount;
-        Context.UniformAllowanceLedgers.Add(new UniformAllowanceLedger
+        var ledgerEntry = new UniformAllowanceLedger
         {
             EmployeeId = employeeId,
             UniformAllowanceFund = fund,
@@ -45,8 +50,30 @@ public class UniformAllowanceFundService : BaseService<UniformAllowanceFund>
             Add = amount,
             Balance = fund.Balance,
             Particulars = particulars,
-        });
+            AccrualDedupeKey = $"{employeeId}|{entryDate:yyyy-MM}",
+        };
+        Context.UniformAllowanceLedgers.Add(ledgerEntry);
+
+        try
+        {
+            await CommitChangesAsync(token);
+            return true;
+        }
+        catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
+        {
+            // Revert the in-memory mutation and detach the failed insert -- otherwise EF's
+            // change tracker would keep retrying both on the NEXT employee's commit (a single
+            // DbContext lives for the whole worker run), poisoning every remaining employee.
+            fund.Balance -= amount;
+            Context.Entry(fund).State = EntityState.Unchanged;
+            Context.Entry(ledgerEntry).State = EntityState.Detached;
+            return false;
+        }
     }
+
+    private static bool IsDuplicateKeyException(DbUpdateException ex) =>
+        ex.InnerException?.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase) == true ||
+        ex.InnerException?.Message.Contains("unique", StringComparison.OrdinalIgnoreCase)    == true;
 
     // Manual HR correction -- an additive delta + direction, not "set a new balance": a Remove
     // is clamped so it can never drive Balance negative.

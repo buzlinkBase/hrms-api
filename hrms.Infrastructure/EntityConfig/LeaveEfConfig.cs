@@ -199,6 +199,10 @@ namespace Hrms.Infrastructure.EntityConfig
             builder.Property(x => x.Less).HasPrecision(18, 4);
             builder.Property(x => x.Balance).HasPrecision(18, 4);
             builder.Property(x => x.DtrBatchCode).HasMaxLength(100);
+            builder.Property(x => x.AccrualDedupeKey).HasMaxLength(100);
+            // Null for every non-Accrual entry -- multiple nulls never collide in a unique
+            // index, so this only actually constrains Accrual rows. See LeaveAccrualWorker.
+            builder.HasIndex(x => x.AccrualDedupeKey).IsUnique();
 
             builder.HasOne(x => x.Leave).WithMany().HasForeignKey(x => x.LeaveId).OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(x => x.LeaveCredits).WithMany().HasForeignKey(x => x.LeaveCreditsId).OnDelete(DeleteBehavior.Restrict);

@@ -144,4 +144,11 @@ public class LeaveLedger : BaseEntity
     public Guid? ReferenceApplicationId { get; set; }
     public virtual LeaveApplication? Application { get; set; }
     public string? DtrBatchCode { get; set; }   // set on Phase 2 Deduction/Released entries — links ledger to the DTR batch
+
+    // Multi-instance safety net for LeaveAccrualWorker: populated ONLY for EntryType.Accrual
+    // entries as "{LeaveCreditsId}|{yyyy-MM}", left null for every other entry type. The unique
+    // index on this column (LeaveEfConfig) is the hard stop if two instances/redeliveries race
+    // past the worker's own pre-check query -- multiple nulls never collide, so Grant/
+    // Adjustment/Deduction/etc. entries are unaffected.
+    public string? AccrualDedupeKey { get; set; }
 }

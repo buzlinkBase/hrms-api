@@ -103,5 +103,6 @@ public class LeaveGrantOnEventWorkerDefinition : ConsumerDefinition<LeaveGrantOn
     public LeaveGrantOnEventWorkerDefinition()
     {
         EndpointName = "hrms-leave-grant-event-que";
+        ConcurrentMessageLimit = 1;
     }
 }

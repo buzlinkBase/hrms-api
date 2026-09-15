@@ -38,4 +38,11 @@ public class UniformAllowanceLedger : BaseEntity
     public decimal Less { get; set; }
     public decimal Balance { get; set; }   // running balance after this entry
     public string Particulars { get; set; } = string.Empty;
+
+    // Multi-instance safety net for UniformAllowanceAccrualWorker: populated ONLY for
+    // EntryType.Accrual entries as "{EmployeeId}|{yyyy-MM}", left null for every other entry
+    // type. The unique index on this column is the hard stop if two instances/redeliveries race
+    // past the worker's own pre-check query -- multiple nulls never collide, so Adjustment/
+    // Release entries are unaffected.
+    public string? AccrualDedupeKey { get; set; }
 }
