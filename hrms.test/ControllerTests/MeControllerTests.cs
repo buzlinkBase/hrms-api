@@ -224,7 +224,7 @@ public class MeControllerTests
         // call returns null with it, which short-circuits AddAsync before it ever persists —
         // fine for these tests, which only assert on the EmployeeId/ApprovalStatus forced onto
         // the payload BEFORE AddAsync is called, not on what (if anything) gets saved.
-        var approvalEngineService = new ApprovalEngineService(uow);
+        var approvalEngineService = new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>());
         var leaveApplicationService = new LeaveApplicationService(
             uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
             Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>(),

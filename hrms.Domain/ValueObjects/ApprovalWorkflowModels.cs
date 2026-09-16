@@ -71,5 +71,10 @@ public class ApprovalInstanceResponse
     // Lets the frontend's approve/decline modal know whether to show/require a note field before
     // the caller acts -- None for the implicit fallback step (no workflow configured).
     public NoteRequirement CurrentStepNoteRequirement { get; set; } = NoteRequirement.None;
+    // Resolved server-side so the Employee Portal's "pending with X" display needs no extra
+    // Employee/Department/Position lookups of its own. Null once Status is no longer InProgress,
+    // or for the implicit fallback step (no workflow configured).
+    public ApproverType? CurrentStepApproverType { get; set; }
+    public string? CurrentStepApproverLabel { get; set; }
     public List<ApprovalActionResponse> Actions { get; set; } = [];
 }

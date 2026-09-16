@@ -3,6 +3,7 @@ using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MapsterMapper;
+using MassTransit;
 using MockQueryable.NSubstitute;
 using NSubstitute;
 
@@ -90,7 +91,7 @@ public class DeductionApplicationServiceTests
             new PositionService(uow),
             new SectionService(uow));
         var deductionService = new DeductionService(uow);
-        var approvalEngine = new ApprovalEngineService(uow);
+        var approvalEngine = new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>());
 
         return new DeductionApplicationService(uow, deductionService, employeeService, Substitute.For<IMapper>(), approvalEngine);
     }

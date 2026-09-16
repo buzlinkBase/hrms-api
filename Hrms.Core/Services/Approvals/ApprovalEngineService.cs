@@ -1,5 +1,6 @@
 using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
+using MassTransit;
 
 namespace Hrms.Core.Services.Approvals;
 
@@ -18,15 +19,21 @@ public record ApprovalActionResult(ApprovalInstanceStatus InstanceStatus, int Cu
 // see ApprovalEligibilityTests and MeControllerTests' portal-application tests.
 //
 // Neither method commits -- callers own the transaction boundary so the instance/action write
-// and the application's own ApprovalStatus write land in one CommitChangesAsync.
+// and the application's own ApprovalStatus write land in one CommitChangesAsync. Publishing
+// notification events (see PublishStepNotificationAsync/PublishResolutionNotificationAsync)
+// happens before that commit too, on purpose -- the EF outbox (AddEntityFrameworkOutbox +
+// UseBusOutbox in RabbitMqConfiguration) only actually delivers a Publish call made within the
+// same DbContext transaction as the eventual SaveChanges, so it has to happen here, not after.
 public class ApprovalEngineService
 {
     private readonly IUnitOfWorkService _uow;
+    private readonly IPublishEndpoint _publisher;
     private readonly ApproverEligibilityResolver _eligibility = new();
 
-    public ApprovalEngineService(IUnitOfWorkService uow)
+    public ApprovalEngineService(IUnitOfWorkService uow, IPublishEndpoint publisher)
     {
         _uow = uow;
+        _publisher = publisher;
     }
 
     public async Task<ApprovalInstance> StartAsync(
@@ -57,6 +64,11 @@ public class ApprovalEngineService
             Status = ApprovalInstanceStatus.InProgress,
         };
         await _uow.Repository.AddAsync(instance, token);
+
+        var firstStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
+        if (firstStep != null)
+            await PublishStepNotificationAsync(instance, firstStep, applicant, token);
+
         return instance;
     }
 
@@ -84,6 +96,9 @@ public class ApprovalEngineService
         ApprovalApplicationType type, Guid applicationId, CancellationToken token = default) =>
         await _uow.Repository.Find<ApprovalInstance>(i => i.ApplicationType == type && i.ApplicationId == applicationId)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.NamedApprovers)
+            .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverEmployee)
+            .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverDepartment)
+            .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverPosition)
             .Include(i => i.Actions)
             .FirstOrDefaultAsync(token);
 
@@ -155,6 +170,7 @@ public class ApprovalEngineService
         {
             instance.Status = ApprovalInstanceStatus.Declined;
             _uow.Repository.Update(instance);
+            await PublishResolutionNotificationAsync(instance, applicant, note, token);
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
         }
 
@@ -174,18 +190,121 @@ public class ApprovalEngineService
         if (instance.CurrentStepNumber >= totalSteps)
         {
             instance.Status = ApprovalInstanceStatus.Approved;
+            _uow.Repository.Update(instance);
+            await PublishResolutionNotificationAsync(instance, applicant, note, token);
         }
         else
         {
             instance.CurrentStepNumber += 1;
+            _uow.Repository.Update(instance);
+            var nextStep = CurrentStep(instance);
+            if (nextStep != null)
+                await PublishStepNotificationAsync(instance, nextStep, applicant, token);
         }
 
-        _uow.Repository.Update(instance);
         return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
     }
 
     private static ApprovalWorkflowStep? CurrentStep(ApprovalInstance instance) =>
         instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == instance.CurrentStepNumber);
+
+    // Who a step's ApproverType actually resolves to right now, for notification purposes -- the
+    // same resolution rules ApproverEligibilityResolver checks against a single caller, just
+    // materialized into the full candidate list here since a notification may need to reach
+    // several people (a whole department/position pool) rather than approve/reject one.
+    private async Task<List<(string Email, string Name)>> ResolveNotificationRecipientsAsync(
+        ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
+    {
+        List<Employee> candidates;
+        switch (step.ApproverType)
+        {
+            case ApproverType.Person:
+                candidates = step.ApproverEmployeeId is { } personId
+                    ? await _uow.Repository.Find<Employee>(e => e.Id == personId).AsNoTracking().ToListAsync(token)
+                    : [];
+                break;
+            case ApproverType.Department:
+                candidates = step.ApproverDepartmentId is { } deptId
+                    ? await _uow.Repository.Find<Employee>(e => e.DepartmentId == deptId && e.UserId != null).AsNoTracking().ToListAsync(token)
+                    : [];
+                break;
+            case ApproverType.Position:
+                candidates = step.ApproverPositionId is { } posId
+                    ? await _uow.Repository.Find<Employee>(e => e.PositionId == posId && e.UserId != null).AsNoTracking().ToListAsync(token)
+                    : [];
+                break;
+            case ApproverType.ApplicantManager:
+                candidates = applicant.ManagerId is { } managerId
+                    ? await _uow.Repository.Find<Employee>(e => e.Id == managerId).AsNoTracking().ToListAsync(token)
+                    : [];
+                break;
+            case ApproverType.ApplicantDepartment:
+                candidates = applicant.DepartmentId is { } applicantDeptId
+                    ? await _uow.Repository.Find<Employee>(e => e.DepartmentId == applicantDeptId && e.UserId != null).AsNoTracking().ToListAsync(token)
+                    : [];
+                break;
+            default:
+                candidates = [];
+                break;
+        }
+
+        var namedIds = step.NamedApprovers.Select(a => a.EmployeeId).ToHashSet();
+        if (namedIds.Count > 0)
+            candidates = candidates.Where(c => namedIds.Contains(c.Id)).ToList();
+
+        return candidates
+            .Where(c => !string.IsNullOrWhiteSpace(c.Email))
+            .Select(c => (c.Email!, $"{c.FirstName} {c.LastName}".Trim()))
+            .ToList();
+    }
+
+    private async Task PublishStepNotificationAsync(
+        ApprovalInstance instance, ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
+    {
+        var recipients = await ResolveNotificationRecipientsAsync(step, applicant, token);
+        var totalSteps = instance.Workflow?.Steps.Count ?? 1;
+        var applicantName = $"{applicant.FirstName} {applicant.LastName}".Trim();
+
+        foreach (var (email, name) in recipients)
+        {
+            await _publisher.Publish(new ApprovalNotificationRequested
+            {
+                RecipientEmail = email,
+                RecipientName = name,
+                ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
+                ApplicantName = applicantName,
+                StatusLabel = "Pending Your Approval",
+                StepNumber = instance.CurrentStepNumber,
+                TotalSteps = totalSteps,
+            }, token);
+        }
+    }
+
+    private async Task PublishResolutionNotificationAsync(
+        ApprovalInstance instance, Employee applicant, string? note, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(applicant.Email)) return;
+
+        await _publisher.Publish(new ApprovalNotificationRequested
+        {
+            RecipientEmail = applicant.Email!,
+            RecipientName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
+            ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
+            ApplicantName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
+            StatusLabel = instance.Status == ApprovalInstanceStatus.Approved ? "Approved" : "Declined",
+            Note = note,
+        }, token);
+    }
+
+    private static string ApplicationTypeLabel(ApprovalApplicationType type) => type switch
+    {
+        ApprovalApplicationType.Leave => "Leave",
+        ApprovalApplicationType.Overtime => "Overtime",
+        ApprovalApplicationType.OfficialBusiness => "Official Business",
+        ApprovalApplicationType.PassSlip => "Pass Slip",
+        ApprovalApplicationType.Loan => "Loan/Deduction",
+        _ => type.ToString(),
+    };
 
     // Maps the engine's own instance status back onto each of the 5 applications' pre-existing
     // ApprovalStatus enum, so every current report/query that reads that field keeps working

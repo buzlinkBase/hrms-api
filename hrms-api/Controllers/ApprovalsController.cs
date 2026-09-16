@@ -40,17 +40,40 @@ namespace Hrms.Api.Controllers
             _ => throw new ArgumentOutOfRangeException(nameof(type)),
         };
 
+        // Two ways in: the admin/HR coarse {Row}:View permission (today's case), or being the
+        // applicant looking at their own submission's progress from the Employee Portal -- the
+        // portal's self-service screens have no {Row}:View grant at all, so without this an
+        // employee could never see "pending with X" on their own request.
         [HttpGet("{applicationType}/{applicationId}")]
         [ProducesResponseType(typeof(ResponseModel<ApprovalInstanceResponse>), 200)]
         public async Task<IActionResult> Get(ApprovalApplicationType applicationType, Guid applicationId, CancellationToken token)
         {
-            if (!User.HasAnyPermission($"{PermissionPrefix(applicationType)}:View"))
-                return Forbid();
-
             var instance = await _approvalEngine.GetInstanceAsync(applicationType, applicationId, token);
             if (instance == null) return NotFound();
 
-            var currentStep = instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == instance.CurrentStepNumber);
+            if (!User.HasAnyPermission($"{PermissionPrefix(applicationType)}:View"))
+            {
+                var callerEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                    User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+                var isOwner = callerEmployeeId is { } id && id == instance.ApplicantEmployeeId;
+                if (!isOwner) return Forbid();
+            }
+
+            var currentStep = instance.Status == ApprovalInstanceStatus.InProgress
+                ? instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == instance.CurrentStepNumber)
+                : null;
+
+            var approverLabel = currentStep?.ApproverType switch
+            {
+                ApproverType.Person => currentStep.ApproverEmployee != null
+                    ? $"{currentStep.ApproverEmployee.FirstName} {currentStep.ApproverEmployee.LastName}".Trim()
+                    : null,
+                ApproverType.Department => currentStep.ApproverDepartment?.Name,
+                ApproverType.Position => currentStep.ApproverPosition?.Name,
+                ApproverType.ApplicantManager => "Your Manager",
+                ApproverType.ApplicantDepartment => "Your Department",
+                _ => null,
+            };
 
             return Ok(new ApprovalInstanceResponse
             {
@@ -61,6 +84,8 @@ namespace Hrms.Api.Controllers
                 TotalSteps = instance.Workflow?.Steps.Count ?? 1,
                 Status = instance.Status,
                 CurrentStepNoteRequirement = currentStep?.NoteRequirement ?? NoteRequirement.None,
+                CurrentStepApproverType = currentStep?.ApproverType,
+                CurrentStepApproverLabel = approverLabel,
                 Actions = instance.Actions
                     .OrderBy(a => a.CreatedAt)
                     .Select(a => new ApprovalActionResponse
