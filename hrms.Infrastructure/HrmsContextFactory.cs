@@ -26,8 +26,9 @@ public class HrmsContextFactory : IDesignTimeDbContextFactory<HrmsContext>
         {
             throw new InvalidOperationException("Could not find 'connection string'. Check your appsettings.json path.");
         }
+
         var optionsBuilder = new DbContextOptionsBuilder<HrmsContext>();
-        var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
+        var serverVersion = ServerVersion.AutoDetect(connectionString);// new MySqlServerVersion(new Version(9, 2, 0));
         optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
         return new HrmsContext(optionsBuilder.Options, null!, null!, null!);
 

@@ -165,7 +165,7 @@ public static class ServiceRegistrationsExt
             {
                 connectionString = _tenantConnectionInfo.ConnectionString;
             }
-            var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
+            var serverVersion = ServerVersion.AutoDetect(connectionString);//new MySqlServerVersion(new Version(9, 2, 0));
             optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
             optionsBuilder.UseLazyLoadingProxies(true);
             optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(_tenantProvider));
@@ -181,11 +181,11 @@ public static class ServiceRegistrationsExt
                     "http://159.89.194.81:8001",
                     "http://159.89.194.81:8002",
                     "http://159.89.194.81:8003",
-                    "http://198.211.112.14:8082",
-                    "http://198.211.112.14:8083",
-                    "http://198.211.112.14:8084",
-                    "http://198.211.112.14:8085",
-                    "http://198.211.112.14:8086",
+                    "http://165.232.166.164:8082",
+                    "http://165.232.166.164:8083",
+                    "http://165.232.166.164:8084",
+                    "http://165.232.166.164:8085",
+                    "http://165.232.166.164:8086",
                     "https://hris.onepunch.site",
                     "https://hris-dev.onepunch.site",
                     "https://hris-staging.onepunch.site",

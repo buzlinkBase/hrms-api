@@ -3,7 +3,6 @@ using Ganss.Excel;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Hosting;
-using System.Linq;
 
 
 namespace Hrms.Core.Services;
@@ -43,7 +42,6 @@ public class EmployeeImportService
             HeaderRowNumber = 1,
             MinRowNumber = 2,
         };
-
         MapFields(mapper);
         var data = mapper.Fetch<EmployeeImportModel>().ToList();
         var allEmployees = await GetAllEmployees(token);
@@ -216,6 +214,8 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("LastName", p => p.LastName);
         mapper.AddMapping<EmployeeImportModel>("Suffix", p => p.Suffix);
         mapper.AddMapping<EmployeeImportModel>("Gender", p => p.Gender);
+        mapper.AddMapping<EmployeeImportModel>("Email", p => p.Email);
+
         mapper.AddMapping<EmployeeImportModel>("Rest Day 1", p => p.RestDay1);
         mapper.AddMapping<EmployeeImportModel>("Rest Day 2", p => p.RestDay2);
         mapper.AddMapping<EmployeeImportModel>("Department Name", p => p.DepartmentName);
@@ -230,6 +230,7 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("Break Duration", p => p.BreakDuration);
         mapper.AddMapping<EmployeeImportModel>("Max Working Minutes", p => p.MaxWorkingMinutes);
         mapper.AddMapping<EmployeeImportModel>("PaidLunchBreak", p => p.PaidLunchBreak);
+
         mapper.AddMapping<EmployeeImportModel>("SSS", p => p.SSS);
         mapper.AddMapping<EmployeeImportModel>("PHIC", p => p.PHIC);
         mapper.AddMapping<EmployeeImportModel>("HDMF", p => p.HDMF);
@@ -241,6 +242,7 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("EOM2", p => p.EOM2);
         mapper.AddMapping<EmployeeImportModel>("EOM3", p => p.EOM3);
         mapper.AddMapping<EmployeeImportModel>("EOM4", p => p.EOM4);
+
 
         //mapper.AddMapping<EmployeeImportModel>("PayrollFrequency", p => p.PayrollFrequency);
         //mapper.AddMapping<EmployeeImportModel>("CutoffDay1", p => p.CutoffDay1);
@@ -740,6 +742,7 @@ public class EmployeeImportModel
     public string FirstName { get; set; }
     public string MiddleName { get; set; }
     public string LastName { get; set; }
+    public string Email { get; set; }
     public string Suffix { get; set; }
     public string Gender { get; set; }
     public string RestDay1 { get; set; }
