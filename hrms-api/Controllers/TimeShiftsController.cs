@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -37,6 +38,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Time Shift Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<TimeShiftModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateTimeShift payload, CancellationToken token)
         {
@@ -44,6 +46,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Time Shift Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<TimeShiftModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateTimeShift payload, CancellationToken token)
         {
@@ -52,6 +55,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Time Shift Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

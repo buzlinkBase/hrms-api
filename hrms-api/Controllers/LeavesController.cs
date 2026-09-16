@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Core.Messaging.LeaveWorkers;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -43,6 +44,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Leave Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<LeaveModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateLeave payload, CancellationToken token)
         {
@@ -53,6 +55,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Leave Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<LeaveModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateLeave payload, CancellationToken token)
         {
@@ -62,6 +65,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Leave Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
@@ -75,6 +79,7 @@ namespace Hrms.Api.Controllers
         /// Defaults to the current year if no year is provided.
         /// </summary>
         [HttpPost("credits/grant")]
+        [RequirePermission("Leave Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> TriggerPeriodGrant(
             [FromServices] IPublishEndpoint publisher,
@@ -114,6 +119,7 @@ namespace Hrms.Api.Controllers
         /// LeaveCredits row if one doesn't exist yet for that employee/leave/year.
         /// </summary>
         [HttpPost("credits/adjust")]
+        [RequirePermission("Leave Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> AdjustCredits([FromBody] AdjustLeaveCreditsPayload payload, CancellationToken token)
         {

@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Hrms.Api.Documents;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,7 +42,10 @@ namespace Hrms.Api.Controllers
             _mapper = mapper;
         }
 
+        // Dev/test-only bulk fake-data seeding -- gated like any other Create/Delete action
+        // rather than left open, even though it's not really a "Setup" screen.
         [HttpPost("seed/{count:int}")]
+        [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Seed(int count, CancellationToken token)
         {
@@ -50,6 +54,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("seed")]
+        [RequirePermission("Workforce Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> RemoveSeeded(CancellationToken token)
         {
@@ -91,6 +96,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateEmployee payload, CancellationToken token)
         {
@@ -101,6 +107,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Workforce Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmployee payload, CancellationToken token)
         {
@@ -110,6 +117,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Workforce Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
@@ -118,6 +126,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("upload-employees")]
+        [RequirePermission("Workforce Setup:Create")]
         [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         [ProducesResponseType(400)]

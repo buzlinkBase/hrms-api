@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -38,6 +39,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Statutory Tables:Create")]
         [ProducesResponseType(typeof(ResponseModel<SSSModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateSSS payload, CancellationToken token)
         {
@@ -48,6 +50,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Statutory Tables:Edit")]
         [ProducesResponseType(typeof(ResponseModel<SSSModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateSSS payload, CancellationToken token)
         {
@@ -57,6 +60,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Statutory Tables:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

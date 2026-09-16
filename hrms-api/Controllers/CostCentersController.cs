@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,6 +23,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Organization Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<CostCenterModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateCostCenter payload, CancellationToken token)
         {
@@ -48,6 +50,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Organization Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<CostCenterModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateCostCenter payload, CancellationToken token)
         {
@@ -57,6 +60,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Organization Setup:Delete")]
         [ProducesResponseType(204)]
         public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken token)
         {

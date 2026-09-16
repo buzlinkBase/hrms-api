@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -46,6 +47,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Organization Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<SectionModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateSection payload, CancellationToken token)
         {
@@ -56,6 +58,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Organization Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<SectionModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateSection payload, CancellationToken token)
         {
@@ -65,6 +68,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Organization Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

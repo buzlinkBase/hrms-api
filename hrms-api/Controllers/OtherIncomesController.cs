@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,6 +40,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Deductions & Income Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<OtherIncomeModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateOtherIncome payload, CancellationToken token)
         {
@@ -49,6 +51,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Deductions & Income Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<OtherIncomeModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateOtherIncome payload, CancellationToken token)
         {
@@ -58,6 +61,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Deductions & Income Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
