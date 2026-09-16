@@ -7,6 +7,9 @@ public class Employee : BaseEntity
     public string? Email { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
+    // Direct-reports-only reporting line (no multi-level traversal) — see EmployeeService.
+    // GetDirectReportsAsync and Manager/DirectReports below.
+    public Guid? ManagerId { get; set; }
     public Guid PayrollGroupId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? AreaId { get; set; }
@@ -93,7 +96,12 @@ public class Employee : BaseEntity
     public virtual Client? Client { get; set; }
     public virtual Branch? Branch { get; set; }
     public virtual Department? Department { get; set; }
-    public virtual Department? HeadedDepartment { get; set; }
+    // The one "who's in charge of whom" relationship in the system — see Employee.ManagerId
+    // above (Department.HeadId was retired in favor of this: a per-employee reporting line
+    // works regardless of department boundaries, where a single per-department head couldn't
+    // express a supervisor managing a cross-department or partial team).
+    public virtual Employee? Manager { get; set; }
+    public virtual ICollection<Employee> DirectReports { get; set; }
     public virtual Position? Position { get; set; }
     public virtual CostCenters? Area { get; set; }
     public virtual ICollection<RestDay> RestDays { get; set; }

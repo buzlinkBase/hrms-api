@@ -41,6 +41,15 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
             .WithMany(d => d.Employees) // Links to the collection in Department
             .HasForeignKey(e => e.DepartmentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Self-referencing "reports to" line -- Restrict (not Cascade), so deleting a manager
+        // is blocked while they still have direct reports rather than silently orphaning/
+        // cascading through the whole team.
+        builder
+            .HasOne(e => e.Manager)
+            .WithMany(e => e.DirectReports)
+            .HasForeignKey(e => e.ManagerId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 public class SSSRateConfig : IEntityTypeConfiguration<SSSRate>

@@ -68,6 +68,19 @@ public class EmployeeService : BaseService<Employee>
                 return new EvaluationResult("Invalid Section");
             }
         }
+
+        if (model.ManagerId.HasValue && model.ManagerId != Guid.Empty)
+        {
+            if (model.ManagerId == model.Id)
+            {
+                return new EvaluationResult("An employee cannot be their own manager");
+            }
+            var manager = await FineOneAsync(model.ManagerId.Value, token);
+            if (manager == null)
+            {
+                return new EvaluationResult("Invalid Manager");
+            }
+        }
         return await base.CreateValidatorAsync(model, token);
     }
 
@@ -383,7 +396,8 @@ public class EmployeeService : BaseService<Employee>
             (filter.DepartmentId == null || x.DepartmentId == filter.DepartmentId.Value) &&
             (filter.ClientId == null || x.ClientId == filter.ClientId.Value) &&
             (filter.PayrollGroupId == null || x.PayrollGroupId == filter.PayrollGroupId.Value) &&
-            (filter.OperationAreaId == null || x.AreaId == filter.OperationAreaId.Value))
+            (filter.OperationAreaId == null || x.AreaId == filter.OperationAreaId.Value) &&
+            (filter.ManagerId == null || x.ManagerId == filter.ManagerId.Value))
             .ProjectToType<EmployeeFilterResponseModel>()
             .ToListAsync(token);
 

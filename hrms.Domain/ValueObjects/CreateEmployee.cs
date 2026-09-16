@@ -12,6 +12,10 @@ public record EmployeeFilter
     public Guid? BranchId { get; set; }
     public Guid? OperationAreaId { get; set; }
     public DayName? DayName { get; set; }
+    // Direct reports of this employee (Employee.ManagerId) -- e.g. a supervisor's own scoped
+    // Work Rotation picker, or the server-side check that a submitted employeeId is actually
+    // one of the caller's direct reports.
+    public Guid? ManagerId { get; set; }
 
 }
 public class CreateEmployee
@@ -19,6 +23,8 @@ public class CreateEmployee
     public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
+    // "Reports To" -- see Employee.ManagerId.
+    public Guid? ManagerId { get; set; }
     public Guid? PayrollGroupId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? AreaId { get; set; }
@@ -168,6 +174,7 @@ public class EmployeeFullModel
     public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public Guid? DepartmentId { get; set; }
+    public Guid? ManagerId { get; set; }
     public Guid? PayrollGroupId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? AreaId { get; set; }
@@ -253,6 +260,7 @@ public class EmployeeFullModel
     public string? DepartmentName { get; set; }
     public string? PositionName { get; set; }
     public string? AreaName { get; set; }
+    public string? ManagerName { get; set; }
     public string Status { get; set; }
 }
 public class EmployeeModelPayrollRun
@@ -393,6 +401,11 @@ public partial class EmployeePackModel
     [Key(14)] public List<RestDayModel> RestDays { get; set; }
     [Key(15)] public string? DepartmentName { get; set; }
     [Key(16)] public string? FullName { get; set; }
+    // Appended, not inserted -- MessagePack keys are positional wire indexes; reusing/shifting
+    // an existing [Key(N)] would corrupt any already-serialized payload (e.g. cached data) that
+    // still uses the old layout.
+    [Key(17)] public Guid? ManagerId { get; set; }
+    [Key(18)] public string? ManagerName { get; set; }
 }
 
 public class EmployeeDTRRun

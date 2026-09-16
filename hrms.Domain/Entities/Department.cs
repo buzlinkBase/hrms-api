@@ -6,7 +6,5 @@ public class Department : BaseEntity
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public Guid? HeadId { get; set; }
-    public virtual Employee?  Head { get; set; }
     public virtual ICollection<Employee> Employees { get; set; }
 }

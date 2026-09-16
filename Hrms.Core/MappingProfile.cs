@@ -85,6 +85,7 @@ public class MappingProfile : IRegister
             .Map(dest => dest.DepartmentName, src => src.Department == null ? "" : src.Department.Name)
             .Map(dest => dest.TimeShiftName, src => src.TimeShift == null ? "" : src.TimeShift.ShiftName)
             .Map(dest => dest.AreaName, src => src.Area == null ? "" : src.Area.Name)
+            .Map(dest => dest.ManagerName, src => src.Manager == null ? "" : src.Manager.FullName())
             .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup == null ? PayrollFrequency.SEMI_MONTHLY : src.PayrollGroup.PayrollFrequency);
 
         config.NewConfig<Employee, EmployeeFullModel>()
@@ -96,6 +97,7 @@ public class MappingProfile : IRegister
             .Map(dest => dest.DepartmentName, src => src.Department == null ? "" : src.Department.Name)
             .Map(dest => dest.TimeShiftName, src => src.TimeShift == null ? "" : src.TimeShift.ShiftName)
             .Map(dest => dest.AreaName, src => src.Area == null ? "" : src.Area.Name)
+            .Map(dest => dest.ManagerName, src => src.Manager == null ? "" : src.Manager.FullName())
             .Map(dest => dest.PayrollFrequency, src => src.PayrollGroup == null ? PayrollFrequency.SEMI_MONTHLY : src.PayrollGroup.PayrollFrequency);
 
         config.NewConfig<RestDayModel, RestDay>().TwoWays();
