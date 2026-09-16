@@ -1,5 +1,9 @@
+using System.Security.Claims;
 using Asp.Versioning;
+using Hrms.Api.Extensions;
+using Hrms.Core.Services;
 using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers;
@@ -13,10 +17,12 @@ namespace Hrms.Api.Controllers;
 public class WorkSchedulePlansController : ControllerBase
 {
     private readonly WorkSchedulePlanService _service;
+    private readonly EmployeeService _employeeService;
     private readonly IMapper _mapper;
-    public WorkSchedulePlansController(WorkSchedulePlanService service, IMapper mapper)
+    public WorkSchedulePlansController(WorkSchedulePlanService service, EmployeeService employeeService, IMapper mapper)
     {
         _service = service;
+        _employeeService = employeeService;
         _mapper = mapper;
     }
 
@@ -52,10 +58,45 @@ public class WorkSchedulePlansController : ControllerBase
     //    return Ok(respModel);
     //}
 
+    // Work Rotation:Create (or no relevant permission at all -- the default for every role
+    // except Owner today, since nothing has ever gated this endpoint) keeps today's exact
+    // behavior: unscoped, any employeeId accepted. Only a caller holding ManageOwnTeam WITHOUT
+    // Create -- e.g. a Supervisor Custom Role -- gets restricted to their own direct reports
+    // (Employee.ManagerId). This is deliberately never a hard 403 for the "neither permission"
+    // case, so introducing ManageOwnTeam can't retroactively lock out any current user; it's
+    // purely additive/opt-in.
+    // internal (not private) + an explicit ClaimsPrincipal param, rather than reading `User`
+    // directly, so this authorization decision is unit-testable on its own -- exercising it
+    // through the full PostBatch action would also require _service.AddRange's ExecuteDeleteAsync
+    // to run against a real relational provider, which a plain mocked-repository test can't do.
+    internal async Task<IActionResult?> ValidateTeamScopeAsync(ClaimsPrincipal user, List<Guid> employeeIds, CancellationToken token)
+    {
+        if (user.HasPermission("Work Rotation:Create")) return null;
+        if (!user.HasPermission("Work Rotation:ManageOwnTeam")) return null;
+
+        var myEmployeeId = await _employeeService.ResolveEmployeeIdAsync(user.GetRequiredUserId(), user.GetUserClaim("email"), token);
+        if (myEmployeeId == null)
+        {
+            return Forbid();
+        }
+
+        var directReports = await _employeeService.Filter(new EmployeeFilter { ManagerId = myEmployeeId }, token);
+        var allowedIds = directReports.Select(x => x.Id).ToHashSet();
+        if (employeeIds.Any(id => !allowedIds.Contains(id)))
+        {
+            return Forbid();
+        }
+
+        return null;
+    }
+
     [HttpPost("batch")]
     [ProducesResponseType(typeof(ResponseModel<List<WorkSchedulePlanModel>>), 200)]
     public async Task<IActionResult> PostBatch([FromBody] CreateWorkRotationPlanBatch payload, CancellationToken token)
     {
+        var scopeViolation = await ValidateTeamScopeAsync(User, payload.EmployeeIds, token);
+        if (scopeViolation != null) return scopeViolation;
+
         var data = new List<WorkSchedulePlan>();
         foreach (var employeeId in payload.EmployeeIds)
         {

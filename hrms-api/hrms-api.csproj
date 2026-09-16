@@ -41,6 +41,11 @@
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     </ItemGroup>
     <ItemGroup>
+        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+            <_Parameter1>hrms.test</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+    <ItemGroup>
         <ProjectReference Include="..\dtr-api\DTR.Core\DTR.Core.csproj" />
         <ProjectReference Include="..\Hrms.Core\Hrms.Core.csproj" />
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
