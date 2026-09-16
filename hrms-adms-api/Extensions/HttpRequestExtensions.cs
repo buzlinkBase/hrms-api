@@ -61,4 +61,13 @@ public static class HttpRequestExtensions
         var user = context.User;
         return GetUserClaim(user, claim);
     }
+
+    // Mirrors hrms-api's Hrms.Api.Extensions.HttpRequestExtensions -- AuthApi's JwtService embeds
+    // one "permission" claim per granted permission code, same shape on every service's tokens
+    // since they all validate against the same issuer/audience/signing key.
+    public static bool HasPermission(this ClaimsPrincipal user, string code) =>
+        user.FindAll("permission").Any(c => c.Value == code);
+
+    public static bool HasAnyPermission(this ClaimsPrincipal user, params string[] codes) =>
+        codes.Any(user.HasPermission);
 }

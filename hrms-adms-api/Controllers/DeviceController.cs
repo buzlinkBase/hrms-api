@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Hrms.adms.Extensions;
+using Hrms.adms.Filters;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -23,6 +24,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Biometric Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<UpdateBiometricDevice>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateBiometricDevice payload, CancellationToken token)
         {
@@ -33,6 +35,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Biometric Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<UpdateBiometricDevice>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateBiometricDevice payload, CancellationToken token)
         {
@@ -43,6 +46,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Biometric Setup:View")]
         [ProducesResponseType(typeof(ResponseModel<List<BiometricDeviceModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
@@ -53,6 +57,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Biometric Setup:View")]
         [ProducesResponseType(typeof(ResponseModel<BiometricDeviceModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -63,6 +68,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpGet("serial/{sn}")]
+        [RequirePermission("Biometric Setup:View")]
         [ProducesResponseType(typeof(ResponseModel<BiometricDeviceModel>), 200)]
         public async Task<IActionResult> GetBySerial(string sn, CancellationToken token)
         {
@@ -74,6 +80,7 @@ namespace Hrms.adms.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Biometric Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using Hrms.adms.Extensions;
+using Hrms.adms.Filters;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
 using Hrms.adms.Utilities;
@@ -26,6 +27,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("Biometric Setup:View")]
     public async Task<ActionResult<List<CommandReturnModel>>> GetAllPending([FromQuery] string SN)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -35,6 +37,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("sync-employees")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> Create([FromQuery] string SN, [FromBody] List<SetEmployeeCommandPayload> payload)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -77,6 +80,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("sync-biometric")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> SyncBio([FromQuery] string SN, [FromBody] List<SyncBioPayload> payload)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -117,6 +121,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("sync-face")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> SyncFace([FromQuery] string SN, [FromBody] List<SyncBioPayload> payload)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -158,6 +163,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("enroll-fp")]
+    [RequirePermission("Biometric Setup:Create")]
     public async Task<IActionResult> EnrollFinger([FromQuery] string SN, [FromBody] EnrollFPPayload payload)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -193,6 +199,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("enroll-face")]
+    [RequirePermission("Biometric Setup:Create")]
     public async Task<IActionResult> EnrollFace([FromQuery] string SN, [FromBody] EnrollFacePayload payload)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -228,6 +235,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("reboot")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> Reboot([FromQuery] string SN)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -254,6 +262,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("clear-logs")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> ClearLogs([FromQuery] string SN)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -280,6 +289,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("set-time")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> SetTime([FromQuery] string SN, [FromQuery] bool autoServerTime)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -312,6 +322,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("enable-attendance")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> EnableDevice([FromQuery] string SN, [FromQuery] int enable)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -340,6 +351,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("clear-admin")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> ClearAdmin([FromQuery] string SN)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -366,6 +378,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("pull-attendance")]
+    [RequirePermission("Biometric Setup:View")]
     public async Task<IActionResult> PullAtt([FromQuery] PullAttPayload data)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -397,6 +410,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("{sn}/query-templates")]
+    [RequirePermission("Biometric Setup:View")]
     public async Task<IActionResult> QueryTemplates(
        string sn,
        [FromQuery] string? pin = null,
@@ -447,6 +461,7 @@ public class CommandsController : ControllerBase
 
 
     [HttpPost("delete-employee")]
+    [RequirePermission("Biometric Setup:Delete")]
     public async Task<IActionResult> DeleteEmployee([FromQuery] string SN, [FromBody] List<DeleteEmployeePayload> payload)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -486,6 +501,7 @@ public class CommandsController : ControllerBase
 
 
     [HttpPost("delete-fingerprint")]
+    [RequirePermission("Biometric Setup:Delete")]
     public async Task<IActionResult> DeleteFingerprint([FromQuery] string SN, [FromBody] List<DeleteFingerprintPayload> payload)
     {
         var tenantId = HttpContext.ParseTenant();
@@ -526,6 +542,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpPost("registry")]
+    [RequirePermission("Biometric Setup:Edit")]
     public async Task<IActionResult> RegistryReset([FromQuery] string sn)
     {
         var config = new StringBuilder();
@@ -555,6 +572,7 @@ public class CommandsController : ControllerBase
     }
 
     [HttpDelete()]
+    [RequirePermission("Biometric Setup:Delete")]
     public async Task<IActionResult> Delete([FromQuery] Guid id)
     {
         var tenantId = HttpContext.ParseTenant();
