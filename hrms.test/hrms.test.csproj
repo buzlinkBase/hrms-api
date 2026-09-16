@@ -10,6 +10,8 @@
 		<PackageReference Include="FluentAssertions" />
 		<PackageReference Include="PdfSharp" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.NetTopologySuite" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
 		<PackageReference Include="MockQueryable.NSubstitute" />
 		<PackageReference Include="Moq" />

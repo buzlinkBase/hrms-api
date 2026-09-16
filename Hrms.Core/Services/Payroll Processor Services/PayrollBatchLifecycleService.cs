@@ -6,6 +6,7 @@ namespace Hrms.Core.Services;
 // which flavor of payroll (regular/13th Month/Last Pay) produced the batch.
 public class PayrollBatchLifecycleService
 {
+    private readonly IUnitOfWorkService _uow;
     private readonly PayrollBatchService _payrollBatchService;
     private readonly PayrollService _payrollService;
     private readonly SSSContributionService _sssContributionService;
@@ -17,6 +18,7 @@ public class PayrollBatchLifecycleService
     private readonly YearLockService _yearLockService;
 
     public PayrollBatchLifecycleService(
+        IUnitOfWorkService uow,
         PayrollBatchService payrollBatchService,
         PayrollService payrollService,
         SSSContributionService sssContributionService,
@@ -27,6 +29,7 @@ public class PayrollBatchLifecycleService
         PayrollInputConsumptionService consumptionService,
         YearLockService yearLockService)
     {
+        _uow = uow;
         _payrollBatchService = payrollBatchService;
         _payrollService = payrollService;
         _sssContributionService = sssContributionService;
@@ -46,15 +49,49 @@ public class PayrollBatchLifecycleService
     // PayPeriodStart is always Jan 1 of the target year — see TaxAnnualizationService.GenerateAsync)
     // so no further Regular/13th-Month/Last-Pay/Year-End-Adjustment data can be generated or
     // deleted for it without an explicit Reopen Year — see YearLockService.
+    //
+    // Runs both PostAsync calls (and, for a YearEndAdjustment batch, the year lock) as ONE
+    // atomic unit: PayrollBatchService.PostAsync flips PayrollBatch.IsPosted first, then
+    // PayrollService.PostBatchAsync does the heavier per-employee work (deduction balances,
+    // retirement fund) -- until now these were two INDEPENDENT commits. If the second call threw
+    // -- e.g. two overlapping Post attempts racing on the same employee's RetirementFund row --
+    // the first call's commit had already survived, uncommitted-but-durable. On retry,
+    // PayrollBatchService.PostAsync's own `if (batch.IsPosted) return;` guard then silently
+    // skipped stage one and only re-ran stage two, which is exactly what made a failed Post look
+    // like it needed "posting twice" to succeed.
+    //
+    // IUnitOfWorkService (BuzlinkRepository) keeps one ambient DB transaction open for its whole
+    // scoped lifetime (started when it's constructed, i.e. for the rest of this request), and
+    // CommitChangesAsync both flushes AND commits/ends that transaction -- it's meant to be
+    // called once, to finalize a unit of work. Composing two independent CommitChangesAsync
+    // calls (the old code) silently finalized the transaction after the FIRST call, so the
+    // second's changes landed outside any real transaction. The commit:false overloads below
+    // flush via SaveChangesAsync instead, without touching the transaction, so every step here
+    // joins the SAME still-open transaction; the one real CommitChangesAsync call at the end
+    // finalizes all of it together, and any exception before that point rolls the whole thing
+    // back via the still-open ambient transaction.
     public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token)
     {
-        await _payrollBatchService.PostAsync(payrollBatchId, token);
-        await _payrollService.PostBatchAsync(payrollBatchId, token);
-
-        var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token);
-        if (batch?.PayrollType == PayrollType.YearEndAdjustment)
+        try
         {
-            await _yearLockService.LockYearAsync(batch.PayPeriodStart.Year, token);
+            await _payrollBatchService.PostAsync(payrollBatchId, token, commit: false);
+            await _payrollService.PostBatchAsync(payrollBatchId, token, commit: false);
+
+            var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token);
+            if (batch?.PayrollType == PayrollType.YearEndAdjustment)
+            {
+                await _yearLockService.LockYearAsync(batch.PayPeriodStart.Year, token, commit: false);
+            }
+
+            await _payrollBatchService.CommitChangesAsync(token);
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
         }
     }
 

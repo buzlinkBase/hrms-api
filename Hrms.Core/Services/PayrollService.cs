@@ -98,7 +98,11 @@ public class PayrollService : BaseService<Payroll>
     // hot-path report filters (PayrollReportService, LoadPostedPayrollAsync above) don't
     // need to join PayrollBatch. See PayrollProcessorService.PostBatchAsync, which calls
     // this alongside PayrollBatchService.PostAsync.
-    public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token)
+    // commit=false: see PayrollBatchService.PostAsync's doc comment -- the two are only ever
+    // composed together by PayrollBatchLifecycleService.PostBatchAsync, which needs to flush
+    // both (plus, for a YearEndAdjustment batch, YearLockService.LockYearAsync) into the SAME
+    // final CommitChangesAsync so the whole Post either fully succeeds or fully rolls back.
+    public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token, bool commit = true)
     {
         // GetQueryable defaults to AsNoTracking — must opt into tracking here (noTracking:
         // false), or mutating IsPosted below never gets picked up by SaveChanges and this
@@ -112,7 +116,8 @@ public class PayrollService : BaseService<Payroll>
         await ModifyRangeAsync(payrolls, token);
         await ReduceDeductionBalancesAsync(payrolls.Select(x => x.Id).ToList(), token);
         await ProcessRetirementFundActivityAsync(payrolls, token);
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
     }
 
     // Setup > Company Policy > Minimum Take-Home Pay / loan installments — only NOW, once the

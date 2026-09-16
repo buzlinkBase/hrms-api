@@ -27,8 +27,11 @@ public class YearLockService : BaseService<YearLock>
 
     // Auto-invoked by PayrollBatchLifecycleService.PostBatchAsync when a YearEndAdjustment
     // batch is posted — idempotent (re-locking an already-locked year is a no-op beyond
-    // refreshing LockedAt).
-    public async Task LockYearAsync(int year, CancellationToken token)
+    // refreshing LockedAt). commit=false there: see PayrollBatchService.PostAsync's doc comment
+    // -- the lock needs to land in the SAME final CommitChangesAsync as the rest of that Post,
+    // not its own standalone commit, or a failure after this point wouldn't roll the lock back.
+    // YearLocksController's direct/standalone use keeps the default (commit=true).
+    public async Task LockYearAsync(int year, CancellationToken token, bool commit = true)
     {
         var existing = await GetQueryable(x => x.Year == year).FirstOrDefaultAsync(token);
         if (existing == null)
@@ -41,7 +44,8 @@ public class YearLockService : BaseService<YearLock>
             existing.LockedAt = DateTime.UtcNow;
             await ModifyAsync(existing, token);
         }
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
     }
 
     public async Task ReopenYearAsync(int year, CancellationToken token)

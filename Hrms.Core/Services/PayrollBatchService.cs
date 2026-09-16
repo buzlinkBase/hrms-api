@@ -22,7 +22,15 @@ public class PayrollBatchService : BaseService<PayrollBatch>
         await CommitChangesAsync(token);
     }
 
-    public async Task PostAsync(Guid id, CancellationToken token)
+    // commit=false lets PayrollBatchLifecycleService.PostBatchAsync compose this with
+    // PayrollService.PostBatchAsync (and, for a YearEndAdjustment batch,
+    // YearLockService.LockYearAsync) as ONE atomic unit -- the shared IUnitOfWorkService already
+    // has an ambient transaction open for the whole request scope, and its CommitChangesAsync
+    // commits (and ends) that transaction outright, so composing multiple CommitChangesAsync
+    // calls into one operation would finalize the transaction after the FIRST call and silently
+    // drop everything after it. Flushing via SaveChangesAsync here and letting the orchestrator
+    // make the one real CommitChangesAsync call at the end keeps the whole sequence atomic.
+    public async Task PostAsync(Guid id, CancellationToken token, bool commit = true)
     {
         var batch = await GetOneAsync(id, token);
         if (batch == null) throw new ValidationException("Payroll batch not found.");
@@ -30,7 +38,8 @@ public class PayrollBatchService : BaseService<PayrollBatch>
         batch.IsPosted = true;
         batch.PostedAt = DateTime.UtcNow;
         await ModifyAsync(batch, token);
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken token)
