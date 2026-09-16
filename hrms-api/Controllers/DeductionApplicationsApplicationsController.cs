@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,6 +22,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Loan/Deduction:View")]
         [ProducesResponseType(typeof(ResponseModel<List<DeductionApplicationModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
@@ -30,6 +32,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Loan/Deduction:View")]
         [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -38,7 +41,11 @@ namespace Hrms.Api.Controllers
             return Ok(result);
         }
 
+        // Admin-created loans are auto-approved on creation (no separate approve step for
+        // admin-originated ones) -- still a Create action, the auto-approve is a business-logic
+        // detail.
         [HttpPost]
+        [RequirePermission("Loan/Deduction:Create")]
         [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateDeductionApplication payload, CancellationToken token)
         {
@@ -47,7 +54,9 @@ namespace Hrms.Api.Controllers
             return Ok(respModel);
         }
 
+        // Clean edit -- Approve/Decline are dedicated endpoints below, no any-of needed here.
         [HttpPut("{id}")]
+        [RequirePermission("Loan/Deduction:Edit")]
         [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateDeductionApplication payload, CancellationToken token)
         {
@@ -57,6 +66,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Loan/Deduction:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
@@ -65,6 +75,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("item/{id}")]
+        [RequirePermission("Loan/Deduction:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> DeleteItem(Guid id, CancellationToken token)
         {
@@ -73,6 +84,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}/approve")]
+        [RequirePermission("Loan/Deduction:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Approve(Guid id, CancellationToken token)
         {
@@ -81,6 +93,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}/decline")]
+        [RequirePermission("Loan/Deduction:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Decline(Guid id, CancellationToken token)
         {

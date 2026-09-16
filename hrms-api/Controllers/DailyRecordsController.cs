@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Hrms.Api.Extensions;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,6 +12,10 @@ namespace Hrms.Api.Controllers;
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+// This controller's actions span 3 different nav groups/catalog modules -- DTR Generation (DTR
+// Master/DTR Summary), Timekeeping (Raw Logs/Incomplete Punches), and Reports (Attendance
+// Reports) -- so every action below is gated individually with whichever module actually owns
+// it. Never add a class-level [RequirePermission] here.
 public class DailyRecordsController : ControllerBase
 {
     private readonly DailyRecordService _service;
@@ -29,6 +34,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpPost]
+    [RequirePermission("DTR Master:Manage")]
     [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
     public async Task<IActionResult> Post([FromBody] List<DTRDetailModel> model, CancellationToken token)
     {
@@ -53,7 +59,10 @@ public class DailyRecordsController : ControllerBase
 
     }
 
+    // POST verb, but a pure query (DTRSummaryQuery persists nothing) -- same pattern as
+    // Payroll's Calculate, gated as :View not :Manage.
     [HttpPost("load-summary")]
+    [RequirePermission("DTR Summary:View")]
     [ProducesResponseType(typeof(ResponseModel<List<DTRSummaryModel>>), 200)]
     public async Task<IActionResult> Summary([FromQuery] string batchCode, CancellationToken token)
     {
@@ -61,7 +70,9 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // Same POST-but-query exception as Summary above.
     [HttpPost("load-detail")]
+    [RequirePermission("DTR Master:View")]
     [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
     public async Task<IActionResult> Details ([FromQuery] string batchCode, CancellationToken token)
     {
@@ -69,7 +80,10 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // Shared by both the DTR Master and DTR Summary screens -- any-of gate, either permission
+    // lets the call through.
     [HttpGet("batch-codes")]
+    [RequirePermission("DTR Master:View", "DTR Summary:View")]
     [ProducesResponseType(typeof(ResponseModel<List<BatchesModel>>), 200)]
     public async Task<IActionResult> GetCodes(
         [FromQuery] DateTime? from,
@@ -86,7 +100,9 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // No frontend caller found for PostBatch/UnpostBatch (dead today), gated defensively anyway.
     [HttpPost("post")]
+    [RequirePermission("DTR Summary:Manage")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> PostBatch([FromQuery] string batchCode, CancellationToken token)
     {
@@ -95,6 +111,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpPost("unpost")]
+    [RequirePermission("DTR Summary:Manage")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> UnpostBatch([FromQuery] string batchCode, CancellationToken token)
     {
@@ -102,7 +119,9 @@ public class DailyRecordsController : ControllerBase
         return Ok();
     }
 
+    // Reports module, not DTR Generation -- consumed only by the Tardiness report screen.
     [HttpGet("tardiness-report")]
+    [RequirePermission("Attendance Reports:View")]
     [ProducesResponseType(typeof(ResponseModel<List<TardinessReportModel>>), 200)]
     public async Task<IActionResult> TardinessReport([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
@@ -110,7 +129,9 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // Reports module, not DTR Generation -- consumed only by the Rostering report screen.
     [HttpGet("roster-report")]
+    [RequirePermission("Attendance Reports:View")]
     [ProducesResponseType(typeof(ResponseModel<List<RosterReportModel>>), 200)]
     public async Task<IActionResult> RosterReport([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
@@ -118,7 +139,9 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // Timekeeping's Raw Logs screen, not DTR Generation.
     [HttpGet("columnar-raw")]
+    [RequirePermission("Raw Logs:View")]
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
     public async Task<IActionResult> GenerateRawColumnarView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
@@ -130,6 +153,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpGet("clean-row")]
+    [RequirePermission("Raw Logs:View")]
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<List<ColumnarLogModel>>>), 200)]
     public async Task<IActionResult> CleanRowView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
@@ -141,6 +165,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpGet("clean-columnar")]
+    [RequirePermission("Raw Logs:View")]
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
     public async Task<IActionResult> CleanColumnarView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
@@ -152,6 +177,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpGet("dtr-detail")]
+    [RequirePermission("DTR Master:View")]
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<DTRDetailModel>>), 200)]
     public async Task<IActionResult> DTRDetailView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
@@ -163,6 +189,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpGet("incomplete-columnar")]
+    [RequirePermission("Incomplete Punches:View")]
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
     public async Task<IActionResult> IncompleteColumnarLog([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
@@ -174,6 +201,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     [HttpDelete()]
+    [RequirePermission("DTR Master:Manage")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     public async Task<IActionResult> DeleteBatch([FromQuery] string batchCode , CancellationToken token)
     {

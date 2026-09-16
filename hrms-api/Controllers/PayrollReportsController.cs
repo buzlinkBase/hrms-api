@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Hrms.Api.Documents;
+using Hrms.Api.Filters;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 
@@ -40,6 +41,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("sss-remittance")]
+        [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> SssRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _sssService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -47,6 +49,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("philhealth-remittance")]
+        [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> PhilHealthRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _phicService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -54,6 +57,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("pagibig-remittance")]
+        [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> PagIbigRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _hdmfService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -61,6 +65,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("wtax-remittance")]
+        [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> WTaxRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _taxService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -68,6 +73,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("bank-disbursement")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> BankDisbursement([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _reportService.GetBankDisbursementAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -75,6 +81,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("deduction-ledger")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> DeductionLedger([FromQuery] DateTime? asOf, CancellationToken token)
         {
             var asOfDate = asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
@@ -83,6 +90,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("cash-bond")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> CashBond([FromQuery] DateTime? asOf, CancellationToken token)
         {
             var asOfDate = asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
@@ -91,6 +99,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("leave-ledger")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> LeaveLedger([FromQuery] int year, CancellationToken token)
         {
             var data = await _reportService.GetLeaveLedgerAsync(year, token);
@@ -98,6 +107,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("retirement-ledger")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> RetirementLedger([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _reportService.GetRetirementLedgerAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -105,6 +115,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("uniform-allowance-ledger")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> UniformAllowanceLedger([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _reportService.GetUniformAllowanceLedgerAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -112,6 +123,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("reimbursement-list")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> ReimbursementList([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var data = await _reportService.GetReimbursementListAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
@@ -119,6 +131,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("cost-summary")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> CostSummary(
             [FromQuery] DateTime from,
             [FromQuery] DateTime to,
@@ -130,6 +143,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("ytd-summary")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> YtdSummary([FromQuery] int year, [FromQuery] Guid? employeeId, CancellationToken token)
         {
             var data = await _reportService.GetYtdSummaryAsync(year, employeeId, token);
@@ -137,6 +151,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("13th-month-pay")]
+        [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> ThirteenthMonthPay([FromQuery] int year, CancellationToken token)
         {
             var data = await _reportService.GetThirteenthMonthAsync(year, token);
@@ -144,6 +159,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("13th-month-pay/print")]
+        [RequirePermission("Payroll Reports:Export")]
         public async Task<IActionResult> ThirteenthMonthPayPrint([FromQuery] int year, CancellationToken token)
         {
             var data = await _reportService.GetThirteenthMonthAsync(year, token);
@@ -156,6 +172,7 @@ namespace Hrms.Api.Controllers
         // ── BIR 1601-C ────────────────────────────────────────────────────────────────
 
         [HttpGet("1601c")]
+        [RequirePermission("BIR Reports:View")]
         public async Task<IActionResult> MonthlyRemittanceReturn(
             [FromQuery] DateTime from, [FromQuery] DateTime to,
             [FromQuery] bool amendedReturn, CancellationToken token)
@@ -166,6 +183,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("1601c/print")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> MonthlyRemittanceReturnPrint(
             [FromQuery] DateTime from, [FromQuery] DateTime to,
             [FromQuery] bool amendedReturn,
@@ -184,6 +202,7 @@ namespace Hrms.Api.Controllers
         // ── BIR Alphalist ─────────────────────────────────────────────────────────────
 
         [HttpGet("alphalist")]
+        [RequirePermission("BIR Reports:View")]
         public async Task<IActionResult> Alphalist([FromQuery] int year, CancellationToken token)
         {
             var data = await _reportService.GetAlphalistAsync(year, token);
@@ -191,6 +210,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("alphalist/print")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> AlphalistPrint([FromQuery] int year, CancellationToken token)
         {
             var data = await _reportService.GetAlphalistAsync(year, token);
@@ -200,6 +220,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("alphalist/export")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> AlphalistExport([FromQuery] int year, CancellationToken token)
         {
             var data = await _reportService.GetAlphalistAsync(year, token);
@@ -220,6 +241,7 @@ namespace Hrms.Api.Controllers
         // ── BIR 2316 ──────────────────────────────────────────────────────────────────
 
         [HttpGet("2316")]
+        [RequirePermission("BIR Reports:View")]
         public async Task<IActionResult> Bir2316([FromQuery] Guid employeeId, [FromQuery] int year, CancellationToken token)
         {
             // No posted payroll for this employee/year is a normal, expected result here
@@ -232,6 +254,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("2316/print")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> Bir2316Print(
             [FromQuery] Guid employeeId, [FromQuery] int year, [FromQuery] bool debug, CancellationToken token)
         {
@@ -246,6 +269,7 @@ namespace Hrms.Api.Controllers
         // ── SSS R3 ────────────────────────────────────────────────────────────────────
 
         [HttpGet("sss-r3/print")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> SssR3Print([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
@@ -257,6 +281,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("sss-r3/export")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> SssR3Export([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
@@ -268,6 +293,7 @@ namespace Hrms.Api.Controllers
         // ── PhilHealth EPRS ───────────────────────────────────────────────────────────
 
         [HttpGet("philhealth-eprs/print")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PhilHealthEprsPrint([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
@@ -279,6 +305,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("philhealth-eprs/export")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PhilHealthEprsExport([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
@@ -290,6 +317,7 @@ namespace Hrms.Api.Controllers
         // ── Pag-IBIG MCRF ─────────────────────────────────────────────────────────────
 
         [HttpGet("pagibig-mcrf/print")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PagIbigMcrfPrint([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
@@ -301,6 +329,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("pagibig-mcrf/export")]
+        [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PagIbigMcrfExport([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);

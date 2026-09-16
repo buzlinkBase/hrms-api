@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -25,6 +26,7 @@ namespace Hrms.Api.Controllers
         /// date-range-dependent value read off the ledger report itself).
         /// </summary>
         [HttpGet("balances")]
+        [RequirePermission("Payroll Reports:View")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Balances([FromQuery] List<Guid> employeeIds, CancellationToken token)
         {
@@ -38,6 +40,7 @@ namespace Hrms.Api.Controllers
         /// entry; a Remove is clamped so it can never drive the balance negative.
         /// </summary>
         [HttpPost("adjust")]
+        [RequirePermission("Payroll Reports:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Adjust([FromBody] AdjustUniformAllowancePayload payload, CancellationToken token)
         {
@@ -58,6 +61,7 @@ namespace Hrms.Api.Controllers
         /// flag it rather than silently releasing less than what was requested.
         /// </summary>
         [HttpPost("release")]
+        [RequirePermission("Payroll Reports:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Release([FromBody] ReleaseUniformAllowancePayload payload, CancellationToken token)
         {

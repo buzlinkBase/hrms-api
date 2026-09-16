@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Core.Services;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,7 @@ namespace Hrms.Api.Controllers
         /// entry; a Remove is clamped so it can never drive the balance negative.
         /// </summary>
         [HttpPost("adjust")]
+        [RequirePermission("Payroll Reports:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Adjust([FromBody] AdjustRetirementPayload payload, CancellationToken token)
         {

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,6 +23,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Official Business:View")]
         [ProducesResponseType(typeof(ResponseModel<List<TravelOrderApplicationModel>>), 200)]
         public async Task<IActionResult> Get([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken token)
         {
@@ -30,6 +32,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Official Business:View")]
         [ProducesResponseType(typeof(ResponseModel<TravelOrderApplicationModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -38,6 +41,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Official Business:Create")]
         [ProducesResponseType(typeof(ResponseModel<TravelOrderApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateTravelOrderApplication payload, CancellationToken token)
         {
@@ -47,6 +51,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("batch")]
+        [RequirePermission("Official Business:Create")]
         [ProducesResponseType(typeof(ResponseModel<List<TravelOrderApplicationModel>>), 200)]
         public async Task<IActionResult> PostBatch([FromBody] List<CreateTravelOrderApplication> payload, CancellationToken token)
         {
@@ -62,6 +67,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Official Business:Edit", "Official Business:Approve")]
         [ProducesResponseType(typeof(ResponseModel<TravelOrderApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateTravelOrderApplication payload, CancellationToken token)
         {
@@ -71,6 +77,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Official Business:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

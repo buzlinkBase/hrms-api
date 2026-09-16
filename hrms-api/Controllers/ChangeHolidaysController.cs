@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -20,6 +21,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Change Holiday:Create")]
         [ProducesResponseType(typeof(ResponseModel<string>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateChangeHoliday payload, CancellationToken token)
         {
@@ -28,6 +30,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Change Holiday:View")]
         [ProducesResponseType(typeof(ResponseModel<List<ChangeHolidayModel>>), 200)]
         public async Task<IActionResult> Get([FromQuery] ChangeHolidayQueryPayload payload, CancellationToken token)
         {
@@ -36,6 +39,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete]
+        [RequirePermission("Change Holiday:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> DeleteEmp([FromQuery] Guid employeeId, [FromQuery] string BatchCode, CancellationToken token)
         {
@@ -44,6 +48,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("batch")]
+        [RequirePermission("Change Holiday:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> DeleteBatch([FromQuery] string BatchCode, CancellationToken token)
         {

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -20,6 +21,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Change Rest Day:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] ChangeOffModel payload, CancellationToken token)
         {
@@ -28,6 +30,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Change Rest Day:View")]
         [ProducesResponseType(typeof(ResponseModel<List<RestDayRecordResponse>>), 200)]
         public async Task<IActionResult> Get([FromQuery] RestDayListFilter payload, CancellationToken token)
         {
@@ -36,6 +39,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete()]
+        [RequirePermission("Change Rest Day:Delete")]
         [ProducesResponseType(typeof(ResponseModel<string>), 200)]
         public async Task<IActionResult> Delete([FromQuery] Guid employeeId, [FromQuery] string batchCode, CancellationToken token)
         {
@@ -43,6 +47,7 @@ namespace Hrms.Api.Controllers
             return Ok("success");
         }
         [HttpDelete("batch")]
+        [RequirePermission("Change Rest Day:Delete")]
         [ProducesResponseType(typeof(ResponseModel<string>), 200)]
         public async Task<IActionResult> DeleteBatch([FromQuery] Guid employeeId, [FromQuery] string batchCode, CancellationToken token)
         {
@@ -51,6 +56,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("approve")]
+        [RequirePermission("Change Rest Day:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Approve([FromQuery] Guid employeeId, [FromQuery] string batchCode, CancellationToken token)
         {
@@ -59,6 +65,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("decline")]
+        [RequirePermission("Change Rest Day:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Decline([FromQuery] Guid employeeId, [FromQuery] string batchCode, CancellationToken token)
         {

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Asp.Versioning;
 using Hrms.Api.Extensions;
+using Hrms.Api.Filters;
 using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -27,6 +28,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("Work Rotation:View")]
     [ProducesResponseType(typeof(ResponseModel<List<WorkSchedulePlanModel>>), 200)]
     public async Task<IActionResult> Get([FromQuery] WorkRotationPlanFilter filter, CancellationToken token)
     {
@@ -125,6 +127,7 @@ public class WorkSchedulePlansController : ControllerBase
     //}
 
     [HttpDelete("{id}")]
+    [RequirePermission("Work Rotation:Delete")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken token)
     {
@@ -133,6 +136,7 @@ public class WorkSchedulePlansController : ControllerBase
     }
 
     [HttpDelete("batch")]
+    [RequirePermission("Work Rotation:Delete")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     public async Task<IActionResult> DeleteBatch([FromQuery] string batchCode, CancellationToken token)
     {

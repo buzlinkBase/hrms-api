@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -20,6 +21,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Other Income:View")]
         [ProducesResponseType(typeof(ResponseModel<List<OtherIncomeApplicationModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
@@ -29,6 +31,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Other Income:View")]
         [ProducesResponseType(typeof(ResponseModel<OtherIncomeApplicationModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -38,6 +41,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Other Income:Create")]
         [ProducesResponseType(typeof(ResponseModel<OtherIncomeApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateOtherIncomeApplication payload, CancellationToken token)
         {
@@ -46,7 +50,9 @@ namespace Hrms.Api.Controllers
             return Ok(respModel);
         }
 
+        // No approval workflow exists for Other Income at all -- plain :Edit, no any-of needed.
         [HttpPut("{id}")]
+        [RequirePermission("Other Income:Edit")]
         [ProducesResponseType(typeof(ResponseModel<OtherIncomeApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateOtherIncomeApplication payload, CancellationToken token)
         {
@@ -56,6 +62,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Other Income:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
@@ -64,6 +71,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("item/{id}")]
+        [RequirePermission("Other Income:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> DeleteItem(Guid id, CancellationToken token)
         {

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Pass Slip:View")]
         [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplicationModel>>), 200)]
         public async Task<IActionResult> Get(
             [FromQuery] DateOnly? from,
@@ -35,6 +37,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Pass Slip:View")]
         [ProducesResponseType(typeof(ResponseModel<PassSlipApplicationModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -43,6 +46,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Pass Slip:Create")]
         [ProducesResponseType(typeof(ResponseModel<PassSlipApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreatePassSlipApplication payload, CancellationToken token)
         {
@@ -51,7 +55,10 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<PassSlipApplicationModel>(data));
         }
 
+        // Clean edit -- no approval fields on this payload, Approve/Revoke are dedicated
+        // endpoints below, so no any-of needed here unlike Leave/Overtime/Official Business.
         [HttpPut("{id}")]
+        [RequirePermission("Pass Slip:Edit")]
         [ProducesResponseType(typeof(ResponseModel<PassSlipApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdatePassSlipApplication payload, CancellationToken token)
         {
@@ -61,6 +68,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("{id}/approve")]
+        [RequirePermission("Pass Slip:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Approve(Guid id, CancellationToken token)
         {
@@ -68,7 +76,10 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        // Un-approves an already-approved pass slip -- reject side of the same decision
+        // workflow as Approve, same permission.
         [HttpPost("{id}/revoke")]
+        [RequirePermission("Pass Slip:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Revoke(Guid id, CancellationToken token)
         {
@@ -77,6 +88,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Pass Slip:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

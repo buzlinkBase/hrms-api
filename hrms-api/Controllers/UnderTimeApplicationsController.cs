@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,6 +23,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Undertime:View")]
         [ProducesResponseType(typeof(ResponseModel<List<UnderTimeApplicationModel>>), 200)]
         public async Task<IActionResult> Get([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken token)
         {
@@ -30,6 +32,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Undertime:View")]
         [ProducesResponseType(typeof(ResponseModel<UnderTimeApplicationModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -38,6 +41,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Undertime:Create")]
         [ProducesResponseType(typeof(ResponseModel<UnderTimeApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateUnderTimeApplication payload, CancellationToken token)
         {
@@ -47,6 +51,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("batch")]
+        [RequirePermission("Undertime:Create")]
         [ProducesResponseType(typeof(ResponseModel<List<UnderTimeApplicationModel>>), 200)]
         public async Task<IActionResult> PostBatch([FromBody] List<CreateUnderTimeApplication> payload, CancellationToken token)
         {
@@ -62,6 +67,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Undertime:Edit", "Undertime:Approve")]
         [ProducesResponseType(typeof(ResponseModel<UnderTimeApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateUnderTimeApplication payload, CancellationToken token)
         {
@@ -71,6 +77,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Undertime:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Mapster;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("range")]
+        [RequirePermission("Leave:View")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveApplicationModel>>), 200)]
         public async Task<IActionResult> Range([FromQuery] DateEmployeeRequestPayload payload, CancellationToken token)
         {
@@ -31,6 +33,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Leave:View")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveApplicationModel>>), 200)]
         public async Task<IActionResult> Get([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken token)
         {
@@ -39,6 +42,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Leave:View")]
         [ProducesResponseType(typeof(ResponseModel<LeaveApplicationModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -47,6 +51,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Leave:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateLeaveApplication payload, CancellationToken token)
         {
@@ -55,7 +60,10 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        // Bulk create-as-approved (writes ApprovalStatus.Approved directly) -- treated as a
+        // bulk-create action; the auto-approve is a business-logic detail, not a second gate.
         [HttpPost("batch")]
+        [RequirePermission("Leave:Create")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveApplicationModel>>), 200)]
         public async Task<IActionResult> PostBatch([FromBody] List<CreateLeaveApplication> payload, CancellationToken token)
         {
@@ -71,7 +79,11 @@ namespace Hrms.Api.Controllers
             return Ok(results);
         }
 
+        // This one PUT conflates a plain field edit and an approve/decline status change (the
+        // frontend's changeStatus reuses this same endpoint) -- no way to split without a
+        // backend code change, so either permission lets the call through.
         [HttpPut("{id}")]
+        [RequirePermission("Leave:Edit", "Leave:Approve")]
         [ProducesResponseType(typeof(ResponseModel<LeaveApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateLeaveApplication payload, CancellationToken token)
         {
@@ -81,6 +93,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Leave:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
@@ -90,6 +103,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}/reimbursement")]
+        [RequirePermission("Leave:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateReimbursement(Guid id, [FromBody] UpdateReimbursementStatus payload, CancellationToken token)
         {

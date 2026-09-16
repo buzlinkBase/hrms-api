@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPost("upload-att-log")]
+    [RequirePermission("Upload Attendance:Edit")]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(400)]
@@ -88,6 +90,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPost("manual-entry")]
+    [RequirePermission("Attendance Manual Entry:Edit")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ManualEntry([FromBody] List<CreateAttendance> payload, CancellationToken ct)
@@ -156,7 +159,10 @@ public class AttendanceController : ControllerBase
         return Ok("success");
     }
 
+    // GET verb, but persists a bio-id tag (_attendanceService.Tag) -- not a read, so it's gated
+    // as :Edit rather than left ungated like the other GET actions on this controller.
     [HttpGet("tag")]
+    [RequirePermission("Unregistered Employees:Edit")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Unregistered([FromQuery] TagEmployeeRequest payload, CancellationToken ct)
@@ -176,6 +182,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPut()]
+    [RequirePermission("Attendance Manual Entry:Edit")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateAtt([FromBody] UpdateAttendance payload, CancellationToken ct)
@@ -194,6 +201,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("unregistered")]
+    [RequirePermission("Unregistered Employees:View")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Unregistered([FromQuery] UnRegisteredAttendance filter, CancellationToken ct)
@@ -204,6 +212,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("generate")]
+    [RequirePermission("Attendance Manual Entry:View")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetManualEntry([FromQuery] AttendanceFilterDate filter, CancellationToken ct)
@@ -214,6 +223,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("dtr-view-att-by-shift")]
+    [RequirePermission("Attendance Manual Entry:View")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetShiftAttendance(
@@ -237,6 +247,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("raw-logs")]
+    [RequirePermission("Raw Logs:View")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RawRowLogs([FromQuery] AttendanceFilter filter, CancellationToken ct)
@@ -246,6 +257,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [RequirePermission("Attendance Manual Entry:Delete")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
@@ -256,6 +268,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpDelete("batch/{batch}")]
+    [RequirePermission("Attendance Manual Entry:Delete")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Delete([FromRoute] string batch, CancellationToken ct)

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,6 +22,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Salary Adjustment:View")]
         [ProducesResponseType(typeof(ResponseModel<List<SalaryAdjustmentModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
@@ -29,6 +31,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Salary Adjustment:View")]
         [ProducesResponseType(typeof(ResponseModel<SalaryAdjustmentModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
@@ -37,6 +40,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Salary Adjustment:Create")]
         [ProducesResponseType(typeof(ResponseModel<SalaryAdjustmentModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateSalaryAdjustment payload, CancellationToken token)
         {
@@ -46,7 +50,9 @@ namespace Hrms.Api.Controllers
             return Ok(respModel);
         }
 
+        // No approval workflow exists for Salary Adjustment at all -- plain :Edit.
         [HttpPut("{id}")]
+        [RequirePermission("Salary Adjustment:Edit")]
         [ProducesResponseType(typeof(ResponseModel<SalaryAdjustmentModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateSalaryAdjustment payload, CancellationToken token)
         {
@@ -56,6 +62,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Salary Adjustment:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
