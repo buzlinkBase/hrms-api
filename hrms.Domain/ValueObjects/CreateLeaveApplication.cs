@@ -28,6 +28,11 @@ public class CreateLeaveApplication
 public class UpdateLeaveApplication : CreateLeaveApplication
 {
     public Guid Id { get; set; }
+
+    // Approver's note for an approve/decline transition -- required/optional/ignored per the
+    // current approval step's NoteRequirement (see ApprovalEngineService.RecordActionAsync).
+    // Meaningless on a plain field edit that doesn't change ApprovalStatus.
+    public string? Note { get; set; }
 }
 
 public class LeaveApplicationModel : UpdateLeaveApplication

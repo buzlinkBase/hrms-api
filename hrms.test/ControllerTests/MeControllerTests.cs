@@ -1,7 +1,9 @@
 using System.Linq.Expressions;
 using System.Security.Claims;
 using Hrms.Api.Controllers;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MapsterMapper;
@@ -174,6 +176,11 @@ public class MeControllerTests
             .Returns(call => employees.Where(call.Arg<Expression<Func<Employee, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.Find<LeaveCredits>(Arg.Any<Expression<Func<LeaveCredits, bool>>>())
             .Returns(call => credits.Where(call.Arg<Expression<Func<LeaveCredits, bool>>>().Compile()).ToList().BuildMockDbSet());
+        // No approval workflow ever configured in these tests -- ApprovalEngineService.StartAsync
+        // (fired by every self-service Create*Application action below) always falls back to the
+        // implicit single-step legacy instance, exactly like an unconfigured tenant in production.
+        repo.Find<ApprovalWorkflow>(Arg.Any<Expression<Func<ApprovalWorkflow, bool>>>())
+            .Returns(_ => new List<ApprovalWorkflow>().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => payroll != null && call.Arg<Guid>() == payroll.Id ? payroll : null);
         repo.FindOneAsync<Deduction>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -217,16 +224,17 @@ public class MeControllerTests
         // call returns null with it, which short-circuits AddAsync before it ever persists —
         // fine for these tests, which only assert on the EmployeeId/ApprovalStatus forced onto
         // the payload BEFORE AddAsync is called, not on what (if anything) gets saved.
+        var approvalEngineService = new ApprovalEngineService(uow);
         var leaveApplicationService = new LeaveApplicationService(
             uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
             Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>(),
-            dailyRecordService);
-        var overtimeApplicationService = new OvertimeApplicationService(uow);
-        var travelOrderApplicationService = new TravelOrderApplicationService(uow);
-        var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow));
+            dailyRecordService, approvalEngineService);
+        var overtimeApplicationService = new OvertimeApplicationService(uow, approvalEngineService);
+        var travelOrderApplicationService = new TravelOrderApplicationService(uow, approvalEngineService);
+        var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow), approvalEngineService);
         var changeRestDayService = new ChangeRestDayService(uow);
         var deductionApplicationService = new DeductionApplicationService(
-            uow, new DeductionService(uow), employeeService, Substitute.For<IMapper>());
+            uow, new DeductionService(uow), employeeService, Substitute.For<IMapper>(), approvalEngineService);
         var payrollReportService = new PayrollReportService(
             uow, employeeService, new PayrollOpeningBalanceService(uow));
 

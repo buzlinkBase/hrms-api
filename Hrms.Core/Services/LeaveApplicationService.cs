@@ -1,4 +1,5 @@
 ﻿using Hrms.Core.Messaging.LeaveWorkers;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
@@ -14,19 +15,22 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     private readonly IPublishEndpoint _publisher;
     private readonly ILogger<LeaveApplicationService> _logger;
     private readonly DailyRecordService _dailyRecordService;
+    private readonly ApprovalEngineService _approvalEngine;
 
     public LeaveApplicationService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
         IMapper mapper,
         IPublishEndpoint publisher,
         ILogger<LeaveApplicationService> logger,
-        DailyRecordService dailyRecordService) : base(uow)
+        DailyRecordService dailyRecordService,
+        ApprovalEngineService approvalEngine) : base(uow)
     {
         _config    = config;
         _mapper    = mapper;
         _publisher = publisher;
         _logger    = logger;
         _dailyRecordService = dailyRecordService;
+        _approvalEngine = approvalEngine;
     }
 
     protected override Task<EvaluationResult> CreateValidatorAsync(LeaveApplication model, CancellationToken token = default)
@@ -46,6 +50,11 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         // an already-approved leave) — apply the same credit/DTR side effects that would fire
         // had it been created ForApproval and then transitioned via UpdateAsync.
         await ApplyStatusTransitionSideEffectsAsync(model, ApprovalStatus.ForApproval, token);
+
+        // Starts the configurable approval workflow (or, if this tenant hasn't configured one
+        // for Leave, the implicit single-step legacy instance) -- see ApprovalEngineService.
+        if (model.ApprovalStatus == ApprovalStatus.ForApproval)
+            await _approvalEngine.StartAsync(ApprovalApplicationType.Leave, model.Id, model.EmployeeId, token);
 
         await CommitChangesAsync(token);
 
@@ -237,7 +246,14 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         return _mapper.Map<LeaveApplicationModel>(model);
     }
 
-    public async Task UpdateAsync(UpdateLeaveApplication payload, CancellationToken token)
+    // approverEmployeeId/approverHasOverride are only consulted when this PUT is actually
+    // requesting an approve/decline transition (previousStatus ForApproval -> Approved/Declined)
+    // -- a plain field edit ignores them entirely. See LeaveApplicationsController.Put.
+    public async Task UpdateAsync(
+        UpdateLeaveApplication payload,
+        CancellationToken token,
+        Guid? approverEmployeeId = null,
+        bool approverHasOverride = false)
     {
         var existing = await Context.leaveApplications
             .Include(x => x.Leave)
@@ -245,7 +261,30 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             ?? throw new NotFoundException("Record not found");
 
         var previousStatus = existing.ApprovalStatus;
+        var isApprovalAction = previousStatus == ApprovalStatus.ForApproval
+            && payload.ApprovalStatus is ApprovalStatus.Approved or ApprovalStatus.Declined;
+
         payload.Adapt(existing);
+
+        if (isApprovalAction)
+        {
+            // Undo Adapt's blind copy of the client-requested status -- the real outcome (which
+            // may just be "advanced to the next step, still ForApproval") comes from the engine.
+            existing.ApprovalStatus = previousStatus;
+
+            var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+                "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+            var action = payload.ApprovalStatus == ApprovalStatus.Approved
+                ? ApprovalActionType.Approved
+                : ApprovalActionType.Declined;
+
+            var result = await _approvalEngine.RecordActionAsync(
+                ApprovalApplicationType.Leave, existing.Id, existing.EmployeeId,
+                approverId, approverHasOverride, action, payload.Note, token);
+
+            existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
+        }
 
         await ApplyStatusTransitionSideEffectsAsync(existing, previousStatus, token);
 

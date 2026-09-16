@@ -15,6 +15,8 @@ public class UpdateOvertimeApplication : CreateOverTimeApplication
 {
     public Guid Id { get; set; }
     public ApprovalStatus ApprovalStatus { get; set; }
+    // Approver's note for an approve/decline transition — see LeaveApplication's UpdateLeaveApplication.Note.
+    public string? Note { get; set; }
 }
 
 public class OvertimeApplicationModel : UpdateOvertimeApplication

@@ -1,5 +1,6 @@
 ﻿using BuzlinkRepository;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
@@ -131,7 +132,13 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<GeneralSetting> GeneralSettings { get; set; }
     public DbSet<YearLock> YearLocks { get; set; }
     public DbSet<ChangeRestDay> ChangeRestDays { get; set; }
-    public DbSet<SalaryAdjustment> SalaryAdjustments { get; set; } 
+    public DbSet<SalaryAdjustment> SalaryAdjustments { get; set; }
+
+    public DbSet<ApprovalWorkflow> ApprovalWorkflows { get; set; }
+    public DbSet<ApprovalWorkflowStep> ApprovalWorkflowSteps { get; set; }
+    public DbSet<ApprovalWorkflowStepApprover> ApprovalWorkflowStepApprovers { get; set; }
+    public DbSet<ApprovalInstance> ApprovalInstances { get; set; }
+    public DbSet<ApprovalAction> ApprovalActions { get; set; }
 
     #endregion
 } 

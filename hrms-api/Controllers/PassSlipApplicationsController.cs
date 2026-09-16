@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -15,12 +16,21 @@ namespace Hrms.Api.Controllers
     public class PassSlipApplicationsController : ControllerBase
     {
         private readonly PassSlipApplicationService _service;
+        private readonly EmployeeService _employeeService;
         private readonly IMapper _mapper;
 
-        public PassSlipApplicationsController(PassSlipApplicationService service, IMapper mapper)
+        public PassSlipApplicationsController(PassSlipApplicationService service, EmployeeService employeeService, IMapper mapper)
         {
             _service = service;
+            _employeeService = employeeService;
             _mapper = mapper;
+        }
+
+        private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
+        {
+            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return (approverEmployeeId, User.IsOwnerOrAdmin());
         }
 
         [HttpGet]
@@ -70,9 +80,22 @@ namespace Hrms.Api.Controllers
         [HttpPost("{id}/approve")]
         [RequirePermission("Pass Slip:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-        public async Task<IActionResult> Approve(Guid id, CancellationToken token)
+        public async Task<IActionResult> Approve(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
         {
-            await _service.ApproveAsync(id, token);
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.ApproveAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok();
+        }
+
+        // Rejects a still-pending pass slip -- see Revoke below for un-approving one that
+        // already went through.
+        [HttpPost("{id}/decline")]
+        [RequirePermission("Pass Slip:Approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Decline(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.DeclineAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
             return Ok();
         }
 

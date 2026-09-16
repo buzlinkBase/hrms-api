@@ -1,3 +1,4 @@
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
@@ -8,10 +9,17 @@ using NSubstitute;
 namespace hrms.test.ServiceTests;
 
 /// <summary>
-/// DeductionApplicationService.ApproveAsync/DeclineAsync — the Phase 4 loan approval workflow.
-/// Unlike ChangeRestDayService's bulk ExecuteUpdateAsync (which needs a real DB provider),
-/// these go through the standard GetOneAsync + ModifyAsync pattern, so they're fully testable
-/// with the same IRepository mocking used everywhere else in this project.
+/// DeductionApplicationService.WithdrawAsync — the self-service cancel path, which stays on the
+/// standard GetOneAsync + ModifyAsync pattern and so is fully testable with the same IRepository
+/// mocking used everywhere else in this project.
+///
+/// ApproveAsync/DeclineAsync now route through ApprovalEngineService (the configurable
+/// multi-level approval engine), which reads/writes via raw Context.ApprovalInstances/
+/// Context.Employees/etc. (real EF DbContext access, not IRepository) — the same class of
+/// Context-based limitation already flagged below for DeductionAplDtlService.LoadAsync, so they
+/// aren't unit-tested here either. See ApprovalEligibilityTests for the engine's own decision
+/// logic (eligibility/quorum), which IS fully unit-tested since it takes plain in-memory objects
+/// with no DB access at all.
 ///
 /// DeductionAplDtlService.LoadAsync — the actual payroll gate that reads ApprovalStatus off
 /// DeductionApplication — is NOT unit-tested here: it joins against raw Context.DeductionApplications/
@@ -82,47 +90,9 @@ public class DeductionApplicationServiceTests
             new PositionService(uow),
             new SectionService(uow));
         var deductionService = new DeductionService(uow);
+        var approvalEngine = new ApprovalEngineService(uow);
 
-        return new DeductionApplicationService(uow, deductionService, employeeService, Substitute.For<IMapper>());
-    }
-
-    [Fact]
-    public async Task ApproveAsync_SetsStatusToApproved()
-    {
-        var employeeId = Guid.NewGuid();
-        var deductionId = Guid.NewGuid();
-        var application = BuildApplication(Guid.NewGuid(), employeeId, deductionId, ApprovalStatus.ForApproval);
-        var service = BuildService(application, BuildEmployee(employeeId), BuildDeduction(deductionId));
-
-        await service.ApproveAsync(application.Id, CancellationToken.None);
-
-        application.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-    }
-
-    [Fact]
-    public async Task DeclineAsync_SetsStatusToDeclined()
-    {
-        var employeeId = Guid.NewGuid();
-        var deductionId = Guid.NewGuid();
-        var application = BuildApplication(Guid.NewGuid(), employeeId, deductionId, ApprovalStatus.ForApproval);
-        var service = BuildService(application, BuildEmployee(employeeId), BuildDeduction(deductionId));
-
-        await service.DeclineAsync(application.Id, CancellationToken.None);
-
-        application.ApprovalStatus.Should().Be(ApprovalStatus.Declined);
-    }
-
-    [Fact]
-    public async Task ApproveAsync_UnknownId_DoesNothing()
-    {
-        var employeeId = Guid.NewGuid();
-        var deductionId = Guid.NewGuid();
-        var application = BuildApplication(Guid.NewGuid(), employeeId, deductionId, ApprovalStatus.ForApproval);
-        var service = BuildService(application, BuildEmployee(employeeId), BuildDeduction(deductionId));
-
-        await service.ApproveAsync(Guid.NewGuid(), CancellationToken.None);
-
-        application.ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
+        return new DeductionApplicationService(uow, deductionService, employeeService, Substitute.For<IMapper>(), approvalEngine);
     }
 
     [Fact]

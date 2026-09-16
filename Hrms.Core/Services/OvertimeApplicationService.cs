@@ -1,24 +1,62 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Core.Services.Approvals;
+using Hrms.Domain.Entities;
 using Mapster;
 
 namespace Hrms.Core.Services;
 
 public class OvertimeApplicationService : BaseService<OverTimeApplication>
 {
-    public OvertimeApplicationService(IUnitOfWorkService uow) : base(uow) { }
+    private readonly ApprovalEngineService _approvalEngine;
+
+    public OvertimeApplicationService(IUnitOfWorkService uow, ApprovalEngineService approvalEngine) : base(uow)
+    {
+        _approvalEngine = approvalEngine;
+    }
+
     public async Task AddAsync(OverTimeApplication model, CancellationToken token)
     {
         await CreateAsync(model, token);
+        if (model.ApprovalStatus == ApprovalStatus.ForApproval)
+            await _approvalEngine.StartAsync(ApprovalApplicationType.Overtime, model.Id, model.EmployeeId, token);
         await CommitChangesAsync(token);
     }
-    public async Task UpdateAsync(UpdateOvertimeApplication payload, CancellationToken token)
+
+    public async Task UpdateAsync(
+        UpdateOvertimeApplication payload,
+        CancellationToken token,
+        Guid? approverEmployeeId = null,
+        bool approverHasOverride = false)
     {
         var existing = await Context.OTApplications.FindAsync(new object[] { payload.Id }, token);
         if (existing == null)
         {
             throw new NotFoundException("Record not found");
         }
+
+        var previousStatus = existing.ApprovalStatus;
+        var isApprovalAction = previousStatus == ApprovalStatus.ForApproval
+            && payload.ApprovalStatus is ApprovalStatus.Approved or ApprovalStatus.Declined;
+
         payload.Adapt(existing);
+
+        if (isApprovalAction)
+        {
+            existing.ApprovalStatus = previousStatus;
+
+            var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+                "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+            var action = payload.ApprovalStatus == ApprovalStatus.Approved
+                ? ApprovalActionType.Approved
+                : ApprovalActionType.Declined;
+
+            var result = await _approvalEngine.RecordActionAsync(
+                ApprovalApplicationType.Overtime, existing.Id, existing.EmployeeId,
+                approverId, approverHasOverride, action, payload.Note, token);
+
+            existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
+        }
+
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }

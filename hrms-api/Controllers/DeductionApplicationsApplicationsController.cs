@@ -1,6 +1,8 @@
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain;
+using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -14,11 +16,20 @@ namespace Hrms.Api.Controllers
     public class DeductionApplicationsApplicationsController : ControllerBase
     {
         private readonly DeductionApplicationService _service;
+        private readonly EmployeeService _employeeService;
         private readonly IMapper _mapper;
-        public DeductionApplicationsApplicationsController(DeductionApplicationService service, IMapper mapper)
+        public DeductionApplicationsApplicationsController(DeductionApplicationService service, EmployeeService employeeService, IMapper mapper)
         {
             _service = service;
+            _employeeService = employeeService;
             _mapper = mapper;
+        }
+
+        private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
+        {
+            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return (approverEmployeeId, User.IsOwnerOrAdmin());
         }
 
         [HttpGet]
@@ -86,18 +97,20 @@ namespace Hrms.Api.Controllers
         [HttpPut("{id}/approve")]
         [RequirePermission("Loan/Deduction:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-        public async Task<IActionResult> Approve(Guid id, CancellationToken token)
+        public async Task<IActionResult> Approve(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
         {
-            await _service.ApproveAsync(id, token);
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.ApproveAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
             return Ok();
         }
 
         [HttpPut("{id}/decline")]
         [RequirePermission("Loan/Deduction:Approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-        public async Task<IActionResult> Decline(Guid id, CancellationToken token)
+        public async Task<IActionResult> Decline(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
         {
-            await _service.DeclineAsync(id, token);
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.DeclineAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
             return Ok();
         }
     }

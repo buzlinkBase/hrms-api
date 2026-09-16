@@ -1,3 +1,4 @@
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using Mapster;
@@ -8,10 +9,12 @@ namespace Hrms.Core.Services;
 public class PassSlipApplicationService : BaseService<PassSlipApplication>
 {
     private readonly AttendanceService _attendanceService;
+    private readonly ApprovalEngineService _approvalEngine;
 
-    public PassSlipApplicationService(IUnitOfWorkService uow, AttendanceService attendanceService) : base(uow)
+    public PassSlipApplicationService(IUnitOfWorkService uow, AttendanceService attendanceService, ApprovalEngineService approvalEngine) : base(uow)
     {
         _attendanceService = attendanceService;
+        _approvalEngine = approvalEngine;
     }
 
     public async Task AddAsync(PassSlipApplication model, CancellationToken token)
@@ -21,6 +24,7 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
 
         model.ApprovalStatus = ApprovalStatus.ForApproval;
         await CreateAsync(model, token);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PassSlip, model.Id, model.EmployeeId, token);
         await CommitChangesAsync(token);
     }
 
@@ -36,10 +40,28 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         await CommitChangesAsync(token);
     }
 
-    public async Task ApproveAsync(Guid id, CancellationToken token)
+    public async Task ApproveAsync(
+        Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
         var passSlip = await Context.PassSlipApplications.FindAsync(new object[] { id }, token);
         if (passSlip == null) throw new NotFoundException("Record not found");
+        if (passSlip.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This pass slip is not awaiting approval.");
+
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        var result = await _approvalEngine.RecordActionAsync(
+            ApprovalApplicationType.PassSlip, passSlip.Id, passSlip.EmployeeId,
+            approverId, approverHasOverride, ApprovalActionType.Approved, note, token);
+
+        if (result.InstanceStatus != ApprovalInstanceStatus.Approved)
+        {
+            // More steps remain -- stays ForApproval, no attendance batch yet. Only the final
+            // step's approval actually creates the DTR attendance records below.
+            await CommitChangesAsync(token);
+            return;
+        }
 
         var batchCode = $"PASS-{id:N}";
         passSlip.ApprovalStatus = ApprovalStatus.Approved;
@@ -74,6 +96,28 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         }
 
         await _attendanceService.AddRangeAsync(records, token);
+        await ModifyAsync(passSlip, token);
+        await CommitChangesAsync(token);
+    }
+
+    // New -- Pass Slip had no reject-a-still-pending-request action before this feature (only
+    // Revoke, which un-approves an already-approved slip; see below). Mirrors Approve's shape.
+    public async Task DeclineAsync(
+        Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
+    {
+        var passSlip = await Context.PassSlipApplications.FindAsync(new object[] { id }, token);
+        if (passSlip == null) throw new NotFoundException("Record not found");
+        if (passSlip.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This pass slip is not awaiting approval.");
+
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        var result = await _approvalEngine.RecordActionAsync(
+            ApprovalApplicationType.PassSlip, passSlip.Id, passSlip.EmployeeId,
+            approverId, approverHasOverride, ApprovalActionType.Declined, note, token);
+
+        passSlip.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
         await ModifyAsync(passSlip, token);
         await CommitChangesAsync(token);
     }

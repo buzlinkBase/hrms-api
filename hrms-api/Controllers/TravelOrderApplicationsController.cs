@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +15,13 @@ namespace Hrms.Api.Controllers
     public class TravelOrderApplicationsController : ControllerBase
     {
         private readonly TravelOrderApplicationService _service;
+        private readonly EmployeeService _employeeService;
         private readonly IMapper _mapper;
 
-        public TravelOrderApplicationsController(TravelOrderApplicationService service, IMapper mapper)
+        public TravelOrderApplicationsController(TravelOrderApplicationService service, EmployeeService employeeService, IMapper mapper)
         {
             _service = service;
+            _employeeService = employeeService;
             _mapper = mapper;
         }
 
@@ -72,7 +75,11 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateTravelOrderApplication payload, CancellationToken token)
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
-            await _service.UpdateAsync(payload, token);
+
+            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            await _service.UpdateAsync(payload, token, approverEmployeeId, User.IsOwnerOrAdmin());
+
             return Ok(_mapper.Map<TravelOrderApplicationModel>(payload));
         }
 

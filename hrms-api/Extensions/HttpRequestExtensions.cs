@@ -64,4 +64,11 @@ public static class HttpRequestExtensions
 
     public static bool HasAnyPermission(this ClaimsPrincipal user, params string[] codes) =>
         codes.Any(user.HasPermission);
+
+    // The approval-workflow engine's escape hatch: Owner/Admin may act on any pending approval
+    // step regardless of assignment (Person/Department/Position/Applicant's Manager/Applicant's
+    // Department), since they already hold every {Row}:Approve permission broadly today. See
+    // ApprovalEngineService.RecordActionAsync's callerHasOverrideAccess parameter.
+    public static bool IsOwnerOrAdmin(this ClaimsPrincipal user) =>
+        user.FindAll(ClaimTypes.Role).Any(c => c.Value is "Owner" or "Admin");
 }

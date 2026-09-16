@@ -536,6 +536,49 @@ public enum ScheduleSource
     OpenShift,
 }
 
+// The 5 Applications types the approval-workflow engine covers — see ApprovalWorkflow.
+public enum ApprovalApplicationType
+{
+    Leave,
+    Overtime,
+    OfficialBusiness,
+    PassSlip,
+    Loan,
+}
+
+// Who a workflow step's approver resolves to. Person/Department/Position are fixed at
+// configuration time; ApplicantManager/ApplicantDepartment are resolved fresh per applicant at
+// approval time (see ApprovalEngineService) and may sit at any step, not just the first.
+public enum ApproverType
+{
+    Person,
+    Department,
+    Position,
+    ApplicantManager,
+    ApplicantDepartment,
+}
+
+public enum NoteRequirement
+{
+    None,
+    Optional,
+    Required,
+}
+
+public enum ApprovalInstanceStatus
+{
+    InProgress,
+    Approved,
+    Declined,
+    Cancelled,
+}
+
+public enum ApprovalActionType
+{
+    Approved,
+    Declined,
+}
+
 public enum OutBoxState
 {
     PENDING,      // Newly created, awaiting processing

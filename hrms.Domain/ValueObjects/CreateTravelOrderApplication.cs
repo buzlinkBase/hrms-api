@@ -21,6 +21,8 @@ public class UpdateTravelOrderApplication : CreateTravelOrderApplication
 {
     public Guid Id { get; set; }
     public ApprovalStatus ApprovalStatus { get; set; }= ApprovalStatus.Approved;
+    // Approver's note for an approve/decline transition — see LeaveApplication's UpdateLeaveApplication.Note.
+    public string? Note { get; set; }
 }
 
 public class TravelOrderApplicationModel : UpdateTravelOrderApplication

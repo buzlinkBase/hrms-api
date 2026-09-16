@@ -1,4 +1,5 @@
-﻿using Hrms.Core.Validations;
+﻿using Hrms.Core.Services.Approvals;
+using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
 using System.Linq.Expressions;
 
@@ -9,16 +10,19 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
     private readonly DeductionService _DeductionService;
     private readonly EmployeeService _employeeService;
     private readonly IMapper _mapper;
+    private readonly ApprovalEngineService _approvalEngine;
 
     public DeductionApplicationService(IUnitOfWorkService uow,
            DeductionService DeductionService,
            EmployeeService employeeService,
-           IMapper mapper
+           IMapper mapper,
+           ApprovalEngineService approvalEngine
         ) : base(uow)
     {
         _DeductionService = DeductionService;
         _employeeService = employeeService;
         _mapper = mapper;
+        _approvalEngine = approvalEngine;
     }
 
     protected override async Task<EvaluationResult> CreateValidatorAsync(DeductionApplication model, CancellationToken token)
@@ -88,6 +92,8 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         }
         await AddOrDeleteChildAsync(model, token);
         await CreateAsync(model, token);
+        if (model.ApprovalStatus == ApprovalStatus.ForApproval)
+            await _approvalEngine.StartAsync(ApprovalApplicationType.Loan, model.Id, model.EmployeeId, token);
         await CommitChangesAsync(token);
         return model;
     }
@@ -167,20 +173,42 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
             .ToListAsync(token);
     }
 
-    public async Task ApproveAsync(Guid id, CancellationToken token)
+    public async Task ApproveAsync(
+        Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
         var existing = await GetOneAsync(id, token);
         if (existing == null) return;
-        existing.ApprovalStatus = ApprovalStatus.Approved;
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This application is not awaiting approval.");
+
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        var result = await _approvalEngine.RecordActionAsync(
+            ApprovalApplicationType.Loan, existing.Id, existing.EmployeeId,
+            approverId, approverHasOverride, ApprovalActionType.Approved, note, token);
+
+        existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
 
-    public async Task DeclineAsync(Guid id, CancellationToken token)
+    public async Task DeclineAsync(
+        Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
         var existing = await GetOneAsync(id, token);
         if (existing == null) return;
-        existing.ApprovalStatus = ApprovalStatus.Declined;
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This application is not awaiting approval.");
+
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        var result = await _approvalEngine.RecordActionAsync(
+            ApprovalApplicationType.Loan, existing.Id, existing.EmployeeId,
+            approverId, approverHasOverride, ApprovalActionType.Declined, note, token);
+
+        existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
