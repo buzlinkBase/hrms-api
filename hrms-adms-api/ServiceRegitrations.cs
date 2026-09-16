@@ -191,6 +191,11 @@ public static class ServiceRegistrations
         })
          .AddJwtBearer(options =>
          {
+             // AuthApi's JwtService.CreateTokenAsync mints "sub"/"email" as the short registered
+             // JWT claim names -- without this, ASP.NET Core's default inbound map silently
+             // rewrites them to long ClaimTypes.* URIs when building the ClaimsPrincipal. See
+             // Extensions\HttpRequestExtensions.cs, which now reads "sub" directly to match.
+             options.MapInboundClaims = false;
              options.Events = new JwtBearerEvents
              {
                  OnAuthenticationFailed = context =>

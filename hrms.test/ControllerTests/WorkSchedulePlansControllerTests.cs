@@ -30,7 +30,7 @@ public class WorkSchedulePlansControllerTests
     {
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, userId.ToString()),
+            new("sub", userId.ToString()),
             new("email", "caller@company.com"),
         };
         claims.AddRange(permissions.Select(p => new Claim("permission", p)));

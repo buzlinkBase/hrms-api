@@ -255,7 +255,7 @@ public class MeControllerTests
         var callerUserId = caller?.UserId ?? Guid.NewGuid();
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
         [
-            new Claim(ClaimTypes.NameIdentifier, callerUserId.ToString()),
+            new Claim("sub", callerUserId.ToString()),
             new Claim("email", "caller@company.com"),
         ]));
 

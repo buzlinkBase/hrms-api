@@ -234,6 +234,13 @@ public static class ServiceRegistrationsExt
         })
          .AddJwtBearer(options =>
          {
+             // AuthApi's JwtService.CreateTokenAsync mints "sub"/"email" as the short registered
+             // JWT claim names -- without this, ASP.NET Core's default inbound map silently
+             // rewrites them to long ClaimTypes.* URIs when building the ClaimsPrincipal, which is
+             // why "sub" reads worked (GetRequiredUserId expected the rewritten form) while
+             // "email" reads silently returned null (GetUserClaim("email") expected the raw
+             // form). See Extensions\HttpRequestExtensions.cs, which now reads "sub" directly.
+             options.MapInboundClaims = false;
              options.Events = new JwtBearerEvents
              {
                  // SignalR's JS client sends the token as ?access_token= on the query string for

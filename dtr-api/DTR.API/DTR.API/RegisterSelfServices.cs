@@ -137,6 +137,12 @@ public static class ServiceRegistrations
         })
          .AddJwtBearer(options =>
          {
+             // AuthApi's JwtService.CreateTokenAsync mints "sub"/"email" as the short registered
+             // JWT claim names -- without this, ASP.NET Core's default inbound map silently
+             // rewrites them to long ClaimTypes.* URIs when building the ClaimsPrincipal. DTR.API
+             // has no HttpRequestExtensions.cs/claim-reading code today, but this keeps every
+             // service's JWT handling consistent.
+             options.MapInboundClaims = false;
              options.TokenValidationParameters = new TokenValidationParameters
              {
                  ValidateIssuer = true,
