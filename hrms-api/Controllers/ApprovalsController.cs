@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain;
+using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -63,18 +64,6 @@ namespace Hrms.Api.Controllers
                 ? instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == instance.CurrentStepNumber)
                 : null;
 
-            var approverLabel = currentStep?.ApproverType switch
-            {
-                ApproverType.Person => currentStep.ApproverEmployee != null
-                    ? $"{currentStep.ApproverEmployee.FirstName} {currentStep.ApproverEmployee.LastName}".Trim()
-                    : null,
-                ApproverType.Department => currentStep.ApproverDepartment?.Name,
-                ApproverType.Position => currentStep.ApproverPosition?.Name,
-                ApproverType.ApplicantManager => "Your Manager",
-                ApproverType.ApplicantDepartment => "Your Department",
-                _ => null,
-            };
-
             return Ok(new ApprovalInstanceResponse
             {
                 ApplicationType = instance.ApplicationType,
@@ -85,7 +74,7 @@ namespace Hrms.Api.Controllers
                 Status = instance.Status,
                 CurrentStepNoteRequirement = currentStep?.NoteRequirement ?? NoteRequirement.None,
                 CurrentStepApproverType = currentStep?.ApproverType,
-                CurrentStepApproverLabel = approverLabel,
+                CurrentStepApproverLabel = ResolveApproverLabel(currentStep),
                 Actions = instance.Actions
                     .OrderBy(a => a.CreatedAt)
                     .Select(a => new ApprovalActionResponse
@@ -97,8 +86,32 @@ namespace Hrms.Api.Controllers
                         CreatedAt = a.CreatedAt,
                     })
                     .ToList(),
+                // Every step of the workflow, not just the current one -- lets the Approval
+                // Progress timeline show who (or which department) handles each upcoming step.
+                Steps = (instance.Workflow?.Steps ?? [])
+                    .OrderBy(s => s.StepNumber)
+                    .Select(s => new ApprovalStepSummaryResponse
+                    {
+                        StepNumber = s.StepNumber,
+                        ApproverType = s.ApproverType,
+                        ApproverLabel = ResolveApproverLabel(s),
+                        NoteRequirement = s.NoteRequirement,
+                    })
+                    .ToList(),
             });
         }
+
+        private static string? ResolveApproverLabel(ApprovalWorkflowStep? step) => step?.ApproverType switch
+        {
+            ApproverType.Person => step.ApproverEmployee != null
+                ? $"{step.ApproverEmployee.FirstName} {step.ApproverEmployee.LastName}".Trim()
+                : null,
+            ApproverType.Department => step.ApproverDepartment?.Name,
+            ApproverType.Position => step.ApproverPosition?.Name,
+            ApproverType.ApplicantManager => "Your Manager",
+            ApproverType.ApplicantDepartment => "Your Department",
+            _ => null,
+        };
 
         // Lets the frontend show/hide the Approve/Decline modal for the current caller without
         // guessing client-side -- mirrors ApprovalEngineService.RecordActionAsync's own

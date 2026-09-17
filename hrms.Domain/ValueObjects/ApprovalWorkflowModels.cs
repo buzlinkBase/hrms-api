@@ -60,6 +60,18 @@ public class ApprovalActionResponse
     public DateTime CreatedAt { get; set; }
 }
 
+// One entry per step of the instance's workflow, resolved server-side the same way
+// CurrentStepApproverLabel is -- lets the Approval Progress timeline show every upcoming step's
+// approver/department, not just the current one, without the frontend doing its own
+// Employee/Department/Position lookups.
+public class ApprovalStepSummaryResponse
+{
+    public int StepNumber { get; set; }
+    public ApproverType ApproverType { get; set; }
+    public string? ApproverLabel { get; set; }
+    public NoteRequirement NoteRequirement { get; set; }
+}
+
 public class ApprovalInstanceResponse
 {
     public ApprovalApplicationType ApplicationType { get; set; }
@@ -77,4 +89,5 @@ public class ApprovalInstanceResponse
     public ApproverType? CurrentStepApproverType { get; set; }
     public string? CurrentStepApproverLabel { get; set; }
     public List<ApprovalActionResponse> Actions { get; set; } = [];
+    public List<ApprovalStepSummaryResponse> Steps { get; set; } = [];
 }
