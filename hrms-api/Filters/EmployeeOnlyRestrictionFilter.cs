@@ -20,15 +20,8 @@ namespace Hrms.Api.Filters;
 /// </summary>
 public class EmployeeOnlyRestrictionFilter : IAsyncActionFilter
 {
-    // Employee-only accounts stay restricted here even while TEMP-ALLOW-ALL bypasses every other
-    // permission check elsewhere (HttpRequestExtensions.HasPermission, UserMembership) --
-    // explicitly asked to keep this one gate real.
-    private static readonly bool TempAllowAll = false;
-
     public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        if (TempAllowAll) return next();
-
         var roles = context.HttpContext.User
             .FindAll(ClaimTypes.Role)
             .Select(c => c.Value)

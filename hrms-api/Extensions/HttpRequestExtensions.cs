@@ -5,12 +5,6 @@ namespace Hrms.Api.Extensions;
 
 public static class HttpRequestExtensions
 {
-    // TEMP-ALLOW-ALL (2026-09-17): flip to false to restore normal permission checks in
-    // HasPermission below. Search "TEMP-ALLOW-ALL" for every place this flag gates a check.
-    // static (not const) deliberately -- a const bool would let the compiler fold the branch and
-    // flag the real check below as unreachable (CS0162).
-    private static readonly bool TempAllowAll = true;
-
     public static string? GetHeader(this HttpRequest request, string key)
     {
         return request.Headers.TryGetValue(key, out var headerValue)
@@ -65,11 +59,18 @@ public static class HttpRequestExtensions
         return GetUserClaim(user, claim);
     }
 
-    public static bool HasPermission(this ClaimsPrincipal user, string code)
-    {
-        if (TempAllowAll) return true;
-        return user.IsOwnerOrAdmin() || user.FindAll("permission").Any(c => c.Value == code);
-    }
+    // Mirrors EmployeeOnlyRestrictionFilter's own ClaimTypes.Role reads off the same principal --
+    // AuthApi's JwtService embeds one "permission" claim per granted permission code (e.g.
+    // "Work Rotation:ManageOwnTeam"), alongside the existing role claims.
+    //
+    // IsOwnerOrAdmin() short-circuits this -- RequirePermissionAttribute (and everything else
+    // that calls this) otherwise 403s a caller whose token has a role claim but no permission
+    // claims yet, e.g. the brief window right after workspace creation before the async
+    // membership/permission rows exist (see WorkspaceService.Create in tenantstore). Owner/Admin
+    // are guaranteed every permission in the catalog anyway (PermissionCatalogSeederService), so
+    // this isn't a real bypass -- it's the same answer the claims would eventually give, sooner.
+    public static bool HasPermission(this ClaimsPrincipal user, string code) =>
+        user.IsOwnerOrAdmin() || user.FindAll("permission").Any(c => c.Value == code);
 
     public static bool HasAnyPermission(this ClaimsPrincipal user, params string[] codes) =>
         codes.Any(user.HasPermission);
