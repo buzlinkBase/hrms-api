@@ -62,8 +62,15 @@ public static class HttpRequestExtensions
     // Mirrors EmployeeOnlyRestrictionFilter's own ClaimTypes.Role reads off the same principal --
     // AuthApi's JwtService embeds one "permission" claim per granted permission code (e.g.
     // "Work Rotation:ManageOwnTeam"), alongside the existing role claims.
+    //
+    // IsOwnerOrAdmin() short-circuits this -- RequirePermissionAttribute (and everything else
+    // that calls this) otherwise 403s a caller whose token has a role claim but no permission
+    // claims yet, e.g. the brief window right after workspace creation before the async
+    // membership/permission rows exist (see WorkspaceService.Create in tenantstore). Owner/Admin
+    // are guaranteed every permission in the catalog anyway (PermissionCatalogSeederService), so
+    // this isn't a real bypass -- it's the same answer the claims would eventually give, sooner.
     public static bool HasPermission(this ClaimsPrincipal user, string code) =>
-        user.FindAll("permission").Any(c => c.Value == code);
+        user.IsOwnerOrAdmin() || user.FindAll("permission").Any(c => c.Value == code);
 
     public static bool HasAnyPermission(this ClaimsPrincipal user, params string[] codes) =>
         codes.Any(user.HasPermission);

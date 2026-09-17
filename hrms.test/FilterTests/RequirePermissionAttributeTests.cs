@@ -40,6 +40,24 @@ public class RequirePermissionAttributeTests
         return Task.FromResult(executed);
     };
 
+    // Owner/Admin's token may carry a role claim with zero "permission" claims -- e.g. the brief
+    // window right after workspace creation before the async membership/permission rows exist
+    // (see WorkspaceService.Create in tenantstore). HasPermission's IsOwnerOrAdmin() bypass means
+    // this attribute must never 403 that caller, regardless of which codes it's declared with.
+    private static ActionExecutingContext BuildContextWithRole(string role)
+    {
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Role, role)])),
+        };
+        var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+        return new ActionExecutingContext(
+            actionContext,
+            new List<IFilterMetadata>(),
+            new Dictionary<string, object?>(),
+            controller: new object());
+    }
+
     [Fact]
     public async Task Allows_WhenCallerHoldsTheRequiredCode()
     {
@@ -99,5 +117,20 @@ public class RequirePermissionAttributeTests
 
         var problem = (ProblemDetails)((ObjectResult)context.Result!).Value!;
         problem.Detail.Should().Contain("Organization Setup:View").And.Contain("Organization Setup:Create");
+    }
+
+    [Theory]
+    [InlineData("Owner")]
+    [InlineData("Admin")]
+    public async Task Allows_WhenCallerHasOwnerOrAdminRole_EvenWithNoPermissionClaimsAtAll(string role)
+    {
+        var context = BuildContextWithRole(role);
+        var nextCalled = false;
+        var filter = new RequirePermissionAttribute("Organization Setup:View", "Organization Setup:Create");
+
+        await filter.OnActionExecutionAsync(context, NextSpy(context, () => nextCalled = true));
+
+        nextCalled.Should().BeTrue();
+        context.Result.Should().BeNull();
     }
 }
