@@ -8,7 +8,7 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class init_config : Migration
+    public partial class initial_create : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -149,6 +149,10 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     ContactPerson = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    RetirementDaysPerYear = table.Column<decimal>(type: "decimal(65,30)", nullable: true),
+                    UniformAllowance = table.Column<decimal>(type: "decimal(65,30)", nullable: true),
+                    UniformAllowanceBasis = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     Status = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
@@ -286,6 +290,28 @@ namespace Hrms.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DeductionTypes", x => x.Id);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "Departments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Code = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Name = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Departments", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -545,11 +571,14 @@ namespace Hrms.Infrastructure.Migrations
                     ProRateFirstYear = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     LeaveReset = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    EligibilityBasis = table.Column<int>(type: "int", nullable: false),
                     MinServiceMonths = table.Column<int>(type: "int", nullable: false),
+                    MinPresentDays = table.Column<int>(type: "int", nullable: false),
                     GenderRestriction = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     RequiresApproval = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     RequiresSupportingDocument = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AllowEmployeeFiling = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     AllowHalfDay = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     AllowPartial = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     AllowNegativeBalance = table.Column<bool>(type: "tinyint(1)", nullable: false),
@@ -877,12 +906,15 @@ namespace Hrms.Infrastructure.Migrations
                     TaxableIncome = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     NonTaxableIncome = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     IsPosted = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AcknowledgedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     PayrollType = table.Column<int>(type: "int", nullable: false),
                     OvertimeHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     RegularNetHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     RegularOTHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     RegularNDHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     RegularNDOTHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RetirementAccrual = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RetirementPayout = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     RestDayHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     RestDayOTHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
                     RestDayNDHours = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
@@ -1332,6 +1364,66 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "ApprovalWorkflows",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ApplicationType = table.Column<string>(type: "varchar(255)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Name = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    IsActive = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    ScopeDepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ApprovalWorkflows", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ApprovalWorkflows_Departments_ScopeDepartmentId",
+                        column: x => x.ScopeDepartmentId,
+                        principalTable: "Departments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "Sections",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    SectionType = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Code = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Name = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Sections", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Sections_Departments_DepartmentId",
+                        column: x => x.DepartmentId,
+                        principalTable: "Departments",
+                        principalColumn: "Id");
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "leaveApplications",
                 columns: table => new
                 {
@@ -1414,6 +1506,120 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "PayrollDeductionDetails",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    PayrollId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    DeductionApplicationDetailId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    DeductionId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Amount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayrollDeductionDetails", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PayrollDeductionDetails_Payrolls_PayrollId",
+                        column: x => x.PayrollId,
+                        principalTable: "Payrolls",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "PayrollDtrDetails",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    PayrollId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    DtrId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    DTRRef = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Date = table.Column<DateOnly>(type: "date", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    PayrollGroupId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    DailyRate = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    SalaryType = table.Column<int>(type: "int", nullable: false),
+                    WorkType = table.Column<int>(type: "int", nullable: false),
+                    LateAmount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    UTAmount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    AbsentAmount = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    PaidLeave = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    UnpaidLeave = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RegularDayPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RegularOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RegularNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RegularNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDayPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDayOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDayNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDayNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    LegalPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    LegalOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    LegalNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    LegalNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    SpecialPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    SpecialOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    SpecialNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    SpecialNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestLegalPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestLegalOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestLegalNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestLegalNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestSpecialPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestSpecialOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestSpecialNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestSpecialNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    DoubleLegalPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    DoubleLegalOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    DoubleLegalNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    DoubleLegalNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDoubleLegalPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDoubleLegalOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDoubleLegalNDPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDoubleLegalNDOTPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    LegalWorked = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    LegalUnWorked = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    DoubleLegalWorked = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    DoubleLegalUnworked = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDoubleLegalWorked = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    RestDoubleLegalUnworked = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    TotalExcludingBasic = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Holiday = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    NDPremiumPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    OTPremiumPay = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    TotalOT = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    TotalND = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    TotalNDOT = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayrollDtrDetails", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PayrollDtrDetails_Payrolls_PayrollId",
+                        column: x => x.PayrollId,
+                        principalTable: "Payrolls",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "OtherIncomeApplicationDetails",
                 columns: table => new
                 {
@@ -1454,333 +1660,6 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "Holidays",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Description = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    HolType = table.Column<int>(type: "int", nullable: false),
-                    WorkType = table.Column<int>(type: "int", nullable: false),
-                    HolYear = table.Column<int>(type: "int", nullable: false),
-                    HolDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    IsRecuring = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    WeekOfMonth = table.Column<int>(type: "int", nullable: true),
-                    DayOfWeek = table.Column<int>(type: "int", nullable: true),
-                    IsPaid = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Holidays", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Holidays_Areas_AreaId",
-                        column: x => x.AreaId,
-                        principalTable: "Areas",
-                        principalColumn: "Id");
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "AssignAssets",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    AssetType = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    AssetDescription = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Model = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Brand = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    SerialNo = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Qty = table.Column<int>(type: "int", nullable: false),
-                    IssuanceDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    ReturnedDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Remarks = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    File = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AssignAssets", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "Attendances",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    BioId = table.Column<int>(type: "int", nullable: true),
-                    WorkDateTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    IP = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    DeviceName = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    OperationAreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    UserName = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Workstate = table.Column<int>(type: "int", nullable: false),
-                    Verifycode = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    LogRemarks = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    BatchCode = table.Column<string>(type: "varchar(255)", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    EditRemarks = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    LogSource = table.Column<int>(type: "int", nullable: false),
-                    Boundary = table.Column<Polygon>(type: "geometry", nullable: true)
-                        .Annotation("MySql:SpatialReferenceSystemId", 4326),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Attendances", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Attendances_Areas_OperationAreaId",
-                        column: x => x.OperationAreaId,
-                        principalTable: "Areas",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_Attendances_Branches_BranchId",
-                        column: x => x.BranchId,
-                        principalTable: "Branches",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_Attendances_Clients_ClientId",
-                        column: x => x.ClientId,
-                        principalTable: "Clients",
-                        principalColumn: "Id");
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "ChangeHolidays",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    BatchCode = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    HolidayId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    State = table.Column<int>(type: "int", nullable: false),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ChangeHolidays", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ChangeHolidays_Holidays_HolidayId",
-                        column: x => x.HolidayId,
-                        principalTable: "Holidays",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "ChangeRestDays",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    DayName = table.Column<int>(type: "int", nullable: false),
-                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    State = table.Column<int>(type: "int", nullable: false),
-                    BatchCode = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    ApprovalStatus = table.Column<int>(type: "int", nullable: false),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ChangeRestDays", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "DailyTimeRecords",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    BatchCode = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    WorkType = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    WorkTypeEnum = table.Column<int>(type: "int", nullable: false),
-                    FullName = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    ShiftId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    WorkDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    ShiftName = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    ShiftStartTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    ShiftEndTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    LateMinutes = table.Column<double>(type: "double", nullable: false),
-                    UTMinutes = table.Column<double>(type: "double", nullable: false),
-                    OverMinutes = table.Column<double>(type: "double", nullable: false),
-                    LateForOTMinutes = table.Column<double>(type: "double", nullable: false),
-                    OBHours = table.Column<double>(type: "double", nullable: false),
-                    AbsentCount = table.Column<int>(type: "int", nullable: false),
-                    HolCount = table.Column<int>(type: "int", nullable: false),
-                    SPCount = table.Column<int>(type: "int", nullable: false),
-                    PaidLeaveHours = table.Column<double>(type: "double", nullable: false),
-                    UnpaidLeaveHours = table.Column<double>(type: "double", nullable: false),
-                    RegularNetHours = table.Column<double>(type: "double", nullable: false),
-                    RegularOTHours = table.Column<double>(type: "double", nullable: false),
-                    RegularNDHours = table.Column<double>(type: "double", nullable: false),
-                    RegularNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestDayHours = table.Column<double>(type: "double", nullable: false),
-                    RestDayOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestDayNDHours = table.Column<double>(type: "double", nullable: false),
-                    RestDayNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    LegalHolHours = table.Column<double>(type: "double", nullable: false),
-                    LegalHolOTHours = table.Column<double>(type: "double", nullable: false),
-                    LegalHolNightDiffHours = table.Column<double>(type: "double", nullable: false),
-                    LegalHolNightDiffOTHours = table.Column<double>(type: "double", nullable: false),
-                    SpecialHolHours = table.Column<double>(type: "double", nullable: false),
-                    SpecialHolOTHours = table.Column<double>(type: "double", nullable: false),
-                    SpecialHolNightDiffHours = table.Column<double>(type: "double", nullable: false),
-                    SpecialHolNightDiffOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestLegalDayHours = table.Column<double>(type: "double", nullable: false),
-                    RestLegalDayOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestLegalDayNDHours = table.Column<double>(type: "double", nullable: false),
-                    RestLegalDayNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestSpecialDayHours = table.Column<double>(type: "double", nullable: false),
-                    RestSpecialDayOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestSpecialDayNDHours = table.Column<double>(type: "double", nullable: false),
-                    RestSpecialDayNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    DoubleLegalHours = table.Column<double>(type: "double", nullable: false),
-                    DoubleLegalOTHours = table.Column<double>(type: "double", nullable: false),
-                    DoubleLegalNDHours = table.Column<double>(type: "double", nullable: false),
-                    DoubleLegalNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestDoubleLegalHours = table.Column<double>(type: "double", nullable: false),
-                    RestDoubleLegalOTHours = table.Column<double>(type: "double", nullable: false),
-                    RestDoubleLegalNDHours = table.Column<double>(type: "double", nullable: false),
-                    RestDoubleLegalNDOTHours = table.Column<double>(type: "double", nullable: false),
-                    Note = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    PostingDescription = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    PayrollGroupId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    ShiftWorkingHour = table.Column<double>(type: "double", nullable: false),
-                    Posted = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DailyTimeRecords", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "DtrLeaveMetaDatas",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    DTRId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    LeaveId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Name = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Hours = table.Column<double>(type: "double", nullable: false),
-                    StartDateTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    EndDateTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    PayType = table.Column<int>(type: "int", nullable: false),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DtrLeaveMetaDatas", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_DtrLeaveMetaDatas_DailyTimeRecords_DTRId",
-                        column: x => x.DTRId,
-                        principalTable: "DailyTimeRecords",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "Departments",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Code = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Name = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    HeadId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    Status = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Departments", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
                 name: "Employees",
                 columns: table => new
                 {
@@ -1792,6 +1671,7 @@ namespace Hrms.Infrastructure.Migrations
                     EmployeeNo = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    ManagerId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     PayrollGroupId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
@@ -1892,6 +1772,12 @@ namespace Hrms.Infrastructure.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_Employees_Employees_ManagerId",
+                        column: x => x.ManagerId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_Employees_PayrollGroups_PayrollGroupId",
                         column: x => x.PayrollGroupId,
                         principalTable: "PayrollGroups",
@@ -1911,16 +1797,89 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "Sections",
+                name: "Holidays",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
-                    SectionType = table.Column<string>(type: "longtext", nullable: false)
+                    Description = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Code = table.Column<string>(type: "longtext", nullable: false)
+                    HolType = table.Column<int>(type: "int", nullable: false),
+                    WorkType = table.Column<int>(type: "int", nullable: false),
+                    HolYear = table.Column<int>(type: "int", nullable: false),
+                    HolDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    IsRecuring = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    WeekOfMonth = table.Column<int>(type: "int", nullable: true),
+                    DayOfWeek = table.Column<int>(type: "int", nullable: true),
+                    IsPaid = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Name = table.Column<string>(type: "longtext", nullable: false)
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Holidays", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Holidays_Areas_AreaId",
+                        column: x => x.AreaId,
+                        principalTable: "Areas",
+                        principalColumn: "Id");
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ApprovalInstances",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ApplicationType = table.Column<string>(type: "varchar(255)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ApplicationId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ApplicantEmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ApprovalWorkflowId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    CurrentStepNumber = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ApprovalInstances", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ApprovalInstances_ApprovalWorkflows_ApprovalWorkflowId",
+                        column: x => x.ApprovalWorkflowId,
+                        principalTable: "ApprovalWorkflows",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ApprovalInstances_Employees_ApplicantEmployeeId",
+                        column: x => x.ApplicantEmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ApprovalWorkflowSteps",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ApprovalWorkflowId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    StepNumber = table.Column<int>(type: "int", nullable: false),
+                    ApproverType = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ApproverEmployeeId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    ApproverDepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    ApproverPositionId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    MinApprovals = table.Column<int>(type: "int", nullable: false),
+                    NoteRequirement = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Status = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -1931,12 +1890,261 @@ namespace Hrms.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Sections", x => x.Id);
+                    table.PrimaryKey("PK_ApprovalWorkflowSteps", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Sections_Departments_DepartmentId",
-                        column: x => x.DepartmentId,
+                        name: "FK_ApprovalWorkflowSteps_ApprovalWorkflows_ApprovalWorkflowId",
+                        column: x => x.ApprovalWorkflowId,
+                        principalTable: "ApprovalWorkflows",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ApprovalWorkflowSteps_Departments_ApproverDepartmentId",
+                        column: x => x.ApproverDepartmentId,
                         principalTable: "Departments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ApprovalWorkflowSteps_Employees_ApproverEmployeeId",
+                        column: x => x.ApproverEmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ApprovalWorkflowSteps_Positions_ApproverPositionId",
+                        column: x => x.ApproverPositionId,
+                        principalTable: "Positions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "AssignAssets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    AssetType = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    AssetDescription = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Model = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Brand = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    SerialNo = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Qty = table.Column<int>(type: "int", nullable: false),
+                    IssuanceDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    ReturnedDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Remarks = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    File = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AssignAssets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AssignAssets_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
                         principalColumn: "Id");
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "Attendances",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    BioId = table.Column<int>(type: "int", nullable: true),
+                    WorkDateTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    IP = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    DeviceName = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    OperationAreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    UserName = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Workstate = table.Column<int>(type: "int", nullable: false),
+                    Verifycode = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    LogRemarks = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    BatchCode = table.Column<string>(type: "varchar(255)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    EditRemarks = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    LogSource = table.Column<int>(type: "int", nullable: false),
+                    Boundary = table.Column<Polygon>(type: "geometry", nullable: true)
+                        .Annotation("MySql:SpatialReferenceSystemId", 4326),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Attendances", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Attendances_Areas_OperationAreaId",
+                        column: x => x.OperationAreaId,
+                        principalTable: "Areas",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Attendances_Branches_BranchId",
+                        column: x => x.BranchId,
+                        principalTable: "Branches",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Attendances_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Attendances_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id");
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ChangeRestDays",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    DayName = table.Column<int>(type: "int", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    State = table.Column<int>(type: "int", nullable: false),
+                    BatchCode = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ApprovalStatus = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChangeRestDays", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ChangeRestDays_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "DailyTimeRecords",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    BatchCode = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    WorkType = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    WorkTypeEnum = table.Column<int>(type: "int", nullable: false),
+                    FullName = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ShiftId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    WorkDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    ShiftName = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ShiftStartTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    ShiftEndTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    LateMinutes = table.Column<double>(type: "double", nullable: false),
+                    UTMinutes = table.Column<double>(type: "double", nullable: false),
+                    OverMinutes = table.Column<double>(type: "double", nullable: false),
+                    LateForOTMinutes = table.Column<double>(type: "double", nullable: false),
+                    OBHours = table.Column<double>(type: "double", nullable: false),
+                    AbsentCount = table.Column<int>(type: "int", nullable: false),
+                    HolCount = table.Column<int>(type: "int", nullable: false),
+                    SPCount = table.Column<int>(type: "int", nullable: false),
+                    PaidLeaveHours = table.Column<double>(type: "double", nullable: false),
+                    UnpaidLeaveHours = table.Column<double>(type: "double", nullable: false),
+                    RegularNetHours = table.Column<double>(type: "double", nullable: false),
+                    RegularOTHours = table.Column<double>(type: "double", nullable: false),
+                    RegularNDHours = table.Column<double>(type: "double", nullable: false),
+                    RegularNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestDayHours = table.Column<double>(type: "double", nullable: false),
+                    RestDayOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestDayNDHours = table.Column<double>(type: "double", nullable: false),
+                    RestDayNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    LegalHolHours = table.Column<double>(type: "double", nullable: false),
+                    LegalHolOTHours = table.Column<double>(type: "double", nullable: false),
+                    LegalHolNightDiffHours = table.Column<double>(type: "double", nullable: false),
+                    LegalHolNightDiffOTHours = table.Column<double>(type: "double", nullable: false),
+                    SpecialHolHours = table.Column<double>(type: "double", nullable: false),
+                    SpecialHolOTHours = table.Column<double>(type: "double", nullable: false),
+                    SpecialHolNightDiffHours = table.Column<double>(type: "double", nullable: false),
+                    SpecialHolNightDiffOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestLegalDayHours = table.Column<double>(type: "double", nullable: false),
+                    RestLegalDayOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestLegalDayNDHours = table.Column<double>(type: "double", nullable: false),
+                    RestLegalDayNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestSpecialDayHours = table.Column<double>(type: "double", nullable: false),
+                    RestSpecialDayOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestSpecialDayNDHours = table.Column<double>(type: "double", nullable: false),
+                    RestSpecialDayNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalOTHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalNDHours = table.Column<double>(type: "double", nullable: false),
+                    DoubleLegalNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalOTHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalNDHours = table.Column<double>(type: "double", nullable: false),
+                    RestDoubleLegalNDOTHours = table.Column<double>(type: "double", nullable: false),
+                    Note = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    PostingDescription = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    BranchId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    DepartmentId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    PayrollGroupId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    ClientId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    AreaId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    ShiftWorkingHour = table.Column<double>(type: "double", nullable: false),
+                    Posted = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DailyTimeRecords", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DailyTimeRecords_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -2419,6 +2627,32 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "RetirementFunds",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Balance = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RetirementFunds", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RetirementFunds_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "Skills",
                 columns: table => new
                 {
@@ -2577,6 +2811,32 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "UniformAllowanceFunds",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Balance = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UniformAllowanceFunds", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UniformAllowanceFunds_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "UTApplications",
                 columns: table => new
                 {
@@ -2642,6 +2902,143 @@ namespace Hrms.Infrastructure.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "ChangeHolidays",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    BatchCode = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    HolidayId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    PayrollDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    State = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChangeHolidays", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ChangeHolidays_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ChangeHolidays_Holidays_HolidayId",
+                        column: x => x.HolidayId,
+                        principalTable: "Holidays",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ApprovalActions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ApprovalInstanceId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    StepNumber = table.Column<int>(type: "int", nullable: false),
+                    ActorEmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Action = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Note = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ApprovalActions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ApprovalActions_ApprovalInstances_ApprovalInstanceId",
+                        column: x => x.ApprovalInstanceId,
+                        principalTable: "ApprovalInstances",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ApprovalActions_Employees_ActorEmployeeId",
+                        column: x => x.ActorEmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "ApprovalWorkflowStepApprovers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    ApprovalWorkflowStepId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ApprovalWorkflowStepApprovers", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ApprovalWorkflowStepApprovers_ApprovalWorkflowSteps_Approval~",
+                        column: x => x.ApprovalWorkflowStepId,
+                        principalTable: "ApprovalWorkflowSteps",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ApprovalWorkflowStepApprovers_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "DtrLeaveMetaDatas",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    DTRId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    LeaveId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    Name = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Hours = table.Column<double>(type: "double", nullable: false),
+                    StartDateTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    EndDateTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    PayType = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DtrLeaveMetaDatas", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DtrLeaveMetaDatas_DailyTimeRecords_DTRId",
+                        column: x => x.DTRId,
+                        principalTable: "DailyTimeRecords",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "LeaveLedgers",
                 columns: table => new
                 {
@@ -2659,6 +3056,8 @@ namespace Hrms.Infrastructure.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     ReferenceApplicationId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     DtrBatchCode = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    AccrualDedupeKey = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Status = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -2697,6 +3096,94 @@ namespace Hrms.Infrastructure.Migrations
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
+            migrationBuilder.CreateTable(
+                name: "RetirementLedgers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    RetirementFundId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EntryType = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    PayrollId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    EntryDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    Add = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Less = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Balance = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Particulars = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RetirementLedgers", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RetirementLedgers_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RetirementLedgers_Payrolls_PayrollId",
+                        column: x => x.PayrollId,
+                        principalTable: "Payrolls",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_RetirementLedgers_RetirementFunds_RetirementFundId",
+                        column: x => x.RetirementFundId,
+                        principalTable: "RetirementFunds",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "UniformAllowanceLedgers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EmployeeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    UniformAllowanceFundId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    EntryType = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    EntryDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    Add = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Less = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Balance = table.Column<decimal>(type: "decimal(65,30)", nullable: false),
+                    Particulars = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    AccrualDedupeKey = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UniformAllowanceLedgers", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UniformAllowanceLedgers_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UniformAllowanceLedgers_UniformAllowanceFunds_UniformAllowan~",
+                        column: x => x.UniformAllowanceFundId,
+                        principalTable: "UniformAllowanceFunds",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Allowances_IncomeTypeId",
                 table: "Allowances",
@@ -2710,6 +3197,99 @@ namespace Hrms.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_AllowanceTypes_TenantId_DeletedAt",
                 table: "AllowanceTypes",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalActions_ActorEmployeeId",
+                table: "ApprovalActions",
+                column: "ActorEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalActions_ApprovalInstanceId_StepNumber",
+                table: "ApprovalActions",
+                columns: new[] { "ApprovalInstanceId", "StepNumber" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalActions_TenantId_DeletedAt",
+                table: "ApprovalActions",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalInstances_ApplicantEmployeeId",
+                table: "ApprovalInstances",
+                column: "ApplicantEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalInstances_ApplicationType_ApplicationId",
+                table: "ApprovalInstances",
+                columns: new[] { "ApplicationType", "ApplicationId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalInstances_ApprovalWorkflowId",
+                table: "ApprovalInstances",
+                column: "ApprovalWorkflowId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalInstances_TenantId_DeletedAt",
+                table: "ApprovalInstances",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflows_ApplicationType_ScopeDepartmentId_IsActive",
+                table: "ApprovalWorkflows",
+                columns: new[] { "ApplicationType", "ScopeDepartmentId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflows_ScopeDepartmentId",
+                table: "ApprovalWorkflows",
+                column: "ScopeDepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflows_TenantId_DeletedAt",
+                table: "ApprovalWorkflows",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowStepApprovers_ApprovalWorkflowStepId_Employe~",
+                table: "ApprovalWorkflowStepApprovers",
+                columns: new[] { "ApprovalWorkflowStepId", "EmployeeId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowStepApprovers_EmployeeId",
+                table: "ApprovalWorkflowStepApprovers",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowStepApprovers_TenantId_DeletedAt",
+                table: "ApprovalWorkflowStepApprovers",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowSteps_ApprovalWorkflowId_StepNumber",
+                table: "ApprovalWorkflowSteps",
+                columns: new[] { "ApprovalWorkflowId", "StepNumber" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowSteps_ApproverDepartmentId",
+                table: "ApprovalWorkflowSteps",
+                column: "ApproverDepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowSteps_ApproverEmployeeId",
+                table: "ApprovalWorkflowSteps",
+                column: "ApproverEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowSteps_ApproverPositionId",
+                table: "ApprovalWorkflowSteps",
+                column: "ApproverPositionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ApprovalWorkflowSteps_TenantId_DeletedAt",
+                table: "ApprovalWorkflowSteps",
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
@@ -2896,12 +3476,6 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Departments_HeadId",
-                table: "Departments",
-                column: "HeadId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Departments_TenantId_DeletedAt",
                 table: "Departments",
                 columns: new[] { "TenantId", "DeletedAt" });
@@ -2991,6 +3565,11 @@ namespace Hrms.Infrastructure.Migrations
                 name: "IX_Employees_LastName",
                 table: "Employees",
                 column: "LastName");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_ManagerId",
+                table: "Employees",
+                column: "ManagerId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Employees_MiddleName",
@@ -3151,6 +3730,12 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_LeaveLedgers_AccrualDedupeKey",
+                table: "LeaveLedgers",
+                column: "AccrualDedupeKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_LeaveLedgers_EmployeeId",
                 table: "LeaveLedgers",
                 column: "EmployeeId");
@@ -3263,6 +3848,26 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_PayrollDeductionDetails_PayrollId",
+                table: "PayrollDeductionDetails",
+                column: "PayrollId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollDeductionDetails_TenantId_DeletedAt",
+                table: "PayrollDeductionDetails",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollDtrDetails_PayrollId",
+                table: "PayrollDtrDetails",
+                column: "PayrollId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollDtrDetails_TenantId_DeletedAt",
+                table: "PayrollDtrDetails",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PayrollGroups_TenantId_DeletedAt",
                 table: "PayrollGroups",
                 columns: new[] { "TenantId", "DeletedAt" });
@@ -3353,6 +3958,37 @@ namespace Hrms.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_RestDays_TenantId_DeletedAt",
                 table: "RestDays",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RetirementFunds_EmployeeId",
+                table: "RetirementFunds",
+                column: "EmployeeId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RetirementFunds_TenantId_DeletedAt",
+                table: "RetirementFunds",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RetirementLedgers_EmployeeId",
+                table: "RetirementLedgers",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RetirementLedgers_PayrollId",
+                table: "RetirementLedgers",
+                column: "PayrollId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RetirementLedgers_RetirementFundId",
+                table: "RetirementLedgers",
+                column: "RetirementFundId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RetirementLedgers_TenantId_DeletedAt",
+                table: "RetirementLedgers",
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
@@ -3458,6 +4094,38 @@ namespace Hrms.Infrastructure.Migrations
                 columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_UniformAllowanceFunds_EmployeeId",
+                table: "UniformAllowanceFunds",
+                column: "EmployeeId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UniformAllowanceFunds_TenantId_DeletedAt",
+                table: "UniformAllowanceFunds",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UniformAllowanceLedgers_AccrualDedupeKey",
+                table: "UniformAllowanceLedgers",
+                column: "AccrualDedupeKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UniformAllowanceLedgers_EmployeeId",
+                table: "UniformAllowanceLedgers",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UniformAllowanceLedgers_TenantId_DeletedAt",
+                table: "UniformAllowanceLedgers",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UniformAllowanceLedgers_UniformAllowanceFundId",
+                table: "UniformAllowanceLedgers",
+                column: "UniformAllowanceFundId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UTApplications_EmployeeId",
                 table: "UTApplications",
                 column: "EmployeeId");
@@ -3492,68 +4160,16 @@ namespace Hrms.Infrastructure.Migrations
                 table: "YearLocks",
                 columns: new[] { "TenantId", "Year" },
                 unique: true);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_AssignAssets_Employees_EmployeeId",
-                table: "AssignAssets",
-                column: "EmployeeId",
-                principalTable: "Employees",
-                principalColumn: "Id");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Attendances_Employees_EmployeeId",
-                table: "Attendances",
-                column: "EmployeeId",
-                principalTable: "Employees",
-                principalColumn: "Id");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_ChangeHolidays_Employees_EmployeeId",
-                table: "ChangeHolidays",
-                column: "EmployeeId",
-                principalTable: "Employees",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_ChangeRestDays_Employees_EmployeeId",
-                table: "ChangeRestDays",
-                column: "EmployeeId",
-                principalTable: "Employees",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_DailyTimeRecords_Employees_EmployeeId",
-                table: "DailyTimeRecords",
-                column: "EmployeeId",
-                principalTable: "Employees",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Departments_Employees_HeadId",
-                table: "Departments",
-                column: "HeadId",
-                principalTable: "Employees",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Areas_Branches_BranchId",
-                table: "Areas");
+            migrationBuilder.DropTable(
+                name: "ApprovalActions");
 
-            migrationBuilder.DropForeignKey(
-                name: "FK_Employees_Branches_BranchId",
-                table: "Employees");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_Departments_Employees_HeadId",
-                table: "Departments");
+            migrationBuilder.DropTable(
+                name: "ApprovalWorkflowStepApprovers");
 
             migrationBuilder.DropTable(
                 name: "AssignAssets");
@@ -3670,10 +4286,13 @@ namespace Hrms.Infrastructure.Migrations
                 name: "PayrollBatches");
 
             migrationBuilder.DropTable(
-                name: "PayrollOpeningBalances");
+                name: "PayrollDeductionDetails");
 
             migrationBuilder.DropTable(
-                name: "Payrolls");
+                name: "PayrollDtrDetails");
+
+            migrationBuilder.DropTable(
+                name: "PayrollOpeningBalances");
 
             migrationBuilder.DropTable(
                 name: "PHICContributions");
@@ -3695,6 +4314,9 @@ namespace Hrms.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "RestDays");
+
+            migrationBuilder.DropTable(
+                name: "RetirementLedgers");
 
             migrationBuilder.DropTable(
                 name: "SalaryAdjustments");
@@ -3724,6 +4346,9 @@ namespace Hrms.Infrastructure.Migrations
                 name: "TravelOrderApplications");
 
             migrationBuilder.DropTable(
+                name: "UniformAllowanceLedgers");
+
+            migrationBuilder.DropTable(
                 name: "UTApplications");
 
             migrationBuilder.DropTable(
@@ -3731,6 +4356,12 @@ namespace Hrms.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "YearLocks");
+
+            migrationBuilder.DropTable(
+                name: "ApprovalInstances");
+
+            migrationBuilder.DropTable(
+                name: "ApprovalWorkflowSteps");
 
             migrationBuilder.DropTable(
                 name: "Holidays");
@@ -3757,13 +4388,22 @@ namespace Hrms.Infrastructure.Migrations
                 name: "OtherIncomeApplications");
 
             migrationBuilder.DropTable(
+                name: "Payrolls");
+
+            migrationBuilder.DropTable(
+                name: "RetirementFunds");
+
+            migrationBuilder.DropTable(
+                name: "UniformAllowanceFunds");
+
+            migrationBuilder.DropTable(
+                name: "ApprovalWorkflows");
+
+            migrationBuilder.DropTable(
                 name: "Leaves");
 
             migrationBuilder.DropTable(
                 name: "AllowanceTypes");
-
-            migrationBuilder.DropTable(
-                name: "Branches");
 
             migrationBuilder.DropTable(
                 name: "Employees");
@@ -3785,6 +4425,9 @@ namespace Hrms.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "TimeShifts");
+
+            migrationBuilder.DropTable(
+                name: "Branches");
         }
     }
 }

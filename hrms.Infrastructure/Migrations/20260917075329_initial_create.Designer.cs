@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    [Migration("20260916040336_managerId")]
-    partial class managerId
+    [Migration("20260917075329_initial_create")]
+    partial class initial_create
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -68,6 +68,260 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("GovAnnualTaxes");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("ActorEmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ApprovalInstanceId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorEmployeeId");
+
+                    b.HasIndex("ApprovalInstanceId", "StepNumber");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("ApprovalActions");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ApplicantEmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ApplicationType")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<Guid?>("ApprovalWorkflowId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CurrentStepNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicantEmployeeId");
+
+                    b.HasIndex("ApprovalWorkflowId");
+
+                    b.HasIndex("ApplicationType", "ApplicationId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("ApprovalInstances");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ApplicationType")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid?>("ScopeDepartmentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScopeDepartmentId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.HasIndex("ApplicationType", "ScopeDepartmentId", "IsActive");
+
+                    b.ToTable("ApprovalWorkflows");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ApprovalWorkflowId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ApproverDepartmentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ApproverEmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ApproverPositionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ApproverType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("MinApprovals")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NoteRequirement")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApproverDepartmentId");
+
+                    b.HasIndex("ApproverEmployeeId");
+
+                    b.HasIndex("ApproverPositionId");
+
+                    b.HasIndex("ApprovalWorkflowId", "StepNumber")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("ApprovalWorkflowSteps");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStepApprover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ApprovalWorkflowStepId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("ApprovalWorkflowStepId", "EmployeeId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("ApprovalWorkflowStepApprovers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Attendance", b =>
@@ -5534,6 +5788,104 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("OutboxState");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalAction", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Actor")
+                        .WithMany()
+                        .HasForeignKey("ActorEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.Approvals.ApprovalInstance", "Instance")
+                        .WithMany("Actions")
+                        .HasForeignKey("ApprovalInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Actor");
+
+                    b.Navigation("Instance");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalInstance", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Applicant")
+                        .WithMany()
+                        .HasForeignKey("ApplicantEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.Approvals.ApprovalWorkflow", "Workflow")
+                        .WithMany()
+                        .HasForeignKey("ApprovalWorkflowId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Applicant");
+
+                    b.Navigation("Workflow");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflow", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.Department", "ScopeDepartment")
+                        .WithMany()
+                        .HasForeignKey("ScopeDepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ScopeDepartment");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStep", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.Approvals.ApprovalWorkflow", "Workflow")
+                        .WithMany("Steps")
+                        .HasForeignKey("ApprovalWorkflowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.Department", "ApproverDepartment")
+                        .WithMany()
+                        .HasForeignKey("ApproverDepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "ApproverEmployee")
+                        .WithMany()
+                        .HasForeignKey("ApproverEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Hrms.Domain.Entities.Position", "ApproverPosition")
+                        .WithMany()
+                        .HasForeignKey("ApproverPositionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApproverDepartment");
+
+                    b.Navigation("ApproverEmployee");
+
+                    b.Navigation("ApproverPosition");
+
+                    b.Navigation("Workflow");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStepApprover", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStep", "Step")
+                        .WithMany("NamedApprovers")
+                        .HasForeignKey("ApprovalWorkflowStepId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Step");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.Attendance", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.Branch", "Branch")
@@ -6136,6 +6488,21 @@ namespace Hrms.Infrastructure.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("TimeShift");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalInstance", b =>
+                {
+                    b.Navigation("Actions");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflow", b =>
+                {
+                    b.Navigation("Steps");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStep", b =>
+                {
+                    b.Navigation("NamedApprovers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DailyRecord", b =>

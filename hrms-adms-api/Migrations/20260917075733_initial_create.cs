@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -30,10 +31,10 @@ namespace Hrms.adms.Migrations
                     DeviceName = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Synced = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -55,10 +56,10 @@ namespace Hrms.adms.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Count = table.Column<int>(type: "int", nullable: false),
                     MaxCount = table.Column<int>(type: "int", nullable: true),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -100,10 +101,10 @@ namespace Hrms.adms.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     State = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -118,10 +119,10 @@ namespace Hrms.adms.Migrations
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     SN = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -142,10 +143,10 @@ namespace Hrms.adms.Migrations
                     TemplateSize = table.Column<int>(type: "int", nullable: false),
                     TemplateData = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -164,10 +165,10 @@ namespace Hrms.adms.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Commands = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -191,10 +192,10 @@ namespace Hrms.adms.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Card = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -237,10 +238,10 @@ namespace Hrms.adms.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     PhotoSupport = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -317,10 +318,10 @@ namespace Hrms.adms.Migrations
                     PhotoFunctionEnabled = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     UserPicUrlFunctionEnabled = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     MaxUserPhotoCount = table.Column<int>(type: "int", nullable: false),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -339,10 +340,10 @@ namespace Hrms.adms.Migrations
                     Enabled = table.Column<bool>(type: "tinyint(1)", nullable: true),
                     DecryptFunList = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -361,10 +362,10 @@ namespace Hrms.adms.Migrations
                     MaxAttLogCount = table.Column<int>(type: "int", nullable: false),
                     UserCount = table.Column<int>(type: "int", nullable: false),
                     MaxUserCount = table.Column<int>(type: "int", nullable: false),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -381,10 +382,10 @@ namespace Hrms.adms.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     IrTempDetectionFunOn = table.Column<bool>(type: "tinyint(1)", nullable: true),
                     MaskDetectionFunOn = table.Column<bool>(type: "tinyint(1)", nullable: true),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -409,10 +410,10 @@ namespace Hrms.adms.Migrations
                     QrCodeId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     ThermalAndMaskId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     ConfigSupportId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
+                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    TenantId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci")
+                    DeletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -439,6 +440,41 @@ namespace Hrms.adms.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Attendances_TenantId_DeletedAt",
+                table: "Attendances",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BiometricDetails_TenantId_DeletedAt",
+                table: "BiometricDetails",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BiometricDevices_TenantId_DeletedAt",
+                table: "BiometricDevices",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Biometrics_TenantId_DeletedAt",
+                table: "Biometrics",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BiometricTemplates_TenantId_DeletedAt",
+                table: "BiometricTemplates",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DeviceCommands_TenantId_DeletedAt",
+                table: "DeviceCommands",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DeviceUsers_TenantId_DeletedAt",
+                table: "DeviceUsers",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FeaturesAndProtocols_ConfigSupportId",
                 table: "FeaturesAndProtocols",
                 column: "ConfigSupportId");
@@ -449,6 +485,11 @@ namespace Hrms.adms.Migrations
                 column: "QrCodeId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_FeaturesAndProtocols_TenantId_DeletedAt",
+                table: "FeaturesAndProtocols",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FeaturesAndProtocols_ThermalAndMaskId",
                 table: "FeaturesAndProtocols",
                 column: "ThermalAndMaskId");
@@ -457,6 +498,11 @@ namespace Hrms.adms.Migrations
                 name: "IX_InboxState_Delivered",
                 table: "InboxState",
                 column: "Delivered");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MultiBioSupports_TenantId_DeletedAt",
+                table: "MultiBioSupports",
+                columns: new[] { "TenantId", "DeletedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_OutboxMessage_EnqueueTime",
@@ -484,6 +530,26 @@ namespace Hrms.adms.Migrations
                 name: "IX_OutboxState_Created",
                 table: "OutboxState",
                 column: "Created");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PhotosAndMedias_TenantId_DeletedAt",
+                table: "PhotosAndMedias",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QrCodeConfigs_TenantId_DeletedAt",
+                table: "QrCodeConfigs",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SystemCounters_TenantId_DeletedAt",
+                table: "SystemCounters",
+                columns: new[] { "TenantId", "DeletedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ThermalAndMaskConfigs_TenantId_DeletedAt",
+                table: "ThermalAndMaskConfigs",
+                columns: new[] { "TenantId", "DeletedAt" });
         }
 
         /// <inheritdoc />
