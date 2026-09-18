@@ -154,6 +154,42 @@ public class EmployeeImportServicePreviewTests
         await uow.DidNotReceive().CommitChangesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    // BuildPayrollGroupName is private (ExtractPayrollGroups/GetPayrollGroupKey both delegate to
+    // it internally) -- PreviewAsync's own output doesn't expose the formatted group name (it
+    // only carries the raw, as-entered PayrollGroup string), and exercising the full
+    // Upload/PersistAsync write path to observe it would need real EF test infrastructure this
+    // suite doesn't set up for EmployeeImportService yet. Reflection keeps this test targeted at
+    // exactly the new naming rule without taking on that larger setup.
+    private static string BuildPayrollGroupName(string? baseName, params (int Day, bool IsEndOfMonth)[] cutoffs)
+    {
+        var method = typeof(EmployeeImportService).GetMethod(
+            "BuildPayrollGroupName",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        return (string)method.Invoke(null, [baseName, cutoffs])!;
+    }
+
+    [Theory]
+    [InlineData("Semi-Monthly", 10, false, 25, false, "Semi-Monthly-10-25")]
+    [InlineData("Executive", 15, false, 0, false, "Executive-15")]
+    [InlineData("", 5, false, 20, false, "--5-20")]
+    public void BuildPayrollGroupName_JoinsBaseNameAndActiveCutoffsWithHyphens(
+        string baseName, int cutoff1, bool eom1, int cutoff2, bool eom2, string expected)
+    {
+        var result = BuildPayrollGroupName(baseName, (cutoff1, eom1), (cutoff2, eom2));
+
+        result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void BuildPayrollGroupName_MarksEndOfMonthCutoffsDistinctlyFromFixedDayCutoffs()
+    {
+        var fixedDay = BuildPayrollGroupName("Semi-Monthly", (10, false), (25, false));
+        var endOfMonth = BuildPayrollGroupName("Semi-Monthly", (10, false), (25, true));
+
+        endOfMonth.Should().NotBe(fixedDay);
+        endOfMonth.Should().Be("Semi-Monthly-10-25EOM");
+    }
+
     [Fact]
     public async Task CommitPreviewAsync_WhenEveryRowStillHasErrors_DoesNothing()
     {

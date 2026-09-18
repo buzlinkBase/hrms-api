@@ -4,7 +4,7 @@ using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using Microsoft.AspNetCore.Hosting;
-
+using Microsoft.EntityFrameworkCore;
 
 namespace Hrms.Core.Services;
 
@@ -19,6 +19,7 @@ public class EmployeeImportService
     private readonly BranchService _branchService;
 
     public event Action<string> OnMessage;
+
     public EmployeeImportService(
         IUnitOfWorkService uow,
         EmployeeService employeeService,
@@ -36,6 +37,7 @@ public class EmployeeImportService
         _clientService = clientService;
         _branchService = branchService;
     }
+
     public async Task Upload(Stream fileStream, CancellationToken token)
     {
         var (data, allEmployees) = await ParseAndDefaultAsync(fileStream, token);
@@ -77,7 +79,7 @@ public class EmployeeImportService
         await StoreDepartmentsAsync(departments, token);
         await _uow.SaveChangesAsync(token);
 
-        //store employees
+        // store employees
         List<Employee> employees = new List<Employee>();
         foreach (var item in data)
         {
@@ -97,9 +99,12 @@ public class EmployeeImportService
             var sanitizedShiftName = item.ShiftName?.Trim() ?? string.Empty;
             var shiftKey = new ShiftKey(sanitizedShiftName, startTime, endTime, lunchOut, lunchIn);
             shifts.TryGetValue(shiftKey, out TimeShift? timeShift);
-            // SetDefaults already guarantees these are "--" rather than blank/null by this point.
+
             clients.TryGetValue(item.ClientName!, out Client? client);
-            pyGroups.TryGetValue(item.PayrollGroup!, out PayrollGroup? pg);
+
+            var pgKey = GetPayrollGroupKey(item);
+            pyGroups.TryGetValue(pgKey, out PayrollGroup? pg);
+
             departments.TryGetValue(item.DepartmentName!, out Department? department);
             var branch = branches.FirstOrDefault(x => x.Code == item.BranchCode);
             Guid? BranchId = !branches.Any() ? null : branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
@@ -132,8 +137,8 @@ public class EmployeeImportService
                 .FirstOrDefault(x => x.FirstName == employee.FirstName &&
                 x.MiddleName == employee.MiddleName &&
                 x.LastName == employee.LastName &&
-                x.Suffix == employee.Suffix)
-                ;
+                x.Suffix == employee.Suffix);
+
             if (existing != null)
             {
                 employee.Id = existing.Id;
@@ -157,10 +162,12 @@ public class EmployeeImportService
             }
             employees.Add(employee);
         }
+
         var empIds = employees.Select(x => x.Id).ToList();
         var rds = _employeeService.Context.RestDays
             .Where(x => empIds.Contains(x.EmployeeId))
             .ToList();
+
         _employeeService.Repository.RemoveRange(rds);
         await _employeeService.AddOrUpdateRange(employees, token);
         await _employeeService.SaveChangesAsync(token);
@@ -249,6 +256,7 @@ public class EmployeeImportService
                Suffix = x.Suffix,
            }).ToListAsync(token);
     }
+
     private void SetDefaults(List<EmployeeImportModel> data)
     {
         foreach (var item in data)
@@ -292,6 +300,7 @@ public class EmployeeImportService
             }
         }
     }
+
     private void MapFields(ExcelMapper mapper)
     {
         mapper.AddMapping<EmployeeImportModel>("BioId", p => p.BioId);
@@ -332,6 +341,7 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("EOM 3", p => p.EOM3);
         mapper.AddMapping<EmployeeImportModel>("EOM 4", p => p.EOM4);
     }
+
     private void ValidateImportData(List<EmployeeImportModel> data, List<BasicEmployeeInfo> dbEmployees)
     {
         var errors = new List<string>();
@@ -341,12 +351,12 @@ public class EmployeeImportService
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
             .ToList();
+
         if (internalDuplicates.Any() && internalDuplicates[0] != null)
         {
             errors.Add($"The Excel file contains duplicate BioIds: {string.Join(", ", internalDuplicates)}");
         }
 
-        // 1. Safe Dictionary Creation: Handle DB duplicates gracefully by taking the active/latest record
         var dbEmployeeMap = dbEmployees
             .Where(x => x.BioId.HasValue && x.BioId.Value > 0)
             .GroupBy(x => x.BioId!.Value)
@@ -355,25 +365,19 @@ public class EmployeeImportService
                 g => g.OrderByDescending(x => x.Id).First()
             );
 
-        // 2. Process Import Data
         foreach (var item in data)
         {
-            // Safely parse and ensure it's a valid, non-zero biometric ID
             if (!int.TryParse(item.BioId, out var bioIdNo) || bioIdNo <= 0)
             {
-                // Optional: Log an error here if a blank/zero BioId is considered invalid input
                 continue;
             }
 
-            // 3. Conflict Validation against existing database records
             if (dbEmployeeMap.TryGetValue(bioIdNo, out var existing))
             {
                 if (!NamesMatch(item, existing))
                 {
-
                     errors.Add($"BioId {bioIdNo} is already registered to '{existing.FirstName} {existing.LastName}', " +
                                $"but the import file lists it as '{item.FirstName} {item.LastName}'.");
-
                 }
             }
         }
@@ -383,52 +387,6 @@ public class EmployeeImportService
         }
     }
 
-    //private void CutoffValidation( List<CutoffDay> cutoffDays)
-    //{
-    //    var cutoffDays = model.CutoffDays?.ToList() ?? new List<CutoffDay>();
-
-    //    // GetCurrentCutoff throws the moment payroll runs for this group if it has none —
-    //    // every frequency needs at least one, including MONTHLY/DAILY.
-    //    if (cutoffDays.Count == 0)
-    //    {
-    //        return new EvaluationResult("At least one cutoff day is required.");
-    //    }
-
-    //    foreach (var cd in cutoffDays)
-    //    {
-    //        if (!cd.IsEndOfMonth && (cd.Day < 1 || cd.Day > 31))
-    //        {
-    //            var name = string.IsNullOrWhiteSpace(cd.Label) ? cd.Day.ToString() : cd.Label;
-    //            return new EvaluationResult($"Cutoff day '{name}' must be between 1 and 31.");
-    //        }
-    //    }
-
-    //    // Two rows pointing at the same actual day make CutoffPolicyResolver's
-    //    // first/second/last-cutoff detection ambiguous.
-    //    if (cutoffDays.Count(cd => cd.IsEndOfMonth) > 1)
-    //    {
-    //        return new EvaluationResult("Only one cutoff day can be marked as End of Month.");
-    //    }
-    //    var duplicateDay = cutoffDays
-    //        .Where(cd => !cd.IsEndOfMonth)
-    //        .GroupBy(cd => cd.Day)
-    //        .FirstOrDefault(g => g.Count() > 1);
-    //    if (duplicateDay != null)
-    //    {
-    //        return new EvaluationResult($"Cutoff day {duplicateDay.Key} is configured more than once.");
-    //    }
-
-    //    // Semi-Monthly and Weekly rely on a genuine "first" and "second" cutoff
-    //    // (CutoffPolicyResolver.GetFirstCutoff/GetSecondCutoff) — a single cutoff throws
-    //    // CutoffMismatchException as soon as a Fixed/PerPayroll statutory calculator runs.
-    //    if (model.PayrollFrequency is PayrollFrequency.SEMI_MONTHLY or PayrollFrequency.WEEKLY
-    //        && cutoffDays.Count < 2)
-    //    {
-    //        var frequencyName = model.PayrollFrequency == PayrollFrequency.SEMI_MONTHLY ? "Semi-Monthly" : "Weekly";
-    //        return new EvaluationResult($"{frequencyName} payroll requires at least two cutoff days.");
-    //    }
-    //}
-
     private bool NamesMatch(EmployeeImportModel import, BasicEmployeeInfo db)
     {
         return string.Equals(import.FirstName?.Trim(), db.FirstName?.Trim(), StringComparison.OrdinalIgnoreCase) &&
@@ -436,11 +394,11 @@ public class EmployeeImportService
                string.Equals(import.MiddleName?.Trim(), db.MiddleName?.Trim(), StringComparison.OrdinalIgnoreCase) &&
                string.Equals(import.Suffix?.Trim(), db.Suffix?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
+
     private async Task StoreShiftAsync(Dictionary<ShiftKey, TimeShift> shifts, CancellationToken token)
     {
         if (shifts == null || !shifts.Any()) return;
-        //var models = _mapper.Map<List<TimeShift>>(shifts.Values.ToList());
-        //if (models == null || !models.Any()) return;
+
         var existing = await _timeShiftService.GetQueryable()
             .Select(x => new { x.ShiftName, x.Id })
             .ToDictionaryAsync(
@@ -450,7 +408,6 @@ public class EmployeeImportService
             );
 
         var newRecords = new List<TimeShift>();
-        // 2. Separate records explicitly to keep EF Core tracking clean
         foreach (var item in shifts.Values.ToList())
         {
             var standardizedName = item.ShiftName?.Trim().ToLowerInvariant();
@@ -473,6 +430,7 @@ public class EmployeeImportService
             await _timeShiftService.AddRangeAsync(newRecords, token);
         }
     }
+
     private async Task StoreClientsAsync(Dictionary<string, Client> clients, CancellationToken token)
     {
         var codeCount = 1;
@@ -492,7 +450,6 @@ public class EmployeeImportService
             .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
             .ToList();
 
-
         foreach (var item in models)
         {
             if (existing.TryGetValue(item.Name.Trim().ToLowerInvariant(), out Guid curId))
@@ -506,6 +463,7 @@ public class EmployeeImportService
             await _clientService.AddRangeAsync(newRecords, token);
         }
     }
+
     private async Task StorePayrollGroupsAsync(Dictionary<string, PayrollGroup> pr, CancellationToken token)
     {
         var codeCount = 1;
@@ -521,28 +479,38 @@ public class EmployeeImportService
             throw new Exception("Payroll group is required");
         }
 
-        var existing = await _payrollGroupService.GetQueryable()
-         .Include(x => x.CutoffDays)
-         .GroupBy(x => x.Name)
-         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
+        var existingGroups = await _payrollGroupService.GetQueryable()
+            .Include(x => x.CutoffDays)
+            .ToListAsync(token);
 
-        var newRecords = models
-            .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
-            .ToList();
+        var newRecords = new List<PayrollGroup>();
 
-        foreach (var item in models)
+        foreach (var kvp in pr)
         {
-            if (existing.TryGetValue(item.Name.Trim().ToLowerInvariant(), out Guid curId))
+            var item = kvp.Value;
+
+            var match = existingGroups.FirstOrDefault(x =>
+                string.Equals(x.Name.Trim(), item.Name.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                x.PayrollFrequency == item.PayrollFrequency &&
+                x.CutoffDays.Count == item.CutoffDays.Count &&
+                !x.CutoffDays.ExceptBy(item.CutoffDays.Select(c => (c.Day, c.IsEndOfMonth)), c => (c.Day, c.IsEndOfMonth)).Any());
+
+            if (match != null)
             {
-                item.Id = curId;
+                item.Id = match.Id;
+            }
+            else
+            {
+                newRecords.Add(item);
             }
         }
+
         if (newRecords.Count > 0)
         {
             await _payrollGroupService.Repository.AddRangeAsync(newRecords, token);
         }
-
     }
+
     private async Task StoreDepartmentsAsync(Dictionary<string, Department> depts, CancellationToken token)
     {
         var models = depts.Values.ToList();
@@ -574,18 +542,19 @@ public class EmployeeImportService
             await _departmentService.Repository.AddRangeAsync(newRecords, token);
         }
     }
+
     private async Task<List<(Guid Id, string Code)>> ExtractBranchesAsync(List<EmployeeImportModel> data, CancellationToken token)
     {
         HashSet<string> uniqueIds = data
             .Where(x => !string.IsNullOrWhiteSpace(x.BranchCode))
             .Select(x => x.BranchCode!)
-            .Select(g => g)
             .ToHashSet();
 
         if (!uniqueIds.Any())
             return new List<(Guid Id, string Code)>();
         return await _branchService.GetByCodes(uniqueIds, token);
     }
+
     private Dictionary<ShiftKey, TimeShift> ExtractShifts(List<EmployeeImportModel> data)
     {
         return data
@@ -603,7 +572,6 @@ public class EmployeeImportService
                 var startTime = GetStartTime(x);
                 var endTime = GetEndTime(x);
 
-                // These now return TimeSpan? (null if missing/empty)
                 var lunchOut = GetLunchOut(x);
                 var lunchIn = GetLunchIn(x);
 
@@ -611,7 +579,6 @@ public class EmployeeImportService
                     ? TimeShiftType.FIXED
                     : TimeShiftType.SPLIT;
 
-                // FIXED: Check for null instead of TimeSpan.Zero
                 var hasBreak = lunchOut.HasValue && lunchIn.HasValue;
 
                 var maxWorkingMinutes = x.MaxWorkingMinutes;
@@ -620,7 +587,6 @@ public class EmployeeImportService
                         : hasBreak
                             ? Math.Max(0, lunchIn!.Value.Subtract(lunchOut!.Value).TotalMinutes)
                             : 0;
-                // Normalize name to guarantee strict matching across the application
                 var normalizedShiftName = x.ShiftName?.Trim() ?? string.Empty;
 
                 return new
@@ -651,7 +617,8 @@ public class EmployeeImportService
             .Select(g => g.First())
             .ToDictionary(x => x.Key, x => x.Value);
     }
-    //UTILITY
+
+    // UTILITY
     private TimeSpan GetStartTime(EmployeeImportModel x)
     {
         return TimeSpan.TryParse(x.AMIn?.Trim(), out var amIn) ? amIn : new TimeSpan(8, 0, 0);
@@ -680,20 +647,80 @@ public class EmployeeImportService
             .GroupBy(x => x.ClientName)
             .Select(g => new Client { Name = string.IsNullOrWhiteSpace(g.Key) ? "--" : g.Key })
             .ToDictionary(x => x.Name, x => x);
-        ;
     }
+
     private Dictionary<string, PayrollGroup> ExtractPayrollGroups(List<EmployeeImportModel> data)
     {
         return data
-            .GroupBy(x => new { x.PayrollGroup, x.Cutoff1, x.Cutoff2, x.Cutoff3, x.Cutoff4 })
-            //.GroupBy(x => new { x.PayrollGroup })
-            .Select(g => new PayrollGroup
+            .GroupBy(x => new
             {
-                PayrollFrequency = ResolveFrequency(g.First()),
-                CutoffDays = ResolveCutoff(g.First()),
-                Name = string.IsNullOrWhiteSpace(g.First().PayrollGroup) ? "--" : g.First().PayrollGroup!
+                BaseName = string.IsNullOrWhiteSpace(x.PayrollGroup) ? "--" : x.PayrollGroup.Trim(),
+                x.Cutoff1,
+                x.Cutoff2,
+                x.Cutoff3,
+                x.Cutoff4,
+                x.EOM1,
+                x.EOM2,
+                x.EOM3,
+                x.EOM4
             })
-            .ToDictionary(x => x.Name, x => x);
+            .Select(g =>
+            {
+                var sample = g.First();
+                var formattedName = BuildPayrollGroupName(
+                    sample.PayrollGroup,
+                    (sample.Cutoff1, sample.EOM1),
+                    (sample.Cutoff2, sample.EOM2),
+                    (sample.Cutoff3, sample.EOM3),
+                    (sample.Cutoff4, sample.EOM4));
+                var cutoffDays = ResolveCutoff(sample);
+                var frequency = ResolveFrequency(sample);
+
+                var key = formattedName.ToLowerInvariant();
+
+                return new
+                {
+                    Key = key,
+                    PayrollGroup = new PayrollGroup
+                    {
+                        Name = formattedName,
+                        PayrollFrequency = frequency,
+                        CutoffDays = cutoffDays
+                    }
+                };
+            })
+            // GroupBy+ToDictionary (first-wins) rather than a plain ToDictionary -- cheap
+            // insurance against ToDictionary's duplicate-key crash on any unforeseen name
+            // collision, now that day + EOM are both folded into the name itself.
+            .GroupBy(x => x.Key)
+            .ToDictionary(g => g.Key, g => g.First().PayrollGroup);
+    }
+
+    private string GetPayrollGroupKey(EmployeeImportModel item)
+    {
+        return BuildPayrollGroupName(
+            item.PayrollGroup,
+            (item.Cutoff1, item.EOM1),
+            (item.Cutoff2, item.EOM2),
+            (item.Cutoff3, item.EOM3),
+            (item.Cutoff4, item.EOM4)).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Builds the unique payroll-group name (and, lowercased, the lookup key into
+    /// ExtractPayrollGroups' dictionary -- see GetPayrollGroupKey) by joining the entered base
+    /// name with each active cutoff day, hyphen-separated. Cutoffs marked End-of-Month get an
+    /// "EOM" suffix on that cutoff's number, so two rows sharing the same base name and cutoff
+    /// day but differing only in End-of-Month don't collide into the same group/name.
+    /// </summary>
+    private static string BuildPayrollGroupName(string? baseName, params (int Day, bool IsEndOfMonth)[] cutoffs)
+    {
+        var name = string.IsNullOrWhiteSpace(baseName) || baseName.Trim() == "--" ? "-" : baseName.Trim();
+        var parts = new List<string> { name };
+        parts.AddRange(cutoffs
+            .Where(c => c.Day > 0)
+            .Select(c => c.IsEndOfMonth ? $"{c.Day}EOM" : $"{c.Day}"));
+        return string.Join("-", parts);
     }
 
     private PayrollFrequency ResolveFrequency(EmployeeImportModel item)
@@ -720,36 +747,37 @@ public class EmployeeImportService
         {
             case PayrollFrequency.DAILY:
                 return new List<CutoffDay>()
-                    {
-                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1}
-                    };
+                {
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 }
+                };
             case PayrollFrequency.WEEKLY:
                 return new List<CutoffDay>()
-                    {
-                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1},
-                        new CutoffDay(){ Day= item.Cutoff2, IsEndOfMonth= item.EOM2},
-                        new CutoffDay(){ Day= item.Cutoff3, IsEndOfMonth= item.EOM3},
-                        new CutoffDay(){ Day= item.Cutoff4, IsEndOfMonth= item.EOM4},
-                    };
+                {
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 },
+                    new CutoffDay(){ Day = item.Cutoff2, IsEndOfMonth = item.EOM2 },
+                    new CutoffDay(){ Day = item.Cutoff3, IsEndOfMonth = item.EOM3 },
+                    new CutoffDay(){ Day = item.Cutoff4, IsEndOfMonth = item.EOM4 },
+                };
             case PayrollFrequency.SEMI_MONTHLY:
                 return new List<CutoffDay>()
-                    {
-                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1},
-                        new CutoffDay(){ Day=  item.Cutoff2, IsEndOfMonth=  item.EOM2},
-                    };
+                {
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 },
+                    new CutoffDay(){ Day = item.Cutoff2, IsEndOfMonth = item.EOM2 },
+                };
             case PayrollFrequency.MONTHLY:
                 return new List<CutoffDay>()
-                    {
-                        new CutoffDay(){ Day= item.Cutoff1, IsEndOfMonth= item.EOM1},
-                    };
+                {
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 },
+                };
             default:
                 return new List<CutoffDay>()
-                    {
-                        new CutoffDay(){ Day= 10, IsEndOfMonth= false},
-                        new CutoffDay(){ Day=  15, IsEndOfMonth=  false},
-                    };
+                {
+                    new CutoffDay(){ Day = 10, IsEndOfMonth = false },
+                    new CutoffDay(){ Day = 15, IsEndOfMonth = false },
+                };
         }
     }
+
     private Dictionary<string, Department> ExtractDepartments(List<EmployeeImportModel> data)
     {
         return data
@@ -766,11 +794,11 @@ public class EmployeeImportService
         if (string.IsNullOrWhiteSpace(item.BranchCode))
             return null;
 
-        // TryGetValue is the safest and fastest way to check a dictionary
         return branchLookup.TryGetValue(item.BranchCode.Trim(), out var branchId)
             ? branchId
             : null;
     }
+
     public Dictionary<string, RestDay> ExtractRestDay(List<EmployeeImportModel> data)
     {
         var r1 = data
@@ -783,7 +811,6 @@ public class EmployeeImportService
             .Select(x => x.RestDay2!)
             .ToList();
 
-        // Combine all rest days into r3
         var r3 = new List<string>();
         r3.AddRange(r1);
         r3.AddRange(r2);
