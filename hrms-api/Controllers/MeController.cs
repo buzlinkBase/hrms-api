@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Extensions;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 using MapsterMapper;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
@@ -30,6 +31,7 @@ namespace Hrms.Api.Controllers
         private readonly OvertimeApplicationService _overtimeApplicationService;
         private readonly TravelOrderApplicationService _travelOrderApplicationService;
         private readonly PassSlipApplicationService _passSlipApplicationService;
+        private readonly EmployeeProfileUpdateRequestService _employeeProfileUpdateRequestService;
         private readonly ChangeRestDayService _changeRestDayService;
         private readonly DeductionApplicationService _deductionApplicationService;
         private readonly PayrollReportService _payrollReportService;
@@ -46,6 +48,7 @@ namespace Hrms.Api.Controllers
             OvertimeApplicationService overtimeApplicationService,
             TravelOrderApplicationService travelOrderApplicationService,
             PassSlipApplicationService passSlipApplicationService,
+            EmployeeProfileUpdateRequestService employeeProfileUpdateRequestService,
             ChangeRestDayService changeRestDayService,
             DeductionApplicationService deductionApplicationService,
             PayrollReportService payrollReportService,
@@ -61,6 +64,7 @@ namespace Hrms.Api.Controllers
             _overtimeApplicationService = overtimeApplicationService;
             _travelOrderApplicationService = travelOrderApplicationService;
             _passSlipApplicationService = passSlipApplicationService;
+            _employeeProfileUpdateRequestService = employeeProfileUpdateRequestService;
             _changeRestDayService = changeRestDayService;
             _deductionApplicationService = deductionApplicationService;
             _payrollReportService = payrollReportService;
@@ -330,6 +334,42 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             await _passSlipApplicationService.WithdrawAsync(id, employeeId.Value, token);
+            return Ok();
+        }
+
+        [HttpGet("profile-update-requests")]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeProfileUpdateRequestModel>>), 200)]
+        public async Task<IActionResult> GetMyProfileUpdateRequests(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            return Ok(await _employeeProfileUpdateRequestService.FindAllAsync(employeeId.Value, token));
+        }
+
+        // EmployeeId forced as above — EmployeeProfileUpdateRequestService.AddAsync already forces
+        // ApprovalStatus.ForApproval and snapshots Employee.UpdatedAt itself.
+        [HttpPost("profile-update-requests")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CreateMyProfileUpdateRequest([FromBody] CreateEmployeeProfileUpdateRequest payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.EmployeeId = employeeId.Value;
+            var entity = _mapper.Map<EmployeeProfileUpdateRequest>(payload);
+            await _employeeProfileUpdateRequestService.AddAsync(entity, token);
+            return Ok();
+        }
+
+        [HttpPatch("profile-update-requests/{id:guid}/withdraw")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> WithdrawMyProfileUpdateRequest(Guid id, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            await _employeeProfileUpdateRequestService.WithdrawAsync(id, employeeId.Value, token);
             return Ok();
         }
 

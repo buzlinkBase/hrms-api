@@ -15,6 +15,7 @@ public class ApprovalWorkflowService : BaseService<ApprovalWorkflow>
             .Include(w => w.ScopeDepartment)
             .Where(w => w.ApplicationType == type)
             .OrderByDescending(w => w.IsActive).ThenBy(w => w.Name)
+            .AsSplitQuery()
             .AsNoTracking()
             .ToListAsync(token);
 
@@ -22,6 +23,7 @@ public class ApprovalWorkflowService : BaseService<ApprovalWorkflow>
         await Context.ApprovalWorkflows
             .Include(w => w.Steps.OrderBy(s => s.StepNumber)).ThenInclude(s => s.NamedApprovers)
             .Include(w => w.ScopeDepartment)
+            .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(w => w.Id == id, token);
 

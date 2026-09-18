@@ -44,6 +44,24 @@ public class EmployeeService : BaseService<Employee>
                 return new EvaluationResult("Bio ID conflicts with another employee");
             }
         }
+
+        // Email uniquely identifies an employee for login resolution (ResolveEmployeeIdAsync
+        // matches by Email when UserId isn't set, and the approval engine resolves an approver's
+        // own Employee the same way) -- a duplicate email within the tenant would make that
+        // resolution ambiguous. GetQueryable is already tenant-scoped (HrmsContext's global query
+        // filter), so this only checks within the current tenant.
+        if (!string.IsNullOrWhiteSpace(model.Email))
+        {
+            var normalizedEmail = model.Email.Trim().ToLower();
+            var duplicate = GetQueryable(x =>
+                x.Id != model.Id && x.Email != null && x.Email.ToLower() == normalizedEmail)
+                .FirstOrDefault();
+            if (duplicate != null)
+            {
+                return new EvaluationResult("Email is already used by another employee");
+            }
+        }
+
         var py = await _payrollGroupService.FineOneAsync(model.PayrollGroupId, token);
         if (py == null)
         {

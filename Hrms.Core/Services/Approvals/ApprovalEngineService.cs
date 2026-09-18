@@ -303,6 +303,7 @@ public class ApprovalEngineService
         ApprovalApplicationType.OfficialBusiness => "Official Business",
         ApprovalApplicationType.PassSlip => "Pass Slip",
         ApprovalApplicationType.Loan => "Loan/Deduction",
+        ApprovalApplicationType.ProfileUpdate => "Profile Update",
         _ => type.ToString(),
     };
 

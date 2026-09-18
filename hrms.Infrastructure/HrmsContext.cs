@@ -104,6 +104,8 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<UnderTimeApplication> UTApplications { get; set; }
     public DbSet<TravelOrderApplication> TravelOrderApplications { get; set; }
     public DbSet<PassSlipApplication> PassSlipApplications { get; set; }
+    public DbSet<EmployeeProfileUpdateRequest> EmployeeProfileUpdateRequests { get; set; }
+    public DbSet<EmployeeProfileUpdateRequestDocument> EmployeeProfileUpdateRequestDocuments { get; set; }
 
     public DbSet<OtherIncomeType> AllowanceTypes { get; set; }
     public DbSet<ProratedAllowanceForSSS> ProratedAllowances { get; set; }

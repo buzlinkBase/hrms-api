@@ -8,3 +8,10 @@ public class ApprovalActionRequest
 {
     public string? Note { get; set; }
 }
+
+// Approve body for Profile Update requests -- ForceApply lets the approver proceed despite a
+// conflict (see EmployeeProfileUpdateRequest.EmployeeSnapshotUpdatedAt) after reviewing it.
+public class ApproveProfileUpdateRequest : ApprovalActionRequest
+{
+    public bool ForceApply { get; set; }
+}

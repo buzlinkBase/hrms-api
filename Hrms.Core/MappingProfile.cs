@@ -186,6 +186,14 @@ public class MappingProfile : IRegister
                 ? (src.Employee.LastName ?? "") + ", " + (src.Employee.FirstName ?? "") + " " + (src.Employee.MiddleName ?? "")
                 : null);
 
+        config.NewConfig<CreateEmployeeProfileUpdateRequest, EmployeeProfileUpdateRequest>();
+        // Current* and HasConflict are populated by the service (they read the live Employee
+        // row, not anything on the entity itself), not by this Mapster projection.
+        config.NewConfig<EmployeeProfileUpdateRequest, EmployeeProfileUpdateRequestModel>()
+            .Map(dest => dest.EmployeeName, src => src.Employee != null
+                ? (src.Employee.LastName ?? "") + ", " + (src.Employee.FirstName ?? "") + " " + (src.Employee.MiddleName ?? "")
+                : null);
+
         config.NewConfig<CreateUnderTimeApplication, UnderTimeApplication>();
         config.NewConfig<UpdateUnderTimeApplication, UnderTimeApplication>();
         config.NewConfig<UnderTimeApplication, UnderTimeApplicationModel>();

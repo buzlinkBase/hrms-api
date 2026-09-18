@@ -536,7 +536,7 @@ public enum ScheduleSource
     OpenShift,
 }
 
-// The 5 Applications types the approval-workflow engine covers — see ApprovalWorkflow.
+// The 6 Applications types the approval-workflow engine covers — see ApprovalWorkflow.
 public enum ApprovalApplicationType
 {
     Leave,
@@ -544,6 +544,7 @@ public enum ApprovalApplicationType
     OfficialBusiness,
     PassSlip,
     Loan,
+    ProfileUpdate,
 }
 
 // Who a workflow step's approver resolves to. Person/Department/Position are fixed at

@@ -38,6 +38,7 @@ namespace Hrms.Api.Controllers
             ApprovalApplicationType.OfficialBusiness => "Official Business",
             ApprovalApplicationType.PassSlip => "Pass Slip",
             ApprovalApplicationType.Loan => "Loan/Deduction",
+            ApprovalApplicationType.ProfileUpdate => "Profile Update",
             _ => throw new ArgumentOutOfRangeException(nameof(type)),
         };
 

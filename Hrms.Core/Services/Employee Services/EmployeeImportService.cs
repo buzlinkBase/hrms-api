@@ -905,15 +905,18 @@ public class TemplateDownloaderService
 {
     private readonly IWebHostEnvironment _environment;
     private readonly BranchService _branchService;
+    private readonly DepartmentService _departmentService;
     private readonly PayrollGroupService _payrollGroupService;
 
     public TemplateDownloaderService(IWebHostEnvironment environment,
         BranchService branchService,
+        DepartmentService departmentService,
         PayrollGroupService payrollGroupService
         )
     {
         _environment = environment;
         _branchService = branchService;
+        _departmentService = departmentService;
         _payrollGroupService = payrollGroupService;
     }
 
@@ -1036,6 +1039,12 @@ public class TemplateDownloaderService
             .ToListAsync(token);
         ;
 
+        var departments = await _departmentService
+            .GetQueryable()
+            .Select(x => x.Name)
+            .ToListAsync(token);
+        ;
+
         var workbook = new XLWorkbook(templatePath);
         var worksheet = workbook.Worksheet(1);
 
@@ -1045,6 +1054,28 @@ public class TemplateDownloaderService
         var range = helperSheet.Range(1, 1, branchList.Count, 1);
         worksheet.Cell("B3").CreateDataValidation().List(range);
         worksheet.Cell("B3").Value = branchList.FirstOrDefault();
+
+
+        // Rest Days -- day-name dropdown plus a blank entry, so employees without a configured
+        // rest day can leave Rest Day 1 / Rest Day 2 empty instead of being forced to pick a
+        // day (a blank cell is already treated as "no rest day", not an error, by
+        // ExtractRestDay/UploadAsync above).
+        var dayNames = new List<string> { "" };
+        dayNames.AddRange(Enum.GetNames(typeof(DayName)));
+        helperSheet = workbook.Worksheets.Add("RestDays");
+        CreateSheet(helperSheet, dayNames);
+        range = helperSheet.Range(1, 1, dayNames.Count, 1);
+        worksheet.Cell("H3").CreateDataValidation().List(range);
+        worksheet.Cell("H3").Value = "Saturday";
+        worksheet.Cell("I3").CreateDataValidation().List(range);
+        worksheet.Cell("I3").Value = "Sunday";
+
+        //departments
+        helperSheet = workbook.Worksheets.Add("Departments");
+        CreateSheet(helperSheet, departments);
+        range = helperSheet.Range(1, 1, departments.Count, 1);
+        worksheet.Cell("J3").CreateDataValidation().List(range);
+        worksheet.Cell("J3").Value = departments.FirstOrDefault();
 
 
         //PayrollGroups

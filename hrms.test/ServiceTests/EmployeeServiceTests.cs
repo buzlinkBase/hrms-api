@@ -107,4 +107,68 @@ public class EmployeeServiceTests
         result.Should().NotBeNull();
         result!.EmployeeNo.Should().Be("EMP-042");
     }
+
+    /// <summary>
+    /// EmployeeService.CreateValidatorAsync's Email-uniqueness check -- ResolveEmployeeIdAsync
+    /// (and the approval engine's own approver-resolution, same pattern) matches an Employee by
+    /// Email, so two employees sharing one email would make that resolution ambiguous. Exercised
+    /// through the public AddAsync entry point (CreateValidatorAsync itself is protected), which
+    /// runs this check before the PayrollGroup requirement further down the same method -- so a
+    /// rejection here never even reaches that later check, and passing this check but failing the
+    /// next one is how "the email check let it through" is proven without needing to stub a full
+    /// PayrollGroup.
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_DuplicateEmail_ThrowsValidationException()
+    {
+        var existing = BuildEmployee(email: "dup@company.com");
+        var service = BuildService(SeedRepo(existing));
+        var incoming = BuildEmployee(email: "dup@company.com", employeeNo: "EMP-002");
+
+        var act = () => service.AddAsync(incoming, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>()
+            .WithMessage("*Email is already used*");
+    }
+
+    [Fact]
+    public async Task AddAsync_DuplicateEmail_IsCaseInsensitive()
+    {
+        var existing = BuildEmployee(email: "Dup@Company.com");
+        var service = BuildService(SeedRepo(existing));
+        var incoming = BuildEmployee(email: "dup@company.com", employeeNo: "EMP-002");
+
+        var act = () => service.AddAsync(incoming, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>()
+            .WithMessage("*Email is already used*");
+    }
+
+    [Fact]
+    public async Task AddAsync_UniqueEmail_PassesEmailCheck()
+    {
+        var existing = BuildEmployee(email: "someone@company.com");
+        var service = BuildService(SeedRepo(existing));
+        var incoming = BuildEmployee(email: "different@company.com", employeeNo: "EMP-002");
+
+        var act = () => service.AddAsync(incoming, CancellationToken.None);
+
+        // No PayrollGroup seeded, so the next validator step still rejects -- but with the
+        // PayrollGroup message, not the email one, proving the email check itself passed.
+        await act.Should().ThrowAsync<ValidationException>()
+            .WithMessage("Payroll group is required");
+    }
+
+    [Fact]
+    public async Task AddAsync_MultipleEmployeesWithNoEmail_DoNotCollide()
+    {
+        var existing = BuildEmployee(email: null);
+        var service = BuildService(SeedRepo(existing));
+        var incoming = BuildEmployee(email: null, employeeNo: "EMP-002");
+
+        var act = () => service.AddAsync(incoming, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>()
+            .WithMessage("Payroll group is required");
+    }
 }

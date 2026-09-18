@@ -232,6 +232,7 @@ public class MeControllerTests
         var overtimeApplicationService = new OvertimeApplicationService(uow, approvalEngineService);
         var travelOrderApplicationService = new TravelOrderApplicationService(uow, approvalEngineService);
         var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow), approvalEngineService);
+        var employeeProfileUpdateRequestService = new EmployeeProfileUpdateRequestService(uow, approvalEngineService);
         var changeRestDayService = new ChangeRestDayService(uow);
         var deductionApplicationService = new DeductionApplicationService(
             uow, new DeductionService(uow), employeeService, Substitute.For<IMapper>(), approvalEngineService);
@@ -264,8 +265,8 @@ public class MeControllerTests
         var controller = new MeController(
             employeeService, payrollService, companyService, null!, fixedScheduleService,
             leaveLedgerService, leaveApplicationService, overtimeApplicationService,
-            travelOrderApplicationService, passSlipApplicationService, changeRestDayService,
-            deductionApplicationService, payrollReportService, mapper)
+            travelOrderApplicationService, passSlipApplicationService, employeeProfileUpdateRequestService,
+            changeRestDayService, deductionApplicationService, payrollReportService, mapper)
         {
             ControllerContext = new ControllerContext
             {

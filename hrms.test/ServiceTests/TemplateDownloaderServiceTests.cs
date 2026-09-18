@@ -13,11 +13,13 @@ namespace hrms.test.ServiceTests;
 /// </summary>
 public class TemplateDownloaderServiceTests
 {
-    private static TemplateDownloaderService BuildService(List<Branch>? branches = null, List<PayrollGroup>? payrollGroups = null)
+    private static TemplateDownloaderService BuildService(
+        List<Branch>? branches = null, List<PayrollGroup>? payrollGroups = null, List<Department>? departments = null)
     {
         var repo = Substitute.For<IRepository>();
         repo.FindAll<Branch>().Returns(_ => (branches ?? []).BuildMockDbSet());
         repo.FindAll<PayrollGroup>().Returns(_ => (payrollGroups ?? []).BuildMockDbSet());
+        repo.FindAll<Department>().Returns(_ => (departments ?? []).BuildMockDbSet());
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
@@ -29,7 +31,7 @@ public class TemplateDownloaderServiceTests
         environment.ContentRootPath.Returns(
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "hrms-api")));
 
-        return new TemplateDownloaderService(environment, new BranchService(uow), new PayrollGroupService(uow));
+        return new TemplateDownloaderService(environment, new BranchService(uow), new DepartmentService(uow), new PayrollGroupService(uow));
     }
 
     [Fact]
@@ -49,6 +51,31 @@ public class TemplateDownloaderServiceTests
         stream.Subject.Position = 0;
         using var workbook = new XLWorkbook(stream.Subject);
         workbook.Worksheet(1).Cell("N3").GetString().Should().Be("False");
+    }
+
+    [Fact]
+    public async Task GetEmployeeTemplate_RestDayColumns_HaveDayNameDropdownWithBlankOption()
+    {
+        var sut = BuildService(
+            branches: [new Branch { Code = "MAIN" }],
+            payrollGroups: [new PayrollGroup { Name = "Semi-Monthly" }]);
+
+        var stream = await sut.GetEmployeeTemplate(CancellationToken.None);
+        stream.Position = 0;
+        using var workbook = new XLWorkbook(stream);
+        var worksheet = workbook.Worksheet(1);
+
+        // Sample row still shows an example day, but the underlying dropdown source (the hidden
+        // "RestDays" helper sheet) includes a leading blank entry so real rows for employees
+        // without a rest day can clear the cell instead of being forced to pick a day.
+        worksheet.Cell("H3").GetString().Should().Be("Saturday");
+        worksheet.Cell("I3").GetString().Should().Be("Sunday");
+
+        var restDaySheet = workbook.Worksheet("RestDays");
+        restDaySheet.Cell(1, 1).GetString().Should().BeEmpty();
+        Enumerable.Range(2, 7)
+            .Select(row => restDaySheet.Cell(row, 1).GetString())
+            .Should().BeEquivalentTo(Enum.GetNames(typeof(DayName)));
     }
 
     [Fact]
