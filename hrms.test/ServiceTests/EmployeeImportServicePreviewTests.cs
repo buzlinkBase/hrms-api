@@ -137,6 +137,142 @@ public class EmployeeImportServicePreviewTests
         result[0].Errors.Should().ContainSingle(e => e.Contains("already registered"));
     }
 
+    /// <summary>
+    /// Regression guard for a production 500: a phone number typed into the "Date Birth" column
+    /// (a numeric cell, so ExcelMapper tries to convert the raw double straight to DateTime and
+    /// throws) used to abort Fetch for the WHOLE file. ParseAndDefaultAsync now cancels that
+    /// exception via ExcelMapper.ErrorParsingCell instead, and PreviewAsync surfaces it as a
+    /// normal per-row error on just that row -- every other row still comes through clean.
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_DoesNotThrow_WhenACellHasAnUnconvertibleValue()
+    {
+        var repo = Substitute.For<IRepository>();
+        var sut = BuildService(repo, Substitute.For<IUnitOfWorkService>());
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(2, 1).Value = "BioId";
+        sheet.Cell(2, 2).Value = "FirstName";
+        sheet.Cell(2, 3).Value = "MiddleName";
+        sheet.Cell(2, 4).Value = "LastName";
+        sheet.Cell(2, 5).Value = "Suffix";
+        sheet.Cell(2, 6).Value = "Date Birth";
+
+        sheet.Cell(3, 1).Value = "1001";
+        sheet.Cell(3, 2).Value = "Juan";
+        sheet.Cell(3, 4).Value = "DelaCruz";
+        sheet.Cell(3, 6).Value = 9279334762; // a phone number, not a date -- numeric cell
+
+        sheet.Cell(4, 1).Value = "1002";
+        sheet.Cell(4, 2).Value = "Maria";
+        sheet.Cell(4, 4).Value = "Santos";
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var act = () => sut.PreviewAsync(stream, CancellationToken.None);
+
+        var result = await act.Should().NotThrowAsync();
+        result.Subject.Should().HaveCount(2);
+        result.Subject[0].Errors.Should().ContainSingle(e => e.Contains("not a valid date"));
+        result.Subject[0].DateOfBirth.Should().BeNull();
+        result.Subject[1].Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Regression guard: AMIn/AmOut/PMIn/PMOut are read as plain strings, which used to mean
+    /// NPOI rendered the raw numeric time value through its own number-format lookup -- for a
+    /// handful of Excel's built-in time formats NPOI has never implemented, that lookup fails
+    /// and produces a literal "reserved-0x.." placeholder instead of the actual time. ConvertTimeCell
+    /// now bypasses that lookup entirely for these 4 columns and computes the time straight from
+    /// the cell's numeric (fraction-of-a-day) value, so this must come through correctly
+    /// regardless of whatever number format happens to be on the cell.
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_ReadsTimeColumns_FromRawNumericCellValue()
+    {
+        var repo = Substitute.For<IRepository>();
+        var sut = BuildService(repo, Substitute.For<IUnitOfWorkService>());
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(2, 1).Value = "BioId";
+        sheet.Cell(2, 2).Value = "FirstName";
+        sheet.Cell(2, 3).Value = "MiddleName";
+        sheet.Cell(2, 4).Value = "LastName";
+        sheet.Cell(2, 5).Value = "Suffix";
+        sheet.Cell(2, 6).Value = "AMIN";
+        sheet.Cell(2, 7).Value = "PM OUT";
+
+        sheet.Cell(3, 1).Value = "1001";
+        sheet.Cell(3, 2).Value = "Juan";
+        sheet.Cell(3, 4).Value = "DelaCruz";
+        sheet.Cell(3, 6).Value = 7.0 / 24; // 07:00:00, no time-formatted number style applied
+        sheet.Cell(3, 7).Value = 15.0 / 24; // 15:00:00
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var result = await sut.PreviewAsync(stream, CancellationToken.None);
+
+        result.Should().ContainSingle();
+        result[0].AMIn.Should().Be("07:00:00");
+        result[0].PMOut.Should().Be("15:00:00");
+    }
+
+    /// <summary>
+    /// Regression guard: HireDate is DateOnly (unlike DateOfBirth, which is DateTime), and
+    /// ExcelMapper has no built-in conversion to DateOnly at all -- every row with a real date in
+    /// that column used to throw and get wiped, whether the cell held a genuine Excel date serial
+    /// (numeric) or a typed date string. ConvertCellValue now handles both directly.
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_ReadsHireDate_FromNumericAndTextCells()
+    {
+        var repo = Substitute.For<IRepository>();
+        var sut = BuildService(repo, Substitute.For<IUnitOfWorkService>());
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(2, 1).Value = "BioId";
+        sheet.Cell(2, 2).Value = "FirstName";
+        sheet.Cell(2, 3).Value = "MiddleName";
+        sheet.Cell(2, 4).Value = "LastName";
+        sheet.Cell(2, 5).Value = "Suffix";
+        sheet.Cell(2, 6).Value = "Hire Date";
+
+        sheet.Cell(3, 1).Value = "1001";
+        sheet.Cell(3, 2).Value = "Juan";
+        sheet.Cell(3, 4).Value = "DelaCruz";
+        sheet.Cell(3, 6).Value = new DateTime(2025, 4, 16); // genuine Excel date serial
+
+        sheet.Cell(4, 1).Value = "1002";
+        sheet.Cell(4, 2).Value = "Maria";
+        sheet.Cell(4, 4).Value = "Santos";
+        sheet.Cell(4, 6).Value = "04/16/2025"; // typed as text, not a real Excel date
+
+        sheet.Cell(5, 1).Value = "1003";
+        sheet.Cell(5, 2).Value = "Pedro";
+        sheet.Cell(5, 4).Value = "Reyes";
+        sheet.Cell(5, 6).Value = "Februay 28, 2025"; // genuine typo -- must still be flagged
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var result = await sut.PreviewAsync(stream, CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        result[0].HireDate.Should().Be(new DateOnly(2025, 4, 16));
+        result[0].Errors.Should().BeEmpty();
+        result[1].HireDate.Should().Be(new DateOnly(2025, 4, 16));
+        result[1].Errors.Should().BeEmpty();
+        result[2].Errors.Should().ContainSingle(e => e.Contains("not a valid DateOnly"));
+    }
+
     [Fact]
     public async Task PreviewAsync_NeverWritesToTheDatabase()
     {

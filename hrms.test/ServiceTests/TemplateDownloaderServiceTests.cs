@@ -112,4 +112,58 @@ public class TemplateDownloaderServiceTests
         // cleared, not left behind as a phantom row a re-upload would misread as a real employee.
         worksheet.Cell(4, headerByText["BioId"]).GetString().Should().BeEmpty();
     }
+
+    /// <summary>
+    /// Regression guard: fieldWriters' header text must match the real template's row-2 headers
+    /// exactly (they previously drifted -- "Cut-Off1"/"EOM1" instead of "Cut-Off 1"/"EOM 1", and
+    /// Civil Status/Blood Type/Address 1/Address 2/SalaryType/Monthly Rate had no writer at all --
+    /// so TryGetValue silently no-op'd and those columns never made it into the re-download).
+    /// </summary>
+    [Fact]
+    public async Task GetEmployeeTemplateWithErrors_WritesEveryTemplateColumn()
+    {
+        var sut = BuildService(
+            branches: [new Branch { Code = "MAIN" }],
+            payrollGroups: [new PayrollGroup { Name = "Semi-Monthly" }]);
+
+        var rows = new List<EmployeeImportPreviewRow>
+        {
+            new()
+            {
+                RowNumber = 1,
+                BioId = "1001",
+                FirstName = "Juan",
+                LastName = "DelaCruz",
+                Cutoff1 = 15,
+                Cutoff4 = 30,
+                EOM4 = true,
+                DateOfBirth = new DateTime(1990, 5, 20),
+                CivilStatus = "Single",
+                BloodType = "O+",
+                Address1 = "123 Main St",
+                Address2 = "Brgy. Sample",
+                SalaryType = "Fixed",
+                MonthlyRate = 25000,
+                Errors = ["Missing department"],
+            },
+        };
+
+        var stream = await sut.GetEmployeeTemplateWithErrors(rows, CancellationToken.None);
+        stream.Position = 0;
+        using var workbook = new XLWorkbook(stream);
+        var worksheet = workbook.Worksheet(1);
+        var headerByText = Enumerable.Range(1, worksheet.Row(2).LastCellUsed()!.Address.ColumnNumber)
+            .ToDictionary(col => worksheet.Cell(2, col).GetString(), col => col);
+
+        worksheet.Cell(3, headerByText["Cut-Off 1"]).GetValue<int>().Should().Be(15);
+        worksheet.Cell(3, headerByText["Cut-Off 4"]).GetValue<int>().Should().Be(30);
+        worksheet.Cell(3, headerByText["EOM 4"]).GetValue<bool>().Should().BeTrue();
+        worksheet.Cell(3, headerByText["Date Birth"]).GetDateTime().Should().Be(new DateTime(1990, 5, 20));
+        worksheet.Cell(3, headerByText["Civil Status"]).GetString().Should().Be("Single");
+        worksheet.Cell(3, headerByText["Blood Type"]).GetString().Should().Be("O+");
+        worksheet.Cell(3, headerByText["Address 1"]).GetString().Should().Be("123 Main St");
+        worksheet.Cell(3, headerByText["Address 2"]).GetString().Should().Be("Brgy. Sample");
+        worksheet.Cell(3, headerByText["SalaryType"]).GetString().Should().Be("Fixed");
+        worksheet.Cell(3, headerByText["Monthly Rate"]).GetValue<decimal>().Should().Be(25000);
+    }
 }

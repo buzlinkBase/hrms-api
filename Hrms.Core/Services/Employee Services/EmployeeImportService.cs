@@ -1,10 +1,13 @@
 using ClosedXML.Excel;
 using Ganss.Excel;
+using Ganss.Excel.Exceptions;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using NPOI.SS.UserModel;
+using System.Globalization;
 
 namespace Hrms.Core.Services;
 
@@ -19,6 +22,11 @@ public class EmployeeImportService
     private readonly BranchService _branchService;
 
     public event Action<string> OnMessage;
+
+    // ExcelMapper's own MinRowNumber (0-based NPOI row index of the first real data row) --
+    // shared with PreviewAsync so a parse error's Line can be matched back to the right data
+    // row, since ExcelMapper.MinRowNumber itself is only set locally in ParseAndDefaultAsync.
+    private const int ExcelMinDataRowNumber = 2;
 
     public EmployeeImportService(
         IUnitOfWorkService uow,
@@ -40,7 +48,7 @@ public class EmployeeImportService
 
     public async Task Upload(Stream fileStream, CancellationToken token)
     {
-        var (data, allEmployees) = await ParseAndDefaultAsync(fileStream, token);
+        var (data, allEmployees, _) = await ParseAndDefaultAsync(fileStream, token);
         ValidateImportData(data, allEmployees);
         await PersistAsync(data, allEmployees, token);
     }
@@ -62,6 +70,16 @@ public class EmployeeImportService
 
         var allEmployees = await GetAllEmployees(token);
         await PersistAsync(data, allEmployees, token);
+    }
+
+    private SalaryType ResolveSalaryType(EmployeeImportModel item)
+    {
+        if (string.Equals(item.SalaryType?.Trim(), nameof(SalaryType.FIXED), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.SalaryType?.Trim(), "Fix", StringComparison.OrdinalIgnoreCase))
+        {
+            return SalaryType.FIXED;
+        }
+        return SalaryType.VARIABLE;
     }
 
     private async Task PersistAsync(List<EmployeeImportModel> data, List<BasicEmployeeInfo> allEmployees, CancellationToken token)
@@ -115,21 +133,47 @@ public class EmployeeImportService
 
             var employee = new Employee()
             {
+                BioId = bioId,
+                BranchId = BranchId,
                 FirstName = item.FirstName ?? "",
-                LastName = item.LastName ?? "",
                 MiddleName = item.MiddleName ?? "",
+                LastName = item.LastName ?? "",
                 Suffix = item.Suffix ?? "",
                 Gender = item.Gender ?? "Male",
                 TimeShiftId = timeShift?.Id,
                 ClientId = client?.Id,
                 PayrollGroupId = pg?.Id ?? Guid.Empty,
                 DepartmentId = department?.Id,
-                BioId = bioId,
-                BranchId = BranchId,
                 SSSNo = item.SSS ?? "",
                 PHICNo = item.PHIC ?? "",
                 HDMFNo = item.HDMF ?? "",
+                TIN = item.TIN ?? "",
+                Email = item.Email ?? "",
+                Contact = item.ContactNo ?? "",
+                JobLevel = JobLevelOption.RankandFile,
+                CivilStatus = item.CivilStatus ?? "",
+                DOB = item.DateOfBirth.HasValue ? item.DateOfBirth.Value : null,
+                EmploymentStatus = EmploymentStatus.Regular,
+                Address1 = item.Address1 ?? "",
+                Address2 = item.Address2 ?? "",
+                ModeOfPayment = string.IsNullOrWhiteSpace(item.BankName) && string.IsNullOrWhiteSpace(item.BankNo)
+                                ? PaymentMethod.Cash
+                                : PaymentMethod.ATM,
+                BankName = item.BankName ?? "",
+                BankNo = item.BankNo ?? "",
+                SalaryType = ResolveSalaryType(item),
+                Settings = new EmployeeSetting
+                {
+                    IsEligibleFor13thMonth = true,
+                    IsEligibleForOvertime = true,
+                    IsEligibleForLeaveCredits = true,
+                    IsEligibleForNightDifferential = true,
+                    IsEligibleForRegularHolidayPay = true,
+                    IsEligibleForSpecialHolidayPay = true,
+                },
+                MonthlyRate = item.MonthlyRate,
                 DailyRate = item.DailyRate,
+                BloodType = item.BloodType ?? "",
                 HireDate = item.HireDate == null ? DateOnly.FromDateTime(DateTime.UtcNow) : item.HireDate.Value,
             };
 
@@ -174,18 +218,106 @@ public class EmployeeImportService
         await _uow.CommitChangesAsync("", token);
     }
 
-    private async Task<(List<EmployeeImportModel> Data, List<BasicEmployeeInfo> DbEmployees)> ParseAndDefaultAsync(Stream fileStream, CancellationToken token)
+    private async Task<(List<EmployeeImportModel> Data, List<BasicEmployeeInfo> DbEmployees, List<ExcelMapperConvertException> ParseErrors)> ParseAndDefaultAsync(Stream fileStream, CancellationToken token)
     {
         var mapper = new ExcelMapper(fileStream)
         {
             HeaderRowNumber = 1,
-            MinRowNumber = 2,
+            MinRowNumber = ExcelMinDataRowNumber,
         };
         MapFields(mapper);
-        var data = mapper.Fetch<EmployeeImportModel>().ToList();
+
+        // A single malformed cell (e.g. a phone number typed into the Date Birth column) would
+        // otherwise throw and abort Fetch for the ENTIRE file, with nothing to show the user --
+        // cancel the exception so that cell is left at its property's default instead, and keep
+        // the raw error so PreviewAsync can surface it as a normal per-row issue.
+        var parseErrors = new List<ExcelMapperConvertException>();
+        mapper.ErrorParsingCell += (_, e) =>
+        {
+            parseErrors.Add(e.Error);
+            e.Cancel = true;
+        };
+
+        var data = mapper.Fetch<EmployeeImportModel>(0, ConvertCellValue).ToList();
         var allEmployees = await GetAllEmployees(token);
         SetDefaults(data);
-        return (data, allEmployees);
+        return (data, allEmployees, parseErrors);
+    }
+
+    // ValueConverterArgs.ColumnName is the mapped C# PROPERTY name (per AddMapping in MapFields),
+    // not the Excel header text -- "PMOut", not "PM OUT".
+    private static readonly HashSet<string> TimeColumnHeaders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        nameof(EmployeeImportModel.AMIn),
+        nameof(EmployeeImportModel.AmOut),
+        nameof(EmployeeImportModel.PMIn),
+        nameof(EmployeeImportModel.PMOut),
+    };
+
+    private static bool IsNumericCell(ICell cell) =>
+        cell.CellType == CellType.Numeric
+        || (cell.CellType == CellType.Formula && cell.CachedFormulaResultType == CellType.Numeric);
+
+    /// <summary>
+    /// Two independent ExcelMapper conversion gaps, both bypassed here by computing the value
+    /// straight from the cell's raw numeric (Excel date/time serial) value instead of letting
+    /// ExcelMapper/NPOI do it:
+    /// - AMIn/AmOut/PMIn/PMOut are read as plain strings, which normally means NPOI renders the
+    ///   raw numeric time value through its own number-format lookup -- for a handful of Excel's
+    ///   built-in time formats NPOI has never implemented, that lookup fails and produces a
+    ///   literal "reserved-0x.." placeholder instead of an actual time, corrupting the value
+    ///   regardless of what the cell displays in Excel. Uses TimeSpan's own ToString() (hh:mm:ss,
+    ///   or d.hh:mm:ss past 24h -- e.g. an overnight shift's PM OUT) since that's exactly what
+    ///   TimeSpan.TryParse (GetStartTime/GetEndTime/GetLunchOut/GetLunchIn below) already expects.
+    /// - HireDate is DateOnly (unlike DateOfBirth, which is DateTime) -- ExcelMapper has NO
+    ///   built-in conversion to DateOnly at all, from either a numeric Excel date serial or a
+    ///   typed date string, so every row with a real date in that column throws
+    ///   ExcelMapperConvertException ("... is not a valid DateOnly"), not just the rare
+    ///   genuinely-bad cell. For a numeric cell, NPOI's own DateUtil.GetJavaDate already knows how
+    ///   to turn an Excel serial into the correct DateTime (including Excel's 1900-leap-year
+    ///   quirk) -- this just narrows that down to the date part ExcelMapper couldn't produce
+    ///   itself. For a typed string (someone entered "04/16/2025" as text instead of a real Excel
+    ///   date), parse it directly; if it doesn't even parse as a date, fall through to
+    ///   ExcelMapper's own conversion so that cell still gets the normal ErrorParsingCell/
+    ///   per-row-error treatment instead of being silently dropped.
+    /// </summary>
+    private static object? ConvertCellValue(ValueConverterArgs args)
+    {
+        if (args.Cell == null) return args.CellValue;
+
+        if (TimeColumnHeaders.Contains(args.ColumnName))
+        {
+            if (!IsNumericCell(args.Cell)) return args.CellValue;
+            var totalSeconds = (long)Math.Round(args.Cell.NumericCellValue * 24 * 60 * 60);
+            return TimeSpan.FromSeconds(totalSeconds).ToString();
+        }
+
+        if (string.Equals(args.ColumnName, nameof(EmployeeImportModel.HireDate), StringComparison.OrdinalIgnoreCase))
+        {
+            if (IsNumericCell(args.Cell))
+                return DateOnly.FromDateTime(DateUtil.GetJavaDate(args.Cell.NumericCellValue));
+            if (args.CellValue is string text
+                && DateOnly.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+                return parsed;
+        }
+
+        return args.CellValue;
+    }
+
+    /// <summary>
+    /// Turns a cancelled ExcelMapper conversion error into a user-facing message. Doesn't name
+    /// the target column (ExcelMapperConvertException doesn't carry the header text, only a raw
+    /// column index) -- the Excel column letter plus the offending value is enough to find and
+    /// fix the cell.
+    /// </summary>
+    private static string FormatParseError(ExcelMapperConvertException error)
+    {
+        var typeName = Nullable.GetUnderlyingType(error.TargetType) ?? error.TargetType;
+        var friendly = typeName == typeof(DateTime) ? "date"
+            : typeName == typeof(bool) ? "Yes/No value"
+            : typeName == typeof(int) || typeName == typeof(double) || typeName == typeof(decimal) ? "number"
+            : typeName.Name;
+        return $"Column {ExcelMapper.IndexToLetter(error.Column)}: \"{error.CellValue}\" is not a valid {friendly} and was left blank.";
     }
 
     /// <summary>
@@ -196,7 +328,7 @@ public class EmployeeImportService
     /// </summary>
     public async Task<List<EmployeeImportPreviewRow>> PreviewAsync(Stream fileStream, CancellationToken token)
     {
-        var (data, allEmployees) = await ParseAndDefaultAsync(fileStream, token);
+        var (data, allEmployees, parseErrors) = await ParseAndDefaultAsync(fileStream, token);
 
         var internalDuplicateBioIds = data
             .Where(x => !string.IsNullOrWhiteSpace(x.BioId) && x.BioId != "0")
@@ -210,6 +342,13 @@ public class EmployeeImportService
             .GroupBy(x => x.BioId!.Value)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First());
 
+        // Best-effort match back to a data row: ExcelMapper visits rows in order starting at
+        // MinRowNumber (0-based), so a given row's position in `data` is Line - MinRowNumber --
+        // exact as long as no fully blank row was skipped in between. Grouped (not a dictionary)
+        // since one bad row can have more than one bad cell.
+        var parseErrorsByRowIndex = parseErrors
+            .ToLookup(e => e.Line - ExcelMinDataRowNumber);
+
         var rows = new List<EmployeeImportPreviewRow>();
         for (var i = 0; i < data.Count; i++)
         {
@@ -217,6 +356,7 @@ public class EmployeeImportService
             var row = item.Adapt<EmployeeImportPreviewRow>();
             row.RowNumber = i + 1;
             row.Errors = BuildRowErrors(item, dbEmployeeMap, internalDuplicateBioIds);
+            row.Errors.AddRange(parseErrorsByRowIndex[i].Select(FormatParseError));
             rows.Add(row);
         }
         return rows;
@@ -311,6 +451,11 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("Suffix", p => p.Suffix);
         mapper.AddMapping<EmployeeImportModel>("Gender", p => p.Gender);
         mapper.AddMapping<EmployeeImportModel>("Email", p => p.Email);
+        mapper.AddMapping<EmployeeImportModel>("Hire Date", p => p.HireDate);
+        mapper.AddMapping<EmployeeImportModel>("Date Birth", p => p.DateOfBirth);
+        mapper.AddMapping<EmployeeImportModel>("Contact Number", p => p.ContactNo);
+        mapper.AddMapping<EmployeeImportModel>("Bank Name", p => p.BankName);
+        mapper.AddMapping<EmployeeImportModel>("Bank No", p => p.BankNo);
 
         mapper.AddMapping<EmployeeImportModel>("Rest Day 1", p => p.RestDay1);
         mapper.AddMapping<EmployeeImportModel>("Rest Day 2", p => p.RestDay2);
@@ -330,7 +475,12 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("SSS", p => p.SSS);
         mapper.AddMapping<EmployeeImportModel>("PHIC", p => p.PHIC);
         mapper.AddMapping<EmployeeImportModel>("HDMF", p => p.HDMF);
+        mapper.AddMapping<EmployeeImportModel>("TIN", p => p.TIN);
+
+        mapper.AddMapping<EmployeeImportModel>("SalaryType", p => p.SalaryType);
+        mapper.AddMapping<EmployeeImportModel>("Monthly Rate", p => p.MonthlyRate);
         mapper.AddMapping<EmployeeImportModel>("Daily Rate", p => p.DailyRate);
+        mapper.AddMapping<EmployeeImportModel>("Civil Status", p => p.CivilStatus);
 
         mapper.AddMapping<EmployeeImportModel>("Cut-Off 1", p => p.Cutoff1);
         mapper.AddMapping<EmployeeImportModel>("Cut-Off 2", p => p.Cutoff2);
@@ -340,6 +490,10 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("EOM 2", p => p.EOM2);
         mapper.AddMapping<EmployeeImportModel>("EOM 3", p => p.EOM3);
         mapper.AddMapping<EmployeeImportModel>("EOM 4", p => p.EOM4);
+        mapper.AddMapping<EmployeeImportModel>("Address 1", p => p.Address1);
+        mapper.AddMapping<EmployeeImportModel>("Address 2", p => p.Address2);
+        mapper.AddMapping<EmployeeImportModel>("Blood Type", p => p.BloodType);
+
     }
 
     private void ValidateImportData(List<EmployeeImportModel> data, List<BasicEmployeeInfo> dbEmployees)
@@ -877,12 +1031,18 @@ public class EmployeeImportModel
     public double BreakDuration { get; set; }
     public double MaxWorkingMinutes { get; set; }
     public string? SalaryType { get; set; }
+    public string? ContactNo { get; set; }
+    public string? CivilStatus { get; set; }
+    public string? BloodType { get; set; }
 
     public string? SSS { get; set; }
     public string? PHIC { get; set; }
     public string? HDMF { get; set; }
+    public string? TIN { get; set; }
     public decimal DailyRate { get; set; }
+    public decimal MonthlyRate { get; set; }
     public DateOnly? HireDate { get; set; }
+    public DateTime? DateOfBirth { get; set; }
 
     public int Cutoff1 { get; set; }
     public int Cutoff2 { get; set; }
@@ -893,7 +1053,10 @@ public class EmployeeImportModel
     public bool EOM2 { get; set; }
     public bool EOM3 { get; set; }
     public bool EOM4 { get; set; }
-
+    public string? Address1 { get; set; }
+    public string? Address2 { get; set; }
+    public string? BankNo { get; set; }
+    public string? BankName { get; set; }
 }
 public class EmployeeImportPreviewRow : EmployeeImportModel
 {
@@ -946,6 +1109,11 @@ public class TemplateDownloaderService
         const int headerRow = 2;
         const int firstDataRow = 3;
 
+        // Header text here must match the real template's row-2 headers exactly (whitespace
+        // included -- the lookup below is case-insensitive but not space-insensitive) and the
+        // same header text AddMapping (above, in EmployeeImportService's own mapper setup) binds
+        // on upload, so a fixed-up file re-uploads through the normal endpoint unchanged. Kept in
+        // the same left-to-right order as the template's actual columns for easier upkeep.
         (string Header, Action<IXLCell, EmployeeImportPreviewRow> Write)[] fieldWriters =
         {
             ("BioId", (c, r) => c.Value = r.BioId),
@@ -955,12 +1123,19 @@ public class TemplateDownloaderService
             ("LastName", (c, r) => c.Value = r.LastName),
             ("Suffix", (c, r) => c.Value = r.Suffix),
             ("Gender", (c, r) => c.Value = r.Gender),
-            ("Email", (c, r) => c.Value = r.Email),
             ("Rest Day 1", (c, r) => c.Value = r.RestDay1),
             ("Rest Day 2", (c, r) => c.Value = r.RestDay2),
             ("Department Name", (c, r) => c.Value = r.DepartmentName),
             ("Client Name", (c, r) => c.Value = r.ClientName),
             ("Payroll Group", (c, r) => c.Value = r.PayrollGroup),
+            ("Cut-Off 1", (c, r) => c.Value = r.Cutoff1),
+            ("EOM 1", (c, r) => c.Value = r.EOM1),
+            ("Cut-Off 2", (c, r) => c.Value = r.Cutoff2),
+            ("EOM 2", (c, r) => c.Value = r.EOM2),
+            ("Cut-Off 3", (c, r) => c.Value = r.Cutoff3),
+            ("EOM 3", (c, r) => c.Value = r.EOM3),
+            ("Cut-Off 4", (c, r) => c.Value = r.Cutoff4),
+            ("EOM 4", (c, r) => c.Value = r.EOM4),
             ("Shift Name", (c, r) => c.Value = r.ShiftName),
             ("Shift Type", (c, r) => c.Value = r.ShiftType),
             ("AMIN", (c, r) => c.Value = r.AMIn),
@@ -970,19 +1145,21 @@ public class TemplateDownloaderService
             ("Break Duration", (c, r) => c.Value = r.BreakDuration),
             ("Max Working Minutes", (c, r) => c.Value = r.MaxWorkingMinutes),
             ("PaidLunchBreak", (c, r) => c.Value = r.PaidLunchBreak),
+            ("SalaryType", (c, r) => c.Value = r.SalaryType),
+            ("Monthly Rate", (c, r) => c.Value = r.MonthlyRate),
+            ("Daily Rate", (c, r) => c.Value = r.DailyRate),
+            ("Hire Date", (c, r) => { if (r.HireDate.HasValue) c.Value = r.HireDate.Value.ToDateTime(TimeOnly.MinValue); }),
             ("SSS", (c, r) => c.Value = r.SSS),
             ("PHIC", (c, r) => c.Value = r.PHIC),
             ("HDMF", (c, r) => c.Value = r.HDMF),
-            ("Daily Rate", (c, r) => c.Value = r.DailyRate),
-            ("Hire Date", (c, r) => { if (r.HireDate.HasValue) c.Value = r.HireDate.Value.ToDateTime(TimeOnly.MinValue); }),
-            ("Cut-Off1", (c, r) => c.Value = r.Cutoff1),
-            ("Cut-Off2", (c, r) => c.Value = r.Cutoff2),
-            ("Cut-Off3", (c, r) => c.Value = r.Cutoff3),
-            ("Cut-Off4", (c, r) => c.Value = r.Cutoff4),
-            ("EOM1", (c, r) => c.Value = r.EOM1),
-            ("EOM2", (c, r) => c.Value = r.EOM2),
-            ("EOM3", (c, r) => c.Value = r.EOM3),
-            ("EOM4", (c, r) => c.Value = r.EOM4),
+            ("TIN", (c, r) => c.Value = r.TIN),
+            ("Email", (c, r) => c.Value = r.Email),
+            ("Date Birth", (c, r) => { if (r.DateOfBirth.HasValue) c.Value = r.DateOfBirth.Value; }),
+            ("Contact Number", (c, r) => c.Value = r.ContactNo),
+            ("Civil Status", (c, r) => c.Value = r.CivilStatus),
+            ("Blood Type", (c, r) => c.Value = r.BloodType),
+            ("Address 1", (c, r) => c.Value = r.Address1),
+            ("Address 2", (c, r) => c.Value = r.Address2),
         };
 
         var lastHeaderCol = worksheet.Row(headerRow).LastCellUsed()?.Address.ColumnNumber ?? 1;
