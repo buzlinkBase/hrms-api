@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using Ganss.Excel;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Mapster;
 using Microsoft.AspNetCore.Hosting;
 
 
@@ -37,15 +38,7 @@ public class EmployeeImportService
     }
     public async Task Upload(Stream fileStream, CancellationToken token)
     {
-        var mapper = new ExcelMapper(fileStream)
-        {
-            HeaderRowNumber = 1,
-            MinRowNumber = 2,
-        };
-        MapFields(mapper);
-        var data = mapper.Fetch<EmployeeImportModel>().ToList();
-        var allEmployees = await GetAllEmployees(token);
-        SetDefaults(data);
+        var (data, allEmployees) = await ParseAndDefaultAsync(fileStream, token);
         ValidateImportData(data, allEmployees);
         var shifts = ExtractShifts(data);
         var branches = await ExtractBranchesAsync(data, token);
@@ -80,9 +73,10 @@ public class EmployeeImportService
             var sanitizedShiftName = item.ShiftName?.Trim() ?? string.Empty;
             var shiftKey = new ShiftKey(sanitizedShiftName, startTime, endTime, lunchOut, lunchIn);
             shifts.TryGetValue(shiftKey, out TimeShift? timeShift);
-            clients.TryGetValue(item.ClientName, out Client? client);
-            pyGroups.TryGetValue(item.PayrollGroup, out PayrollGroup? pg);
-            departments.TryGetValue(item.DepartmentName, out Department? department);
+            // SetDefaults already guarantees these are "--" rather than blank/null by this point.
+            clients.TryGetValue(item.ClientName!, out Client? client);
+            pyGroups.TryGetValue(item.PayrollGroup!, out PayrollGroup? pg);
+            departments.TryGetValue(item.DepartmentName!, out Department? department);
             var branch = branches.FirstOrDefault(x => x.Code == item.BranchCode);
             Guid? BranchId = !branches.Any() ? null : branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
             if (pg == null) pg = pyGroups.Values.FirstOrDefault();
@@ -147,6 +141,75 @@ public class EmployeeImportService
         await _employeeService.AddOrUpdateRange(employees, token);
         await _employeeService.SaveChangesAsync(token);
         await _uow.CommitChangesAsync("", token);
+    }
+
+    private async Task<(List<EmployeeImportModel> Data, List<BasicEmployeeInfo> DbEmployees)> ParseAndDefaultAsync(Stream fileStream, CancellationToken token)
+    {
+        var mapper = new ExcelMapper(fileStream)
+        {
+            HeaderRowNumber = 1,
+            MinRowNumber = 2,
+        };
+        MapFields(mapper);
+        var data = mapper.Fetch<EmployeeImportModel>().ToList();
+        var allEmployees = await GetAllEmployees(token);
+        SetDefaults(data);
+        return (data, allEmployees);
+    }
+
+    /// <summary>
+    /// Read-only counterpart to <see cref="Upload"/>: parses and defaults the file exactly the
+    /// same way, but never writes anything -- no reference-entity creation, no SaveChanges, no
+    /// commit. Lets the caller show the user what will be imported (and any per-row conflicts)
+    /// before they commit to <see cref="Upload"/>.
+    /// </summary>
+    public async Task<List<EmployeeImportPreviewRow>> PreviewAsync(Stream fileStream, CancellationToken token)
+    {
+        var (data, allEmployees) = await ParseAndDefaultAsync(fileStream, token);
+
+        var internalDuplicateBioIds = data
+            .Where(x => !string.IsNullOrWhiteSpace(x.BioId) && x.BioId != "0")
+            .GroupBy(x => x.BioId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToHashSet();
+
+        var dbEmployeeMap = allEmployees
+            .Where(x => x.BioId.HasValue && x.BioId.Value > 0)
+            .GroupBy(x => x.BioId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First());
+
+        var rows = new List<EmployeeImportPreviewRow>();
+        for (var i = 0; i < data.Count; i++)
+        {
+            var item = data[i];
+            var row = item.Adapt<EmployeeImportPreviewRow>();
+            row.RowNumber = i + 1;
+            row.Errors = BuildRowErrors(item, dbEmployeeMap, internalDuplicateBioIds);
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// Per-row version of the conflict checks <see cref="ValidateImportData"/> already does in
+    /// aggregate for the batch-throw path -- used only by <see cref="PreviewAsync"/>, so it can
+    /// attribute an error to the specific row(s) it affects instead of one combined message.
+    /// </summary>
+    private List<string> BuildRowErrors(EmployeeImportModel item, Dictionary<int, BasicEmployeeInfo> dbEmployeeMap, HashSet<string?> internalDuplicateBioIds)
+    {
+        var errors = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.BioId) && item.BioId != "0" && internalDuplicateBioIds.Contains(item.BioId))
+        {
+            errors.Add($"BioId {item.BioId} is used by more than one row in this file.");
+        }
+        if (int.TryParse(item.BioId, out var bioIdNo) && bioIdNo > 0 &&
+            dbEmployeeMap.TryGetValue(bioIdNo, out var existing) && !NamesMatch(item, existing))
+        {
+            errors.Add($"BioId {bioIdNo} is already registered to '{existing.FirstName} {existing.LastName}', " +
+                       $"but this file lists it as '{item.FirstName} {item.LastName}'.");
+        }
+        return errors;
     }
 
     private async Task<List<BasicEmployeeInfo>> GetAllEmployees(CancellationToken token)
@@ -236,30 +299,25 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("HDMF", p => p.HDMF);
         mapper.AddMapping<EmployeeImportModel>("Daily Rate", p => p.DailyRate);
 
-        mapper.AddMapping<EmployeeImportModel>("Cut-Off1", p => p.Cutoff1);
-        mapper.AddMapping<EmployeeImportModel>("Cut-Off2", p => p.Cutoff2);
-        mapper.AddMapping<EmployeeImportModel>("EOM1", p => p.EOM1);
-        mapper.AddMapping<EmployeeImportModel>("EOM2", p => p.EOM2);
-        mapper.AddMapping<EmployeeImportModel>("EOM3", p => p.EOM3);
-        mapper.AddMapping<EmployeeImportModel>("EOM4", p => p.EOM4);
-
-
-        //mapper.AddMapping<EmployeeImportModel>("PayrollFrequency", p => p.PayrollFrequency);
-        //mapper.AddMapping<EmployeeImportModel>("CutoffDay1", p => p.CutoffDay1);
-        //mapper.AddMapping<EmployeeImportModel>("1stCutoff_IsEndOfMonth", p => p.EOM1);
-        //mapper.AddMapping<EmployeeImportModel>("CutoffDay2", p => p.CutoffDay2);
-        //mapper.AddMapping<EmployeeImportModel>("2ndCutoff_IsEndOfMonth", p => p.EOM2);
+        mapper.AddMapping<EmployeeImportModel>("Cut-Off 1", p => p.Cutoff1);
+        mapper.AddMapping<EmployeeImportModel>("Cut-Off 2", p => p.Cutoff2);
+        mapper.AddMapping<EmployeeImportModel>("Cut-Off 3", p => p.Cutoff3);
+        mapper.AddMapping<EmployeeImportModel>("Cut-Off 4", p => p.Cutoff4);
+        mapper.AddMapping<EmployeeImportModel>("EOM 1", p => p.EOM1);
+        mapper.AddMapping<EmployeeImportModel>("EOM 2", p => p.EOM2);
+        mapper.AddMapping<EmployeeImportModel>("EOM 3", p => p.EOM3);
+        mapper.AddMapping<EmployeeImportModel>("EOM 4", p => p.EOM4);
     }
     private void ValidateImportData(List<EmployeeImportModel> data, List<BasicEmployeeInfo> dbEmployees)
     {
         var errors = new List<string>();
         var internalDuplicates = data
-            .Where(x => x.BioId != "" || x.BioId != "0")
+            .Where(x => x.BioId != "" || x.BioId != "0" || x.BioId != null)
             .GroupBy(x => x.BioId)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
             .ToList();
-        if (internalDuplicates.Any())
+        if (internalDuplicates.Any() && internalDuplicates[0] != null)
         {
             errors.Add($"The Excel file contains duplicate BioIds: {string.Join(", ", internalDuplicates)}");
         }
@@ -496,7 +554,7 @@ public class EmployeeImportService
     {
         HashSet<string> uniqueIds = data
             .Where(x => !string.IsNullOrWhiteSpace(x.BranchCode))
-            .Select(x => x.BranchCode)
+            .Select(x => x.BranchCode!)
             .Select(g => g)
             .ToHashSet();
 
@@ -609,7 +667,7 @@ public class EmployeeImportService
             {
                 PayrollFrequency = ResolveFrequency(g.First()),
                 CutoffDays = ResolveCutoff(g.First()),
-                Name = string.IsNullOrWhiteSpace(g.First().PayrollGroup) ? "--" : g.First().PayrollGroup
+                Name = string.IsNullOrWhiteSpace(g.First().PayrollGroup) ? "--" : g.First().PayrollGroup!
             })
             .ToDictionary(x => x.Name, x => x);
     }
@@ -693,12 +751,12 @@ public class EmployeeImportService
     {
         var r1 = data
             .Where(x => !string.IsNullOrWhiteSpace(x.RestDay1))
-            .Select(x => x.RestDay1)
+            .Select(x => x.RestDay1!)
             .ToList();
 
         var r2 = data
             .Where(x => !string.IsNullOrWhiteSpace(x.RestDay2))
-            .Select(x => x.RestDay2)
+            .Select(x => x.RestDay2!)
             .ToList();
 
         // Combine all rest days into r3
@@ -737,35 +795,41 @@ public class BasicEmployeeInfo
 }
 public class EmployeeImportModel
 {
-    public string BioId { get; set; }
-    public string BranchCode { get; set; }
-    public string FirstName { get; set; }
-    public string MiddleName { get; set; }
-    public string LastName { get; set; }
-    public string Email { get; set; }
-    public string Suffix { get; set; }
-    public string Gender { get; set; }
-    public string RestDay1 { get; set; }
-    public string RestDay2 { get; set; }
+    // Nullable throughout -- real import rows routinely omit any of these (a blank cell reads
+    // back as null from Ganss.Excel), and with Nullable enabled project-wide, a non-nullable
+    // `string` here makes ASP.NET Core infer an implicit [Required] on it wherever this type is
+    // bound from a request body (e.g. ExportErrorRows), 400-ing on every row with a blank field
+    // even though nothing here has ever actually required them -- Upload already null-coalesces
+    // every one of these (e.g. `item.SSS ?? ""`).
+    public string? BioId { get; set; }
+    public string? BranchCode { get; set; }
+    public string? FirstName { get; set; }
+    public string? MiddleName { get; set; }
+    public string? LastName { get; set; }
+    public string? Email { get; set; }
+    public string? Suffix { get; set; }
+    public string? Gender { get; set; }
+    public string? RestDay1 { get; set; }
+    public string? RestDay2 { get; set; }
 
-    public string DepartmentName { get; set; }
-    public string ClientName { get; set; }
-    public string PayrollGroup { get; set; }
-    public string ShiftName { get; set; }
-    public string ShiftType { get; set; }
+    public string? DepartmentName { get; set; }
+    public string? ClientName { get; set; }
+    public string? PayrollGroup { get; set; }
+    public string? ShiftName { get; set; }
+    public string? ShiftType { get; set; }
 
-    public string AMIn { get; set; }
-    public string PMOut { get; set; }
-    public string AmOut { get; set; }
-    public string PMIn { get; set; }
+    public string? AMIn { get; set; }
+    public string? PMOut { get; set; }
+    public string? AmOut { get; set; }
+    public string? PMIn { get; set; }
     public bool PaidLunchBreak { get; set; }
     public double BreakDuration { get; set; }
     public double MaxWorkingMinutes { get; set; }
-    public string SalaryType { get; set; }
+    public string? SalaryType { get; set; }
 
-    public string SSS { get; set; }
-    public string PHIC { get; set; }
-    public string HDMF { get; set; }
+    public string? SSS { get; set; }
+    public string? PHIC { get; set; }
+    public string? HDMF { get; set; }
     public decimal DailyRate { get; set; }
     public DateOnly? HireDate { get; set; }
 
@@ -779,6 +843,11 @@ public class EmployeeImportModel
     public bool EOM3 { get; set; }
     public bool EOM4 { get; set; }
 
+}
+public class EmployeeImportPreviewRow : EmployeeImportModel
+{
+    public int RowNumber { get; set; }
+    public List<string> Errors { get; set; } = new();
 }
 public readonly record struct ShiftKey(string ShiftName, TimeSpan start, TimeSpan end, TimeSpan? lunchout, TimeSpan? lunchIn);
 public class TemplateDownloaderService
@@ -799,7 +868,116 @@ public class TemplateDownloaderService
 
     public async Task<MemoryStream> GetEmployeeTemplate(CancellationToken token)
     {
+        var (workbook, _) = await BuildTemplateWorkbookAsync(token);
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0; // Crucial: Reset the stream position to the beginning!
+        return stream;
+    }
 
+    /// <summary>
+    /// Builds only the rows that failed <see cref="EmployeeImportService.PreviewAsync"/>'s
+    /// validation, in the exact same column layout/dropdowns as the blank template (reuses
+    /// <see cref="BuildTemplateWorkbookAsync"/>), plus a trailing "Import Errors" column
+    /// explaining each row's issue -- so after fixing what's flagged, the file re-uploads
+    /// through the normal upload-employees endpoint unchanged.
+    /// </summary>
+    public async Task<MemoryStream> GetEmployeeTemplateWithErrors(List<EmployeeImportPreviewRow> rows, CancellationToken token)
+    {
+        var (workbook, worksheet) = await BuildTemplateWorkbookAsync(token);
+
+        // The real column headers live on row 2 -- row 1 is a merged "Instructions" banner, and
+        // MapFields' header-text mapping is what the upload endpoint actually keys off, not the
+        // banner text -- so locating columns has to scan row 2, not row 1.
+        const int headerRow = 2;
+        const int firstDataRow = 3;
+
+        (string Header, Action<IXLCell, EmployeeImportPreviewRow> Write)[] fieldWriters =
+        {
+            ("BioId", (c, r) => c.Value = r.BioId),
+            ("Branch Code", (c, r) => c.Value = r.BranchCode),
+            ("FirstName", (c, r) => c.Value = r.FirstName),
+            ("MiddleName", (c, r) => c.Value = r.MiddleName),
+            ("LastName", (c, r) => c.Value = r.LastName),
+            ("Suffix", (c, r) => c.Value = r.Suffix),
+            ("Gender", (c, r) => c.Value = r.Gender),
+            ("Email", (c, r) => c.Value = r.Email),
+            ("Rest Day 1", (c, r) => c.Value = r.RestDay1),
+            ("Rest Day 2", (c, r) => c.Value = r.RestDay2),
+            ("Department Name", (c, r) => c.Value = r.DepartmentName),
+            ("Client Name", (c, r) => c.Value = r.ClientName),
+            ("Payroll Group", (c, r) => c.Value = r.PayrollGroup),
+            ("Shift Name", (c, r) => c.Value = r.ShiftName),
+            ("Shift Type", (c, r) => c.Value = r.ShiftType),
+            ("AMIN", (c, r) => c.Value = r.AMIn),
+            ("AM Out", (c, r) => c.Value = r.AmOut),
+            ("PM In", (c, r) => c.Value = r.PMIn),
+            ("PM OUT", (c, r) => c.Value = r.PMOut),
+            ("Break Duration", (c, r) => c.Value = r.BreakDuration),
+            ("Max Working Minutes", (c, r) => c.Value = r.MaxWorkingMinutes),
+            ("PaidLunchBreak", (c, r) => c.Value = r.PaidLunchBreak),
+            ("SSS", (c, r) => c.Value = r.SSS),
+            ("PHIC", (c, r) => c.Value = r.PHIC),
+            ("HDMF", (c, r) => c.Value = r.HDMF),
+            ("Daily Rate", (c, r) => c.Value = r.DailyRate),
+            ("Hire Date", (c, r) => { if (r.HireDate.HasValue) c.Value = r.HireDate.Value.ToDateTime(TimeOnly.MinValue); }),
+            ("Cut-Off1", (c, r) => c.Value = r.Cutoff1),
+            ("Cut-Off2", (c, r) => c.Value = r.Cutoff2),
+            ("Cut-Off3", (c, r) => c.Value = r.Cutoff3),
+            ("Cut-Off4", (c, r) => c.Value = r.Cutoff4),
+            ("EOM1", (c, r) => c.Value = r.EOM1),
+            ("EOM2", (c, r) => c.Value = r.EOM2),
+            ("EOM3", (c, r) => c.Value = r.EOM3),
+            ("EOM4", (c, r) => c.Value = r.EOM4),
+        };
+
+        var lastHeaderCol = worksheet.Row(headerRow).LastCellUsed()?.Address.ColumnNumber ?? 1;
+        var columnByHeader = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var col = 1; col <= lastHeaderCol; col++)
+        {
+            var text = worksheet.Cell(headerRow, col).GetString();
+            if (!string.IsNullOrWhiteSpace(text) && !columnByHeader.ContainsKey(text))
+            {
+                columnByHeader[text] = col;
+            }
+        }
+
+        var errorsColumn = lastHeaderCol + 1;
+        worksheet.Cell(headerRow, errorsColumn).Value = "Import Errors";
+
+        // Rows 3+ in the blank template are sample/reference data (a filled-in example row, plus
+        // a small lookup table of cutoff-day examples for other payroll frequencies) -- not real
+        // rows. Clear them so they don't get re-uploaded as bogus employees alongside the actual
+        // corrections; XLClearOptions.Contents leaves the dropdown validations on those cells intact.
+        var lastUsedRow = worksheet.LastRowUsed()?.RowNumber() ?? firstDataRow;
+        if (lastUsedRow >= firstDataRow)
+        {
+            worksheet.Range(firstDataRow, 1, lastUsedRow, errorsColumn).Clear(XLClearOptions.Contents);
+        }
+
+        var errorRows = rows.Where(r => r.Errors is { Count: > 0 }).ToList();
+        for (var i = 0; i < errorRows.Count; i++)
+        {
+            var row = errorRows[i];
+            var excelRow = firstDataRow + i;
+            foreach (var (header, write) in fieldWriters)
+            {
+                if (columnByHeader.TryGetValue(header, out var col))
+                {
+                    write(worksheet.Cell(excelRow, col), row);
+                }
+            }
+            worksheet.Cell(excelRow, errorsColumn).Value = string.Join("; ", row.Errors);
+        }
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+    private async Task<(XLWorkbook Workbook, IXLWorksheet Worksheet)> BuildTemplateWorkbookAsync(CancellationToken token)
+    {
         string templatePath = Path.Combine(_environment.ContentRootPath, "wwwroot", "Templates", "employee_template.xlsx");
         var branchList = await _branchService
             .GetQueryable()
@@ -865,10 +1043,7 @@ public class TemplateDownloaderService
 
         worksheet.Cell("AE3").Value = DateTime.UtcNow.Date;
 
-        var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-        stream.Position = 0; // Crucial: Reset the stream position to the beginning!
-        return stream;
+        return (workbook, worksheet);
     }
     private void CreateSheet<T>(IXLWorksheet helperSheet, List<T> data)
     {

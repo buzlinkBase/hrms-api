@@ -141,6 +141,33 @@ namespace Hrms.Api.Controllers
             return Ok("success");
         }
 
+        [HttpPost("upload-employees-preview")]
+        [RequirePermission("Workforce Setup:Create")]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(ResponseModel<List<EmployeeImportPreviewRow>>), 200)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> PreviewUpload(IFormFile excelFile, CancellationToken token)
+        {
+            if (excelFile == null || excelFile.Length == 0)
+                return BadRequest("Please select a file.");
+            using var stream = excelFile.OpenReadStream();
+            var preview = await _employeeImportService.PreviewAsync(stream, token);
+            return Ok(preview);
+        }
+
+        [HttpPost("upload-employees-errors-export")]
+        [RequirePermission("Workforce Setup:Create")]
+        [ProducesResponseType(200)]
+        public async Task<IActionResult> ExportErrorRows([FromBody] List<EmployeeImportPreviewRow> rows, CancellationToken token)
+        {
+            var dataStream = await _templateService.GetEmployeeTemplateWithErrors(rows, token);
+            return File(
+                dataStream,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "employee_import_corrections.xlsx"
+            );
+        }
+
         [HttpGet("export-template")]
         [ProducesResponseType(200)]
         public async Task<IActionResult> DownloadTemplate(CancellationToken token)
