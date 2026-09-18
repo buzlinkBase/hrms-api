@@ -155,6 +155,15 @@ namespace Hrms.Api.Controllers
             return Ok(preview);
         }
 
+        [HttpPost("upload-employees-commit")]
+        [RequirePermission("Workforce Setup:Create")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CommitPreviewUpload([FromBody] List<EmployeeImportPreviewRow> rows, CancellationToken token)
+        {
+            await _employeeImportService.CommitPreviewAsync(rows, token);
+            return Ok("success");
+        }
+
         [HttpPost("upload-employees-errors-export")]
         [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(200)]

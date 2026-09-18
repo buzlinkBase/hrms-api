@@ -153,4 +153,24 @@ public class EmployeeImportServicePreviewTests
         await uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
         await uow.DidNotReceive().CommitChangesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task CommitPreviewAsync_WhenEveryRowStillHasErrors_DoesNothing()
+    {
+        // The frontend disables its own Confirm while any row has errors, so the only way this
+        // is reached with error rows still present is a stale/tampered payload -- must not
+        // attempt to persist anything in that case.
+        var repo = Substitute.For<IRepository>();
+        var uow = Substitute.For<IUnitOfWorkService>();
+        var sut = BuildService(repo, uow);
+        var rows = new List<EmployeeImportPreviewRow>
+        {
+            new() { RowNumber = 1, BioId = "1001", FirstName = "Juan", LastName = "DelaCruz", Errors = ["Some conflict"] },
+        };
+
+        await sut.CommitPreviewAsync(rows, CancellationToken.None);
+
+        await uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await uow.DidNotReceive().CommitChangesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 }

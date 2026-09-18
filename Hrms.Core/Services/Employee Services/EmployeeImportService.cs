@@ -40,6 +40,30 @@ public class EmployeeImportService
     {
         var (data, allEmployees) = await ParseAndDefaultAsync(fileStream, token);
         ValidateImportData(data, allEmployees);
+        await PersistAsync(data, allEmployees, token);
+    }
+
+    /// <summary>
+    /// Commits a previously-previewed import (<see cref="PreviewAsync"/>), letting the caller
+    /// drop rows the user excluded in the preview UI instead of re-uploading the original file.
+    /// Rows still carrying validation errors are silently skipped rather than imported --
+    /// defense in depth, since the frontend already disables its own Confirm while any row has
+    /// errors and the only way one reaches here is a stale/tampered payload.
+    /// </summary>
+    public async Task CommitPreviewAsync(List<EmployeeImportPreviewRow> rows, CancellationToken token)
+    {
+        var data = rows
+            .Where(r => r.Errors is not { Count: > 0 })
+            .Select(r => r.Adapt<EmployeeImportModel>())
+            .ToList();
+        if (data.Count == 0) return;
+
+        var allEmployees = await GetAllEmployees(token);
+        await PersistAsync(data, allEmployees, token);
+    }
+
+    private async Task PersistAsync(List<EmployeeImportModel> data, List<BasicEmployeeInfo> allEmployees, CancellationToken token)
+    {
         var shifts = ExtractShifts(data);
         var branches = await ExtractBranchesAsync(data, token);
         var clients = ExtractClients(data);
