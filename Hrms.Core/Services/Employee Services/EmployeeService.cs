@@ -289,7 +289,9 @@ public class EmployeeService : BaseService<Employee>
             || x.LastName.Contains(keyword!)
             || x.MiddleName.Contains(keyword!)
             || x.Suffix.Contains(keyword!)
-            || x.EmployeeNo.Contains(keyword!);
+            || x.EmployeeNo.Contains(keyword!)
+            || (x.Email != null && x.Email.Contains(keyword));
+        ;
 
         var query = GetQueryable(exp);
         var employees = await query
