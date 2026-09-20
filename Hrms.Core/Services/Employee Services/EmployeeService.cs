@@ -307,7 +307,8 @@ public class EmployeeService : BaseService<Employee>
             || x.LastName.Contains(payload.Keyword)
             || x.MiddleName.Contains(payload.Keyword)
             || x.Suffix.Contains(payload.Keyword)
-            || x.EmployeeNo.Contains(payload.Keyword);
+            || x.EmployeeNo.Contains(payload.Keyword)
+            || (x.Email != null && x.Email.Contains(payload.Keyword));;
 
         var query = GetQueryable(exp);
         var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit)
@@ -393,6 +394,13 @@ public class EmployeeService : BaseService<Employee>
     {
         var result = await GetQueryable(x => x.Id == Id)
             .Include(x => x.RestDays)
+            .FirstOrDefaultAsync(token)
+            ;
+        return result;
+    }
+    public async Task<Employee?> FineOneByEmailAsync(string email , CancellationToken token) 
+    {
+        var result = await GetQueryable(x => x.Email == email)
             .FirstOrDefaultAsync(token)
             ;
         return result;

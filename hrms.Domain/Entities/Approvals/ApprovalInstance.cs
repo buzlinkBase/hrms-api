@@ -1,3 +1,4 @@
+using BuzlinkRepository;
 using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities.Approvals;
@@ -6,6 +7,7 @@ namespace Hrms.Domain.Entities.Approvals;
 // ApprovalEngineService.StartAsync right after the application itself is saved — one row per
 // application, regardless of whether a workflow was actually configured (see ApprovalWorkflowId
 // below).
+[DisableSoftDelete]
 public class ApprovalInstance : BaseEntity
 {
     public ApprovalApplicationType ApplicationType { get; set; }
@@ -38,6 +40,7 @@ public class ApprovalInstance : BaseEntity
 // Audit log of every approve/decline click — also how quorum is counted for a Department/
 // Position/ApplicantDepartment step (distinct ActorEmployeeId rows with Action == Approved for
 // the current StepNumber).
+[DisableSoftDelete]
 public class ApprovalAction : BaseEntity
 {
     public Guid ApprovalInstanceId { get; set; }

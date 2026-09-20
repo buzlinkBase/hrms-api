@@ -47,18 +47,20 @@ public class ApprovalWorkflowService : BaseService<ApprovalWorkflow>
         ValidateSteps(updated.Steps);
 
         var existing = await Context.ApprovalWorkflows
-            .Include(w => w.Steps).ThenInclude(s => s.NamedApprovers)
+            .Include(w => w.Steps)
+            .ThenInclude(s => s.NamedApprovers)
             .FirstOrDefaultAsync(w => w.Id == workflowId, token)
             ?? throw new NotFoundException("Workflow not found.");
 
         existing.Name = updated.Name;
         existing.ScopeDepartmentId = updated.ScopeDepartmentId;
-
         Context.ApprovalWorkflowSteps.RemoveRange(existing.Steps);
+        await Context.SaveChangesAsync(token);
         existing.Steps.Clear();
         foreach (var step in updated.Steps)
+        {
             existing.Steps.Add(step);
-
+        }
         await CommitChangesAsync(token);
         return existing;
     }
