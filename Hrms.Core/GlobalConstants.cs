@@ -7,11 +7,54 @@ public static class RATE_DEFAULT
     public const decimal OVERTIME = 1.25m;
     public const decimal HOLIDAY_OT = 1.30m;
     public const decimal RESTDAY_DUTY = 1.30m;
-    public const decimal LEGAL_HOLIDAY = 1.00m;  
-    public const decimal LEGAL_HOLIDAY_DUTY = 2.00m; 
+    public const decimal LEGAL_HOLIDAY = 1.00m;
+    public const decimal LEGAL_HOLIDAY_DUTY = 2.00m;
     public const decimal SPECIAL_WORKING = 1.00m;
     public const decimal SPECIAL_NON_WORKING = 1.30m;
     public const decimal RESTDAY_SPECIAL = 1.50m;
+
+    // Per-category OT PREMIUM overrides (Setup > Client > Settings > Rate Multipliers) --
+    // client-only by design (never seeded/edited company-wide). CompoundedOtRateStrategy.
+    // ResolveRawOtRate's real fallback for these is HOLIDAY_OT's own full resolution, not these
+    // constants directly -- these exist only for RATE_DEFAULT.For()'s defensive completeness
+    // (matching every other RateType having an explicit case, per this session's RESTHOLOVERTIME/
+    // fallback-bug cleanup) and default to the same 1.30 HOLIDAY_OT starts at.
+    public const decimal RESTDAY_OT_PREMIUM = 1.30m;
+    public const decimal LEGAL_HOLIDAY_OT_PREMIUM = 1.30m;
+    public const decimal SPECIAL_HOLIDAY_OT_PREMIUM = 1.30m;
+    public const decimal RESTLEGAL_OT_PREMIUM = 1.30m;
+    public const decimal RESTSPECIAL_OT_PREMIUM = 1.30m;
+    public const decimal DOUBLELEGAL_OT_PREMIUM = 1.30m;
+    public const decimal RESTDOUBLELEGAL_OT_PREMIUM = 1.30m;
+
+    // Single source of truth for "what should this RateType fall back to when neither a client
+    // nor a company-wide rate is configured" (PremiumRateHelper.GetRate's `fallback` parameter).
+    // Every DTRPolicies call site should resolve its fallback through here instead of a
+    // hardcoded literal -- those literals had drifted out of sync with the constants above (a
+    // day-type-multiplier loop was falling back to 1.0m for EVERY RateType regardless of which
+    // one, e.g. paying an unconfigured Rest Day as if it were a Regular day; HOLIDAY_OT was
+    // falling back to 1.25m, OVERTIME's rate, instead of its own 1.30m).
+    public static decimal For(RateType type) => type switch
+    {
+        RateType.REGULAR => REGULAR,
+        RateType.NIGHTDIFF => NIGHTDIFF,
+        RateType.OVERTIME => OVERTIME,
+        RateType.HOLIDAY_OT => HOLIDAY_OT,
+        RateType.RESTDAY_DUTY => RESTDAY_DUTY,
+        RateType.LEGAL_HOLIDAY => LEGAL_HOLIDAY,
+        RateType.LEGAL_HOLIDAY_DUTY => LEGAL_HOLIDAY_DUTY,
+        RateType.SPECIAL_WORKING => SPECIAL_WORKING,
+        RateType.SPECIAL_NON_WORKING => SPECIAL_NON_WORKING,
+        RateType.RESTDAY_SPECIAL => RESTDAY_SPECIAL,
+        RateType.RESTDAY_OT_PREMIUM => RESTDAY_OT_PREMIUM,
+        RateType.LEGAL_HOLIDAY_OT_PREMIUM => LEGAL_HOLIDAY_OT_PREMIUM,
+        RateType.SPECIAL_HOLIDAY_OT_PREMIUM => SPECIAL_HOLIDAY_OT_PREMIUM,
+        RateType.RESTLEGAL_OT_PREMIUM => RESTLEGAL_OT_PREMIUM,
+        RateType.RESTSPECIAL_OT_PREMIUM => RESTSPECIAL_OT_PREMIUM,
+        RateType.DOUBLELEGAL_OT_PREMIUM => DOUBLELEGAL_OT_PREMIUM,
+        RateType.RESTDOUBLELEGAL_OT_PREMIUM => RESTDOUBLELEGAL_OT_PREMIUM,
+        _ => HOLIDAY_OT,
+    };
 }
 
 

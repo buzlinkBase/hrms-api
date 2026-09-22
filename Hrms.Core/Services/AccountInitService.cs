@@ -144,6 +144,7 @@ public class AccountInitService : BaseService<Company>
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.DoublePunchGap.ToString(), Value = 2.ToString() },
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = false.ToString() },
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.WaivePriorDayRequirement.ToString(), Value = false.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.OtNdCalculationMethod.ToString(), Value = OtNdCalculationMethod.Compounded.ToString() },
         };
         await _uow.Repository.AddRangeAsync(settings, token);
     }

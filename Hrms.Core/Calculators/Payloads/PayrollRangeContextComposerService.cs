@@ -115,6 +115,12 @@ public class PayrollRangeContextComposerService
                 ? GeneralSettingsUtil.ParseDouble(takehomeSetting.Value, 10)
                 : 10;
 
+            // Setup > Company Policy > OT/ND Calculation Method — see
+            // NightDiffOTCategoryPolicies.SingleCategoryNDOTPolicy.
+            var otNdCalculationMethod = companySettings.TryGetValue(SettingKey.OtNdCalculationMethod.ToString(), out var otNdMethodSetting)
+                ? GeneralSettingsUtil.ParseEnum(otNdMethodSetting.Value, OtNdCalculationMethod.Compounded)
+                : OtNdCalculationMethod.Compounded;
+
             // Setup > Client > Settings > Statutory Capping — only added when a client actually
             // has a positive cap set for that type; an absent key means uncapped (see
             // StatutoryCapHelper.ApplyClientCap).
@@ -190,6 +196,7 @@ public class PayrollRangeContextComposerService
                     CrossMonthStatutoryCreditPolicy = crossMonthCreditPolicy,
                     WTaxCrossMonthCreditPolicy = wtaxCreditPolicy,
                     RequiredTakehomePercentage = (decimal)requiredTakehomePercentage,
+                    OtNdCalculationMethod = otNdCalculationMethod,
                 }
             };
         }

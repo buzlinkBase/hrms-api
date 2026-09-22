@@ -4,6 +4,7 @@ using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    partial class HrmsContextModelSnapshot : ModelSnapshot
+    [Migration("20260922013953_segrated_work_unwork_lacking_prem")]
+    partial class segrated_work_unwork_lacking_prem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4117,9 +4120,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<string>("OneTimePayoutBreakdown")
                         .HasColumnType("longtext");
-
-                    b.Property<int>("OtNdCalculationMethod")
-                        .HasColumnType("int");
 
                     b.Property<decimal>("OtherDeductions")
                         .HasColumnType("decimal(65,30)");

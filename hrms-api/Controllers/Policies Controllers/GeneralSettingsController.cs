@@ -48,6 +48,7 @@ public class GeneralSettingsController : ControllerBase
             CrossMonthStatutoryCreditPolicy = policy.CrossMonthStatutoryCreditPolicy.ToString(),
             WTaxCrossMonthCreditPolicy = policy.WTaxCrossMonthCreditPolicy.ToString(),
             RequiredTakehomePercentage = policy.RequiredTakehomePercentage,
+            OtNdCalculationMethod = policy.OtNdCalculationMethod.ToString(),
         };
         return Ok(response);
     }
@@ -77,6 +78,7 @@ public class GeneralSettingsController : ControllerBase
             new() { IdentityType = "Company", Description = SettingKey.CrossMonthStatutoryCreditPolicy.ToString(), Value = request.CrossMonthStatutoryCreditPolicy },
             new() { IdentityType = "Company", Description = SettingKey.WTaxCrossMonthCreditPolicy.ToString(), Value = request.WTaxCrossMonthCreditPolicy },
             new() { IdentityType = "Company", Description = SettingKey.RequiredTakehomePercentage.ToString(), Value = request.RequiredTakehomePercentage.ToString() },
+            new() { IdentityType = "Company", Description = SettingKey.OtNdCalculationMethod.ToString(), Value = request.OtNdCalculationMethod },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync("Company", settings, null, token);
@@ -153,6 +155,7 @@ public class UpdateCompanyPolicyRequest
     public string CrossMonthStatutoryCreditPolicy { get; set; } = "";
     public string WTaxCrossMonthCreditPolicy { get; set; } = "";
     public double RequiredTakehomePercentage { get; set; } = 10;
+    public string OtNdCalculationMethod { get; set; } = "Compounded";
 }
 public class CompanyPolicyResponse
 {
@@ -173,6 +176,7 @@ public class CompanyPolicyResponse
     public required string CrossMonthStatutoryCreditPolicy { get; set; } = "";
     public required string WTaxCrossMonthCreditPolicy { get; set; } = "";
     public required double RequiredTakehomePercentage { get; set; }
+    public required string OtNdCalculationMethod { get; set; } = "Compounded";
 }
 public class ClientPolicyDto
 {

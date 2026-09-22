@@ -23,6 +23,13 @@ public class CompanyPolicyRule
     // Minimum take-home floor, as a percentage of gross income — see DeductionValidator.CanApply.
     public double RequiredTakehomePercentage { get; set; } = 10;
 
+    // Mirrored here purely so GeneralSettingsController's GET can read it the same way as every
+    // other company policy field — never actually consumed by DTR-side logic. The real consumer
+    // is Hrms.Core.Pipelines.PayrollContext's own CompanyPolicyRule (hrms.Domain/ValueObjects/
+    // PaginationPayload.cs), populated separately by PayrollRangeContextComposerService. See
+    // NightDiffOTCategoryPolicies.SingleCategoryNDOTPolicy.
+    public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethod.Compounded;
+
 }
 
 public class CompanyPolicyService
@@ -45,6 +52,7 @@ public class CompanyPolicyService
         SetCrossMonthStatutoryCreditPolicy(policy, data);
         SetWTaxCrossMonthCreditPolicy(policy, data);
         SetRequiredTakehomePercentage(policy, data);
+        SetOtNdCalculationMethod(policy, data);
         return policy;
     }
 
@@ -202,6 +210,16 @@ public class CompanyPolicyService
         {
             var settingvalue = GeneralSettingsUtil.ParseDouble(takehome.Value, 10);
             policy.RequiredTakehomePercentage = settingvalue;
+        }
+    }
+
+    private void SetOtNdCalculationMethod(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.OtNdCalculationMethod = OtNdCalculationMethod.Compounded;
+        if (data.TryGetValue(SettingKey.OtNdCalculationMethod.ToString(), out GeneralSettingModel? method))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseEnum(method.Value, OtNdCalculationMethod.Compounded);
+            policy.OtNdCalculationMethod = settingvalue;
         }
     }
 }

@@ -1,11 +1,13 @@
 using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Extensions;
+using Hrms.Domain;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MapsterMapper;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 
 namespace Hrms.Api.Controllers
 {
@@ -113,7 +115,11 @@ namespace Hrms.Api.Controllers
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
-            var document = new PayslipDocument(payroll, employee, company);
+            // Same format rule as PayrollsController.PrintPayslip — follows the OT/ND
+            // calculation method actually recorded on this payroll run.
+            IDocument document = payroll.OtNdCalculationMethod == OtNdCalculationMethod.Additive
+                ? new PayslipHoursDocument(payroll, employee, company)
+                : new PayslipDocument(payroll, employee, company);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }

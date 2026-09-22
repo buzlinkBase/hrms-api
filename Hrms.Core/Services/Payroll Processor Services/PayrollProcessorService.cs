@@ -102,7 +102,7 @@ public class PayrollProcessorService
             PayDate = payload.PayDate,
             DtrBatchCodes = string.Join(",", payload.BatchCodes),
             Remarks = payload.Remarks,
-        }, token);
+        }, token, commit: false);
 
         // Generating no longer marks payroll as posted — a run stays an editable/deletable
         // draft (PayrollBatch.IsPosted defaults to false) until explicitly posted via
@@ -112,7 +112,10 @@ public class PayrollProcessorService
         {
             payroll.BatchCode = savingBatch;
         }
-        await _payrollService.SavePayrollsAsync(payrolls, token);
+        await _payrollService.SavePayrollsAsync(payrolls, token, commit: false);
+        // Atomic commit point: if anything above failed (mapping error, cancellation), neither
+        // the batch header nor any Payroll row is ever persisted — see AddAsync's doc comment.
+        await _payrollService.CommitChangesAsync(token);
         await _statutoryLedgerService.SaveAsync(lines, token);
         // Stamps ConsumedByPayrollId on whatever SalaryAdjustment/OtherIncomeSchedules rows
         // this run's own EmployeePayrollLineService.Calculate already matched by date range

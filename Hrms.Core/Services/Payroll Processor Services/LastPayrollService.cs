@@ -325,14 +325,16 @@ public class LastPayrollService
             PayDate = payload.PayDate,
             PayrollType = PayrollType.LastPay,
             Remarks = payload.Remarks,
-        }, token);
+        }, token, commit: false);
 
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)
         {
             payroll.BatchCode = batchId.ToString();
         }
-        await _payrollService.SavePayrollsAsync(payrolls, token);
+        await _payrollService.SavePayrollsAsync(payrolls, token, commit: false);
+        // Atomic commit point — see PayrollBatchService.AddAsync's doc comment.
+        await _payrollService.CommitChangesAsync(token);
         // SSS/PHIC/HDMF are never set on these lines; only the WTaxContribution row (needed
         // for BIR remittance reporting) gets written — same as ThirteenthMonthPayrollService.
         await _statutoryLedgerService.SaveAsync(lines, token);

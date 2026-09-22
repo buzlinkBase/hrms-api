@@ -93,6 +93,16 @@ public class PayrollService : BaseService<Payroll>
         await Context.PayrollDeductionDetails.Where(x => payrollIds.Contains(x.PayrollId)).ExecuteDeleteAsync(token);
     }
 
+    // Same reasoning as DeleteDeductionDetailsByPayrollIdsAsync above -- PayrollDtrDetail is the
+    // other Payroll-child table (PayrollId FK, no cascade configured -- see Payroll.
+    // TimeHourPayResults), and was previously left orphaned by PayrollBatchLifecycleService.
+    // DeleteBatchAsync even though DeductionDetails already got cleaned up alongside it.
+    public async Task DeleteDtrDetailsByPayrollIdsAsync(List<Guid> payrollIds, CancellationToken token)
+    {
+        if (payrollIds.Count == 0) return;
+        await Context.PayrollDtrDetails.Where(x => payrollIds.Contains(x.PayrollId)).ExecuteDeleteAsync(token);
+    }
+
     // Mirrors PayrollBatch.IsPosted onto every child row of the batch — PayrollBatch is the
     // canonical source for Post/Delete decisions, but the child rows keep their own copy so
     // hot-path report filters (PayrollReportService, LoadPostedPayrollAsync above) don't
@@ -276,11 +286,13 @@ public class PayrollService : BaseService<Payroll>
             .ToDictionaryAsync(x => x.EmployeeId, x => x.Balance, token);
     }
 
-    public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token)
+    // commit=false lets callers compose this with PayrollBatchService.AddAsync(commit: false) as
+    // ONE atomic unit — see AddAsync's doc comment for why (closes the orphaned-empty-batch gap).
+    public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token, bool commit = true)
     {
         await Uow.Repository.AddRangeAsync(payrolls, token);
         await Uow.SaveChangesAsync(token);
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
     }
 
     // Employees who already have a 13th month payout Payroll row for the given calendar

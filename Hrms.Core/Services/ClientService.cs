@@ -59,6 +59,15 @@ public class ClientService : BaseService<Client>
         return await GetQueryable(x => clientIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.RetirementDaysPerYear, token);
     }
+    // Bulk client-name lookup for reports that list many clients' employees at once (e.g.
+    // Payroll Summary print) — one query instead of N+1 per-row lookups.
+    public async Task<Dictionary<Guid, string>> FindNamesByIdsAsync(HashSet<Guid> clientIds, CancellationToken token)
+    {
+        if (clientIds.Count == 0) return new();
+        return await GetQueryable(x => clientIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Name, token);
+    }
+
     public async Task<Client?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return await GetOneAsync(Id, token);

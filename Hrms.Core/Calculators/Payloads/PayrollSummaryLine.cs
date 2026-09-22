@@ -1,4 +1,4 @@
-﻿
+
 namespace Hrms.Core.Calculators.Payloads;
 
 public class PayrollSummaryLine
@@ -21,6 +21,10 @@ public class PayrollSummaryLine
     public Guid PayrollBatchId { get; set; }
     // See Payroll.PayrollType.
     public PayrollType PayrollType { get; set; } = PayrollType.Regular;
+    // Setup > Company Policy > OT/ND Calculation Method, as it was at the moment THIS run was
+    // generated — see Payroll.OtNdCalculationMethod for why this is recorded per-run instead
+    // of read live.
+    public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethod.Compounded;
     // Free-text identity for the whole run — see Payroll.Remarks.
     public string? Remarks { get; set; }
     public Guid EmployeeId { get; set; }
@@ -41,11 +45,14 @@ public class PayrollSummaryLine
     // merged together (mirrors DTRPayModel.Holiday exactly). This is a rollup, not an
     // "unworked only" figure — see LegalHolidayUnworkedPay for that.
     public decimal HolidayPay { get; set; }
-    // The unworked/no-work portion of Legal Holiday pay only (DTRPayModel.LegalUnWorked,
-    // summed for the period) — the one holiday category where "unworked" is a meaningful,
-    // separately-tracked figure (Special/RestLegal/RestSpecial pay nothing when unworked
-    // per DOLE's "no work, no pay" rule for non-legal holidays).
+    // The unworked/no-work portion of Legal Holiday pay (DTRPayModel.LegalUnWorked, summed for
+    // the period) — Special/RestSpecial pay nothing when unworked (DOLE's "no work, no pay"
+    // rule for non-legal holidays), so only the four legal-holiday-involving categories ever
+    // have an unworked component. See Payroll.LegalHolidayUnworkedPay for the full breakdown.
     public decimal LegalHolidayUnworkedPay { get; set; }
+    public decimal RestLegalUnworkedPay { get; set; }
+    public decimal DoubleLegalUnworkedPay { get; set; }
+    public decimal RestDoubleLegalUnworkedPay { get; set; }
 
     public decimal RegularDayPay { get; set; }
     public decimal RegularOTPay { get; set; }
@@ -86,6 +93,67 @@ public class PayrollSummaryLine
     public decimal RestDoubleLegalOTPay { get; set; }
     public decimal RestDoubleLegalNDPay { get; set; }
     public decimal RestDoubleLegalNDOTPay { get; set; }
+
+    // Period-level segregation of the already-blended {Category}OTPay/NDPay/NDOTPay above, each
+    // figure priced against ONE rate alone (never compounded with another tier):
+    // - OTBasePay: hours(OT) * rawOTRate * hourlyRate -- the raw HOLIDAY_OT/OVERTIME rate alone,
+    //   ignoring day-type compounding and any client override on the actual paid OTPay.
+    // - NDBasePay: hours(ND) * dayTypeRate * hourlyRate -- the day-type rate alone, no ND premium.
+    // - NDOTBasePay: hours(NDOT) * rawOTRate * hourlyRate -- same raw OT rate as OTBasePay above,
+    //   applied to the NDOT hours, ignoring the day-type rate AND the night-diff premium.
+    // - NDPremiumPay / NDOTPremiumPay: hours * (nightDiffRate - 1) * hourlyRate -- e.g. a 1.10
+    //   rate contributes only the .10, against the plain hourly rate, not any other tier.
+    // Additive recording for extraction/reporting, not a decomposition that sums back to the
+    // blended totals above -- matches the client's own spreadsheet, which shows the same four
+    // figures this way. Mirrors Payroll's identical fields (Mapster convention-mapped) and
+    // DTRPayModel's per-day fields (summed across the period into these by ComputeBasicSalary).
+    public decimal RegularNDBasePay { get; set; }
+    public decimal RegularNDPremiumPay { get; set; }
+    public decimal RegularNDOTBasePay { get; set; }
+    public decimal RegularOTBasePay { get; set; }
+    public decimal RegularNDOTPremiumPay { get; set; }
+
+    public decimal RestDayNDBasePay { get; set; }
+    public decimal RestDayNDPremiumPay { get; set; }
+    public decimal RestDayNDOTBasePay { get; set; }
+    public decimal RestDayOTBasePay { get; set; }
+    public decimal RestDayNDOTPremiumPay { get; set; }
+
+    public decimal LegalNDBasePay { get; set; }
+    public decimal LegalNDPremiumPay { get; set; }
+    public decimal LegalNDOTBasePay { get; set; }
+    public decimal LegalOTBasePay { get; set; }
+    public decimal LegalNDOTPremiumPay { get; set; }
+
+    public decimal SpecialNDBasePay { get; set; }
+    public decimal SpecialNDPremiumPay { get; set; }
+    public decimal SpecialNDOTBasePay { get; set; }
+    public decimal SpecialOTBasePay { get; set; }
+    public decimal SpecialNDOTPremiumPay { get; set; }
+
+    public decimal RestLegalNDBasePay { get; set; }
+    public decimal RestLegalNDPremiumPay { get; set; }
+    public decimal RestLegalNDOTBasePay { get; set; }
+    public decimal RestLegalOTBasePay { get; set; }
+    public decimal RestLegalNDOTPremiumPay { get; set; }
+
+    public decimal RestSpecialNDBasePay { get; set; }
+    public decimal RestSpecialNDPremiumPay { get; set; }
+    public decimal RestSpecialNDOTBasePay { get; set; }
+    public decimal RestSpecialOTBasePay { get; set; }
+    public decimal RestSpecialNDOTPremiumPay { get; set; }
+
+    public decimal DoubleLegalNDBasePay { get; set; }
+    public decimal DoubleLegalNDPremiumPay { get; set; }
+    public decimal DoubleLegalNDOTBasePay { get; set; }
+    public decimal DoubleLegalOTBasePay { get; set; }
+    public decimal DoubleLegalNDOTPremiumPay { get; set; }
+
+    public decimal RestDoubleLegalNDBasePay { get; set; }
+    public decimal RestDoubleLegalNDPremiumPay { get; set; }
+    public decimal RestDoubleLegalNDOTBasePay { get; set; }
+    public decimal RestDoubleLegalOTBasePay { get; set; }
+    public decimal RestDoubleLegalNDOTPremiumPay { get; set; }
 
     public List<ProratedAllowanceModel> RegularAllowanceProrated { get; set; } = new(); //For SSS
     public decimal Cola { get; set; }

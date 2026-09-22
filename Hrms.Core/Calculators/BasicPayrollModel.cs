@@ -129,7 +129,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
         var restday = _restDayPipeline.Run(context).Value;
         var legal = _legalPipeline.Run(context);
         var special = _specialPipeline.Run(context).Value;
-        var restlegal = _restLegalPipeline.Run(context).Value;
+        var restLegal = _restLegalPipeline.Run(context);
         var restSpecial = _restSpecialPipeline.Run(context).Value;
         var doubleLegal = _doubleLegalPipeline.Run(context);
         var restDoubleLegal = _restDoubleLegalPipeline.Run(context);
@@ -302,7 +302,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             RestSpecialNDPay = restSpecialND,
             RestSpecialNDOTPay = restSpecialNDOT,
 
-            RestLegalPay = restlegal,
+            RestLegalPay = restLegal.Value,
             RestLegalOTPay = restLegalOT,
             RestLegalNDPay = restLegalND,
             RestLegalNDOTPay = restLegalNDOT,
@@ -317,8 +317,68 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             RestDoubleLegalNDPay = restDoubleLegalND,
             RestDoubleLegalNDOTPay = restDoubleLegalNDOT,
 
+            // OTBasePay/NDOTBasePay both read BasicPipelineData.FlatOvertimeBase -- the raw OT
+            // rate alone (hours * rawOTRate * hourlyRate), computed directly by the plain OT
+            // policy and the NDOT policy respectively (see OvertimeCategoryPolicies.cs/
+            // NightDiffOTCategoryPolicies.cs). NDBasePay reads .Value - .NDPremium -- the ND
+            // policy already isolates that delta onto BasicPipelineData.NDPremium, so this
+            // leaves exactly the day-type-tier-only amount (no algebra beyond what the policy
+            // already computed). NDPremiumPay/NDOTPremiumPay read .FlatNightDiffPremium, computed
+            // directly by the policies against the plain base pay (not compounded with any other
+            // tier). Matches the client's own spreadsheet exactly -- see
+            // NightDiffBasePremiumSegregationTests.
+            RegularOTBasePay = regularOTResult.FlatOvertimeBase,
+            RegularNDBasePay = regularNDResult.Value - regularNDResult.NDPremium,
+            RegularNDPremiumPay = regularNDResult.FlatNightDiffPremium,
+            RegularNDOTBasePay = regularNDOTResult.FlatOvertimeBase,
+            RegularNDOTPremiumPay = regularNDOTResult.FlatNightDiffPremium,
+
+            RestDayOTBasePay = restOTResult.FlatOvertimeBase,
+            RestDayNDBasePay = restNDResult.Value - restNDResult.NDPremium,
+            RestDayNDPremiumPay = restNDResult.FlatNightDiffPremium,
+            RestDayNDOTBasePay = restNDOTResult.FlatOvertimeBase,
+            RestDayNDOTPremiumPay = restNDOTResult.FlatNightDiffPremium,
+
+            LegalOTBasePay = legalOTResult.FlatOvertimeBase,
+            LegalNDBasePay = legalNDResult.Value - legalNDResult.NDPremium,
+            LegalNDPremiumPay = legalNDResult.FlatNightDiffPremium,
+            LegalNDOTBasePay = legalNDOTResult.FlatOvertimeBase,
+            LegalNDOTPremiumPay = legalNDOTResult.FlatNightDiffPremium,
+
+            SpecialOTBasePay = specialOTResult.FlatOvertimeBase,
+            SpecialNDBasePay = specialNDResult.Value - specialNDResult.NDPremium,
+            SpecialNDPremiumPay = specialNDResult.FlatNightDiffPremium,
+            SpecialNDOTBasePay = specialNDOTResult.FlatOvertimeBase,
+            SpecialNDOTPremiumPay = specialNDOTResult.FlatNightDiffPremium,
+
+            RestLegalOTBasePay = restLegalOTResult.FlatOvertimeBase,
+            RestLegalNDBasePay = restLegalNDResult.Value - restLegalNDResult.NDPremium,
+            RestLegalNDPremiumPay = restLegalNDResult.FlatNightDiffPremium,
+            RestLegalNDOTBasePay = restLegalNDOTResult.FlatOvertimeBase,
+            RestLegalNDOTPremiumPay = restLegalNDOTResult.FlatNightDiffPremium,
+
+            RestSpecialOTBasePay = restSpecialOTResult.FlatOvertimeBase,
+            RestSpecialNDBasePay = restSpecialNDResult.Value - restSpecialNDResult.NDPremium,
+            RestSpecialNDPremiumPay = restSpecialNDResult.FlatNightDiffPremium,
+            RestSpecialNDOTBasePay = restSpecialNDOTResult.FlatOvertimeBase,
+            RestSpecialNDOTPremiumPay = restSpecialNDOTResult.FlatNightDiffPremium,
+
+            DoubleLegalOTBasePay = doubleLegalOTResult.FlatOvertimeBase,
+            DoubleLegalNDBasePay = doubleLegalNDResult.Value - doubleLegalNDResult.NDPremium,
+            DoubleLegalNDPremiumPay = doubleLegalNDResult.FlatNightDiffPremium,
+            DoubleLegalNDOTBasePay = doubleLegalNDOTResult.FlatOvertimeBase,
+            DoubleLegalNDOTPremiumPay = doubleLegalNDOTResult.FlatNightDiffPremium,
+
+            RestDoubleLegalOTBasePay = restDoubleLegalOTResult.FlatOvertimeBase,
+            RestDoubleLegalNDBasePay = restDoubleLegalNDResult.Value - restDoubleLegalNDResult.NDPremium,
+            RestDoubleLegalNDPremiumPay = restDoubleLegalNDResult.FlatNightDiffPremium,
+            RestDoubleLegalNDOTBasePay = restDoubleLegalNDOTResult.FlatOvertimeBase,
+            RestDoubleLegalNDOTPremiumPay = restDoubleLegalNDOTResult.FlatNightDiffPremium,
+
             LegalWorked = legal.Worked,
             LegalUnWorked = legal.UnWork,
+            RestLegalWorked = restLegal.Worked,
+            RestLegalUnWorked = restLegal.UnWork,
             DoubleLegalUnworked = doubleLegal.UnWork,
             DoubleLegalWorked = doubleLegal.Worked,
             RestDoubleLegalUnworked = restDoubleLegal.UnWork,
@@ -333,7 +393,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
 
             Holiday = legal.Value // + legalOT + legalND + legalNDOT
             + special //+ specialOT + specialND + specialNDOT
-            + restlegal //+ restLegalOT + restLegalND + restLegalNDOT
+            + restLegal.Value //+ restLegalOT + restLegalND + restLegalNDOT
             + restSpecial //+ restSpecialOT + restSpecialND + restSpecialNDOT
             + doubleLegal.Value //+ doubleLegalOT + doubleLegalND + doubleLegalNDOT
             + restDoubleLegal.Value, // + restDoubleLegalOT  + restDoubleLegalND + restDoubleLegalNDOT,
@@ -344,7 +404,7 @@ public class BasicPayrollCalculator : ICalculator<DTRPayModel, PayrollContext>
             + restday
             + legal.Value
             + special
-            + restlegal
+            + restLegal.Value
             + restSpecial
             + doubleLegal.Value
             + restDoubleLegal.Value

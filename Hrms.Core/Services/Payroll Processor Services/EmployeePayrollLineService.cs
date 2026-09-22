@@ -43,7 +43,8 @@ public class EmployeePayrollLineService
     {
         employee.DailyRate = _dailyRateResolver.Resolve(employee, dateRange.FromDate);
         var payrollLine = InitializePayrollLine(
-            dateRange, employee, batchId, period, creditPolicy, wtaxCreditPolicy, payDate, remarks);
+            dateRange, employee, batchId, period, creditPolicy, wtaxCreditPolicy, payDate, remarks,
+            rangePayload.CompanyPolicy.OtNdCalculationMethod);
 
         ComputeHoursBreakdown(empDtr, payrollLine);
         ComputeRetirementAccrual(employee, rangePayload, payrollLine);
@@ -85,7 +86,8 @@ public class EmployeePayrollLineService
         CrossMonthStatutoryCreditPolicy creditPolicy,
         CrossMonthStatutoryCreditPolicy wtaxCreditPolicy,
         DateOnly? payDate,
-        string? remarks) =>
+        string? remarks,
+        OtNdCalculationMethod otNdCalculationMethod) =>
         new PayrollSummaryLine
         {
             PayrollPeriod = period,
@@ -101,7 +103,13 @@ public class EmployeePayrollLineService
             PayDate = payDate,
             PayrollGroupId = employee.PayrollGroupId,
             AreaId = employee.AreaId,
-            ClientId = employee.ClientId
+            ClientId = employee.ClientId,
+            // Recorded per-run (not recomputed live) so a payslip printed later reproduces
+            // exactly what was actually paid, even if the company-wide setting changes
+            // afterward — see PayslipHoursDocument.BuildRows, which needs to know which mode
+            // produced this row's {Category}OTBasePay/NDOTBasePay figures to present them
+            // correctly.
+            OtNdCalculationMethod = otNdCalculationMethod,
         };
 
     // Straight per-employee sum of DailyRecord's own per-category hour fields across every
@@ -227,46 +235,89 @@ public class EmployeePayrollLineService
         payrollLine.RegularOTPay = employeeBasicCalc.Sum(x => x.RegularOTPay);
         payrollLine.RegularNDPay = employeeBasicCalc.Sum(x => x.RegularNDPay);
         payrollLine.RegularNDOTPay = employeeBasicCalc.Sum(x => x.RegularNDOTPay);
+        payrollLine.RegularNDBasePay = employeeBasicCalc.Sum(x => x.RegularNDBasePay);
+        payrollLine.RegularNDPremiumPay = employeeBasicCalc.Sum(x => x.RegularNDPremiumPay);
+        payrollLine.RegularNDOTBasePay = employeeBasicCalc.Sum(x => x.RegularNDOTBasePay);
+        payrollLine.RegularOTBasePay = employeeBasicCalc.Sum(x => x.RegularOTBasePay);
+        payrollLine.RegularNDOTPremiumPay = employeeBasicCalc.Sum(x => x.RegularNDOTPremiumPay);
 
         payrollLine.RestDayPay = employeeBasicCalc.Sum(x => x.RestDayPay);
         payrollLine.RestDayOTPay = employeeBasicCalc.Sum(x => x.RestDayOTPay);
         payrollLine.RestDayNDPay = employeeBasicCalc.Sum(x => x.RestDayNDPay);
         payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPay);
+        payrollLine.RestDayNDBasePay = employeeBasicCalc.Sum(x => x.RestDayNDBasePay);
+        payrollLine.RestDayNDPremiumPay = employeeBasicCalc.Sum(x => x.RestDayNDPremiumPay);
+        payrollLine.RestDayNDOTBasePay = employeeBasicCalc.Sum(x => x.RestDayNDOTBasePay);
+        payrollLine.RestDayOTBasePay = employeeBasicCalc.Sum(x => x.RestDayOTBasePay);
+        payrollLine.RestDayNDOTPremiumPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPremiumPay);
 
         payrollLine.LegalPay = employeeBasicCalc.Sum(x => x.LegalPay);
         payrollLine.LegalOTPay = employeeBasicCalc.Sum(x => x.LegalOTPay);
         payrollLine.LegalNDPay = employeeBasicCalc.Sum(x => x.LegalNDPay);
         payrollLine.LegalNDOTPay = employeeBasicCalc.Sum(x => x.LegalNDOTPay);
+        payrollLine.LegalNDBasePay = employeeBasicCalc.Sum(x => x.LegalNDBasePay);
+        payrollLine.LegalNDPremiumPay = employeeBasicCalc.Sum(x => x.LegalNDPremiumPay);
+        payrollLine.LegalNDOTBasePay = employeeBasicCalc.Sum(x => x.LegalNDOTBasePay);
+        payrollLine.LegalOTBasePay = employeeBasicCalc.Sum(x => x.LegalOTBasePay);
+        payrollLine.LegalNDOTPremiumPay = employeeBasicCalc.Sum(x => x.LegalNDOTPremiumPay);
 
         payrollLine.SpecialPay = employeeBasicCalc.Sum(x => x.SpecialPay);
         payrollLine.SpecialOTPay = employeeBasicCalc.Sum(x => x.SpecialOTPay);
         payrollLine.SpecialNDPay = employeeBasicCalc.Sum(x => x.SpecialNDPay);
         payrollLine.SpecialNDOTPay = employeeBasicCalc.Sum(x => x.SpecialNDOTPay);
+        payrollLine.SpecialNDBasePay = employeeBasicCalc.Sum(x => x.SpecialNDBasePay);
+        payrollLine.SpecialNDPremiumPay = employeeBasicCalc.Sum(x => x.SpecialNDPremiumPay);
+        payrollLine.SpecialNDOTBasePay = employeeBasicCalc.Sum(x => x.SpecialNDOTBasePay);
+        payrollLine.SpecialOTBasePay = employeeBasicCalc.Sum(x => x.SpecialOTBasePay);
+        payrollLine.SpecialNDOTPremiumPay = employeeBasicCalc.Sum(x => x.SpecialNDOTPremiumPay);
 
         payrollLine.RestLegalPay = employeeBasicCalc.Sum(x => x.RestLegalPay);
         payrollLine.RestLegalOTPay = employeeBasicCalc.Sum(x => x.RestLegalOTPay);
         payrollLine.RestLegalNDPay = employeeBasicCalc.Sum(x => x.RestLegalNDPay);
         payrollLine.RestLegalNDOTPay = employeeBasicCalc.Sum(x => x.RestLegalNDOTPay);
+        payrollLine.RestLegalNDBasePay = employeeBasicCalc.Sum(x => x.RestLegalNDBasePay);
+        payrollLine.RestLegalNDPremiumPay = employeeBasicCalc.Sum(x => x.RestLegalNDPremiumPay);
+        payrollLine.RestLegalNDOTBasePay = employeeBasicCalc.Sum(x => x.RestLegalNDOTBasePay);
+        payrollLine.RestLegalOTBasePay = employeeBasicCalc.Sum(x => x.RestLegalOTBasePay);
+        payrollLine.RestLegalNDOTPremiumPay = employeeBasicCalc.Sum(x => x.RestLegalNDOTPremiumPay);
 
         payrollLine.RestSpecialPay = employeeBasicCalc.Sum(x => x.RestSpecialPay);
         payrollLine.RestSpecialOTPay = employeeBasicCalc.Sum(x => x.RestSpecialOTPay);
         payrollLine.RestSpecialNDPay = employeeBasicCalc.Sum(x => x.RestSpecialNDPay);
         payrollLine.RestSpecialNDOTPay = employeeBasicCalc.Sum(x => x.RestSpecialNDOTPay);
+        payrollLine.RestSpecialNDBasePay = employeeBasicCalc.Sum(x => x.RestSpecialNDBasePay);
+        payrollLine.RestSpecialNDPremiumPay = employeeBasicCalc.Sum(x => x.RestSpecialNDPremiumPay);
+        payrollLine.RestSpecialNDOTBasePay = employeeBasicCalc.Sum(x => x.RestSpecialNDOTBasePay);
+        payrollLine.RestSpecialOTBasePay = employeeBasicCalc.Sum(x => x.RestSpecialOTBasePay);
+        payrollLine.RestSpecialNDOTPremiumPay = employeeBasicCalc.Sum(x => x.RestSpecialNDOTPremiumPay);
 
         payrollLine.DoubleLegalPay = employeeBasicCalc.Sum(x => x.DoubleLegalPay);
         payrollLine.DoubleLegalOTPay = employeeBasicCalc.Sum(x => x.DoubleLegalOTPay);
         payrollLine.DoubleLegalNDPay = employeeBasicCalc.Sum(x => x.DoubleLegalNDPay);
         payrollLine.DoubleLegalNDOTPay = employeeBasicCalc.Sum(x => x.DoubleLegalNDOTPay);
+        payrollLine.DoubleLegalNDBasePay = employeeBasicCalc.Sum(x => x.DoubleLegalNDBasePay);
+        payrollLine.DoubleLegalNDPremiumPay = employeeBasicCalc.Sum(x => x.DoubleLegalNDPremiumPay);
+        payrollLine.DoubleLegalNDOTBasePay = employeeBasicCalc.Sum(x => x.DoubleLegalNDOTBasePay);
+        payrollLine.DoubleLegalOTBasePay = employeeBasicCalc.Sum(x => x.DoubleLegalOTBasePay);
+        payrollLine.DoubleLegalNDOTPremiumPay = employeeBasicCalc.Sum(x => x.DoubleLegalNDOTPremiumPay);
 
         payrollLine.RestDoubleLegalPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalPay);
         payrollLine.RestDoubleLegalOTPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalOTPay);
         payrollLine.RestDoubleLegalNDPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDPay);
         payrollLine.RestDayNDOTPay = employeeBasicCalc.Sum(x => x.RestDayNDOTPay);
+        payrollLine.RestDoubleLegalNDBasePay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDBasePay);
+        payrollLine.RestDoubleLegalNDPremiumPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDPremiumPay);
+        payrollLine.RestDoubleLegalNDOTBasePay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDOTBasePay);
+        payrollLine.RestDoubleLegalOTBasePay = employeeBasicCalc.Sum(x => x.RestDoubleLegalOTBasePay);
+        payrollLine.RestDoubleLegalNDOTPremiumPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalNDOTPremiumPay);
         payrollLine.UnpaidLeaves = employeeBasicCalc.Sum(x => x.UnpaidLeave);
         payrollLine.PaidLeaves = employeeBasicCalc.Sum(x => x.PaidLeave);
 
         payrollLine.HolidayPay = employeeBasicCalc.Sum(x => x.Holiday);
         payrollLine.LegalHolidayUnworkedPay = employeeBasicCalc.Sum(x => x.LegalUnWorked);
+        payrollLine.RestLegalUnworkedPay = employeeBasicCalc.Sum(x => x.RestLegalUnWorked);
+        payrollLine.DoubleLegalUnworkedPay = employeeBasicCalc.Sum(x => x.DoubleLegalUnworked);
+        payrollLine.RestDoubleLegalUnworkedPay = employeeBasicCalc.Sum(x => x.RestDoubleLegalUnworked);
 
     }
 

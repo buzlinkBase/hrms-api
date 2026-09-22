@@ -4,6 +4,7 @@ using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    partial class HrmsContextModelSnapshot : ModelSnapshot
+    [Migration("20260922001758_segrated_premium")]
+    partial class segrated_premium
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4006,9 +4009,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("DoubleLegalPay")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<decimal>("DoubleLegalUnworkedPay")
-                        .HasColumnType("decimal(65,30)");
-
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
@@ -4117,9 +4117,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<string>("OneTimePayoutBreakdown")
                         .HasColumnType("longtext");
-
-                    b.Property<int>("OtNdCalculationMethod")
-                        .HasColumnType("int");
 
                     b.Property<decimal>("OtherDeductions")
                         .HasColumnType("decimal(65,30)");
@@ -4293,9 +4290,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("RestDoubleLegalPay")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<decimal>("RestDoubleLegalUnworkedPay")
-                        .HasColumnType("decimal(65,30)");
-
                     b.Property<decimal>("RestLegalDayHours")
                         .HasColumnType("decimal(65,30)");
 
@@ -4333,9 +4327,6 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("RestLegalPay")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<decimal>("RestLegalUnworkedPay")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("RestSpecialDayHours")
@@ -4818,12 +4809,6 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("RestLegalPay")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<decimal>("RestLegalUnWorked")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<decimal>("RestLegalWorked")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("RestSpecialNDBasePay")

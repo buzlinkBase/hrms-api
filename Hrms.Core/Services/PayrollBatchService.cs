@@ -16,10 +16,17 @@ public class PayrollBatchService : BaseService<PayrollBatch>
         return await GetOneAsync(id, token);
     }
 
-    public async Task AddAsync(PayrollBatch model, CancellationToken token)
+    // commit=false lets the 4 payroll-generating flows (Regular/13th Month/Last Pay/Year-End
+    // Adjustment) compose this with PayrollService.SavePayrollsAsync as ONE atomic unit — same
+    // reasoning as PostAsync's commit parameter below. Without this, the batch header commits
+    // immediately here while its Payroll rows commit separately afterward; anything that throws
+    // in between (a mapping error, a cancelled request) leaves a permanently orphaned
+    // PayrollBatch with zero children that can't even be posted.
+    public async Task AddAsync(PayrollBatch model, CancellationToken token, bool commit = true)
     {
         await CreateAsync(model, token);
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
     }
 
     // commit=false lets PayrollBatchLifecycleService.PostBatchAsync compose this with
@@ -42,10 +49,15 @@ public class PayrollBatchService : BaseService<PayrollBatch>
         else await SaveChangesAsync(token);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken token)
+    // commit=false lets PayrollBatchLifecycleService.DeleteBatchAsync compose this with the
+    // rest of that method's cleanup (contribution ledgers, Payroll/PayrollDtrDetail/
+    // PayrollDeductionDetail rows, DTR unpost) as ONE atomic unit -- same reasoning as
+    // PostAsync's commit parameter above.
+    public async Task DeleteAsync(Guid id, CancellationToken token, bool commit = true)
     {
         await RemoveAsync(id, token);
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
     }
 
     // Every DTR batch code that has already been used to generate a payroll, across all

@@ -141,4 +141,103 @@ public class PayrollBatchLifecycleServiceTests
             "the first stage's commit must roll back too when the second stage fails, " +
             "or a retry would silently skip re-posting the batch header (the 'must post twice' bug)");
     }
+
+    // DeleteBatchAsync had the exact same "multiple independent CommitChangesAsync calls"
+    // shape as PostBatchAsync above, just with three culprits instead of two (the mid-method
+    // PayrollService.CommitChangesAsync, DailyRecordService.UnpostAsync's own internal commit,
+    // and PayrollBatchService.DeleteAsync's own internal commit) -- the PayrollBatch header row
+    // removal was the very LAST operation in the method, so it always ran against an
+    // already-closed ambient transaction and its delete was silently dropped, even though every
+    // earlier step (contribution ledgers, Payroll rows) really did commit. These tests exercise
+    // the fix the same way as the PostBatchAsync tests above: a real SQLite transaction.
+    [Fact]
+    public async Task DeleteBatchAsync_DeletesTheBatchHeaderRow_WhenEverythingSucceeds()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+        var employeeId = Guid.NewGuid();
+
+        await using (var seed = db.NewContext())
+        {
+            seed.PayrollBatches.Add(new PayrollBatch
+            {
+                Id = batchId,
+                PayPeriodStart = new DateOnly(2026, 1, 1),
+                PayPeriodEnd = new DateOnly(2026, 1, 15),
+            });
+            seed.Payrolls.Add(new Payroll
+            {
+                Id = payrollId,
+                PayrollBatchId = batchId,
+                EmployeeId = employeeId,
+                PostingPeriod = new DateOnly(2026, 1, 15),
+            });
+            // The other Payroll-child table this fix newly cleans up alongside
+            // PayrollDeductionDetail (DeleteDtrDetailsByPayrollIdsAsync) -- previously left
+            // orphaned even before the transaction bug, since nothing called it at all.
+            seed.PayrollDtrDetails.Add(new PayrollDtrDetail
+            {
+                Id = Guid.NewGuid(),
+                PayrollId = payrollId,
+                EmployeeId = employeeId,
+                Date = new DateOnly(2026, 1, 5),
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var uow = new UnitOfWorkService(context);
+        var service = BuildService(uow);
+        await service.DeleteBatchAsync(batchId, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().BeNull(
+            "the batch header row must actually be gone, not just look deleted within the " +
+            "same request -- this is the exact bug being fixed here");
+        (await verify.Payrolls.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeFalse();
+        (await verify.PayrollDtrDetails.AnyAsync(x => x.PayrollId == payrollId)).Should().BeFalse(
+            "PayrollDtrDetail rows were never cleaned up on delete before this fix");
+    }
+
+    [Fact]
+    public async Task DeleteBatchAsync_RollsBackEverything_WhenAYearLockBlocksIt()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+
+        await using (var seed = db.NewContext())
+        {
+            seed.PayrollBatches.Add(new PayrollBatch
+            {
+                Id = batchId,
+                PayPeriodStart = new DateOnly(2026, 1, 1),
+                PayPeriodEnd = new DateOnly(2026, 1, 15),
+            });
+            seed.Payrolls.Add(new Payroll
+            {
+                Id = payrollId,
+                PayrollBatchId = batchId,
+                EmployeeId = Guid.NewGuid(),
+                PostingPeriod = new DateOnly(2026, 1, 15),
+            });
+            // 2026 is locked -- DeleteBatchAsync must refuse to touch anything this draft's
+            // PostingPeriod falls into.
+            seed.YearLocks.Add(new YearLock { Id = Guid.NewGuid(), Year = 2026, IsLocked = true });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var uow = new UnitOfWorkService(context);
+        var service = BuildService(uow);
+        var act = () => service.DeleteBatchAsync(batchId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+
+        await using var verify = db.NewContext();
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().NotBeNull(
+            "nothing should be deleted when the year-lock check fails partway through");
+        (await verify.Payrolls.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeTrue();
+    }
 }

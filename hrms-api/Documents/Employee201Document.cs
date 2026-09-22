@@ -1,3 +1,4 @@
+using Hrms.Api.Documents.Shared;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using QuestPDF.Fluent;
@@ -11,15 +12,15 @@ public class Employee201Document : IDocument
     private readonly EmployeeFullModel _e;
     private readonly Company? _company;
 
-    private static readonly string Primary = "#1DA081";
+    // Printouts always render in black, regardless of the app's teal-green UI theme.
+    private static readonly string Primary = "#000000";
     private static readonly string SectionHeaderBg = "#f5f5f5";
     private static readonly string TableHeaderBg = "#e8f5f1";
     private static readonly string BorderColor = "#d9d9d9";
     private static readonly string LabelColor = "#666666";
     private static readonly string TextColor = "#1a1a1a";
 
-    // Falls back to the product name until the tenant fills in Company Setup.
-    private string CompanyName => string.IsNullOrWhiteSpace(_company?.Description) ? "One Punch HRIS" : _company.Description;
+    private string CompanyName => ReportDocumentStyle.CompanyName(_company);
 
     public Employee201Document(EmployeeFullModel employee, Company? company = null)
     {

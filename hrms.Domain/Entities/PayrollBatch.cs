@@ -1,3 +1,5 @@
+using BuzlinkRepository;
+
 namespace Hrms.Domain.Entities;
 
 // Header/master row for one Generate run — every Payroll row it produces links back here
@@ -5,7 +7,13 @@ namespace Hrms.Domain.Entities;
 // remarks, posted status) that used to be duplicated across every employee's Payroll row,
 // and is what Post/Delete Payroll Run (PayrollProcessorService.PostBatchAsync/
 // DeleteBatchAsync) operate against directly instead of aggregating over child rows.
-public class PayrollBatch : BaseEntity 
+// DisableSoftDelete: PayrollBatchLifecycleService.DeleteBatchAsync hard-deletes every child
+// row (Payroll, PayrollDtrDetail, PayrollDeductionDetail, SSS/PHIC/HDMF/WTax contribution
+// ledgers) via ExecuteDeleteAsync/DB cascade — this header row must go the same way, or a
+// deleted run would leave a soft-deleted PayrollBatch ghost behind with no children left to
+// show for it.
+[DisableSoftDelete]
+public class PayrollBatch : BaseEntity
 {
     public DateOnly PayPeriodStart { get; set; }
     public DateOnly PayPeriodEnd { get; set; }

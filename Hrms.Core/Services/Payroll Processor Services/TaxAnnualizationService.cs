@@ -131,14 +131,16 @@ public class TaxAnnualizationService
             PayDate = payload.PayDate,
             PayrollType = PayrollType.YearEndAdjustment,
             Remarks = payload.Remarks,
-        }, token);
+        }, token, commit: false);
 
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)
         {
             payroll.BatchCode = batchId.ToString();
         }
-        await _payrollService.SavePayrollsAsync(payrolls, token);
+        await _payrollService.SavePayrollsAsync(payrolls, token, commit: false);
+        // Atomic commit point — see PayrollBatchService.AddAsync's doc comment.
+        await _payrollService.CommitChangesAsync(token);
         // SSS/PHIC/HDMF are never set on these lines, so SaveAsync's > 0 filters naturally
         // produce nothing for those three; only the WTaxContribution row (needed for BIR
         // remittance reporting, and only when this is a collection not a refund) gets written.

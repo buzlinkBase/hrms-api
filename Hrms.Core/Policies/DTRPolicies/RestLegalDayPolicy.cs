@@ -37,7 +37,7 @@ internal class RestLegalDayPolicy : PayrollPolicyBase<BasicPipelineData, Payroll
             PremiumRateHelper.GetRate(context, RateType.LEGAL_HOLIDAY_DUTY, RATE_DEFAULT.LEGAL_HOLIDAY_DUTY);
 
         var earnings = DayTypePayCalculator
-            .For(isEligible, isBasePayPreFunded, rateMultiplier, unworkedMultiplier: 1.0m)
+            .For(isEligible, isBasePayPreFunded, rateMultiplier, unworkedMultiplier: 1.0m, line)
             .CalculateWorkedPay(hourlyRate, workedHours)
             .CalculateUnworkedPay(hourlyRate, unworkedHours)
             .Total;

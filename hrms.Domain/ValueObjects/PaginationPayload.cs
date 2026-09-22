@@ -77,6 +77,7 @@ public class CompanyPolicyRule
     public CrossMonthStatutoryCreditPolicy CrossMonthStatutoryCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
     public CrossMonthStatutoryCreditPolicy WTaxCrossMonthCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffEndMonth;
     public decimal RequiredTakehomePercentage { get; set; } = 10;
+    public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethod.Compounded;
     //public int RequiredWorkingDays { get; set; } = 22;
     //public int TotalDaysInaYear { get; set; } = 264;//22*12 use for daily rate computation for fix rate
     //public decimal StatutoryCap { get; set; }

@@ -292,7 +292,10 @@ public class DailyRecordService : BaseService<DailyRecord>
         _logger.LogInformation("DTR posted: batch {BatchCode} ({Count} records)", batchCode, records.Count);
     }
 
-    public async Task UnpostAsync(string batchCode, CancellationToken token)
+    // commit=false lets PayrollBatchLifecycleService.DeleteBatchAsync compose this with the
+    // rest of that method's cleanup as ONE atomic unit -- same reasoning as
+    // PayrollBatchService.PostAsync's commit parameter.
+    public async Task UnpostAsync(string batchCode, CancellationToken token, bool commit = true)
     {
         var records = await _uow.Repository
             .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
@@ -307,7 +310,8 @@ public class DailyRecordService : BaseService<DailyRecord>
         // Reverse Phase 2 credit deductions; restores reservations for still-approved leaves
         await _reconciliation.ReverseConsumptionAsync(batchCode, token);
 
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
         _logger.LogInformation("DTR unposted: batch {BatchCode} ({Count} records)", batchCode, records.Count);
     }
 

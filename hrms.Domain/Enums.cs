@@ -381,7 +381,6 @@ public enum RateType
     REGULAR,
     NIGHTDIFF,
     OVERTIME,
-    RESTHOLOVERTIME,
     RESTDAY_DUTY,
     LEGAL_HOLIDAY,
     LEGAL_HOLIDAY_DUTY,
@@ -390,20 +389,21 @@ public enum RateType
     RESTDAY_SPECIAL,
     HOLIDAY_OT,
 
-    // Setup > Client > Settings > Rate Multipliers — per-client "direct total" overrides for a
-    // holiday/rest-day OT category, entirely independent of the day-type rate above (LEGAL_
-    // HOLIDAY_DUTY, SPECIAL_NON_WORKING, etc.) that ALSO feeds that category's regular/non-OT
-    // pay. Setting one of these only ever changes that category's OT rate for that client — see
-    // ClientOverrideOtRateStrategy. Client-only by design (never seeded/edited company-wide) —
-    // absent for a client means "use the standard compounded formula," matching every other
-    // client unless a client's contract needs it.
-    LEGAL_HOLIDAY_OT,
-    SPECIAL_HOLIDAY_OT,
-    REST_DAY_OT,
-    REST_LEGAL_HOLIDAY_OT,
-    REST_SPECIAL_HOLIDAY_OT,
-    DOUBLE_LEGAL_HOLIDAY_OT,
-    REST_DOUBLE_LEGAL_HOLIDAY_OT,
+    // Setup > Client > Settings > Rate Multipliers — per-client OT PREMIUM overrides for one
+    // holiday/rest-day category, compounding with that same category's day-type rate above
+    // (LEGAL_HOLIDAY_DUTY, SPECIAL_NON_WORKING, etc.) exactly the way HOLIDAY_OT does — just
+    // per-category instead of shared. Client-only by design (never seeded/edited company-wide):
+    // CompoundedOtRateStrategy.ResolveRawOtRate falls back to HOLIDAY_OT's own full resolution
+    // (client override, else company-wide, else RATE_DEFAULT.HOLIDAY_OT) when a client leaves
+    // one of these blank, so "not overridden" means "use the shared Non-Regular OT rate," not a
+    // flat/decoupled total the way the old LEGAL_HOLIDAY_OT-shaped types on this enum used to.
+    RESTDAY_OT_PREMIUM,
+    LEGAL_HOLIDAY_OT_PREMIUM,
+    SPECIAL_HOLIDAY_OT_PREMIUM,
+    RESTLEGAL_OT_PREMIUM,
+    RESTSPECIAL_OT_PREMIUM,
+    DOUBLELEGAL_OT_PREMIUM,
+    RESTDOUBLELEGAL_OT_PREMIUM,
 }
 
 public enum ApprovalStatus
@@ -509,6 +509,23 @@ public enum SettingKey
     // Company-wide minimum take-home floor — see DeductionValidator.CanApply. Percentage of
     // gross income (0-100) that scheduled/statutory deductions may never cut into.
     RequiredTakehomePercentage,
+    // Company-wide only. Picks how hours that are overtime (OT-only or NDOT) price their day/OT/ND
+    // rates — see OvertimeCategoryPolicies.SingleCategoryOTPolicy and
+    // NightDiffOTCategoryPolicies.SingleCategoryNDOTPolicy.
+    OtNdCalculationMethod,
+}
+
+// How OT-involving hours (OT-only or NDOT) price their day/OT/ND rates. Compounded (default,
+// DOLE-standard): dayRate x otRate (x ndRate for NDOT). Additive: the day-type multiplier is
+// DROPPED entirely for these hours -- only the raw OT rate applies (plus (ndRate - 1) for NDOT),
+// i.e. otRate, or otRate + (ndRate - 1). Computes LESS than Compounded for any category whose day
+// rate isn't 1.0; company-wide opt-in only, with a compliance warning shown in Setup > Company
+// Policy. Confirmed against the company's own manual payroll worksheet. Plain ND-only hours (no
+// OT) are unaffected by this setting in either mode -- they always keep the day-type rate.
+public enum OtNdCalculationMethod
+{
+    Compounded,
+    Additive,
 }
 
 // Which statutory contribution a ClientStatutoryCapKey caps — see StatutoryCapHelper.

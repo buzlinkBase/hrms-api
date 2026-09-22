@@ -7,6 +7,7 @@ using Hrms.Domain;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 
 namespace Hrms.Api.Controllers
 {
@@ -35,14 +36,16 @@ namespace Hrms.Api.Controllers
         private readonly EmployeeService _employeeService;
         private readonly CompanyService _companyService;
         private readonly PayrollBatchService _payrollBatchService;
+        private readonly ClientService _clientService;
 
-        public PayrollsController(PayrollProcessorService service, PayrollService payrollService, EmployeeService employeeService, CompanyService companyService, PayrollBatchService payrollBatchService)
+        public PayrollsController(PayrollProcessorService service, PayrollService payrollService, EmployeeService employeeService, CompanyService companyService, PayrollBatchService payrollBatchService, ClientService clientService)
         {
             _service = service;
             _payrollService = payrollService;
             _employeeService = employeeService;
             _companyService = companyService;
             _payrollBatchService = payrollBatchService;
+            _clientService = clientService;
         }
 
         // Looks up batchId's actual run type and checks the caller holds "{run type}:{action}"
@@ -201,7 +204,9 @@ namespace Hrms.Api.Controllers
             var toDate = DateOnly.FromDateTime(to);
             var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, token);
             var company = await _companyService.FineOneAsync(token);
-            var document = new PayrollSummaryReportDocument(data, fromDate, toDate, company);
+            var clientIds = data.Where(x => x.ClientId.HasValue).Select(x => x.ClientId!.Value).ToHashSet();
+            var clientNames = await _clientService.FindNamesByIdsAsync(clientIds, token);
+            var document = new PayrollSummaryReportDocument(data, fromDate, toDate, company, clientNames);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payroll-summary-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
         }
@@ -215,7 +220,15 @@ namespace Hrms.Api.Controllers
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
-            var document = new PayslipDocument(payroll, employee, company);
+            // Format follows the OT/ND calculation method actually used for this payroll run
+            // (recorded per-row on Payroll.OtNdCalculationMethod, not the live company setting,
+            // so an old payslip always reprints the format it was originally correct for) --
+            // Additive mode's Hours-breakdown format is the one whose itemized rows reconcile to
+            // Gross Income exactly; Compounded's Standard format is the client-approved default.
+            // No longer user-selectable -- see PayslipHoursDocument's own doc comment.
+            IDocument document = payroll.OtNdCalculationMethod == OtNdCalculationMethod.Additive
+                ? new PayslipHoursDocument(payroll, employee, company)
+                : new PayslipDocument(payroll, employee, company);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }
@@ -240,6 +253,11 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> DeleteBatch(Guid batchId, CancellationToken token)
         {
             var violation = await ValidateBatchPermissionAsync(User, batchId, "Create", token);
+            // Deleting a batch that's already gone (a second click, a stale list, a concurrent
+            // delete) should succeed silently -- the caller's desired end state already holds,
+            // so this isn't an error. ValidateBatchPermissionAsync can't permission-check a
+            // batch it can't find, but there's nothing left to protect either.
+            if (violation is NotFoundResult or NotFoundObjectResult) return Ok("success");
             if (violation != null) return violation;
 
             await _service.DeleteBatchAsync(batchId, token);

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Hrms.Api.Controllers;
 using Hrms.Domain;
 using Hrms.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MockQueryable.NSubstitute;
 using NSubstitute;
@@ -40,7 +41,8 @@ public class PayrollsControllerTests
             payrollService: null!,
             employeeService: null!,
             companyService: null!,
-            payrollBatchService: new PayrollBatchService(uow));
+            payrollBatchService: new PayrollBatchService(uow),
+            clientService: null!);
     }
 
     private static PayrollBatch BuildBatch(PayrollType type) => new() { Id = Guid.NewGuid(), PayrollType = type };
@@ -114,5 +116,24 @@ public class PayrollsControllerTests
         var result = await controller.ValidateBatchPermissionAsync(user, Guid.NewGuid(), "Approve", CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task DeleteBatch_ReturnsSuccess_WhenTheBatchIsAlreadyGone()
+    {
+        // A second click, a stale list, or a concurrent delete can all reach DeleteBatch for a
+        // batchId that no longer exists -- the caller's desired end state (this run doesn't
+        // exist) already holds, so this must succeed silently rather than surface as an error
+        // the way ValidateBatchPermissionAsync's own NotFoundResult otherwise would.
+        var controller = BuildController();
+        var user = BuildUser("Payroll Run:Create");
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = user },
+        };
+
+        var result = await controller.DeleteBatch(Guid.NewGuid(), CancellationToken.None);
+
+        result.Should().BeOfType<OkObjectResult>();
     }
 }
