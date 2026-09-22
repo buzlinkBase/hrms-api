@@ -113,7 +113,6 @@ public enum BenefitAccrualBasis
     PresentDays,   // count of posted DailyRecord days that aren't Absent/Incomplete/Skipped -- see DailyRecordService.CountPresentDaysAsync
 }
 
-
 public enum ComputationBasis
 {
     None,
