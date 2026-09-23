@@ -13,19 +13,6 @@ public class PHICTable : BaseEntity
     public decimal EmployerShare { get; set; }
     public decimal TotalContribution { get; set; }
     public string Remarks { get; set; } = string.Empty;
-    //// ⚙️ Methods
-    //public void CalculateContribution(decimal actualSalary)
-    //{
-    //    // Apply min/max salary base rules
-    //    decimal baseSalary = actualSalary;
-    //    if (baseSalary < MinSalaryBase) baseSalary = MinSalaryBase;
-    //    if (baseSalary > MaxSalaryBase) baseSalary = MaxSalaryBase;
-
-    //    // Compute contributions
-    //    decimal premium = baseSalary * PremiumRate;
-    //    EmployeeShare = premium / 2;   // Split equally (default rule)
-    //    EmployerShare = premium / 2;
-    //}
 }
 
 

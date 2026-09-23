@@ -371,6 +371,7 @@ public class DailyRecordService : BaseService<DailyRecord>
              PostingDescription = g.FirstOrDefault()?.PostingDescription ?? "",
              IsPayrollGenerated = g.Key != null && usedBatchCodes.Contains(g.Key),
          })
+         .OrderByDescending(x=>x.Code)
          .ToList();
     }
 
