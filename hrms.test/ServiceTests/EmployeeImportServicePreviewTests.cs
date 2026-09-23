@@ -88,7 +88,8 @@ public class EmployeeImportServicePreviewTests
             new DepartmentService(uow),
             new PayrollGroupService(uow),
             new ClientService(uow),
-            new BranchService(uow));
+            new BranchService(uow),
+            new CostCenterService(uow));
     }
 
     [Fact]

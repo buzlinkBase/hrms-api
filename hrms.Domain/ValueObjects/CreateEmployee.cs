@@ -54,6 +54,7 @@ public class CreateEmployee
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
     public decimal Cola { get; set; }
+    public decimal CashBond { get; set; }
 
     public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
     public decimal? FactorDays { get; set; }
@@ -130,6 +131,7 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public decimal MonthlyRate { get; set; }
     [IgnoreMember] public decimal DailyRate { get; set; }
     [IgnoreMember] public decimal Cola { get; set; } //PerPayroll
+    [IgnoreMember] public decimal CashBond { get; set; }
     [IgnoreMember] public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
     [IgnoreMember] public decimal? FactorDays { get; set; }
     [IgnoreMember] public bool UseActualMonthDays { get; set; }
@@ -206,6 +208,7 @@ public class EmployeeFullModel
     public decimal DailyRate { get; set; }
     //public decimal HourlyRate { get; set; }
     public decimal Cola { get; set; } //PerPayroll
+    public decimal CashBond { get; set; }
     public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;
     public decimal? FactorDays { get; set; }
     public bool UseActualMonthDays { get; set; }
@@ -283,6 +286,7 @@ public class EmployeeModelPayrollRun
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
     public decimal Cola { get; set; } //PerPayroll
+    public decimal CashBond { get; set; }
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
     public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     public DailyRateMode DailyRateMode { get; set; } = DailyRateMode.Manual;

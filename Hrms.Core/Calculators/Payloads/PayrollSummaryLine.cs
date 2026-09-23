@@ -171,6 +171,7 @@ public class PayrollSummaryLine
     public decimal SSSContribution { get; set; }
     public decimal PhilHealthContribution { get; set; }
     public decimal PagIbigContribution { get; set; }
+    public decimal CashBondDeduction { get; set; }
     public decimal OtherDeductions { get; set; }   // Loans, union dues, etc.
     public decimal TotalDeductions { get; set; }
     // Subset of OtherDeductions classified as a loan — see Payroll.TotalLoans.

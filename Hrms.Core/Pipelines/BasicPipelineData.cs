@@ -44,6 +44,7 @@ public class DeductionPipeData : IPipeData
     public bool IsLimit { get; set; }
     public decimal RunningTotal { get; set; }
     public decimal RemainingGrossBalance { get; set; }
+    public decimal CashBond { get; set; }
     public List<DeductionInfo> ScheduledDeductions { get; set; } = new();
     public SSSInfo SSS { get; set; } = new();
     public PHICInfo PHIC { get; set; } = new();

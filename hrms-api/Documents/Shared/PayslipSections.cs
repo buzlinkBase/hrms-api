@@ -180,6 +180,10 @@ internal static class PayslipSections
                     AmountRow(table, "Pag-IBIG Contribution", p.PagIbigContribution);
                 }
                 AmountRow(table, "Withholding Tax", p.WithholdingTax);
+                if (isRegular && p.CashBondDeduction > 0)
+                {
+                    AmountRow(table, "Cash Bond", p.CashBondDeduction);
+                }
                 if (isLastPay)
                 {
                     // Netted straight off Net Pay by GenerateLastPayAsync — informational

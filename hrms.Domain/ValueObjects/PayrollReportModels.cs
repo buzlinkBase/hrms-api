@@ -49,23 +49,36 @@ public class DeductionLedgerModel
     public decimal CurrentBalance { get; set; }
 }
 
-// One row per employee's Cash Bond DeductionApplication (DeductionType.Code == "CASHBOND") —
-// tracks how much has been withheld toward the target (the application's own TotalPrincipal;
-// there is no separate employee-profile target field) and how much is still outstanding. See
+// One row per employee -- Cash Bond is now a flat, recurring deduction sourced straight from
+// Employee.CashBond (see CashBondDeductionPolicy), not an amortized DeductionApplication loan,
+// so there's no target/remaining/approval concept anymore -- just the current per-run rate and
+// how much has actually been collected across posted payroll runs. See
 // PayrollReportService.GetCashBondReportAsync.
 public class CashBondReportModel
 {
     public Guid EmployeeId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
-    public Guid DeductionId { get; set; }
-    public Guid ApplicationId { get; set; }
-    public decimal TargetAmount { get; set; }
+    public decimal CashBondRate { get; set; }
     public decimal TotalCollected { get; set; }
-    public decimal Remaining { get; set; }
-    public DateOnly StartDate { get; set; }
-    public DateOnly EndDate { get; set; }
-    public ApprovalStatus ApprovalStatus { get; set; }
+    public int PayrollRunsCount { get; set; }
+}
+
+// "My Cash Bond" (employee portal) -- same TotalCollected concept as CashBondReportModel, plus
+// the actual list of payroll runs that contributed to it. See
+// PayrollReportService.GetMyCashBondAsync / MeController.GetMyCashBond.
+public class MyCashBondModel
+{
+    public decimal CashBondRate { get; set; }
+    public decimal TotalCollected { get; set; }
+    public List<MyCashBondRunModel> Runs { get; set; } = new();
+}
+public class MyCashBondRunModel
+{
+    public Guid PayrollId { get; set; }
+    public DateOnly PayPeriodStart { get; set; }
+    public DateOnly PayPeriodEnd { get; set; }
+    public decimal Amount { get; set; }
 }
 
 // One row per OneTime, employer-advanced government leave payout — tracks the employer's

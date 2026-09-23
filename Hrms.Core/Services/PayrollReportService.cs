@@ -98,73 +98,63 @@ public class PayrollReportService : BaseService<Payroll>
         }).OrderBy(x => x.FullName).ToList();
     }
 
-    // Cash Bond tracking — one row per employee's Cash Bond DeductionApplication (identified by
-    // DeductionType.Code == "CASHBOND"), summing every scheduled installment's Amount up to
-    // asOf as "collected so far" against the application's own TotalPrincipal as the target.
-    // Optionally scoped to a subset of employees (used by LastPayrollService's informational
-    // status line). Same "Balance never decrements" caveat as GetLoanLedgerAsync used to
-    // document doesn't apply here since this sums Amount directly rather than reading Balance.
+    // Cash Bond tracking — one row per employee, summing every posted payroll run's
+    // CashBondDeduction (see CashBondDeductionPolicy) up to asOf, alongside the employee's
+    // current per-run rate for reference. Optionally scoped to a subset of employees (used by
+    // LastPayrollService's informational status line).
     public async Task<List<CashBondReportModel>> GetCashBondReportAsync(DateOnly asOf, CancellationToken token, List<Guid>? employeeIds = null)
     {
-        var cashBondTypeId = await Context.DeductionTypes.AsNoTracking()
-            .Where(x => x.Code == "CASHBOND")
-            .Select(x => (Guid?)x.Id)
-            .FirstOrDefaultAsync(token);
-        if (cashBondTypeId == null) return [];
-
-        var cashBondDeductionIds = await Context.Deductions.AsNoTracking()
-            .Where(x => x.CategoryId == cashBondTypeId)
-            .Select(x => x.Id)
-            .ToListAsync(token);
-        if (cashBondDeductionIds.Count == 0) return [];
-
-        var dueRows = await Context.DeductionApplicationDetails.AsNoTracking()
-            .Where(x => cashBondDeductionIds.Contains(x.DeductionId) && x.Date <= asOf
+        var rows = await Context.Payrolls.AsNoTracking()
+            .Where(x => x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf
                 && (employeeIds == null || employeeIds.Contains(x.EmployeeId)))
+            .GroupBy(x => x.EmployeeId)
+            .Select(g => new { EmployeeId = g.Key, TotalCollected = g.Sum(x => x.CashBondDeduction), RunsCount = g.Count() })
             .ToListAsync(token);
-        if (dueRows.Count == 0) return [];
+        if (rows.Count == 0) return [];
 
-        var applicationIds = dueRows.Select(x => x.ApplicationId).Distinct().ToList();
-        var applicationMap = (await Context.DeductionApplications.AsNoTracking()
-            .Where(x => applicationIds.Contains(x.Id))
-            .ToListAsync(token))
-            .ToDictionary(x => x.Id);
+        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
 
-        var employeeMap = await LoadEmployeeMapAsync(dueRows.Select(x => x.EmployeeId), token);
-
-        return dueRows
-            .Where(x => applicationMap.ContainsKey(x.ApplicationId))
-            .GroupBy(x => new { x.EmployeeId, x.DeductionId, x.ApplicationId })
-            .Select(g =>
+        return rows.Select(r =>
+        {
+            employeeMap.TryGetValue(r.EmployeeId, out var e);
+            return new CashBondReportModel
             {
-                var app = applicationMap[g.Key.ApplicationId];
-                employeeMap.TryGetValue(g.Key.EmployeeId, out var e);
-                var totalCollected = g.Sum(x => x.Amount);
-                return new CashBondReportModel
-                {
-                    EmployeeId = g.Key.EmployeeId,
-                    EmployeeNo = e?.EmployeeNo ?? "",
-                    FullName = e.FullName(),
-                    DeductionId = g.Key.DeductionId,
-                    ApplicationId = g.Key.ApplicationId,
-                    TargetAmount = app.TotalPrincipal,
-                    TotalCollected = totalCollected,
-                    Remaining = ComputeCashBondRemaining(app.TotalPrincipal, totalCollected),
-                    StartDate = app.StartDate,
-                    EndDate = app.EndDate,
-                    ApprovalStatus = app.ApprovalStatus,
-                };
-            })
-            .OrderBy(x => x.FullName)
-            .ToList();
+                EmployeeId = r.EmployeeId,
+                EmployeeNo = e?.EmployeeNo ?? "",
+                FullName = e.FullName(),
+                CashBondRate = e?.CashBond ?? 0,
+                TotalCollected = r.TotalCollected,
+                PayrollRunsCount = r.RunsCount,
+            };
+        })
+        .OrderBy(x => x.FullName)
+        .ToList();
     }
 
-    // Floors at 0 rather than going negative once collected meets or exceeds the target --
-    // "remaining to collect" doesn't have a meaningful negative value for a monitoring report.
-    // internal (not private) so this is testable without a database -- see Hrms.Core's
-    // InternalsVisibleTo for hrms.test.
-    internal static decimal ComputeCashBondRemaining(decimal target, decimal totalCollected) =>
-        Math.Max(0, target - totalCollected);
+    // "My Cash Bond" (employee portal) — same source as GetCashBondReportAsync, scoped to one
+    // employee, plus the actual contributing payroll runs for the expandable breakdown.
+    public async Task<MyCashBondModel> GetMyCashBondAsync(Guid employeeId, CancellationToken token)
+    {
+        var employee = await _employeeService.FineOneAsync(employeeId, token);
+        var runs = await Context.Payrolls.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.CashBondDeduction > 0)
+            .OrderByDescending(x => x.PayPeriodEnd)
+            .Select(x => new MyCashBondRunModel
+            {
+                PayrollId = x.Id,
+                PayPeriodStart = x.PayPeriodStart,
+                PayPeriodEnd = x.PayPeriodEnd,
+                Amount = x.CashBondDeduction,
+            })
+            .ToListAsync(token);
+
+        return new MyCashBondModel
+        {
+            CashBondRate = employee?.CashBond ?? 0,
+            TotalCollected = runs.Sum(x => x.Amount),
+            Runs = runs,
+        };
+    }
 
     // Leave credits balances — LeaveCredits already holds the authoritative per-employee,
     // per-leave-type, per-period balance (Granted/Used/Balance/Reserved/AvailableToFile),

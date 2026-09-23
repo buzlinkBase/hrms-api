@@ -949,7 +949,6 @@ public class AccountInitService : BaseService<Company>
             new DeductionType { Id = Guid.CreateVersion7(), Code = "CASHADV", Name = "Cash Advance" , Status="ACTIVE" },
             new DeductionType { Id = Guid.CreateVersion7(), Code = "SALLOAN", Name = "Salary Loan"  , Status="ACTIVE"},
             new DeductionType { Id = Guid.CreateVersion7(), Code = "CALLOAN", Name = "Calamity Loan"  , Status="ACTIVE"},
-            new DeductionType { Id = Guid.CreateVersion7(), Code = "CASHBOND", Name = "Cash Bond" , Status="ACTIVE" },
             new DeductionType { Id = Guid.CreateVersion7(), Code = "MEDDENT", Name = "Medical / Dental" , Status="ACTIVE" },
             new DeductionType { Id = Guid.CreateVersion7(), Code = "OTHER",   Name = "Other Deductions"  , Status="ACTIVE"},
         };

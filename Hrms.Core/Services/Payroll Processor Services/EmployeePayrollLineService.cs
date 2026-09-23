@@ -529,6 +529,7 @@ public class EmployeePayrollLineService
         payrollLine.PhilHealthContribution = deductionPipeLine.PHIC.EE;
         payrollLine.PagIbigContribution = deductionPipeLine.HDMF.EE;
         payrollLine.WithholdingTax = deductionPipeLine.TaxInfo.TaxDue;
+        payrollLine.CashBondDeduction = deductionPipeLine.CashBond;
         payrollLine.OtherDeductions = deductionPipeLine.ScheduledDeductions.Sum(x => x.Amount);
         payrollLine.TotalLoans = deductionPipeLine.ScheduledDeductions
             .Where(x => x.Type == DeductionInfoType.Loan)

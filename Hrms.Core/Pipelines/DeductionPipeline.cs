@@ -12,6 +12,7 @@ public class DeductionPipeline : BasePipelineBase<DeductionPayloadContext, Deduc
             .AddPolicy(new PHICPolicy())
             .AddPolicy(new HDMFPolicy())
             .AddPolicy(new WTaxPolicy())
+            .AddPolicy(new CashBondDeductionPolicy())
             .AddPolicy(new ScheduledDeductionPolicy())
             ;
     }

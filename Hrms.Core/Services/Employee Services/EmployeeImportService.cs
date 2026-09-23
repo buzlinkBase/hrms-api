@@ -20,6 +20,7 @@ public class EmployeeImportService
     private readonly PayrollGroupService _payrollGroupService;
     private readonly ClientService _clientService;
     private readonly BranchService _branchService;
+    private readonly CostCenterService _costCenterService;
 
     public event Action<string> OnMessage;
 
@@ -35,7 +36,8 @@ public class EmployeeImportService
         DepartmentService departmentService,
         PayrollGroupService payrollGroupService,
         ClientService clientService,
-        BranchService branchService)
+        BranchService branchService,
+        CostCenterService costCenterService)
     {
         _uow = uow;
         _employeeService = employeeService;
@@ -44,6 +46,7 @@ public class EmployeeImportService
         _payrollGroupService = payrollGroupService;
         _clientService = clientService;
         _branchService = branchService;
+        _costCenterService = costCenterService;
     }
 
     public async Task Upload(Stream fileStream, CancellationToken token)
@@ -89,12 +92,14 @@ public class EmployeeImportService
         var clients = ExtractClients(data);
         var pyGroups = ExtractPayrollGroups(data);
         var departments = ExtractDepartments(data);
+        var projectSites = ExtractProjectSites(data);
         var restDays = ExtractRestDay(data);
 
         await StoreShiftAsync(shifts, token);
         await StoreClientsAsync(clients, token);
         await StorePayrollGroupsAsync(pyGroups, token);
         await StoreDepartmentsAsync(departments, token);
+        await StoreProjectSitesAsync(projectSites, token);
         await _uow.SaveChangesAsync(token);
 
         // store employees
@@ -124,6 +129,15 @@ public class EmployeeImportService
             pyGroups.TryGetValue(pgKey, out PayrollGroup? pg);
 
             departments.TryGetValue(item.DepartmentName!, out Department? department);
+            // Unlike DepartmentName/ClientName, ProjectSiteName has no SetDefaults fallback --
+            // it legitimately stays null for any row that leaves the (optional) column blank,
+            // and Dictionary.TryGetValue throws ArgumentNullException on a null key, so this
+            // must be guarded rather than looked up unconditionally like the others above.
+            CostCenters? area = null;
+            if (!string.IsNullOrWhiteSpace(item.ProjectSiteName))
+            {
+                projectSites.TryGetValue(item.ProjectSiteName.Trim(), out area);
+            }
             var branch = branches.FirstOrDefault(x => x.Code == item.BranchCode);
             Guid? BranchId = !branches.Any() ? null : branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
             if (pg == null) pg = pyGroups.Values.FirstOrDefault();
@@ -144,6 +158,7 @@ public class EmployeeImportService
                 ClientId = client?.Id,
                 PayrollGroupId = pg?.Id ?? Guid.Empty,
                 DepartmentId = department?.Id,
+                AreaId = area?.Id,
                 SSSNo = item.SSS ?? "",
                 PHICNo = item.PHIC ?? "",
                 HDMFNo = item.HDMF ?? "",
@@ -173,6 +188,7 @@ public class EmployeeImportService
                 },
                 MonthlyRate = item.MonthlyRate,
                 DailyRate = item.DailyRate,
+                CashBond = item.CashBond,
                 BloodType = item.BloodType ?? "",
                 HireDate = item.HireDate == null ? DateOnly.FromDateTime(DateTime.UtcNow) : item.HireDate.Value,
             };
@@ -186,6 +202,14 @@ public class EmployeeImportService
             if (existing != null)
             {
                 employee.Id = existing.Id;
+                // Re-key onto the row that already exists (one-to-one, unique-indexed on
+                // EmployeeId) -- otherwise EF's UpdateRange graph-walk sees this fresh
+                // `new EmployeeSetting` with a default Id, treats it as a NEW entity to insert,
+                // and collides with the EmployeeSetting row this employee already has.
+                if (employee.Settings != null)
+                {
+                    employee.Settings.Id = existing.SettingsId ?? Guid.Empty;
+                }
             }
             employee.RestDays.Clear();
             if (!string.IsNullOrWhiteSpace(item.RestDay1) && restDays.TryGetValue(item.RestDay1, out var r1))
@@ -394,6 +418,7 @@ public class EmployeeImportService
                MiddleName = x.MiddleName,
                LastName = x.LastName,
                Suffix = x.Suffix,
+               SettingsId = x.Settings != null ? x.Settings.Id : (Guid?)null,
            }).ToListAsync(token);
     }
 
@@ -460,6 +485,7 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("Rest Day 1", p => p.RestDay1);
         mapper.AddMapping<EmployeeImportModel>("Rest Day 2", p => p.RestDay2);
         mapper.AddMapping<EmployeeImportModel>("Department Name", p => p.DepartmentName);
+        mapper.AddMapping<EmployeeImportModel>("Project Site", p => p.ProjectSiteName);
         mapper.AddMapping<EmployeeImportModel>("Client Name", p => p.ClientName);
         mapper.AddMapping<EmployeeImportModel>("Payroll Group", p => p.PayrollGroup);
         mapper.AddMapping<EmployeeImportModel>("Shift Name", p => p.ShiftName);
@@ -480,6 +506,7 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>("SalaryType", p => p.SalaryType);
         mapper.AddMapping<EmployeeImportModel>("Monthly Rate", p => p.MonthlyRate);
         mapper.AddMapping<EmployeeImportModel>("Daily Rate", p => p.DailyRate);
+        mapper.AddMapping<EmployeeImportModel>("Cash Bond", p => p.CashBond);
         mapper.AddMapping<EmployeeImportModel>("Civil Status", p => p.CivilStatus);
 
         mapper.AddMapping<EmployeeImportModel>("Cut-Off 1", p => p.Cutoff1);
@@ -500,7 +527,7 @@ public class EmployeeImportService
     {
         var errors = new List<string>();
         var internalDuplicates = data
-            .Where(x => x.BioId != "" || x.BioId != "0" || x.BioId != null)
+            .Where(x => !string.IsNullOrWhiteSpace(x.BioId) && x.BioId != "0")
             .GroupBy(x => x.BioId)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
@@ -541,12 +568,18 @@ public class EmployeeImportService
         }
     }
 
+    // Normalizes null to "" before comparing -- a DB employee's MiddleName/Suffix default to ""
+    // (see Employee.cs), but a blank Excel cell parses to null, so a plain string.Equals(null,
+    // "") would otherwise false-flag re-importing the SAME employee (with, say, a blank Suffix
+    // cell) as "BioId already registered to a different name" and abort the whole import.
+    private static string Norm(string? s) => (s ?? "").Trim();
+
     private bool NamesMatch(EmployeeImportModel import, BasicEmployeeInfo db)
     {
-        return string.Equals(import.FirstName?.Trim(), db.FirstName?.Trim(), StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(import.LastName?.Trim(), db.LastName?.Trim(), StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(import.MiddleName?.Trim(), db.MiddleName?.Trim(), StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(import.Suffix?.Trim(), db.Suffix?.Trim(), StringComparison.OrdinalIgnoreCase);
+        return string.Equals(Norm(import.FirstName), Norm(db.FirstName), StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(Norm(import.LastName), Norm(db.LastName), StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(Norm(import.MiddleName), Norm(db.MiddleName), StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(Norm(import.Suffix), Norm(db.Suffix), StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task StoreShiftAsync(Dictionary<ShiftKey, TimeShift> shifts, CancellationToken token)
@@ -694,6 +727,38 @@ public class EmployeeImportService
         if (newRecords.Count > 0)
         {
             await _departmentService.Repository.AddRangeAsync(newRecords, token);
+        }
+    }
+
+    private async Task StoreProjectSitesAsync(Dictionary<string, CostCenters> sites, CancellationToken token)
+    {
+        var models = sites.Values.ToList();
+        if (models == null || models.Count == 0) return;
+
+        var codeCount = 1;
+        foreach (var item in sites.Values)
+        {
+            item.Code = codeCount.FormatCode();
+            codeCount += 1;
+        }
+        var existing = await _costCenterService.GetQueryable()
+         .GroupBy(x => x.Name)
+         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
+
+        var newRecords = models
+            .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
+            .ToList();
+
+        foreach (var item in models)
+        {
+            if (existing.TryGetValue(item.Name.Trim().ToLowerInvariant(), out Guid curId))
+            {
+                item.Id = curId;
+            }
+        }
+        if (newRecords.Count > 0)
+        {
+            await _costCenterService.Repository.AddRangeAsync(newRecords, token);
         }
     }
 
@@ -943,6 +1008,20 @@ public class EmployeeImportService
             .ToDictionary(x => x.Name, x => x);
     }
 
+    // Unlike Department, a blank Project Site cell means "no Project Site" -- AreaId is already
+    // nullable and there's no reason to conjure a placeholder CostCenters row for it.
+    private Dictionary<string, CostCenters> ExtractProjectSites(List<EmployeeImportModel> data)
+    {
+        return data
+            .Where(x => !string.IsNullOrWhiteSpace(x.ProjectSiteName))
+            .GroupBy(x => x.ProjectSiteName!.Trim())
+            .Select(g => new CostCenters
+            {
+                Name = g.Key,
+            })
+            .ToDictionary(x => x.Name, x => x);
+    }
+
     private Guid? GetBranch(EmployeeImportModel item, Dictionary<string, Guid> branchLookup)
     {
         if (string.IsNullOrWhiteSpace(item.BranchCode))
@@ -997,6 +1076,11 @@ public class BasicEmployeeInfo
     public string MiddleName { get; set; }
     public string LastName { get; set; }
     public string Suffix { get; set; }
+    // The existing EmployeeSetting row's own Id (one-to-one, unique-indexed on EmployeeId) --
+    // needed so PersistAsync can re-key a re-imported employee's fresh `new EmployeeSetting`
+    // onto the row that already exists instead of EF trying to INSERT a second one for the
+    // same EmployeeId. See PersistAsync's existing-employee branch.
+    public Guid? SettingsId { get; set; }
 }
 public class EmployeeImportModel
 {
@@ -1018,6 +1102,7 @@ public class EmployeeImportModel
     public string? RestDay2 { get; set; }
 
     public string? DepartmentName { get; set; }
+    public string? ProjectSiteName { get; set; }
     public string? ClientName { get; set; }
     public string? PayrollGroup { get; set; }
     public string? ShiftName { get; set; }
@@ -1041,6 +1126,7 @@ public class EmployeeImportModel
     public string? TIN { get; set; }
     public decimal DailyRate { get; set; }
     public decimal MonthlyRate { get; set; }
+    public decimal CashBond { get; set; }
     public DateOnly? HireDate { get; set; }
     public DateTime? DateOfBirth { get; set; }
 
@@ -1126,6 +1212,7 @@ public class TemplateDownloaderService
             ("Rest Day 1", (c, r) => c.Value = r.RestDay1),
             ("Rest Day 2", (c, r) => c.Value = r.RestDay2),
             ("Department Name", (c, r) => c.Value = r.DepartmentName),
+            ("Project Site", (c, r) => c.Value = r.ProjectSiteName),
             ("Client Name", (c, r) => c.Value = r.ClientName),
             ("Payroll Group", (c, r) => c.Value = r.PayrollGroup),
             ("Cut-Off 1", (c, r) => c.Value = r.Cutoff1),
@@ -1148,6 +1235,7 @@ public class TemplateDownloaderService
             ("SalaryType", (c, r) => c.Value = r.SalaryType),
             ("Monthly Rate", (c, r) => c.Value = r.MonthlyRate),
             ("Daily Rate", (c, r) => c.Value = r.DailyRate),
+            ("Cash Bond", (c, r) => c.Value = r.CashBond),
             ("Hire Date", (c, r) => { if (r.HireDate.HasValue) c.Value = r.HireDate.Value.ToDateTime(TimeOnly.MinValue); }),
             ("SSS", (c, r) => c.Value = r.SSS),
             ("PHIC", (c, r) => c.Value = r.PHIC),

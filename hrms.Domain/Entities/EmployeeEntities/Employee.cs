@@ -39,6 +39,7 @@ public class Employee : BaseEntity
     public decimal MonthlyRate { get; set; }
     public decimal DailyRate { get; set; }
     public decimal Cola { get; set; } //PerPayroll
+    public decimal CashBond { get; set; }
 
     // FIXED salary only: whether DailyRate is entered manually or derived as
     // (MonthlyRate * 12) / FactorDays. See DailyRateResolver.
