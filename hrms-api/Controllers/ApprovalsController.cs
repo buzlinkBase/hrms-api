@@ -1,5 +1,7 @@
 using Asp.Versioning;
 using Hrms.Api.Extensions;
+using Hrms.Core;
+using Hrms.Core.Services;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain;
 using Hrms.Domain.Entities.Approvals;
@@ -8,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
 {
-    // Shared read-only endpoint for all 5 Applications types' approval progress/history -- used
+    // Shared read-only endpoint for every Applications type's approval progress/history -- used
     // by each module's detail-page timeline and by the approve/decline modal's eligibility check.
     // See ApprovalWorkflowsController for the Setup-side config CRUD.
     [Route("api/v{version:apiVersion}/[controller]")]
@@ -21,26 +23,47 @@ namespace Hrms.Api.Controllers
     {
         private readonly ApprovalEngineService _approvalEngine;
         private readonly EmployeeService _employeeService;
+        private readonly PayrollBatchService _payrollBatchService;
 
-        public ApprovalsController(ApprovalEngineService approvalEngine, EmployeeService employeeService)
+        public ApprovalsController(ApprovalEngineService approvalEngine, EmployeeService employeeService, PayrollBatchService payrollBatchService)
         {
             _approvalEngine = approvalEngine;
             _employeeService = employeeService;
+            _payrollBatchService = payrollBatchService;
         }
 
-        // Mirrors the permission code prefixes each of the 5 controllers already gate their own
-        // View/Approve actions with (RequirePermissionAttribute can't be parametrized per-route,
-        // so this shared controller checks manually instead of via the attribute).
-        private static string PermissionPrefix(ApprovalApplicationType type) => type switch
+        // Mirrors the permission code prefixes each application's own controller already gates
+        // its View/Approve actions with (RequirePermissionAttribute can't be parametrized per-
+        // route, so this shared controller checks manually instead of via the attribute).
+        // PayrollPosting is the one exception: it's a single shared approval type across all 4
+        // Payroll run types (Regular/13th Month/Last Pay/Year-End Adjustment), each gated by a
+        // DIFFERENT permission prefix ("Payroll Run" vs "13th Month Run" vs...) -- a static
+        // switch can't express that, so it needs an async lookup of the actual PayrollBatch to
+        // resolve which run type applicationId belongs to, via the exact same
+        // PayrollType -> RunTypeFeature mapping PayrollsController.ValidateBatchPermissionAsync
+        // already uses for the same purpose.
+        private async Task<string> ResolvePermissionPrefixAsync(ApprovalApplicationType type, Guid applicationId, CancellationToken token)
         {
-            ApprovalApplicationType.Leave => "Leave",
-            ApprovalApplicationType.Overtime => "Overtime",
-            ApprovalApplicationType.OfficialBusiness => "Official Business",
-            ApprovalApplicationType.PassSlip => "Pass Slip",
-            ApprovalApplicationType.Loan => "Loan/Deduction",
-            ApprovalApplicationType.ProfileUpdate => "Profile Update",
-            _ => throw new ArgumentOutOfRangeException(nameof(type)),
-        };
+            if (type == ApprovalApplicationType.PayrollPosting || type == ApprovalApplicationType.PayrollPostingDeletion)
+            {
+                var batch = await _payrollBatchService.FineOneAsync(applicationId, token)
+                    ?? throw new NotFoundException("Payroll batch not found.");
+                return PayrollsController.RunTypeFeature[batch.PayrollType];
+            }
+
+            return type switch
+            {
+                ApprovalApplicationType.Leave => "Leave",
+                ApprovalApplicationType.Overtime => "Overtime",
+                ApprovalApplicationType.OfficialBusiness => "Official Business",
+                ApprovalApplicationType.PassSlip => "Pass Slip",
+                ApprovalApplicationType.Loan => "Loan/Deduction",
+                ApprovalApplicationType.ProfileUpdate => "Profile Update",
+                ApprovalApplicationType.Dtr => "DTR Master",
+                ApprovalApplicationType.DtrDeletion => "DTR Master",
+                _ => throw new ArgumentOutOfRangeException(nameof(type)),
+            };
+        }
 
         // Two ways in: the admin/HR coarse {Row}:View permission (today's case), or being the
         // applicant looking at their own submission's progress from the Employee Portal -- the
@@ -53,7 +76,7 @@ namespace Hrms.Api.Controllers
             var instance = await _approvalEngine.GetInstanceAsync(applicationType, applicationId, token);
             if (instance == null) return NotFound();
 
-            if (!User.HasAnyPermission($"{PermissionPrefix(applicationType)}:View"))
+            if (!User.HasAnyPermission($"{await ResolvePermissionPrefixAsync(applicationType, applicationId, token)}:View"))
             {
                 var callerEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
                     User.GetRequiredUserId(), User.GetUserClaim("email"), token);
@@ -122,7 +145,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<bool>), 200)]
         public async Task<IActionResult> GetEligibility(ApprovalApplicationType applicationType, Guid applicationId, CancellationToken token)
         {
-            if (!User.HasAnyPermission($"{PermissionPrefix(applicationType)}:Approve"))
+            if (!User.HasAnyPermission($"{await ResolvePermissionPrefixAsync(applicationType, applicationId, token)}:Approve"))
                 return Ok(false);
 
             if (User.IsOwnerOrAdmin()) return Ok(true);

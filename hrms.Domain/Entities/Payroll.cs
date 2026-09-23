@@ -19,8 +19,8 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     // deleted by it directly. See PayrollBatch for the batch-level facts (period, pay date,
     // remarks, posted status) that used to be duplicated per row here.
     public Guid PayrollBatchId { get; set; }
-    // Denormalized copies of PayrollBatch.PayDate/Remarks/IsPosted, kept in sync by
-    // PayrollProcessorService — cheap to read per row (payslip header, Payroll Summary
+    // Denormalized copies of PayrollBatch.PayDate/Remarks/IsPosted/ApprovalStatus, kept in
+    // sync by PayrollProcessorService — cheap to read per row (payslip header, Payroll Summary
     // grid) without joining PayrollBatch. PayrollBatch is the canonical source for
     // Post/Delete decisions. Raw admin-entered Pay/Release Date from the payroll run
     // request, kept for audit even though PostingPeriod already holds the resolved credit
@@ -28,6 +28,9 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
     // PayDate option was used.
     public DateOnly? PayDate { get; set; }
     public string? Remarks { get; set; }
+    // Denormalized copy of PayrollBatch.ApprovalStatus — see IsPosted below, flipped to
+    // Approved alongside IsPosted in PayrollService.PostBatchAsync.
+    public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.ForApproval;
     public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;

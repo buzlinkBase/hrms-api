@@ -57,8 +57,10 @@ public class ApprovalsControllerTests
 
         // EmployeeService is never touched on this test's path -- the caller already holds the
         // coarse {Row}:View permission, so ApprovalsController.Get skips the applicant-lookup
-        // branch that would otherwise need it.
-        var controller = new ApprovalsController(engine, null!)
+        // branch that would otherwise need it. PayrollBatchService is only touched for
+        // ApprovalApplicationType.PayrollPosting's dynamic permission-prefix lookup, never
+        // exercised by this test's Leave/Overtime-type fixtures.
+        var controller = new ApprovalsController(engine, null!, null!)
         {
             ControllerContext = new ControllerContext
             {

@@ -28,9 +28,34 @@ public class PayrollBatch : BaseEntity
     public string? Remarks { get; set; }
     public bool IsPosted { get; set; }
     public DateTime? PostedAt { get; set; }
+    // Set to the final approver's employee id once the PayrollPosting approval instance
+    // resolves to Approved — see PayrollBatchLifecycleService.ApproveBatchAsync.
     public Guid? PostedBy  { get; set; }
     // Regular (DTR-cutoff-driven) vs a 13th month pay run — see
     // PayrollProcessorService.GenerateThirteenthMonthAsync. Canonical source; Payroll.PayrollType
     // is a denormalized per-row copy, same pattern as IsPosted.
     public PayrollType PayrollType { get; set; } = PayrollType.Regular;
+    // Who clicked Generate/Save — the ApprovalInstance's ApplicantEmployeeId for this batch's
+    // PayrollPosting approval. See PayrollProcessorService/ThirteenthMonthPayrollService/
+    // LastPayrollService/TaxAnnualizationService's Generate methods.
+    public Guid GeneratedByEmployeeId { get; set; }
+    // One shared ApprovalApplicationType.PayrollPosting approval type covers all 4 run types
+    // (Regular/13th Month/Last Pay/Year-End Adjustment) since they already share this same
+    // entity/Post/Delete code path. Post/DeleteBatch are only reachable once this reaches
+    // Approved/stays ForApproval respectively — see PayrollBatchLifecycleService.
+    // Stays Approved through a pending deletion request below -- PendingDeletion is a separate
+    // concern, not a step backwards in posting status.
+    public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.ForApproval;
+
+    // An already-posted (Approved) batch can't be deleted outright -- deleting it needs its own
+    // approval, same mechanism as posting but a separate ApprovalApplicationType.
+    // PayrollPostingDeletion instance (a resolved ApprovalInstance can't be reopened, so posting
+    // approval and deletion approval can't share one instance). The batch stays fully
+    // visible/usable while a deletion request is pending -- see
+    // PayrollBatchLifecycleService.RequestDeletionAsync/ApproveDeletionAsync/DeclineDeletionAsync.
+    // Mirrors DTRBatch.PendingDeletion exactly.
+    public bool PendingDeletion { get; set; }
+    // Who clicked "Request Deletion" -- the PayrollPostingDeletion ApprovalInstance's
+    // ApplicantEmployeeId.
+    public Guid? RequestedDeletionByEmployeeId { get; set; }
 }

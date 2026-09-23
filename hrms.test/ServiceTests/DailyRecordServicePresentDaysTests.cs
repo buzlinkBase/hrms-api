@@ -1,7 +1,9 @@
 using Hrms.Core.Services;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Mapster;
 using MapsterMapper;
+using MassTransit;
 using MockQueryable.NSubstitute;
 using NSubstitute;
 
@@ -37,7 +39,9 @@ public class DailyRecordServicePresentDaysTests
             Substitute.For<IMapper>(),
             Substitute.For<Microsoft.Extensions.Logging.ILogger<DailyRecordService>>(),
             new LeaveDtrReconciliationService(uow, Substitute.For<Microsoft.Extensions.Logging.ILogger<LeaveDtrReconciliationService>>()),
-            new PayrollBatchService(uow));
+            new PayrollBatchService(uow),
+            new DTRBatchService(uow),
+            new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>()));
     }
 
     [Fact]

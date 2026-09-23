@@ -256,7 +256,6 @@ public class AttendanceService : BaseService<Attendance>
         );
         var spec = new UserHasViewSpec<Attendance>(canProcess);
 
-        //var EmployeeId = payload.EmployeeId;
         var data = await _uow.Repository
             .Find(spec)
             .AsNoTracking()
@@ -268,13 +267,12 @@ public class AttendanceService : BaseService<Attendance>
                 x.WorkDateTime <= to &&
                 x.EmployeeId != null &&
                 empIds.Contains(x.EmployeeId.Value) &&
-                (branchId == null || branchId == Guid.Empty || x.BranchId == areaId) && // Note: double check if x.BranchId == areaId was intentional here instead of branchId
+                (branchId == null || branchId == Guid.Empty || x.BranchId == branchId) && 
                 (departmentId == null || departmentId == Guid.Empty || x.DepartmentId == departmentId) &&
                 (areaId == null || areaId == Guid.Empty || x.OperationAreaId == areaId) &&
                 (payrollGroupId == null || payrollGroupId == Guid.Empty || x.Employee!.PayrollGroupId == payrollGroupId) &&
                 (clientId == null || clientId == Guid.Empty || x.ClientId == clientId))
             .ToListAsync(token);
-
 
         var result = data
             .GroupBy(a => new AttendanceEmpId(a.EmployeeId!.Value))

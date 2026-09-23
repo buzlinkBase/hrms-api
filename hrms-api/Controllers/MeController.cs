@@ -99,7 +99,7 @@ namespace Hrms.Api.Controllers
 
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, null, null, token);
+            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, null, null, null, token);
             return Ok(new { data, total = data.Count });
         }
 

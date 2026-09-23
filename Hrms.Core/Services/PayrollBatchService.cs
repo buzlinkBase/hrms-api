@@ -1,4 +1,5 @@
 using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 
 namespace Hrms.Core.Services;
 
@@ -60,6 +61,16 @@ public class PayrollBatchService : BaseService<PayrollBatch>
         else await SaveChangesAsync(token);
     }
 
+    // Persists in-memory changes to an already-loaded PayrollBatch -- e.g. ApprovalStatus/
+    // PostedBy set by PayrollBatchLifecycleService.ApproveBatchAsync/DeclineBatchAsync. Same
+    // commit=false composition reasoning as AddAsync/PostAsync/DeleteAsync above.
+    public async Task UpdateAsync(PayrollBatch model, CancellationToken token, bool commit = true)
+    {
+        await ModifyAsync(model, token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
+    }
+
     // Every DTR batch code that has already been used to generate a payroll, across all
     // past runs — used to block re-generating payroll from a batch that's already used.
     public async Task<HashSet<string>> GetUsedDtrBatchCodesAsync(CancellationToken token)
@@ -71,5 +82,41 @@ public class PayrollBatchService : BaseService<PayrollBatch>
         return raw
             .SelectMany(x => x!.Split(',', StringSplitOptions.RemoveEmptyEntries))
             .ToHashSet();
+    }
+
+    // Batch-list projection for the Payroll Batches tab -- queried directly against PayrollBatch
+    // (an overlap filter, not the same "row falls within range" filter PayrollService.GetAsync
+    // uses for the per-employee report, since there are no child rows to filter here) rather than
+    // derived by grouping child Payroll rows client-side, which is how the UI worked before this.
+    // EmployeeCount comes from one grouped count query against Payroll -- avoids an N+1 per batch.
+    public async Task<List<PayrollBatchListModel>> GetBatchesAsync(DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var batches = await GetQueryable(x => x.PayPeriodStart <= to && x.PayPeriodEnd >= from)
+            .OrderByDescending(x => x.PayPeriodStart)
+            .ToListAsync(token);
+        if (batches.Count == 0) return [];
+
+        var batchIds = batches.Select(x => x.Id).ToList();
+        var counts = await _uow.Repository.Find<Payroll>(x => batchIds.Contains(x.PayrollBatchId))
+            .GroupBy(x => x.PayrollBatchId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, token);
+
+        return batches.Select(b => new PayrollBatchListModel
+        {
+            Id = b.Id,
+            PayPeriodStart = b.PayPeriodStart,
+            PayPeriodEnd = b.PayPeriodEnd,
+            PayDate = b.PayDate,
+            Remarks = b.Remarks,
+            EmployeeCount = counts.GetValueOrDefault(b.Id, 0),
+            IsPosted = b.IsPosted,
+            ApprovalStatus = b.ApprovalStatus,
+            GeneratedByEmployeeId = b.GeneratedByEmployeeId,
+            PostedBy = b.PostedBy,
+            PayrollType = b.PayrollType,
+            PendingDeletion = b.PendingDeletion,
+            RequestedDeletionByEmployeeId = b.RequestedDeletionByEmployeeId,
+        }).ToList();
     }
 }

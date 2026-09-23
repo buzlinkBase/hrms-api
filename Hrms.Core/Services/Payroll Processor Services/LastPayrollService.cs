@@ -1,5 +1,6 @@
 using DTR.Core;
 using Hrms.Core.Policies.DeductionPolicies;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
@@ -33,6 +34,7 @@ public class LastPayrollService
     private readonly PayrollInputConsumptionService _consumptionService;
     private readonly DailyRecordService _dtrService;
     private readonly YearLockService _yearLockService;
+    private readonly ApprovalEngineService _approvalEngine;
 
     public LastPayrollService(
         EmployeeService employeeService,
@@ -50,7 +52,8 @@ public class LastPayrollService
         IncomeAplDtlService incomeAplDtlService,
         PayrollInputConsumptionService consumptionService,
         DailyRecordService dtrService,
-        YearLockService yearLockService)
+        YearLockService yearLockService,
+        ApprovalEngineService approvalEngine)
     {
         _employeeService = employeeService;
         _payrollService = payrollService;
@@ -68,6 +71,7 @@ public class LastPayrollService
         _consumptionService = consumptionService;
         _dtrService = dtrService;
         _yearLockService = yearLockService;
+        _approvalEngine = approvalEngine;
     }
 
     // Safety check for the Last Pay review screen — flags employees who have posted
@@ -133,7 +137,7 @@ public class LastPayrollService
     public Task<List<OtherIncomeSchedules>> GetAvailableOtherIncomeAsync(List<Guid> employeeIds, CancellationToken token) =>
         _incomeAplDtlService.FindAvailableAsync(employeeIds, token);
 
-    public async Task<List<PayrollSummaryLine>> GenerateAsync(LastPayRunPayload payload, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> GenerateAsync(LastPayRunPayload payload, Guid generatedByEmployeeId, CancellationToken token)
     {
         if (payload.EmployeeIds is not { Count: > 0 })
         {
@@ -325,7 +329,9 @@ public class LastPayrollService
             PayDate = payload.PayDate,
             PayrollType = PayrollType.LastPay,
             Remarks = payload.Remarks,
+            GeneratedByEmployeeId = generatedByEmployeeId,
         }, token, commit: false);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchId, generatedByEmployeeId, token);
 
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)

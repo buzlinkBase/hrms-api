@@ -5,6 +5,7 @@ using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain;
 using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
@@ -20,10 +21,13 @@ namespace Hrms.Api.Controllers
     public class PayrollsController : ControllerBase
     {
         // Maps a batch's actual run type to its Payroll Generation catalog row -- needed by
-        // PostBatch/DeleteBatch below, which are shared across all 4 run types and so can't be
-        // gated with a compile-time RequirePermissionAttribute code the way every other action
-        // here is.
-        private static readonly Dictionary<PayrollType, string> RunTypeFeature = new()
+        // ApproveBatch/DeclineBatch/DeleteBatch below, which are shared across all 4 run types and
+        // so can't be gated with a compile-time RequirePermissionAttribute code the way every
+        // other action here is. Internal (not private): ApprovalsController's PermissionPrefix
+        // resolution reuses this exact mapping for ApprovalApplicationType.PayrollPosting, since
+        // one enum value there needs a different permission prefix per run type -- see its own
+        // doc comment.
+        internal static readonly Dictionary<PayrollType, string> RunTypeFeature = new()
         {
             [PayrollType.Regular] = "Payroll Run",
             [PayrollType.ThirteenthMonth] = "13th Month Run",
@@ -60,6 +64,13 @@ namespace Hrms.Api.Controllers
             return null;
         }
 
+        private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
+        {
+            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return (approverEmployeeId, User.IsOwnerOrAdmin());
+        }
+
         [HttpPost("calculate")]
         [RequirePermission("Payroll Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
@@ -76,20 +87,29 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Generate([FromBody] PayrollRunPayload payload, CancellationToken token)
         {
+            var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+                ?? throw new InvalidOperationException(
+                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
             var batch = Guid.CreateVersion7();
-            var payrolls = await _service.GenerateAsync(payload, batch, token);
+            var payrolls = await _service.GenerateAsync(payload, batch, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
         }
 
         // Lump-sum 13th month pay run — not attendance-driven, so no DTR batch selection.
-        // Post/Delete reuse the same batch/{id}/post and batch/{id} endpoints below.
+        // Approve/Decline/Delete reuse the same batch/{id}/approve, batch/{id}/decline and
+        // batch/{id} endpoints below.
         [HttpPost("generate-13th-month")]
         [RequirePermission("13th Month Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GenerateThirteenthMonth([FromBody] ThirteenthMonthRunPayload payload, CancellationToken token)
         {
-            var payrolls = await _service.GenerateThirteenthMonthAsync(payload, token);
+            var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+                ?? throw new InvalidOperationException(
+                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
+            var payrolls = await _service.GenerateThirteenthMonthAsync(payload, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
         }
@@ -99,7 +119,11 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GenerateLastPay([FromBody] LastPayRunPayload payload, CancellationToken token)
         {
-            var payrolls = await _service.GenerateLastPayAsync(payload, token);
+            var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+                ?? throw new InvalidOperationException(
+                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
+            var payrolls = await _service.GenerateLastPayAsync(payload, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
         }
@@ -123,7 +147,11 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GenerateYearEndAdjustment([FromBody] TaxAnnualizationRunPayload payload, CancellationToken token)
         {
-            var payrolls = await _service.GenerateYearEndAdjustmentAsync(payload, token);
+            var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+                ?? throw new InvalidOperationException(
+                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
+            var payrolls = await _service.GenerateYearEndAdjustmentAsync(payload, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
         }
@@ -173,20 +201,53 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        // Batch-list projection for the Payroll Batches tab (Approve/Decline/Delete/Request
+        // Deletion a whole Generate run) -- independent of the report's own date range below,
+        // same relationship DTR's batch-codes endpoint has to its own report screens. Defaults
+        // to today minus 5 months / plus 1 month, exactly matching
+        // DailyRecordsController.GetCodes's default so older not-yet-approved runs aren't hidden
+        // by a narrow window.
+        [HttpGet("batches")]
+        [RequirePermission("Payroll Summary:View")]
+        [ProducesResponseType(typeof(ResponseModel<List<PayrollBatchListModel>>), 200)]
+        public async Task<IActionResult> GetBatches(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken token)
+        {
+            var fromDate = from.HasValue
+                ? DateOnly.FromDateTime(from.Value)
+                : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-5));
+            var toDate = to.HasValue
+                ? DateOnly.FromDateTime(to.Value)
+                : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));
+            var result = await _service.GetBatchesAsync(fromDate, toDate, token);
+            return Ok(result);
+        }
+
+        // from/to is the original date-range report query; payrollBatchId, when given, replaces
+        // the date range entirely and returns exactly one run's rows -- Payroll Summary's batch
+        // selector uses this so overlapping runs of different PayrollTypes for the same period
+        // (e.g. Regular and 13th Month) can't bleed into each other the way a pure date-range
+        // filter would allow.
         [HttpGet]
         [RequirePermission("Payroll Summary:View")]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> Get(
-            [FromQuery] DateTime from,
-            [FromQuery] DateTime to,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
             [FromQuery] Guid? employeeId,
             [FromQuery] Guid? clientId,
             [FromQuery] Guid? payrollGroupId,
+            [FromQuery] Guid? payrollBatchId,
             CancellationToken token)
         {
-            var fromDate = DateOnly.FromDateTime(from);
-            var toDate = DateOnly.FromDateTime(to);
-            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, token);
+            if (payrollBatchId == null && (from == null || to == null))
+                return BadRequest("Provide either a date range (from/to) or a payrollBatchId.");
+
+            var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : (DateOnly?)null;
+            var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : (DateOnly?)null;
+            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, payrollBatchId, token);
             return Ok(new { data, total = data.Count });
         }
 
@@ -202,7 +263,7 @@ namespace Hrms.Api.Controllers
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, token);
+            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, null, token);
             var company = await _companyService.FineOneAsync(token);
             var clientIds = data.Where(x => x.ClientId.HasValue).Select(x => x.ClientId!.Value).ToHashSet();
             var clientNames = await _clientService.FindNamesByIdsAsync(clientIds, token);
@@ -233,18 +294,36 @@ namespace Hrms.Api.Controllers
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }
 
-        // Post and Delete are run-level transactions — an employee's payroll is never
-        // generated on its own, so it's never posted or deleted on its own either. Both act
-        // against the PayrollBatch header row (id = Payroll.PayrollBatchId). See
-        // PayrollProcessorService.PostBatchAsync / DeleteBatchAsync.
-        [HttpPost("batch/{batchId:guid}/post")]
+        // Approve/Decline/Delete are run-level transactions — an employee's payroll is never
+        // generated on its own, so it's never approved, declined, or deleted on its own either.
+        // All three act against the PayrollBatch header row (id = Payroll.PayrollBatchId).
+        // Approve/Decline route through the shared PayrollPosting approval engine instance
+        // (started at Generate time) rather than posting directly -- see
+        // PayrollBatchLifecycleService.ApproveBatchAsync / DeclineBatchAsync. The coarse
+        // {RunTypeFeature}:Approve permission gate below stays as-is; RecordActionAsync's own
+        // ApproverEligibilityResolver is the fine-grained check, same two-layer pattern as every
+        // other application type.
+        [HttpPost("batch/{batchId:guid}/approve")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-        public async Task<IActionResult> PostBatch(Guid batchId, CancellationToken token)
+        public async Task<IActionResult> ApproveBatch(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
         {
             var violation = await ValidateBatchPermissionAsync(User, batchId, "Approve", token);
             if (violation != null) return violation;
 
-            await _service.PostBatchAsync(batchId, token);
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.ApproveBatchAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok("success");
+        }
+
+        [HttpPost("batch/{batchId:guid}/decline")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> DeclineBatch(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var violation = await ValidateBatchPermissionAsync(User, batchId, "Approve", token);
+            if (violation != null) return violation;
+
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.DeclineBatchAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
             return Ok("success");
         }
 
@@ -261,6 +340,50 @@ namespace Hrms.Api.Controllers
             if (violation != null) return violation;
 
             await _service.DeleteBatchAsync(batchId, token);
+            return Ok("success");
+        }
+
+        // An already-posted batch can't be deleted outright (see DeleteBatch above) -- this
+        // starts a separate PayrollPostingDeletion approval instance instead. Same permission as
+        // the direct delete, since conceptually it's still "I want to delete this," just
+        // re-routed through approval.
+        [HttpPost("batch/{batchId:guid}/request-deletion")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> RequestDeletion(Guid batchId, CancellationToken token)
+        {
+            var violation = await ValidateBatchPermissionAsync(User, batchId, "Create", token);
+            if (violation != null) return violation;
+
+            var requestedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+                ?? throw new InvalidOperationException(
+                    "Your account isn't linked to an Employee record, so this request can't be attributed to an applicant. Contact an admin to link your account.");
+            await _service.RequestDeletionAsync(batchId, requestedByEmployeeId, token);
+            return Ok("success");
+        }
+
+        // Same eligible approvers as ApproveBatch/DeclineBatch above -- {RunTypeFeature}:Approve.
+        [HttpPost("batch/{batchId:guid}/approve-deletion")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> ApproveDeletion(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var violation = await ValidateBatchPermissionAsync(User, batchId, "Approve", token);
+            if (violation != null) return violation;
+
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.ApproveDeletionAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok("success");
+        }
+
+        [HttpPost("batch/{batchId:guid}/decline-deletion")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> DeclineDeletion(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var violation = await ValidateBatchPermissionAsync(User, batchId, "Approve", token);
+            if (violation != null) return violation;
+
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.DeclineDeletionAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
             return Ok("success");
         }
 

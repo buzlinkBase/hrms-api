@@ -122,7 +122,11 @@ public class PayrollService : BaseService<Payroll>
         // which mutate tracked entities directly with no explicit Update() call at all.
         var payrolls = await GetQueryable(x => x.PayrollBatchId == payrollBatchId, noTracking: false).ToListAsync(token);
         if (payrolls.Count == 0) throw new ValidationException("Payroll batch not found.");
-        foreach (var payroll in payrolls) payroll.IsPosted = true;
+        foreach (var payroll in payrolls)
+        {
+            payroll.IsPosted = true;
+            payroll.ApprovalStatus = ApprovalStatus.Approved;
+        }
         await ModifyRangeAsync(payrolls, token);
         await ReduceDeductionBalancesAsync(payrolls.Select(x => x.Id).ToList(), token);
         await ProcessRetirementFundActivityAsync(payrolls, token);
@@ -337,13 +341,18 @@ public class PayrollService : BaseService<Payroll>
         return ids.ToHashSet();
     }
 
+    // payrollBatchId, when given, takes over as the sole date/period filter -- picking an exact
+    // run (Payroll Summary's batch selector) instead of a date range avoids ambiguity between
+    // overlapping runs of different PayrollTypes (e.g. a Regular and a 13th Month run covering
+    // the same period).
     public async Task<List<Payroll>> GetAsync(
-        DateOnly from, DateOnly to,
-        Guid? employeeId, Guid? clientId, Guid? payrollGroupId,
+        DateOnly? from, DateOnly? to,
+        Guid? employeeId, Guid? clientId, Guid? payrollGroupId, Guid? payrollBatchId,
         CancellationToken token)
     {
         return await GetQueryable(x =>
-                x.PayPeriodStart >= from && x.PayPeriodEnd <= to &&
+                (payrollBatchId == null || x.PayrollBatchId == payrollBatchId) &&
+                (payrollBatchId != null || (x.PayPeriodStart >= from && x.PayPeriodEnd <= to)) &&
                 (employeeId == null || x.EmployeeId == employeeId) &&
                 (clientId == null || x.ClientId == clientId) &&
                 (payrollGroupId == null || x.PayrollGroupId == payrollGroupId))

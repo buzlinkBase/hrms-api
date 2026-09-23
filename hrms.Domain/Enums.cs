@@ -552,7 +552,7 @@ public enum ScheduleSource
     OpenShift,
 }
 
-// The 6 Applications types the approval-workflow engine covers — see ApprovalWorkflow.
+// The application types the approval-workflow engine covers — see ApprovalWorkflow.
 public enum ApprovalApplicationType
 {
     Leave,
@@ -561,6 +561,22 @@ public enum ApprovalApplicationType
     PassSlip,
     Loan,
     ProfileUpdate,
+    // Posting a Payroll batch (any of the 4 run types — Regular/13th Month/Last Pay/Year-End
+    // Adjustment share the same PayrollBatch/Post/Delete code path, so one shared type covers
+    // all of them rather than one per run type). See PayrollBatchLifecycleService.ApproveBatchAsync.
+    PayrollPosting,
+    // Posting a DTR batch (DailyRecord rows sharing one BatchCode) — see DTRBatch and
+    // DailyRecordService.ApproveBatchAsync/DeclineBatchAsync. Payroll generation refuses to run
+    // from a DTR batch that isn't Approved — see PayrollProcessorService.GenerateAsync.
+    Dtr,
+    // Deleting an already-posted DTR batch — a separate approval type/instance from Dtr above
+    // (a resolved ApprovalInstance can't be reopened for a second approval cycle). See
+    // DTRBatch.PendingDeletion and DailyRecordService.RequestDeletionAsync/ApproveDeletionAsync.
+    DtrDeletion,
+    // Deleting an already-posted Payroll batch — same relationship to PayrollPosting that
+    // DtrDeletion has to Dtr. See PayrollBatch.PendingDeletion and
+    // PayrollBatchLifecycleService.RequestDeletionAsync/ApproveDeletionAsync.
+    PayrollPostingDeletion,
 }
 
 // Who a workflow step's approver resolves to. Person/Department/Position are fixed at

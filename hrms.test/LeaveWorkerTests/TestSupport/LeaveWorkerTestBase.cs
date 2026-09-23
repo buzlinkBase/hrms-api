@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Hrms.Core.Services;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
@@ -68,14 +69,17 @@ public abstract class LeaveWorkerTestBase
     // Real DailyRecordService (not a mock — its methods aren't virtual, so NSubstitute can't
     // intercept them) backed by the same repo/uow as the worker under test, for exercising
     // Leave.EligibilityBasis.PresentDays. Its own LeaveDtrReconciliationService/
-    // PayrollBatchService dependencies are never invoked by CountPresentDays(Batch)Async.
+    // PayrollBatchService/DTRBatchService/ApprovalEngineService dependencies are never invoked
+    // by CountPresentDays(Batch)Async.
     protected static DailyRecordService BuildDailyRecordService(IUnitOfWorkService uow) =>
         new(uow,
             new TypeAdapterConfig(),
             Substitute.For<IMapper>(),
             CreateLogger<DailyRecordService>(),
             new LeaveDtrReconciliationService(uow, CreateLogger<LeaveDtrReconciliationService>()),
-            new PayrollBatchService(uow));
+            new PayrollBatchService(uow),
+            new DTRBatchService(uow),
+            new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>()));
 
     // Captures every entity handed to repo.Add<T>/AddRange<T> for a given T, in call order —
     // the workers never requery what they just added, they only Add then Commit, so a plain

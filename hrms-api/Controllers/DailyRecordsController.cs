@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers;
@@ -21,18 +22,32 @@ public class DailyRecordsController : ControllerBase
     private readonly DailyRecordService _service;
     private readonly DTRCalcService _dTRCalcService;
     private readonly RosterReportService _rosterReportService;
+    private readonly EmployeeService _employeeService;
     private readonly IMapper _mapper;
     public DailyRecordsController(DailyRecordService service,
         DTRCalcService dTRCalcService,
         RosterReportService rosterReportService,
+        EmployeeService employeeService,
         IMapper mapper)
     {
         _service = service;
         _dTRCalcService = dTRCalcService;
         _rosterReportService = rosterReportService;
+        _employeeService = employeeService;
         _mapper = mapper;
     }
 
+    private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
+    {
+        var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+            User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+        return (approverEmployeeId, User.IsOwnerOrAdmin());
+    }
+
+    // "Save Draft" on the Calculate DTR screen -- persists the calculated rows and starts the
+    // Dtr-type approval instance (implicit single-approval fallback if no workflow is
+    // configured). No longer posts outright; see ApproveBatch/DeclineBatch below, which is what
+    // actually flips DailyRecord.Posted once the instance resolves.
     [HttpPost]
     [RequirePermission("DTR Master:Manage")]
     [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]
@@ -42,6 +57,11 @@ public class DailyRecordsController : ControllerBase
         var payrollGroupId = model.Select(x => x.PayrollGroupId).FirstOrDefault(x => x.HasValue);
         if (!payrollGroupId.HasValue)
             return BadRequest("Payroll Group is required to post DTR.");
+
+        var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+            User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+            ?? throw new InvalidOperationException(
+                "Your account isn't linked to an Employee record, so this batch can't be attributed to an approval applicant. Contact an admin to link your account.");
 
         var rangeFrom = model.Min(x => x.WorkDate);
         var RangeTo = model.Max(x => x.WorkDate);
@@ -53,10 +73,70 @@ public class DailyRecordsController : ControllerBase
             item.UserId = userId;
             item.BatchCode = batchCode;
         }
-        await _service.AddRangeAsync(models, token);
+        await _service.SaveDraftAsync(models, batchCode, rangeFrom, RangeTo, payrollGroupId, generatedByEmployeeId, token);
         var respModel = _mapper.Map<List<DTRDetailModel>>(models);
         return Ok(respModel);
 
+    }
+
+    // Approve/Decline route through the shared Dtr approval engine instance (started at Save
+    // Draft time) -- only a fully-approved batch actually posts (DailyRecord.Posted flips true).
+    // batchId is the DTRBatch header row's own id (BatchesModel.Id).
+    [HttpPost("batch/{batchId:guid}/approve")]
+    [RequirePermission("DTR Master:Approve")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> ApproveBatch(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+    {
+        var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+        await _service.ApproveBatchAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
+        return Ok("success");
+    }
+
+    [HttpPost("batch/{batchId:guid}/decline")]
+    [RequirePermission("DTR Master:Approve")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> DeclineBatch(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+    {
+        var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+        await _service.DeclineBatchAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
+        return Ok("success");
+    }
+
+    // An already-posted batch can't be deleted outright (see DeleteBatch below) -- this starts
+    // a separate DtrDeletion approval instance instead. Same permission as the direct delete,
+    // since conceptually it's still "I want to delete this," just re-routed through approval.
+    [HttpPost("batch/{batchId:guid}/request-deletion")]
+    [RequirePermission("DTR Master:Manage")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> RequestDeletion(Guid batchId, CancellationToken token)
+    {
+        var requestedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+            User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+            ?? throw new InvalidOperationException(
+                "Your account isn't linked to an Employee record, so this request can't be attributed to an applicant. Contact an admin to link your account.");
+        await _service.RequestDeletionAsync(batchId, requestedByEmployeeId, token);
+        return Ok("success");
+    }
+
+    // Same eligible approvers as ApproveBatch/DeclineBatch above -- DTR Master:Approve.
+    [HttpPost("batch/{batchId:guid}/approve-deletion")]
+    [RequirePermission("DTR Master:Approve")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> ApproveDeletion(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+    {
+        var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+        await _service.ApproveDeletionAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
+        return Ok("success");
+    }
+
+    [HttpPost("batch/{batchId:guid}/decline-deletion")]
+    [RequirePermission("DTR Master:Approve")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> DeclineDeletion(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+    {
+        var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+        await _service.DeclineDeletionAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
+        return Ok("success");
     }
 
     // POST verb, but a pure query (DTRSummaryQuery persists nothing) -- same pattern as
@@ -100,16 +180,10 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
-    // No frontend caller found for PostBatch/UnpostBatch (dead today), gated defensively anyway.
-    [HttpPost("post")]
-    [RequirePermission("DTR Summary:Manage")]
-    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-    public async Task<IActionResult> PostBatch([FromQuery] string batchCode, CancellationToken token)
-    {
-        await _service.PostAsync(batchCode, token);
-        return Ok();
-    }
-
+    // No frontend caller found for UnpostBatch (dead today), gated defensively anyway. The
+    // forward PostBatch counterpart was removed -- it directly flipped DailyRecord.Posted
+    // without going through the approval engine, exactly the bypass this feature closes. No
+    // endpoint skips ApproveBatch now, same principle as every other application type.
     [HttpPost("unpost")]
     [RequirePermission("DTR Summary:Manage")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
@@ -200,6 +274,8 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // Only deletes an unposted draft (ForApproval/Declined) directly -- an already-posted batch
+    // throws, pointing the caller at RequestDeletion/ApproveDeletion above instead.
     [HttpDelete()]
     [RequirePermission("DTR Master:Manage")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]

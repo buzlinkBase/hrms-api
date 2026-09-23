@@ -219,7 +219,8 @@ public class MeControllerTests
         // test since CountPresentDaysAsync is never called unless that basis is configured.
         var dailyRecordService = new DailyRecordService(
             uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
-            Substitute.For<ILogger<DailyRecordService>>(), null!, new PayrollBatchService(uow));
+            Substitute.For<ILogger<DailyRecordService>>(), null!, new PayrollBatchService(uow),
+            new DTRBatchService(uow), new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>()));
         // Bare IMapper substitute: LeaveApplicationService.AddAsync's Map<LeaveApplication>()
         // call returns null with it, which short-circuits AddAsync before it ever persists —
         // fine for these tests, which only assert on the EmployeeId/ApprovalStatus forced onto

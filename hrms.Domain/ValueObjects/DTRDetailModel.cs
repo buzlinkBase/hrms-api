@@ -159,6 +159,11 @@ public class DTRSummaryModel
 
 public class BatchesModel
 {
+    // The DTRBatch header row's own id -- null for a legacy batch that predates that entity
+    // (has DailyRecord rows but no DTRBatch), in which case ApprovalStatus below is reported as
+    // Approved (already usable/postable before this feature existed, so it must not retroactively
+    // show as pending). See DailyRecordService.GetBatches.
+    public Guid? Id { get; set; }
     public string? Code { get; set; }
     public DateOnly FromDate { get; set; }
     public DateOnly ToDate { get; set; }
@@ -169,6 +174,16 @@ public class BatchesModel
     // Payroll.DtrBatchCodes / PayrollService.GetUsedDtrBatchCodesAsync. Used by the
     // Payroll Run screen to block re-selecting a batch that was already posted.
     public bool IsPayrollGenerated { get; set; }
+    public ApprovalStatus ApprovalStatus { get; set; }
+    public Guid? GeneratedByEmployeeId { get; set; }
+    public Guid? PayrollGroupId { get; set; }
+    // DTRBatch.CreatedAt -- null for a legacy batch with no DTRBatch row.
+    public DateTime? GeneratedAt { get; set; }
+    // True while a deletion request on this already-posted batch awaits its own
+    // ApprovalApplicationType.DtrDeletion approval -- see DailyRecordService.RequestDeletionAsync.
+    // ApprovalStatus stays Approved throughout; this is a separate, orthogonal concern.
+    public bool PendingDeletion { get; set; }
+    public Guid? RequestedDeletionByEmployeeId { get; set; }
 }
 
 public class TardinessReportModel

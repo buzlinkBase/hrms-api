@@ -1,5 +1,6 @@
 using DTR.Core;
 using Hrms.Core.Policies.DeductionPolicies;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
@@ -23,6 +24,7 @@ public class ThirteenthMonthPayrollService
     private readonly TaxService _taxService;
     private readonly StatutoryContributionLedgerService _statutoryLedgerService;
     private readonly YearLockService _yearLockService;
+    private readonly ApprovalEngineService _approvalEngine;
 
     public ThirteenthMonthPayrollService(
         PayrollService payrollService,
@@ -33,7 +35,8 @@ public class ThirteenthMonthPayrollService
         EmployeeService employeeService,
         TaxService taxService,
         StatutoryContributionLedgerService statutoryLedgerService,
-        YearLockService yearLockService)
+        YearLockService yearLockService,
+        ApprovalEngineService approvalEngine)
     {
         _payrollService = payrollService;
         _mapper = mapper;
@@ -44,9 +47,10 @@ public class ThirteenthMonthPayrollService
         _taxService = taxService;
         _statutoryLedgerService = statutoryLedgerService;
         _yearLockService = yearLockService;
+        _approvalEngine = approvalEngine;
     }
 
-    public async Task<List<PayrollSummaryLine>> GenerateAsync(ThirteenthMonthRunPayload payload, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> GenerateAsync(ThirteenthMonthRunPayload payload, Guid generatedByEmployeeId, CancellationToken token)
     {
         if (await _yearLockService.IsYearLockedAsync(payload.Year, token))
         {
@@ -160,7 +164,9 @@ public class ThirteenthMonthPayrollService
             PayDate = payload.PayDate,
             PayrollType = PayrollType.ThirteenthMonth,
             Remarks = payload.Remarks,
+            GeneratedByEmployeeId = generatedByEmployeeId,
         }, token, commit: false);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchId, generatedByEmployeeId, token);
 
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)

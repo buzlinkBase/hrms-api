@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using DocumentFormat.OpenXml.Office2010.ExcelAc;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Mapster;
 using Microsoft.Extensions.Logging;
@@ -13,19 +14,25 @@ public class DailyRecordService : BaseService<DailyRecord>
     private readonly ILogger<DailyRecordService> _logger;
     private readonly LeaveDtrReconciliationService _reconciliation;
     private readonly PayrollBatchService _payrollBatchService;
+    private readonly DTRBatchService _dtrBatchService;
+    private readonly ApprovalEngineService _approvalEngine;
 
     public DailyRecordService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
         IMapper mapper,
         ILogger<DailyRecordService> logger,
         LeaveDtrReconciliationService reconciliation,
-        PayrollBatchService payrollBatchService) : base(uow)
+        PayrollBatchService payrollBatchService,
+        DTRBatchService dtrBatchService,
+        ApprovalEngineService approvalEngine) : base(uow)
     {
         _config = config;
         _mapper = mapper;
         _logger = logger;
         _reconciliation = reconciliation;
         _payrollBatchService = payrollBatchService;
+        _dtrBatchService = dtrBatchService;
+        _approvalEngine = approvalEngine;
     }
     // Posted attendance/DTR days for this employee in (fromDate, toDate] — used by
     // LastPayrollService's safety check: days worked after their last regular payroll's
@@ -93,7 +100,10 @@ public class DailyRecordService : BaseService<DailyRecord>
             .ToDictionaryAsync(x => x.Key, x => x.Count, token);
     }
 
-    public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token)
+    // commit=false lets SaveDraftAsync compose this with the DTRBatch header write and
+    // ApprovalEngineService.StartAsync as ONE atomic unit -- same reasoning as
+    // PayrollBatchService.AddAsync's commit parameter.
+    public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token, bool commit = true)
     {
         var employeeIds = records.Select(x => x.EmployeeId).Distinct().ToList();
         var minDate = records.Min(x => x.WorkDate);
@@ -121,8 +131,111 @@ public class DailyRecordService : BaseService<DailyRecord>
         }
 
         await Uow.Repository.AddRangeAsync(records, token);
-        await Uow.SaveChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
+    }
+
+    // Replaces the controller's direct AddRangeAsync call -- persists the calculated DTR rows as
+    // an editable/deletable draft (DailyRecord.Posted stays false) AND creates the DTRBatch
+    // header, starting its Dtr-type approval instance automatically at Save Draft time, same as
+    // every other application type (see ApprovalEngineService.StartAsync). Only ApproveBatchAsync,
+    // once the instance resolves to Approved, actually flips Posted=true via PostAsync.
+    public async Task<DTRBatch> SaveDraftAsync(
+        List<DailyRecord> records, string batchCode, DateOnly rangeFrom, DateOnly rangeTo,
+        Guid? payrollGroupId, Guid generatedByEmployeeId, CancellationToken token)
+    {
+        await AddRangeAsync(records, token, commit: false);
+
+        var batch = new DTRBatch
+        {
+            BatchCode = batchCode,
+            PayPeriodStart = rangeFrom,
+            PayPeriodEnd = rangeTo,
+            PayrollGroupId = payrollGroupId,
+            GeneratedByEmployeeId = generatedByEmployeeId,
+        };
+        await _dtrBatchService.AddAsync(batch, token, commit: false);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.Dtr, batch.Id, generatedByEmployeeId, token);
+
         await CommitChangesAsync(token);
+        return batch;
+    }
+
+    // One shared ApprovalApplicationType.Dtr approval type. Runs RecordActionAsync plus (on the
+    // final step) the existing PostAsync body as ONE atomic unit -- same transaction-composition
+    // reasoning as PayrollBatchLifecycleService.ApproveBatchAsync: every step flushes via
+    // commit:false/SaveChangesAsync and joins the same still-open ambient transaction; the one
+    // real CommitChangesAsync call at the end finalizes all of it together, and any exception
+    // before that point rolls the whole thing back via the still-open ambient transaction.
+    public async Task ApproveBatchAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
+    {
+        var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
+            ?? throw new NotFoundException("DTR batch not found.");
+        if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This DTR batch is not awaiting approval.");
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        try
+        {
+            var result = await _approvalEngine.RecordActionAsync(
+                ApprovalApplicationType.Dtr, batch.Id, batch.GeneratedByEmployeeId,
+                approverId, approverHasOverride, ApprovalActionType.Approved, note, token);
+
+            batch.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
+            if (batch.ApprovalStatus == ApprovalStatus.Approved)
+            {
+                batch.IsPosted = true;
+                batch.PostedAt = DateTime.UtcNow;
+                batch.PostedBy = approverId;
+                await _dtrBatchService.UpdateAsync(batch, token, commit: false);
+                await PostAsync(batch.BatchCode, token, commit: false);
+            }
+            else
+            {
+                // More steps remain -- stays ForApproval, not posted yet.
+                await _dtrBatchService.UpdateAsync(batch, token, commit: false);
+            }
+
+            await CommitChangesAsync(token);
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
+        }
+    }
+
+    public async Task DeclineBatchAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
+    {
+        var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
+            ?? throw new NotFoundException("DTR batch not found.");
+        if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This DTR batch is not awaiting approval.");
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        try
+        {
+            var result = await _approvalEngine.RecordActionAsync(
+                ApprovalApplicationType.Dtr, batch.Id, batch.GeneratedByEmployeeId,
+                approverId, approverHasOverride, ApprovalActionType.Declined, note, token);
+
+            batch.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
+            await _dtrBatchService.UpdateAsync(batch, token, commit: false);
+            await CommitChangesAsync(token);
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
+        }
     }
     public async Task<string> BuildBatchCodeAsync(DateOnly rangeFrom, DateOnly rangeTo, Guid? payrollGroupId, CancellationToken token)
     {
@@ -140,17 +253,135 @@ public class DailyRecordService : BaseService<DailyRecord>
         var pgSegment = string.IsNullOrWhiteSpace(payrollGroupCode) ? "" : $" PG:{payrollGroupCode}";
         return $"DTR{rangeFrom.ToString("MMMddyyyy")}-{rangeTo.ToString("MMMddyyyy")}{pgSegment} TS:{ts}";
     }
+    // Direct delete -- only for a batch that isn't posted yet (ForApproval/Declined), where
+    // nothing is final and no approval is needed. An already-posted batch must go through
+    // RequestDeletionAsync/ApproveDeletionAsync instead -- see below.
     public async Task DeleteAsync(string batchCode, CancellationToken token)
     {
         var hasPosted = await _uow.Repository
             .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
             .AnyAsync(token);
         if (hasPosted)
-            throw new ValidationException("Cannot delete this DTR batch — payroll has already been generated and saved from it.");
+            throw new ValidationException("This DTR batch has already been posted — request its deletion for approval instead.");
 
-        await ExecuteDeleteAsync(x =>
-        x.BatchCode == batchCode, token);
+        // The real "payroll already saved from this batch" check -- Posted alone no longer
+        // implies this since DTR posting/approval is decoupled from Payroll generation, and
+        // DailyRecordsController's still-live Unpost endpoint can flip Posted back to false
+        // without knowing (or caring) whether a Payroll run still references this batch code.
+        // Same source of truth GetBatches' IsPayrollGenerated flag uses -- see
+        // Payroll.DtrBatchCodes / PayrollBatchService.GetUsedDtrBatchCodesAsync. This is a hard
+        // block even through the deletion-approval flow below -- an approver taking on
+        // responsibility for a batch still can't un-break a live Payroll run's DTR references.
+        var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
+        if (usedBatchCodes.Contains(batchCode))
+            throw new ValidationException("Cannot delete this DTR batch — payroll has already been generated and saved from it. Delete the payroll run first if you need to regenerate it.");
+
+        await ExecuteBatchDeletionAsync(batchCode, token);
+    }
+
+    // The actual cascade, shared by the direct-delete path above (an unposted draft) and
+    // ApproveDeletionAsync below (an already-posted batch, once its deletion request itself
+    // clears approval).
+    private async Task ExecuteBatchDeletionAsync(string batchCode, CancellationToken token)
+    {
+        await ExecuteDeleteAsync(x => x.BatchCode == batchCode, token);
+        // Cleans up the now-orphaned DTRBatch header row alongside its DailyRecord rows -- a
+        // no-op for a legacy batch that predates this entity.
+        await _dtrBatchService.DeleteByCodeAsync(batchCode, token, commit: false);
         await CommitChangesAsync(token);
+    }
+
+    // Requesting deletion of an already-posted batch starts a separate DtrDeletion approval
+    // instance instead of deleting outright (a resolved Dtr posting instance can't be reopened
+    // for a second approval cycle -- see ApprovalApplicationType.DtrDeletion). The batch stays
+    // fully visible/usable (ApprovalStatus stays Approved, DailyRecord rows untouched) while the
+    // request is pending -- PendingDeletion is purely informational until it clears.
+    public async Task RequestDeletionAsync(Guid dtrBatchId, Guid requestedByEmployeeId, CancellationToken token)
+    {
+        var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
+            ?? throw new NotFoundException("DTR batch not found.");
+        if (batch.ApprovalStatus != ApprovalStatus.Approved || !batch.IsPosted)
+            throw new InvalidOperationException("Only an already-posted batch needs its deletion approved — delete an unposted draft directly instead.");
+        if (batch.PendingDeletion)
+            throw new InvalidOperationException("A deletion request is already pending for this batch.");
+
+        var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
+        if (usedBatchCodes.Contains(batch.BatchCode))
+            throw new ValidationException("Cannot delete this DTR batch — payroll has already been generated and saved from it. Delete the payroll run first if you need to regenerate it.");
+
+        batch.PendingDeletion = true;
+        batch.RequestedDeletionByEmployeeId = requestedByEmployeeId;
+        await _dtrBatchService.UpdateAsync(batch, token, commit: false);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.DtrDeletion, batch.Id, requestedByEmployeeId, token);
+        await CommitChangesAsync(token);
+    }
+
+    public async Task ApproveDeletionAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
+    {
+        var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
+            ?? throw new NotFoundException("DTR batch not found.");
+        if (!batch.PendingDeletion)
+            throw new InvalidOperationException("This batch has no deletion request awaiting approval.");
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        try
+        {
+            var result = await _approvalEngine.RecordActionAsync(
+                ApprovalApplicationType.DtrDeletion, batch.Id, batch.RequestedDeletionByEmployeeId ?? batch.GeneratedByEmployeeId,
+                approverId, approverHasOverride, ApprovalActionType.Approved, note, token);
+
+            if (result.InstanceStatus == ApprovalInstanceStatus.Approved)
+            {
+                // Fully approved -- the batch (and its DTRBatch header) is actually deleted now.
+                await ExecuteBatchDeletionAsync(batch.BatchCode, token);
+            }
+            else
+            {
+                // More steps remain in a multi-step workflow -- stays PendingDeletion, nothing
+                // else to persist here (RecordActionAsync already tracked its own writes).
+                await CommitChangesAsync(token);
+            }
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
+        }
+    }
+
+    public async Task DeclineDeletionAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
+    {
+        var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
+            ?? throw new NotFoundException("DTR batch not found.");
+        if (!batch.PendingDeletion)
+            throw new InvalidOperationException("This batch has no deletion request awaiting approval.");
+        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
+            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+
+        try
+        {
+            await _approvalEngine.RecordActionAsync(
+                ApprovalApplicationType.DtrDeletion, batch.Id, batch.RequestedDeletionByEmployeeId ?? batch.GeneratedByEmployeeId,
+                approverId, approverHasOverride, ApprovalActionType.Declined, note, token);
+
+            // Declining a deletion request just reverts the batch to normal — ApprovalStatus was
+            // never touched, so it's already back to Approved/posted as if nothing happened.
+            batch.PendingDeletion = false;
+            await _dtrBatchService.UpdateAsync(batch, token, commit: false);
+            await CommitChangesAsync(token);
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
+        }
     }
     public async Task DeleteAsync(DateRangePayload payload, List<Guid> employeeIds,
         CancellationToken token)
@@ -274,7 +505,9 @@ public class DailyRecordService : BaseService<DailyRecord>
         return expression;
     }
 
-    public async Task PostAsync(string batchCode, CancellationToken token)
+    // commit=false lets ApproveBatchAsync compose this with the DTRBatch status/posted-flag
+    // write as ONE atomic unit -- same reasoning as UnpostAsync's commit parameter below.
+    public async Task PostAsync(string batchCode, CancellationToken token, bool commit = true)
     {
         var records = await _uow.Repository
             .Find<DailyRecord>(x => x.BatchCode == batchCode && !x.Posted)
@@ -288,7 +521,8 @@ public class DailyRecordService : BaseService<DailyRecord>
         // using PaidLeaveHours/LeavesInfo already set by the DTR computation engine.
         await _reconciliation.ConsumeReservationsAsync(batchCode, records, token);
 
-        await CommitChangesAsync(token);
+        if (commit) await CommitChangesAsync(token);
+        else await SaveChangesAsync(token);
         _logger.LogInformation("DTR posted: batch {BatchCode} ({Count} records)", batchCode, records.Count);
     }
 
@@ -359,17 +593,34 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
 
+        // Left-join by BatchCode (a plain string, not a real FK) -- a legacy batch that predates
+        // DTRBatch has no matching row here and is reported as already-Approved, see BatchesModel.
+        var batchCodes = records.Select(x => x.Key).Where(x => x != null).Select(x => x!).Distinct().ToList();
+        var dtrBatches = await _dtrBatchService.FindByCodesAsync(batchCodes, token);
+        var dtrBatchesByCode = dtrBatches.ToDictionary(x => x.BatchCode);
+
         return records
          .GroupBy(x => x.Key)
-         .Select(g => new BatchesModel
+         .Select(g =>
          {
-             Code = g.Key,
-             FromDate = g.Min(x => x.WorkDate),
-             ToDate = g.Max(x => x.WorkDate),
-             EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
-             IsPosted = g.All(x => x.Posted),
-             PostingDescription = g.FirstOrDefault()?.PostingDescription ?? "",
-             IsPayrollGenerated = g.Key != null && usedBatchCodes.Contains(g.Key),
+             dtrBatchesByCode.TryGetValue(g.Key ?? "", out var dtrBatch);
+             return new BatchesModel
+             {
+                 Id = dtrBatch?.Id,
+                 Code = g.Key,
+                 FromDate = g.Min(x => x.WorkDate),
+                 ToDate = g.Max(x => x.WorkDate),
+                 EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
+                 IsPosted = g.All(x => x.Posted),
+                 PostingDescription = g.FirstOrDefault()?.PostingDescription ?? "",
+                 IsPayrollGenerated = g.Key != null && usedBatchCodes.Contains(g.Key),
+                 ApprovalStatus = dtrBatch?.ApprovalStatus ?? ApprovalStatus.Approved,
+                 GeneratedByEmployeeId = dtrBatch?.GeneratedByEmployeeId,
+                 PayrollGroupId = dtrBatch?.PayrollGroupId,
+                 GeneratedAt = dtrBatch?.CreatedAt,
+                 PendingDeletion = dtrBatch?.PendingDeletion ?? false,
+                 RequestedDeletionByEmployeeId = dtrBatch?.RequestedDeletionByEmployeeId,
+             };
          })
          .OrderByDescending(x=>x.Code)
          .ToList();

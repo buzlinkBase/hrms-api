@@ -1,4 +1,5 @@
 using DTR.Core;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
@@ -27,6 +28,8 @@ public class PayrollProcessorService
     private readonly StatutoryContributionLedgerService _statutoryLedgerService;
     private readonly PayrollInputConsumptionService _consumptionService;
     private readonly YearLockService _yearLockService;
+    private readonly ApprovalEngineService _approvalEngine;
+    private readonly DTRBatchService _dtrBatchService;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
@@ -43,7 +46,9 @@ public class PayrollProcessorService
         PayrollBatchLifecycleService batchLifecycleService,
         StatutoryContributionLedgerService statutoryLedgerService,
         PayrollInputConsumptionService consumptionService,
-        YearLockService yearLockService)
+        YearLockService yearLockService,
+        ApprovalEngineService approvalEngine,
+        DTRBatchService dtrBatchService)
     {
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
@@ -60,9 +65,11 @@ public class PayrollProcessorService
         _statutoryLedgerService = statutoryLedgerService;
         _consumptionService = consumptionService;
         _yearLockService = yearLockService;
+        _approvalEngine = approvalEngine;
+        _dtrBatchService = dtrBatchService;
     }
 
-    public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, Guid batch, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, Guid batch, Guid generatedByEmployeeId, CancellationToken token)
     {
         var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
         var alreadyPosted = payload.BatchCodes.Where(usedBatchCodes.Contains).ToList();
@@ -71,6 +78,21 @@ public class PayrollProcessorService
             throw new ValidationException(
                 $"Payroll has already been generated for DTR batch(es): {string.Join(", ", alreadyPosted)}. " +
                 "Delete the existing payroll run first if you need to regenerate it.");
+        }
+
+        // Blocks generating payroll from a DTR batch that hasn't cleared its own approval yet --
+        // a batch with no DTRBatch row at all (legacy, predates this entity) is treated as
+        // already-Approved, same convention as DailyRecordService.GetBatches.
+        var dtrBatches = await _dtrBatchService.FindByCodesAsync(payload.BatchCodes, token);
+        var unapprovedDtrBatches = dtrBatches
+            .Where(b => b.ApprovalStatus != ApprovalStatus.Approved)
+            .Select(b => b.BatchCode)
+            .ToList();
+        if (unapprovedDtrBatches.Count > 0)
+        {
+            throw new ValidationException(
+                $"Payroll generation is blocked — the following DTR batch(es) are not yet approved: " +
+                $"{string.Join(", ", unapprovedDtrBatches)}.");
         }
 
         var lines = await CalculateAsync(payload, batch,token);
@@ -94,7 +116,7 @@ public class PayrollProcessorService
         // PayrollBatch header row must be inserted under that same id, otherwise
         // Payroll.PayrollBatchId (what the frontend groups by and posts/deletes against) never
         // matches any real PayrollBatch.Id.
-        await _payrollBatchService.AddAsync(new PayrollBatch
+        var batchHeader = new PayrollBatch
         {
             Id = lines.First().PayrollBatchId,
             PayPeriodStart = lines.MinBy(x => x.PayPeriodStart)!.PayPeriodStart,
@@ -102,11 +124,17 @@ public class PayrollProcessorService
             PayDate = payload.PayDate,
             DtrBatchCodes = string.Join(",", payload.BatchCodes),
             Remarks = payload.Remarks,
-        }, token, commit: false);
+            GeneratedByEmployeeId = generatedByEmployeeId,
+        };
+        await _payrollBatchService.AddAsync(batchHeader, token, commit: false);
+        // Starts the PayrollPosting approval instance the moment this draft is Generated/Saved,
+        // same as every other application type -- see PayrollBatchLifecycleService.
+        // ApproveBatchAsync/DeclineBatchAsync, which act on it once submitted.
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchHeader.Id, generatedByEmployeeId, token);
 
         // Generating no longer marks payroll as posted — a run stays an editable/deletable
         // draft (PayrollBatch.IsPosted defaults to false) until explicitly posted via
-        // PostBatchAsync. Saving is not posting.
+        // ApproveBatchAsync. Saving is not posting.
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)
         {
@@ -122,28 +150,24 @@ public class PayrollProcessorService
         // moments earlier — see PayrollInputConsumptionService.
         await _consumptionService.MarkConsumedByDateRangeAsync(payrolls, token);
 
-        // Saving a draft locks in the DTR it was built from — posts every DTR batch this run
-        // used (idempotent/no-op on an already-posted batch) so it can't be edited or reused
-        // by another Generate run while this draft exists. See DeleteBatchAsync for the
-        // inverse: deleting a draft unposts these same DTR batches again.
-        foreach (var batchCode in payload.BatchCodes)
-        {
-            await _dtrServie.PostAsync(batchCode, token);
-        }
+        // No DTR posting loop here anymore -- the unapproved-DTR-batch check above already
+        // guarantees every batch this run used is Approved, which (via DailyRecordService.
+        // ApproveBatchAsync) already means every one of its DailyRecord rows is Posted. Calling
+        // PostAsync again here would be a redundant no-op.
         return lines;
     }
 
-    public Task<List<PayrollSummaryLine>> GenerateThirteenthMonthAsync(ThirteenthMonthRunPayload payload, CancellationToken token) =>
-        _thirteenthMonthPayrollService.GenerateAsync(payload, token);
+    public Task<List<PayrollSummaryLine>> GenerateThirteenthMonthAsync(ThirteenthMonthRunPayload payload, Guid generatedByEmployeeId, CancellationToken token) =>
+        _thirteenthMonthPayrollService.GenerateAsync(payload, generatedByEmployeeId, token);
 
-    public Task<List<PayrollSummaryLine>> GenerateLastPayAsync(LastPayRunPayload payload, CancellationToken token) =>
-        _lastPayrollService.GenerateAsync(payload, token);
+    public Task<List<PayrollSummaryLine>> GenerateLastPayAsync(LastPayRunPayload payload, Guid generatedByEmployeeId, CancellationToken token) =>
+        _lastPayrollService.GenerateAsync(payload, generatedByEmployeeId, token);
 
     public Task<List<TaxAnnualizationPreviewModel>> PreviewYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, CancellationToken token) =>
         _taxAnnualizationService.PreviewAsync(payload, token);
 
-    public Task<List<PayrollSummaryLine>> GenerateYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, CancellationToken token) =>
-        _taxAnnualizationService.GenerateAsync(payload, token);
+    public Task<List<PayrollSummaryLine>> GenerateYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, Guid generatedByEmployeeId, CancellationToken token) =>
+        _taxAnnualizationService.GenerateAsync(payload, generatedByEmployeeId, token);
 
     // Review-step data for the Last Pay generation screen — see LastPayrollService's own
     // doc comments on these two.
@@ -159,11 +183,27 @@ public class PayrollProcessorService
     public Task<List<CashBondReportModel>> GetCashBondStatusAsync(List<Guid> employeeIds, CancellationToken token) =>
         _lastPayrollService.GetCashBondStatusAsync(employeeIds, token);
 
-    public Task PostBatchAsync(Guid payrollBatchId, CancellationToken token) =>
-        _batchLifecycleService.PostBatchAsync(payrollBatchId, token);
+    public Task ApproveBatchAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        _batchLifecycleService.ApproveBatchAsync(payrollBatchId, approverEmployeeId, approverHasOverride, note, token);
+
+    public Task DeclineBatchAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        _batchLifecycleService.DeclineBatchAsync(payrollBatchId, approverEmployeeId, approverHasOverride, note, token);
 
     public Task DeleteBatchAsync(Guid payrollBatchId, CancellationToken token) =>
         _batchLifecycleService.DeleteBatchAsync(payrollBatchId, token);
+
+    public Task RequestDeletionAsync(Guid payrollBatchId, Guid requestedByEmployeeId, CancellationToken token) =>
+        _batchLifecycleService.RequestDeletionAsync(payrollBatchId, requestedByEmployeeId, token);
+
+    public Task ApproveDeletionAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        _batchLifecycleService.ApproveDeletionAsync(payrollBatchId, approverEmployeeId, approverHasOverride, note, token);
+
+    public Task DeclineDeletionAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        _batchLifecycleService.DeclineDeletionAsync(payrollBatchId, approverEmployeeId, approverHasOverride, note, token);
+
+    // Batch-list projection for the Payroll Batches tab -- see PayrollBatchService.GetBatchesAsync.
+    public Task<List<PayrollBatchListModel>> GetBatchesAsync(DateOnly from, DateOnly to, CancellationToken token) =>
+        _payrollBatchService.GetBatchesAsync(from, to, token);
 
     public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload,Guid batch, CancellationToken token)
     {

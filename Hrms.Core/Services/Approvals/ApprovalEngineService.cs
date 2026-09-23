@@ -6,9 +6,10 @@ namespace Hrms.Core.Services.Approvals;
 
 public record ApprovalActionResult(ApprovalInstanceStatus InstanceStatus, int CurrentStepNumber);
 
-// The runtime approval engine, shared across all 5 Applications types. Owns ApprovalInstance/
-// ApprovalAction state only -- it never touches LeaveApplication.ApprovalStatus or its 4
-// siblings directly (it has no generic way to, since they're 5 unrelated tables). Callers (each
+// The runtime approval engine, shared across every Applications type (Leave/Overtime/Official
+// Business/Pass Slip/Loan/Profile Update/Payroll Posting). Owns ApprovalInstance/
+// ApprovalAction state only -- it never touches LeaveApplication.ApprovalStatus or its
+// siblings directly (it has no generic way to, since they're unrelated tables). Callers (each
 // application's own service) call StartAsync right after creating their record, and
 // RecordActionAsync from their approve/decline action, then apply the returned
 // ApprovalActionResult.InstanceStatus onto their own entity's legacy ApprovalStatus field.
@@ -136,8 +137,16 @@ public class ApprovalEngineService
         string? note,
         CancellationToken token = default)
     {
-        var instance = await GetInstanceAsync(type, applicationId, token)
-            ?? await StartAsync(type, applicationId, applicantEmployeeId, token);
+        var instance = await GetInstanceAsync(type, applicationId, token);
+        // Self-healed instances are already tracked as Added (StartAsync's own AddAsync call) --
+        // calling Repository.Update on them below would downgrade that tracked state to Modified,
+        // which skips the INSERT entirely (the row is never actually written), silently
+        // orphaning the ApprovalAction row added further down (FOREIGN KEY constraint failed on
+        // ApprovalInstanceId -- caught by PayrollBatchLifecycleServiceTests' real-SQLite
+        // coverage). Guard every Update(instance) call below on NOT being this self-heal path;
+        // the existing-instance path's own Update() calls are untouched.
+        var isNewInstance = instance == null;
+        instance ??= await StartAsync(type, applicationId, applicantEmployeeId, token);
         if (instance.Status != ApprovalInstanceStatus.InProgress)
             throw new InvalidOperationException("This application is no longer awaiting approval.");
 
@@ -169,7 +178,7 @@ public class ApprovalEngineService
         if (action == ApprovalActionType.Declined)
         {
             instance.Status = ApprovalInstanceStatus.Declined;
-            _uow.Repository.Update(instance);
+            if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, note, token);
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
         }
@@ -182,7 +191,7 @@ public class ApprovalEngineService
 
         if (!ApprovalQuorum.IsStepCleared(minApprovals, approverIdsForStep))
         {
-            _uow.Repository.Update(instance);
+            if (!isNewInstance) _uow.Repository.Update(instance);
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
         }
 
@@ -190,13 +199,13 @@ public class ApprovalEngineService
         if (instance.CurrentStepNumber >= totalSteps)
         {
             instance.Status = ApprovalInstanceStatus.Approved;
-            _uow.Repository.Update(instance);
+            if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, note, token);
         }
         else
         {
             instance.CurrentStepNumber += 1;
-            _uow.Repository.Update(instance);
+            if (!isNewInstance) _uow.Repository.Update(instance);
             var nextStep = CurrentStep(instance);
             if (nextStep != null)
                 await PublishStepNotificationAsync(instance, nextStep, applicant, token);
@@ -304,10 +313,14 @@ public class ApprovalEngineService
         ApprovalApplicationType.PassSlip => "Pass Slip",
         ApprovalApplicationType.Loan => "Loan/Deduction",
         ApprovalApplicationType.ProfileUpdate => "Profile Update",
+        ApprovalApplicationType.PayrollPosting => "Payroll Posting",
+        ApprovalApplicationType.Dtr => "DTR Posting",
+        ApprovalApplicationType.DtrDeletion => "DTR Deletion",
+        ApprovalApplicationType.PayrollPostingDeletion => "Payroll Posting Deletion",
         _ => type.ToString(),
     };
 
-    // Maps the engine's own instance status back onto each of the 5 applications' pre-existing
+    // Maps the engine's own instance status back onto each application's pre-existing
     // ApprovalStatus enum, so every current report/query that reads that field keeps working
     // unchanged. InProgress means "still pending, just possibly advanced a step" -- there's no
     // partial-progress value on the legacy enum, so it stays ForApproval.

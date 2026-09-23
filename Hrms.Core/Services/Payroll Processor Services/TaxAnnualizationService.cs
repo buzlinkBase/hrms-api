@@ -1,5 +1,6 @@
 using DTR.Core;
 using Hrms.Core.Policies.DeductionPolicies;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 
@@ -30,6 +31,7 @@ public class TaxAnnualizationService
     private readonly GeneralSettingService _generalSettingService;
     private readonly YearLockService _yearLockService;
     private readonly StatutoryContributionLedgerService _statutoryLedgerService;
+    private readonly ApprovalEngineService _approvalEngine;
 
     public TaxAnnualizationService(
         PayrollService payrollService,
@@ -40,7 +42,8 @@ public class TaxAnnualizationService
         EmployeePriorEmployerTaxRecordService priorEmployerTaxRecordService,
         GeneralSettingService generalSettingService,
         YearLockService yearLockService,
-        StatutoryContributionLedgerService statutoryLedgerService)
+        StatutoryContributionLedgerService statutoryLedgerService,
+        ApprovalEngineService approvalEngine)
     {
         _payrollService = payrollService;
         _mapper = mapper;
@@ -51,6 +54,7 @@ public class TaxAnnualizationService
         _generalSettingService = generalSettingService;
         _yearLockService = yearLockService;
         _statutoryLedgerService = statutoryLedgerService;
+        _approvalEngine = approvalEngine;
     }
 
     public Task<List<TaxAnnualizationPreviewModel>> PreviewAsync(TaxAnnualizationRunPayload payload, CancellationToken token)
@@ -58,7 +62,7 @@ public class TaxAnnualizationService
         return ComputeAsync(payload, token);
     }
 
-    public async Task<List<PayrollSummaryLine>> GenerateAsync(TaxAnnualizationRunPayload payload, CancellationToken token)
+    public async Task<List<PayrollSummaryLine>> GenerateAsync(TaxAnnualizationRunPayload payload, Guid generatedByEmployeeId, CancellationToken token)
     {
         if (await _yearLockService.IsYearLockedAsync(payload.Year, token))
         {
@@ -131,7 +135,9 @@ public class TaxAnnualizationService
             PayDate = payload.PayDate,
             PayrollType = PayrollType.YearEndAdjustment,
             Remarks = payload.Remarks,
+            GeneratedByEmployeeId = generatedByEmployeeId,
         }, token, commit: false);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchId, generatedByEmployeeId, token);
 
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)

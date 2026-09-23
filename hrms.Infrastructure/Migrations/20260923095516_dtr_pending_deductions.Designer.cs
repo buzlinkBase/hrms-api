@@ -4,6 +4,7 @@ using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Infrastructure.Migrations
 {
     [DbContext(typeof(HrmsContext))]
-    partial class HrmsContextModelSnapshot : ModelSnapshot
+    [Migration("20260923095516_dtr_pending_deductions")]
+    partial class dtr_pending_deductions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4586,9 +4589,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<int>("PayrollType")
                         .HasColumnType("int");
 
-                    b.Property<bool>("PendingDeletion")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<DateTime?>("PostedAt")
                         .HasColumnType("datetime(6)");
 
@@ -4597,9 +4597,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<string>("Remarks")
                         .HasColumnType("longtext");
-
-                    b.Property<Guid?>("RequestedDeletionByEmployeeId")
-                        .HasColumnType("char(36)");
 
                     b.Property<string>("Status")
                         .IsRequired()
