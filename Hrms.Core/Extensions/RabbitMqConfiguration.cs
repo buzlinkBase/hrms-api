@@ -29,6 +29,10 @@ public static class RabbitMqConfiguration
             x.AddConsumer<LeavePeriodGrantWorker, LeavePeriodGrantWorkerDefinition>();
             x.AddConsumer<LeaveCarryOverWorker, LeaveCarryOverWorkerDefinition>();
             x.AddConsumer<UserOnboardedWorker, UserOnboardedWorkerDefinition>();
+            // hrms-api self-consumes ApprovalNotificationRequested (the same message it
+            // publishes from ApprovalEngineService) to push via SignalR -- see
+            // ApprovalPushNotificationWorker's own doc comment.
+            x.AddConsumer<ApprovalPushNotificationWorker, ApprovalPushNotificationWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -109,5 +113,13 @@ public class UserOnboardedWorkerDefinition : ConsumerDefinition<UserOnboardedWor
     public UserOnboardedWorkerDefinition()
     {
         EndpointName = "hrms-user-onboarded-que";
+    }
+}
+
+public class ApprovalPushNotificationWorkerDefinition : ConsumerDefinition<ApprovalPushNotificationWorker>
+{
+    public ApprovalPushNotificationWorkerDefinition()
+    {
+        EndpointName = "hrms-approval-push-notification-que";
     }
 }

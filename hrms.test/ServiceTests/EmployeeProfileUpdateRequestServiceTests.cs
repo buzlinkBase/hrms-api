@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Hrms.Core.Services.Approvals;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
@@ -50,6 +51,10 @@ public class EmployeeProfileUpdateRequestServiceTests
             .Returns(call => workflows.Where(call.Arg<Expression<Func<ApprovalWorkflow, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.Find<ApprovalInstance>(Arg.Any<Expression<Func<ApprovalInstance, bool>>>())
             .Returns(call => instances.Where(call.Arg<Expression<Func<ApprovalInstance, bool>>>().Compile()).ToList().BuildMockDbSet());
+        // No NotificationPreference rows in any of these tests -- ResolveDeliveryFlagsAsync's
+        // opt-out default (both channels on) is exactly what every test here expects.
+        repo.Find<NotificationPreference>(Arg.Any<Expression<Func<NotificationPreference, bool>>>())
+            .Returns(call => new List<NotificationPreference>().BuildMockDbSet());
         repo.AddAsync(Arg.Any<ApprovalInstance>(), Arg.Any<CancellationToken>())
             .Returns(new ValueTask())
             .AndDoes(call => instances.Add(call.Arg<ApprovalInstance>()));

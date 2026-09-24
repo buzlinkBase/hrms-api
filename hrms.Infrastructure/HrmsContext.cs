@@ -142,6 +142,7 @@ public class HrmsContext : DbContext, IDbContext
     public DbSet<ApprovalWorkflowStepApprover> ApprovalWorkflowStepApprovers { get; set; }
     public DbSet<ApprovalInstance> ApprovalInstances { get; set; }
     public DbSet<ApprovalAction> ApprovalActions { get; set; }
+    public DbSet<NotificationPreference> NotificationPreferences { get; set; }
 
     #endregion
 } 

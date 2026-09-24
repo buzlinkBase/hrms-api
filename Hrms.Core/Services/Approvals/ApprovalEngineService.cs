@@ -1,3 +1,4 @@
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
@@ -68,6 +69,7 @@ public class ApprovalEngineService
             existing.Workflow = workflow;
             existing.CurrentStepNumber = 1;
             existing.Status = ApprovalInstanceStatus.InProgress;
+            existing.CycleNumber += 1;
             _uow.Repository.Update(existing);
 
             var restartStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
@@ -184,6 +186,32 @@ public class ApprovalEngineService
             ?? throw new NotFoundException("Applicant not found.");
 
         var currentStep = CurrentStep(instance);
+
+        // Idempotency guard: a UI double-click or a client retry after a dropped response can
+        // send the same actor's action for the same step twice. ApprovalQuorum.IsStepCleared
+        // already de-dupes actors via .Distinct() so a repeat can't inflate quorum, but without
+        // this check it would still insert a duplicate ApprovalAction row and -- if quorum was
+        // exactly cleared by the first call -- re-run the step-advance/resolution logic and
+        // publish duplicate notifications. Scoped to CurrentStepNumber + CycleNumber together
+        // (not "ever acted on this instance"), so this only catches a repeat within THIS cycle's
+        // current step: a legitimate later action by the same person on a step the instance has
+        // since moved on to still goes through normally, and so does a fresh cycle after a
+        // restart (StartAsync's restart branch bumps CycleNumber but reuses StepNumber=1, and
+        // deliberately keeps the prior cycle's ApprovalAction rows as audit history -- without
+        // CycleNumber in this filter, a re-request from the same original approver would be
+        // wrongly treated as a duplicate of their action from the cycle that already got
+        // declined). Excludes Reassigned since that's a different kind of event (an admin may
+        // legitimately reassign more than once), and applies regardless of
+        // callerHasOverrideAccess -- an override doesn't make a repeat submission any less of a
+        // repeat.
+        var alreadyActedOnCurrentStep = instance.Actions.Any(a =>
+            a.StepNumber == instance.CurrentStepNumber &&
+            a.CycleNumber == instance.CycleNumber &&
+            a.ActorEmployeeId == callerEmployeeId &&
+            a.Action != ApprovalActionType.Reassigned);
+        if (alreadyActedOnCurrentStep)
+            return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
+
         var namedApproverIds = currentStep?.NamedApprovers.Select(a => a.EmployeeId).ToArray() ?? [];
         var eligibilityContext = new ApprovalEligibilityContext(
             caller, applicant, currentStep, namedApproverIds, instance.ReassignedApproverEmployeeId);
@@ -199,6 +227,7 @@ public class ApprovalEngineService
         {
             ApprovalInstanceId = instance.Id,
             StepNumber = instance.CurrentStepNumber,
+            CycleNumber = instance.CycleNumber,
             ActorEmployeeId = callerEmployeeId,
             Action = action,
             Note = noteRequirement == NoteRequirement.None ? null : note,
@@ -282,22 +311,31 @@ public class ApprovalEngineService
         {
             ApprovalInstanceId = instance.Id,
             StepNumber = instance.CurrentStepNumber,
+            CycleNumber = instance.CycleNumber,
             ActorEmployeeId = reassignedByEmployeeId,
             Action = ApprovalActionType.Reassigned,
             Note = note,
         }, token);
 
-        if (!string.IsNullOrWhiteSpace(newApprover.Email))
+        if (!string.IsNullOrWhiteSpace(newApprover.Email) || newApprover.UserId != null)
         {
+            var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(newApprover.Id, instance.ApplicationType, token);
+
             await _publisher.Publish(new ApprovalNotificationRequested
             {
-                RecipientEmail = newApprover.Email!,
+                RecipientEmail = newApprover.Email ?? string.Empty,
                 RecipientName = $"{newApprover.FirstName} {newApprover.LastName}".Trim(),
                 ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
                 ApplicantName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
                 StatusLabel = "Pending Your Approval",
                 StepNumber = instance.CurrentStepNumber,
                 TotalSteps = instance.Workflow?.Steps.Count ?? 1,
+                ApplicationType = instance.ApplicationType.ToString(),
+                ApplicationId = instance.ApplicationId,
+                ApprovalInstanceId = instance.Id,
+                RecipientUserId = newApprover.UserId,
+                DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(newApprover.Email),
+                DeliverPush = deliverPush && newApprover.UserId != null,
             }, token);
         }
     }
@@ -309,7 +347,7 @@ public class ApprovalEngineService
     // same resolution rules ApproverEligibilityResolver checks against a single caller, just
     // materialized into the full candidate list here since a notification may need to reach
     // several people (a whole department/position pool) rather than approve/reject one.
-    private async Task<List<(string Email, string Name)>> ResolveNotificationRecipientsAsync(
+    private async Task<List<Employee>> ResolveNotificationRecipientsAsync(
         ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
     {
         List<Employee> candidates;
@@ -349,9 +387,11 @@ public class ApprovalEngineService
         if (namedIds.Count > 0)
             candidates = candidates.Where(c => namedIds.Contains(c.Id)).ToList();
 
+        // Reachable via at least one channel -- email, push (needs a linked portal login), or
+        // both. A candidate with neither is filtered out since no notification could ever reach
+        // them either way.
         return candidates
-            .Where(c => !string.IsNullOrWhiteSpace(c.Email))
-            .Select(c => (c.Email!, $"{c.FirstName} {c.LastName}".Trim()))
+            .Where(c => !string.IsNullOrWhiteSpace(c.Email) || c.UserId != null)
             .ToList();
     }
 
@@ -362,17 +402,25 @@ public class ApprovalEngineService
         var totalSteps = instance.Workflow?.Steps.Count ?? 1;
         var applicantName = $"{applicant.FirstName} {applicant.LastName}".Trim();
 
-        foreach (var (email, name) in recipients)
+        foreach (var recipient in recipients)
         {
+            var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(recipient.Id, instance.ApplicationType, token);
+
             await _publisher.Publish(new ApprovalNotificationRequested
             {
-                RecipientEmail = email,
-                RecipientName = name,
+                RecipientEmail = recipient.Email ?? string.Empty,
+                RecipientName = $"{recipient.FirstName} {recipient.LastName}".Trim(),
                 ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
                 ApplicantName = applicantName,
                 StatusLabel = "Pending Your Approval",
                 StepNumber = instance.CurrentStepNumber,
                 TotalSteps = totalSteps,
+                ApplicationType = instance.ApplicationType.ToString(),
+                ApplicationId = instance.ApplicationId,
+                ApprovalInstanceId = instance.Id,
+                RecipientUserId = recipient.UserId,
+                DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(recipient.Email),
+                DeliverPush = deliverPush && recipient.UserId != null,
             }, token);
         }
     }
@@ -380,17 +428,40 @@ public class ApprovalEngineService
     private async Task PublishResolutionNotificationAsync(
         ApprovalInstance instance, Employee applicant, string? note, CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(applicant.Email)) return;
+        if (string.IsNullOrWhiteSpace(applicant.Email) && applicant.UserId == null) return;
+
+        var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(applicant.Id, instance.ApplicationType, token);
 
         await _publisher.Publish(new ApprovalNotificationRequested
         {
-            RecipientEmail = applicant.Email!,
+            RecipientEmail = applicant.Email ?? string.Empty,
             RecipientName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
             ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
             ApplicantName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
             StatusLabel = instance.Status == ApprovalInstanceStatus.Approved ? "Approved" : "Declined",
             Note = note,
+            ApplicationType = instance.ApplicationType.ToString(),
+            ApplicationId = instance.ApplicationId,
+            ApprovalInstanceId = instance.Id,
+            RecipientUserId = applicant.UserId,
+            DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
+            DeliverPush = deliverPush && applicant.UserId != null,
         }, token);
+    }
+
+    // No row = both channels on -- opt-out model, avoids a backfill migration; see
+    // NotificationPreference's own doc comment. Queried directly via _uow rather than through
+    // NotificationPreferenceService so this engine's constructor doesn't pick up an extra
+    // dependency purely for this lookup -- that service exists for the employee-facing settings
+    // CRUD (get/update own preferences), a different concern from this internal resolution.
+    private async Task<(bool Email, bool Push)> ResolveDeliveryFlagsAsync(
+        Guid employeeId, ApprovalApplicationType applicationType, CancellationToken token)
+    {
+        var preference = await _uow.Repository
+            .Find<NotificationPreference>(x => x.EmployeeId == employeeId && x.ApplicationType == applicationType)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(token);
+        return preference == null ? (true, true) : (preference.EmailEnabled, preference.PushEnabled);
     }
 
     private static string ApplicationTypeLabel(ApprovalApplicationType type) => type switch

@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Hrms.Core.Services.Approvals;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
@@ -34,10 +35,11 @@ public class ApprovalEngineServiceTests
     };
 
     private static (ApprovalEngineService Service, List<ApprovalInstance> Instances, List<ApprovalAction> Actions, IPublishEndpoint Publisher) BuildService(
-        List<Employee> employees, List<ApprovalWorkflow> workflows)
+        List<Employee> employees, List<ApprovalWorkflow> workflows, List<NotificationPreference>? preferences = null)
     {
         var instances = new List<ApprovalInstance>();
         var actions = new List<ApprovalAction>();
+        preferences ??= [];
 
         var repo = Substitute.For<IRepository>();
         repo.Find<Employee>(Arg.Any<Expression<Func<Employee, bool>>>())
@@ -46,6 +48,10 @@ public class ApprovalEngineServiceTests
             .Returns(call => workflows.Where(call.Arg<Expression<Func<ApprovalWorkflow, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.Find<ApprovalInstance>(Arg.Any<Expression<Func<ApprovalInstance, bool>>>())
             .Returns(call => instances.Where(call.Arg<Expression<Func<ApprovalInstance, bool>>>().Compile()).ToList().BuildMockDbSet());
+        // Empty by default -- ResolveDeliveryFlagsAsync's opt-out default (both channels on) is
+        // exactly what every test that doesn't seed a preference expects.
+        repo.Find<NotificationPreference>(Arg.Any<Expression<Func<NotificationPreference, bool>>>())
+            .Returns(call => preferences.Where(call.Arg<Expression<Func<NotificationPreference, bool>>>().Compile()).ToList().BuildMockDbSet());
         repo.AddAsync(Arg.Any<ApprovalInstance>(), Arg.Any<CancellationToken>())
             .Returns(new ValueTask())
             .AndDoes(call => instances.Add(call.Arg<ApprovalInstance>()));
@@ -270,6 +276,83 @@ public class ApprovalEngineServiceTests
     }
 
     [Fact]
+    public async Task RecordActionAsync_SameApproverActsTwiceOnSameStep_SecondCallIsANoOp()
+    {
+        // MinApprovals: 2 on a single-approver-capable step, so the FIRST call deliberately does
+        // NOT clear quorum or advance CurrentStepNumber -- the second call genuinely lands on
+        // the same still-current step, which is exactly what the new guard targets (a step that
+        // resolves/advances on the first call is already covered by the pre-existing
+        // InProgress-only check further up, since Status would no longer be InProgress by the
+        // time a second call arrived).
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee();
+        var otherApprover = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 2, NamedApprovers = [] }],
+        };
+        var (service, _, actions, publisher) = BuildService([applicant, approver, otherApprover], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        var first = await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        first.InstanceStatus.Should().Be(ApprovalInstanceStatus.InProgress);
+        first.CurrentStepNumber.Should().Be(1);
+
+        // Double-click/retry of the exact same action on the exact same still-current step.
+        var second = await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        second.Should().Be(first);
+        actions.Should().ContainSingle(a => a.ActorEmployeeId == approver.Id);
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_DepartmentQuorumOfTwo_SameApproverDoubleClicking_DoesNotClearQuorumAlone()
+    {
+        var applicant = BuildEmployee();
+        var departmentId = Guid.NewGuid();
+        var approver1 = BuildEmployee(userId: Guid.NewGuid(), departmentId: departmentId);
+        var approver2 = BuildEmployee(userId: Guid.NewGuid(), departmentId: departmentId);
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Department, ApproverDepartmentId = departmentId, MinApprovals = 2, NamedApprovers = [] }],
+        };
+        var (service, _, actions, _) = BuildService([applicant, approver1, approver2], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver1.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        // approver1 double-clicks -- must not count as a second, distinct approval.
+        var afterDoubleClick = await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver1.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        afterDoubleClick.InstanceStatus.Should().Be(ApprovalInstanceStatus.InProgress);
+        actions.Should().ContainSingle(a => a.ActorEmployeeId == approver1.Id);
+
+        var afterDistinctSecond = await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver2.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        afterDistinctSecond.InstanceStatus.Should().Be(ApprovalInstanceStatus.Approved);
+    }
+
+    [Fact]
     public async Task RecordActionAsync_RequiredNoteMissing_Throws()
     {
         var applicant = BuildEmployee();
@@ -346,7 +429,7 @@ public class ApprovalEngineServiceTests
     [Fact]
     public async Task RecordActionAsync_FinalApproval_NotifiesApplicant()
     {
-        var applicant = BuildEmployee(email: "applicant@test.com");
+        var applicant = BuildEmployee(email: "applicant@test.com", userId: Guid.NewGuid());
         var approver = BuildEmployee();
         var workflow = new ApprovalWorkflow
         {
@@ -355,7 +438,50 @@ public class ApprovalEngineServiceTests
             IsActive = true,
             Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
         };
-        var (service, _, _, publisher) = BuildService([applicant, approver], [workflow]);
+        var (service, instances, _, publisher) = BuildService([applicant, approver], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        var instance = await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        // Covers the fields added for the SignalR push channel -- ApplicationType/ApplicationId/
+        // ApprovalInstanceId are what the frontend uses to invalidate the exact query keys
+        // ApprovalStatusCell/ApprovalTimeline read; RecipientUserId is what the push consumer
+        // targets Clients.User(...) with; both Deliver* default true with no preference row.
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m =>
+                m.RecipientEmail == "applicant@test.com" && m.StatusLabel == "Approved" &&
+                m.ApplicationType == "Leave" && m.ApplicationId == applicationId &&
+                m.ApprovalInstanceId == instance.Id && m.RecipientUserId == applicant.UserId &&
+                m.DeliverEmail && m.DeliverPush),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_FinalApproval_RespectsApplicantsNotificationPreference()
+    {
+        var applicant = BuildEmployee(email: "applicant@test.com", userId: Guid.NewGuid());
+        var approver = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        // Applicant opted out of push (but not email) for Leave specifically.
+        var preference = new NotificationPreference
+        {
+            EmployeeId = applicant.Id,
+            ApplicationType = ApprovalApplicationType.Leave,
+            EmailEnabled = true,
+            PushEnabled = false,
+        };
+        var (service, _, _, publisher) = BuildService([applicant, approver], [workflow], [preference]);
 
         var applicationId = Guid.NewGuid();
         await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
@@ -366,8 +492,7 @@ public class ApprovalEngineServiceTests
             callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
 
         await publisher.Received(1).Publish(
-            Arg.Is<ApprovalNotificationRequested>(m =>
-                m.RecipientEmail == "applicant@test.com" && m.StatusLabel == "Approved"),
+            Arg.Is<ApprovalNotificationRequested>(m => m.DeliverEmail && !m.DeliverPush),
             Arg.Any<CancellationToken>());
     }
 

@@ -49,6 +49,7 @@ internal class Program
         builder.Services.AddMapster(typeof(MappingProfile).Assembly);
         builder.HrmsConfigRabbitMq();
         builder.Services.AddSignalR();
+        builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, HrmsHubUserIdProvider>();
         builder.RegisterSelfServices();
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();

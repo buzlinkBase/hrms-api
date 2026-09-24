@@ -34,6 +34,15 @@ public class ApprovalInstance : BaseEntity
     public int CurrentStepNumber { get; set; } = 1;
     public ApprovalInstanceStatus Status { get; set; } = ApprovalInstanceStatus.InProgress;
 
+    // Bumped every time StartAsync resets an already-resolved instance for a re-request (see
+    // StartAsync's restart branch) -- stays 1 for an instance that's never been restarted. Exists
+    // so RecordActionAsync's same-step idempotency guard can tell "already acted on THIS cycle's
+    // current step" apart from a same-numbered step in a PRIOR, already-resolved cycle: old
+    // ApprovalAction rows are deliberately kept as audit history across a restart (see StartAsync's
+    // own comment), and StepNumber alone gets reused (resets to 1), so StepNumber+ActorEmployeeId
+    // can collide with a stale action from before the restart without this.
+    public int CycleNumber { get; set; } = 1;
+
     // Owner/Admin override for the CURRENT step only -- when set, this employee is the sole
     // eligible approver for CurrentStepNumber, replacing whatever the step's own ApproverType
     // would normally resolve to (see ApproverEligibilityResolver.IsEligible). Cleared
@@ -55,6 +64,12 @@ public class ApprovalAction : BaseEntity
     public virtual ApprovalInstance? Instance { get; set; }
 
     public int StepNumber { get; set; }
+
+    // Snapshot of ApprovalInstance.CycleNumber at the moment this action was recorded -- lets a
+    // same-StepNumber lookup (e.g. RecordActionAsync's idempotency guard) distinguish this
+    // cycle's action from a same-numbered step's action kept as history from a prior, already-
+    // resolved cycle.
+    public int CycleNumber { get; set; } = 1;
 
     public Guid ActorEmployeeId { get; set; }
     public virtual Employee? Actor { get; set; }
