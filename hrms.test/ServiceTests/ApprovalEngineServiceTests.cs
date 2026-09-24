@@ -432,6 +432,69 @@ public class ApprovalEngineServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// Regression guard for a production 500 ("Duplicate entry ... for key
+    /// IX_ApprovalInstances_ApplicationType_ApplicationId"): StartAsync used to unconditionally
+    /// insert a new ApprovalInstance, which works the first time but violates that unique index
+    /// (one row per ApplicationType+ApplicationId, ever) the moment a second cycle is started for
+    /// the same application -- exactly what happens when a DTR/Payroll deletion request is
+    /// declined and then re-requested. StartAsync must instead reuse and reset the existing
+    /// (now-resolved) row for a new cycle.
+    /// </summary>
+    [Fact]
+    public async Task StartAsync_ExistingDeclinedInstance_ResetsInPlace_InsteadOfInsertingDuplicate()
+    {
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.PayrollPostingDeletion,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, instances, _, _) = BuildService([applicant, approver], [workflow]);
+        var applicationId = Guid.NewGuid();
+
+        await service.StartAsync(ApprovalApplicationType.PayrollPostingDeletion, applicationId, applicant.Id, CancellationToken.None);
+        await service.RecordActionAsync(
+            ApprovalApplicationType.PayrollPostingDeletion, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Declined, note: null, CancellationToken.None);
+        instances.Should().ContainSingle(i => i.Status == ApprovalInstanceStatus.Declined);
+
+        // Re-requesting deletion calls StartAsync again for the SAME applicationId -- this used
+        // to throw a duplicate-key error instead of returning a fresh cycle.
+        var act = () => service.StartAsync(ApprovalApplicationType.PayrollPostingDeletion, applicationId, applicant.Id, CancellationToken.None);
+        var restarted = await act.Should().NotThrowAsync();
+
+        instances.Should().ContainSingle("the declined row must be reused, not duplicated");
+        restarted.Subject.Status.Should().Be(ApprovalInstanceStatus.InProgress);
+        restarted.Subject.CurrentStepNumber.Should().Be(1);
+
+        // The restarted cycle must still be actionable, exactly like a brand-new instance.
+        var result = await service.RecordActionAsync(
+            ApprovalApplicationType.PayrollPostingDeletion, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        result.InstanceStatus.Should().Be(ApprovalInstanceStatus.Approved);
+    }
+
+    [Fact]
+    public async Task StartAsync_ExistingInProgressInstance_ReturnsSameInstanceUnchanged()
+    {
+        var applicant = BuildEmployee();
+        var (service, instances, _, publisher) = BuildService([applicant], []);
+        var applicationId = Guid.NewGuid();
+
+        var first = await service.StartAsync(ApprovalApplicationType.Dtr, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        var second = await service.StartAsync(ApprovalApplicationType.Dtr, applicationId, applicant.Id, CancellationToken.None);
+
+        second.Id.Should().Be(first.Id);
+        instances.Should().ContainSingle();
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task StartAsync_DepartmentStep_NotifiesEveryMemberWithLogin()
     {
@@ -452,5 +515,121 @@ public class ApprovalEngineServiceTests
 
         await publisher.Received(1).Publish(Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "member@test.com"), Arg.Any<CancellationToken>());
         await publisher.DidNotReceive().Publish(Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "nologin@test.com"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReassignApproverAsync_OriginalApprover_NoLongerEligible_OnlyReassigneeIs()
+    {
+        var applicant = BuildEmployee();
+        var originalApprover = BuildEmployee();
+        var reassignee = BuildEmployee(email: "reassignee@test.com");
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = originalApprover.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, _, _, _) = BuildService([applicant, originalApprover, reassignee], [workflow]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+
+        await service.ReassignApproverAsync(
+            ApprovalApplicationType.Leave, applicationId, reassignee.Id, applicant.Id, "Out of office", CancellationToken.None);
+
+        (await service.IsCallerEligibleAsync(ApprovalApplicationType.Leave, applicationId, reassignee.Id, CancellationToken.None))
+            .Should().BeTrue();
+        (await service.IsCallerEligibleAsync(ApprovalApplicationType.Leave, applicationId, originalApprover.Id, CancellationToken.None))
+            .Should().BeFalse("the original step-configured approver was reassigned away");
+    }
+
+    [Fact]
+    public async Task ReassignApproverAsync_Reassignee_CanRecordAction_AdvancingTheWorkflow()
+    {
+        var applicant = BuildEmployee();
+        var originalApprover = BuildEmployee();
+        var reassignee = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = originalApprover.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, _, actions, _) = BuildService([applicant, originalApprover, reassignee], [workflow]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        await service.ReassignApproverAsync(
+            ApprovalApplicationType.Leave, applicationId, reassignee.Id, applicant.Id, null, CancellationToken.None);
+
+        actions.Should().ContainSingle(a => a.Action == ApprovalActionType.Reassigned && a.ActorEmployeeId == applicant.Id);
+
+        var result = await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, reassignee.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        result.InstanceStatus.Should().Be(ApprovalInstanceStatus.Approved);
+    }
+
+    [Fact]
+    public async Task ReassignApproverAsync_OverrideClears_OnceStepResolves_DoesNotLeakIntoNextStep()
+    {
+        var applicant = BuildEmployee();
+        var step1Original = BuildEmployee();
+        var step1Reassignee = BuildEmployee();
+        var step2Approver = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps =
+            [
+                new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = step1Original.Id, MinApprovals = 1, NamedApprovers = [] },
+                new ApprovalWorkflowStep { StepNumber = 2, ApproverType = ApproverType.Person, ApproverEmployeeId = step2Approver.Id, MinApprovals = 1, NamedApprovers = [] },
+            ],
+        };
+        var (service, _, _, _) = BuildService([applicant, step1Original, step1Reassignee, step2Approver], [workflow]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        await service.ReassignApproverAsync(
+            ApprovalApplicationType.Leave, applicationId, step1Reassignee.Id, applicant.Id, null, CancellationToken.None);
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, step1Reassignee.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        // Step 1's reassignment must not carry over -- only step 2's own configured approver
+        // (not the earlier reassignee) should be eligible now.
+        (await service.IsCallerEligibleAsync(ApprovalApplicationType.Leave, applicationId, step2Approver.Id, CancellationToken.None))
+            .Should().BeTrue();
+        (await service.IsCallerEligibleAsync(ApprovalApplicationType.Leave, applicationId, step1Reassignee.Id, CancellationToken.None))
+            .Should().BeFalse("the step 1 reassignment must not leak into step 2");
+    }
+
+    [Fact]
+    public async Task ReassignApproverAsync_AlreadyResolvedInstance_Throws()
+    {
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee();
+        var reassignee = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, _, _, _) = BuildService([applicant, approver, reassignee], [workflow]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        var act = () => service.ReassignApproverAsync(
+            ApprovalApplicationType.Leave, applicationId, reassignee.Id, applicant.Id, null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 }

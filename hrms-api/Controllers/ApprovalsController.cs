@@ -98,7 +98,9 @@ namespace Hrms.Api.Controllers
                 Status = instance.Status,
                 CurrentStepNoteRequirement = currentStep?.NoteRequirement ?? NoteRequirement.None,
                 CurrentStepApproverType = currentStep?.ApproverType,
-                CurrentStepApproverLabel = ResolveApproverLabel(currentStep),
+                CurrentStepApproverLabel = instance.ReassignedApproverEmployeeId is { } reassignedId
+                    ? await ResolveEmployeeLabelAsync(reassignedId, token)
+                    : ResolveApproverLabel(currentStep),
                 Actions = instance.Actions
                     .OrderBy(a => a.CreatedAt)
                     .Select(a => new ApprovalActionResponse
@@ -123,6 +125,12 @@ namespace Hrms.Api.Controllers
                     })
                     .ToList(),
             });
+        }
+
+        private async Task<string?> ResolveEmployeeLabelAsync(Guid employeeId, CancellationToken token)
+        {
+            var employee = await _employeeService.FineOneAsync(employeeId, token);
+            return employee == null ? null : $"{employee.FirstName} {employee.LastName}".Trim();
         }
 
         private static string? ResolveApproverLabel(ApprovalWorkflowStep? step) => step?.ApproverType switch
@@ -156,6 +164,34 @@ namespace Hrms.Api.Controllers
 
             var eligible = await _approvalEngine.IsCallerEligibleAsync(applicationType, applicationId, id, token);
             return Ok(eligible);
+        }
+
+        // Owner/Admin-only escape hatch for a step whose configured/resolved approver can't
+        // actually act -- reassigns the CURRENT step to a specific employee. See
+        // ApprovalEngineService.ReassignApproverAsync for why this can't be a per-module
+        // permission check the way Approve/Decline are (it's an admin power move, not a
+        // workflow step action).
+        [HttpPost("{applicationType}/{applicationId}/reassign")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Reassign(
+            ApprovalApplicationType applicationType, Guid applicationId,
+            [FromBody] ReassignApproverRequest body, CancellationToken token)
+        {
+            if (!User.IsOwnerOrAdmin()) return Forbid();
+
+            var callerEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+                ?? throw new InvalidOperationException(
+                    "Your account isn't linked to an Employee record, so this action can't be attributed to you. Contact an admin to link your account.");
+
+            await _approvalEngine.ReassignApproverAsync(
+                applicationType, applicationId, body.NewApproverEmployeeId, callerEmployeeId, body.Note, token);
+            // ApprovalEngineService never commits (callers own the transaction, same as every
+            // other engine method) -- _employeeService shares the same scoped
+            // IUnitOfWorkService, so its CommitChangesAsync finalizes the same transaction
+            // ReassignApproverAsync just wrote to.
+            await _employeeService.CommitChangesAsync(token);
+            return Ok("success");
         }
     }
 }

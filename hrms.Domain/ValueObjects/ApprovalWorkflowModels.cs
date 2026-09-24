@@ -91,3 +91,11 @@ public class ApprovalInstanceResponse
     public List<ApprovalActionResponse> Actions { get; set; } = [];
     public List<ApprovalStepSummaryResponse> Steps { get; set; } = [];
 }
+
+// ApprovalsController's Owner/Admin-only "Reassign" action payload — see
+// ApprovalEngineService.ReassignApproverAsync.
+public class ReassignApproverRequest
+{
+    public Guid NewApproverEmployeeId { get; set; }
+    public string? Note { get; set; }
+}

@@ -34,6 +34,14 @@ public class ApprovalInstance : BaseEntity
     public int CurrentStepNumber { get; set; } = 1;
     public ApprovalInstanceStatus Status { get; set; } = ApprovalInstanceStatus.InProgress;
 
+    // Owner/Admin override for the CURRENT step only -- when set, this employee is the sole
+    // eligible approver for CurrentStepNumber, replacing whatever the step's own ApproverType
+    // would normally resolve to (see ApproverEligibilityResolver.IsEligible). Cleared
+    // automatically whenever CurrentStepNumber advances or the instance resolves (see
+    // ApprovalEngineService.RecordActionAsync), so it never leaks into a later step.
+    public Guid? ReassignedApproverEmployeeId { get; set; }
+    public virtual Employee? ReassignedApprover { get; set; }
+
     public virtual ICollection<ApprovalAction> Actions { get; set; } = new List<ApprovalAction>();
 }
 

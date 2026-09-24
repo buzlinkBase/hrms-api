@@ -610,6 +610,9 @@ public enum ApprovalActionType
 {
     Approved,
     Declined,
+    // Audit-trail marker for ApprovalEngineService.ReassignApproverAsync -- never counted by
+    // ApprovalQuorum.IsStepCleared (that only sums Approved rows), purely a timeline entry.
+    Reassigned,
 }
 
 public enum OutBoxState

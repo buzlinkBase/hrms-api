@@ -27,6 +27,8 @@ public class ApprovalInstanceConfig : IEntityTypeConfiguration<ApprovalInstance>
             .HasForeignKey(x => x.ApprovalWorkflowId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Applicant).WithMany()
             .HasForeignKey(x => x.ApplicantEmployeeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.ReassignedApprover).WithMany()
+            .HasForeignKey(x => x.ReassignedApproverEmployeeId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

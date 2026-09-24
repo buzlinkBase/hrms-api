@@ -181,6 +181,11 @@ public class MeControllerTests
         // implicit single-step legacy instance, exactly like an unconfigured tenant in production.
         repo.Find<ApprovalWorkflow>(Arg.Any<Expression<Func<ApprovalWorkflow, bool>>>())
             .Returns(_ => new List<ApprovalWorkflow>().BuildMockDbSet());
+        // StartAsync now checks for an existing ApprovalInstance before inserting (see its
+        // "reuse and reset a resolved instance" fix) -- none of these tests ever have one yet,
+        // so this always resolves the "create brand new" path, same as before that fix.
+        repo.Find<ApprovalInstance>(Arg.Any<Expression<Func<ApprovalInstance, bool>>>())
+            .Returns(_ => new List<ApprovalInstance>().BuildMockDbSet());
         repo.FindOneAsync<Payroll>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => payroll != null && call.Arg<Guid>() == payroll.Id ? payroll : null);
         repo.FindOneAsync<Deduction>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())

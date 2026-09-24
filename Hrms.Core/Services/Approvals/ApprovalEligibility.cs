@@ -11,7 +11,11 @@ public record ApprovalEligibilityContext(
     Employee Caller,
     Employee Applicant,
     ApprovalWorkflowStep? Step, // null = implicit legacy fallback step (no workflow configured)
-    IReadOnlyCollection<Guid> NamedApproverEmployeeIds);
+    IReadOnlyCollection<Guid> NamedApproverEmployeeIds,
+    // Set when an Owner/Admin has reassigned the CURRENT step to a specific employee (see
+    // ApprovalInstance.ReassignedApproverEmployeeId) -- when present, fully replaces the
+    // Step's own ApproverType resolution for eligibility purposes.
+    Guid? ReassignedApproverEmployeeId = null);
 
 // One resolution rule per ApproverType (Enums.ApproverType) -- see the approver-type table in
 // the approved plan. Kept as a Strategy per type rather than one branching method so each rule
@@ -105,6 +109,9 @@ public class ApproverEligibilityResolver
 
     public bool IsEligible(ApprovalEligibilityContext context)
     {
+        if (context.ReassignedApproverEmployeeId is { } reassignedId)
+            return context.Caller.Id == reassignedId;
+
         if (context.Step is null) return true;
 
         return Strategies.TryGetValue(context.Step.ApproverType, out var strategy)

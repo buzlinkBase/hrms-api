@@ -50,6 +50,33 @@ public class ApprovalEngineService
 
         var workflow = await ResolveActiveWorkflowAsync(applicationType, applicant.DepartmentId, token);
 
+        // IX_ApprovalInstances_ApplicationType_ApplicationId is unique -- "one live instance per
+        // application record" (see ApprovalInstanceConfig). A prior cycle for this exact
+        // application can already exist and be resolved (e.g. a declined DTR/Payroll deletion
+        // request being re-requested) without ever being cleaned up, so blindly inserting a new
+        // row here would violate that constraint. Reuse and reset that same row for the new
+        // cycle instead -- its past Actions are left in place as audit history ("declined, then
+        // re-requested"), only the cycle state resets. An instance still InProgress is returned
+        // as-is (idempotent) rather than restarted out from under whoever's already reviewing it.
+        var existing = await GetInstanceAsync(applicationType, applicationId, token);
+        if (existing != null)
+        {
+            if (existing.Status == ApprovalInstanceStatus.InProgress) return existing;
+
+            existing.ApplicantEmployeeId = applicantEmployeeId;
+            existing.ApprovalWorkflowId = workflow?.Id;
+            existing.Workflow = workflow;
+            existing.CurrentStepNumber = 1;
+            existing.Status = ApprovalInstanceStatus.InProgress;
+            _uow.Repository.Update(existing);
+
+            var restartStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
+            if (restartStep != null)
+                await PublishStepNotificationAsync(existing, restartStep, applicant, token);
+
+            return existing;
+        }
+
         var instance = new ApprovalInstance
         {
             ApplicationType = applicationType,
@@ -116,7 +143,8 @@ public class ApprovalEngineService
 
         var currentStep = CurrentStep(instance);
         var namedApproverIds = currentStep?.NamedApprovers.Select(a => a.EmployeeId).ToArray() ?? [];
-        return _eligibility.IsEligible(new ApprovalEligibilityContext(caller, applicant, currentStep, namedApproverIds));
+        return _eligibility.IsEligible(new ApprovalEligibilityContext(
+            caller, applicant, currentStep, namedApproverIds, instance.ReassignedApproverEmployeeId));
     }
 
     // callerHasOverrideAccess: true for Owner/Admin, who may act on any pending step regardless
@@ -157,7 +185,8 @@ public class ApprovalEngineService
 
         var currentStep = CurrentStep(instance);
         var namedApproverIds = currentStep?.NamedApprovers.Select(a => a.EmployeeId).ToArray() ?? [];
-        var eligibilityContext = new ApprovalEligibilityContext(caller, applicant, currentStep, namedApproverIds);
+        var eligibilityContext = new ApprovalEligibilityContext(
+            caller, applicant, currentStep, namedApproverIds, instance.ReassignedApproverEmployeeId);
 
         if (!callerHasOverrideAccess && !_eligibility.IsEligible(eligibilityContext))
             throw new UnauthorizedAccessException("You are not an eligible approver for this step.");
@@ -178,6 +207,7 @@ public class ApprovalEngineService
         if (action == ApprovalActionType.Declined)
         {
             instance.Status = ApprovalInstanceStatus.Declined;
+            instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, note, token);
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
@@ -199,12 +229,14 @@ public class ApprovalEngineService
         if (instance.CurrentStepNumber >= totalSteps)
         {
             instance.Status = ApprovalInstanceStatus.Approved;
+            instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, note, token);
         }
         else
         {
             instance.CurrentStepNumber += 1;
+            instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
             var nextStep = CurrentStep(instance);
             if (nextStep != null)
@@ -212,6 +244,62 @@ public class ApprovalEngineService
         }
 
         return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
+    }
+
+    // Owner/Admin-only escape hatch for a step whose configured/resolved approver can't
+    // actually act (out of office, left the company, wrongly assigned) -- swaps the CURRENT
+    // step's sole eligible approver to a specific employee, without touching the shared
+    // ApprovalWorkflow/ApprovalWorkflowStep template (which is permanently frozen once any
+    // instance references it -- see ApprovalWorkflowService.EnsureEditableAsync). The override
+    // is scoped to exactly this step: RecordActionAsync clears it the moment the step advances
+    // or the instance resolves, so it never carries into a step it wasn't meant for. No
+    // eligibility check on the act of reassigning itself -- gated entirely by the caller
+    // (controller layer) being Owner/Admin, same as callerHasOverrideAccess elsewhere.
+    public async Task ReassignApproverAsync(
+        ApprovalApplicationType type,
+        Guid applicationId,
+        Guid newApproverEmployeeId,
+        Guid reassignedByEmployeeId,
+        string? note,
+        CancellationToken token = default)
+    {
+        var instance = await GetInstanceAsync(type, applicationId, token)
+            ?? throw new NotFoundException("No approval instance found for this application.");
+        if (instance.Status != ApprovalInstanceStatus.InProgress)
+            throw new InvalidOperationException("This application is no longer awaiting approval.");
+
+        var newApprover = await _uow.Repository.Find<Employee>(e => e.Id == newApproverEmployeeId)
+            .AsNoTracking().FirstOrDefaultAsync(token)
+            ?? throw new NotFoundException("Employee not found.");
+        var applicant = await _uow.Repository.Find<Employee>(e => e.Id == instance.ApplicantEmployeeId)
+            .AsNoTracking().FirstOrDefaultAsync(token)
+            ?? throw new NotFoundException("Applicant not found.");
+
+        instance.ReassignedApproverEmployeeId = newApproverEmployeeId;
+        _uow.Repository.Update(instance);
+
+        await _uow.Repository.AddAsync(new ApprovalAction
+        {
+            ApprovalInstanceId = instance.Id,
+            StepNumber = instance.CurrentStepNumber,
+            ActorEmployeeId = reassignedByEmployeeId,
+            Action = ApprovalActionType.Reassigned,
+            Note = note,
+        }, token);
+
+        if (!string.IsNullOrWhiteSpace(newApprover.Email))
+        {
+            await _publisher.Publish(new ApprovalNotificationRequested
+            {
+                RecipientEmail = newApprover.Email!,
+                RecipientName = $"{newApprover.FirstName} {newApprover.LastName}".Trim(),
+                ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
+                ApplicantName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
+                StatusLabel = "Pending Your Approval",
+                StepNumber = instance.CurrentStepNumber,
+                TotalSteps = instance.Workflow?.Steps.Count ?? 1,
+            }, token);
+        }
     }
 
     private static ApprovalWorkflowStep? CurrentStep(ApprovalInstance instance) =>
