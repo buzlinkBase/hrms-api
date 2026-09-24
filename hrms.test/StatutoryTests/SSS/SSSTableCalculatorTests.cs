@@ -4,14 +4,17 @@ namespace hrms.test.StatutoryTests.SSS;
 
 /// <summary>
 /// Covers ComputationBasis.Table across all four PayrollFrequency values. Fixed and Variable
-/// salary types split their outstanding balance the same way every cutoff (even divisor
-/// split, self-corrected on the final period — see CutoffAllocationStrategy); they only
-/// differ in what the bracket lookup itself is based on — Fixed projects the full month from
-/// MonthlyRate, Variable brackets off actual gross earned so far (see
-/// StatutoryHelper.GetSemiMonthlyBracketBaseRate/GetWeeklyBracketBaseRate). Each multi-period
-/// test simulates a real payroll group by chaining periods sequentially, feeding forward
-/// posted contributions and prior gross exactly as PayrollRangeContextComposerService would
-/// across real payroll runs.
+/// differ in both what the bracket lookup is based on AND how a non-final cutoff's amount is
+/// derived: Fixed projects the full month from MonthlyRate and splits that evenly by the
+/// cutoff count (a real half, since the projection is monthly-scale — see
+/// CutoffAllocationStrategy); Variable brackets off actual gross earned so far (see
+/// StatutoryHelper.GetSemiMonthlyBracketBaseRate/GetWeeklyBracketBaseRate), which is already
+/// period-scoped, so it withholds that bracket amount in full rather than dividing it again
+/// (see CutoffDivisorResolver). Both converge on the exact correct monthly total via the last
+/// cutoff's unconditional true-up (GetBalance nets against what's already posted this month).
+/// Each multi-period test simulates a real payroll group by chaining periods sequentially,
+/// feeding forward posted contributions and prior gross exactly as
+/// PayrollRangeContextComposerService would across real payroll runs.
 /// </summary>
 public class SSSTableCalculatorTests : TestContextBase
 {
@@ -58,27 +61,48 @@ public class SSSTableCalculatorTests : TestContextBase
     }
 
     [Fact]
-    public void SemiMonthly_Variable_SplitsEvenlyAcrossCutoffs_SameAsFixed()
+    public void SemiMonthly_Variable_BracketsEachCutoffOffActualGrossToDate_TruesUpOnLastCutoff()
     {
-        // Cutoff 1: 12,000 actually earned -> bracket A (EE 900), split evenly by the 2
-        // configured cutoffs -> 450. Variable's bracket lookup is still actual-gross-based
-        // (unlike Fixed's monthly-rate projection), but the WITHHOLDING SPLIT is identical
-        // to Fixed's — see CutoffAllocationStrategy.
+        // Cutoff 1: 12,000 actually earned -> bracket A (EE 900). Unlike Fixed (which projects
+        // the whole month and so genuinely needs dividing by the cutoff count), Variable's
+        // bracket lookup is ALREADY scoped to actual gross earned so far -- 900 is already the
+        // correct amount for this period's income, so it's withheld in full, not halved.
         var cutoff1 = BuildSemiMonthly(SalaryType.VARIABLE, 12_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
         var result1 = new DeductionPipeline().Run(cutoff1);
-        result1.SSS.EE.Should().Be(450);
+        result1.SSS.EE.Should().Be(900);
 
         // Cutoff 2: 20,000 more actually earned, 12,000 already posted this month -> combined
         // 32,000 gross -> bracket B (EE 1,350). Second cutoff always takes the exact
-        // remaining balance regardless of divisor, netting out the 450 already withheld.
+        // remaining balance regardless of divisor, netting out the 900 already withheld.
         var cutoff2 = BuildSemiMonthly(SalaryType.VARIABLE, 20_000, new DateOnly(2025, 3, 16), new DateOnly(2025, 3, 31));
         cutoff2.Employee.Id = cutoff1.Employee.Id;
         AddPriorPayroll(cutoff2, 12_000);
-        AddSSSContribution(cutoff2, 450, 945, 5);
+        AddSSSContribution(cutoff2, 900, 1_890, 10);
         var result2 = new DeductionPipeline().Run(cutoff2);
-        result2.SSS.EE.Should().Be(900); // 1,350 - 450
+        result2.SSS.EE.Should().Be(450); // 1,350 - 900
 
+        // Same monthly total as before, just a proportional split instead of an artificially
+        // even one followed by a disproportionate catch-up.
         (result1.SSS.EE + result2.SSS.EE).Should().Be(1_350);
+    }
+
+    [Fact]
+    public void SemiMonthly_SecondHalfMonthSchedule_Variable_SecondCutoffReleasesFullTruedUpAmount()
+    {
+        // SecondHalfMonth withholds nothing on the first cutoff regardless of salary type...
+        var cutoff1 = BuildSemiMonthly(SalaryType.VARIABLE, 12_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+        cutoff1.Employee.PayrollGroup!.StatutoryDeductionSchedule = StatutoryDeductionSchedule.SecondHalfMonth;
+        var result1 = new DeductionPipeline().Run(cutoff1);
+        result1.SSS.EE.Should().Be(0);
+
+        // ...then the second (last) cutoff always takes the exact remaining balance -- here
+        // nothing was posted yet, so it's the full combined-bracket amount for the whole month.
+        var cutoff2 = BuildSemiMonthly(SalaryType.VARIABLE, 20_000, new DateOnly(2025, 3, 16), new DateOnly(2025, 3, 31));
+        cutoff2.Employee.Id = cutoff1.Employee.Id;
+        cutoff2.Employee.PayrollGroup!.StatutoryDeductionSchedule = StatutoryDeductionSchedule.SecondHalfMonth;
+        AddPriorPayroll(cutoff2, 12_000);
+        var result2 = new DeductionPipeline().Run(cutoff2);
+        result2.SSS.EE.Should().Be(1_350); // combined 32,000 gross -> bracket B, released in full
     }
 
     [Fact]
@@ -198,18 +222,23 @@ public class SSSTableCalculatorTests : TestContextBase
     }
 
     [Fact]
-    public void Weekly_Variable_SplitsEvenlyByRemainingWeeks_SameAsFixed()
+    public void Weekly_Variable_BracketsEachWeekOffActualGrossToDate_TruesUpOnLastWeek()
     {
-        // Bracket shifts from A (EE 900) to B (EE 1,350) once combined gross crosses
-        // 20,000 (between week 2 and week 3) — the divisor still shrinks week to week (4,
-        // 3, 2, then the last week's unconditional true-up), same mechanics as Fixed.
+        // Unlike Fixed (which projects the whole month and genuinely needs splitting across
+        // the remaining weeks), Variable's bracket lookup (StatutoryHelper.
+        // GetWeeklyBracketBaseRate) is already scoped to actual gross earned so far this
+        // month — see TableSSSWeeklyCalculator's VARIABLE short-circuit. Week 1: 7,500 ->
+        // bracket A (EE 900), withheld in full. Week 2: cumulative 15,000 still bracket A ->
+        // already fully posted, nothing due. Week 3: cumulative 22,500 crosses into bracket B
+        // (EE 1,350) -> the 450 not yet posted. Week 4 (last, unconditional true-up):
+        // cumulative 30,000 stays in bracket B -> already fully posted, nothing due.
         var empId = NewEmployeeId();
         decimal totalEE = 0;
         decimal postedEE = 0;
         decimal priorGross = 0;
         var weekGross = 7_500m;
         var starts = new[] { 1, 8, 15, 22 };
-        var expected = new decimal[] { 225m, 300m, 675m, 150m }; // hand-computed, see class doc
+        var expected = new decimal[] { 900m, 0m, 450m, 0m };
 
         for (int i = 0; i < 4; i++)
         {

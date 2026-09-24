@@ -54,6 +54,14 @@ public class CutoffDivisorResolver
 
     public int Resolve(DeductionPayloadContext context, ICutoffPolicyResolver resolver, StatutoryReleaseAction scheduleAction)
     {
+        // Variable's bracket lookup (StatutoryHelper.GetSemiMonthlyBracketBaseRate/
+        // GetWeeklyBracketBaseRate) is already scoped to actual gross earned so far this
+        // month, not a whole-month projection the way Fixed's is -- so table.EE/ER/EC here is
+        // already the correct amount for income earned to date. Dividing it again by the
+        // cutoff count would under-withhold every non-final cutoff and force a
+        // disproportionately large true-up on the last one (see GetBalance's netting, which is
+        // what actually makes a multi-cutoff schedule correct here).
+        if (context.Employee.SalaryType == SalaryType.VARIABLE) return 1;
         // Semi-Monthly payroll groups are validated to have at least two configured
         // cutoffs (PayrollGroupService.CreateValidatorAsync), but the count is no longer
         // assumed to always be exactly two now that cutoffs are admin-configurable.

@@ -50,7 +50,11 @@ internal static class PHICHelper
     public static (decimal EEBalance, decimal ERBalance) GetBalance(DeductionPayloadContext context, decimal ee, decimal er)
     {
         // Client capping is already fully applied in GetTable (by downgrading to a smaller,
-        // self-consistent bracket) — ee/er here are already the capped values.
+        // self-consistent bracket) — ee/er here are already the capped values. Nets against
+        // what's already been posted this month for BOTH salary types -- this is what makes
+        // the last cutoff's mandatory true-up correct (see CutoffDivisorResolver's doc
+        // comment); bypassing it for Variable would double-charge the last cutoff instead of
+        // withholding just the remainder.
         var contributions = GetCurrentMonthContribution(context);
         var eebalance = Math.Max(ee - contributions.Sum(x => x.EmployeeShare), 0);
         var erbalance = Math.Max(er - contributions.Sum(x => x.EmployerShare), 0);

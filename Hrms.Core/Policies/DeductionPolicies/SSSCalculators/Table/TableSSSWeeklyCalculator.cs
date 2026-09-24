@@ -49,47 +49,59 @@
             int? daysWorked = null;
             int? totalDaysInMonth = null;
 
-            try
+            // Same rationale as CutoffDivisorResolver.Resolve's VARIABLE short-circuit (the
+            // Semi-Monthly equivalent of this divisor): Variable's bracket lookup
+            // (StatutoryHelper.GetWeeklyBracketBaseRate) is already scoped to actual gross
+            // earned so far this month, so table.EE/ER/EC here is already the correct amount
+            // for income earned to date. Spreading it across the remaining weeks -- or the
+            // cross-month/mid-hire day-proration below, which only makes sense against a
+            // Fixed employee's whole-month projection -- would under-withhold every non-final
+            // week and force a disproportionate true-up onto the last one (see GetBalance's
+            // netting, which is what actually makes this correct).
+            if (context.Employee.SalaryType != SalaryType.VARIABLE)
             {
-                if (isCrossMonth)
+                try
                 {
-                    if (StatutoryHelper.IsHiredThisMonth(context))
+                    if (isCrossMonth)
                     {
-                        totalDaysInMonth = DateTime.DaysInMonth(context.Payload.FromDate.Year, context.Payload.FromDate.Month);
-                        daysWorked = (context.Payload.ToDate.ToDateTime(TimeOnly.MinValue) -
-                                      context.Employee.HireDate.ToDateTime(TimeOnly.MinValue)).Days + 1;
+                        if (StatutoryHelper.IsHiredThisMonth(context))
+                        {
+                            totalDaysInMonth = DateTime.DaysInMonth(context.Payload.FromDate.Year, context.Payload.FromDate.Month);
+                            daysWorked = (context.Payload.ToDate.ToDateTime(TimeOnly.MinValue) -
+                                          context.Employee.HireDate.ToDateTime(TimeOnly.MinValue)).Days + 1;
+                        }
+                        else
+                        {
+                            divisor = 1; // already active → deduct all
+                        }
                     }
                     else
                     {
-                        divisor = 1; // already active → deduct all
-                    }
-                }
-                else
-                {
-                    // Recompute the remaining-weeks-in-month divisor every time (not just
-                    // "if nothing withheld yet") so it decreases correctly week over week
-                    // once prior withholding is actually persisted, instead of sweeping the
-                    // entire remaining balance the first time the ledger isn't empty.
-                    divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
+                        // Recompute the remaining-weeks-in-month divisor every time (not just
+                        // "if nothing withheld yet") so it decreases correctly week over week
+                        // once prior withholding is actually persisted, instead of sweeping the
+                        // entire remaining balance the first time the ledger isn't empty.
+                        divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
 
-                    if (StatutoryHelper.IsHiredThisMonth(context))
-                    {
-                        totalDaysInMonth = DateTime.DaysInMonth(context.Payload.FromDate.Year, context.Payload.FromDate.Month);
-                        daysWorked = (context.Payload.ToDate.ToDateTime(TimeOnly.MinValue) -
-                                      context.Employee.HireDate.ToDateTime(TimeOnly.MinValue)).Days + 1;
-
-                        // If hired in last week → proration will apply
-                        if (!(context.Payload.FromDate.IsLastWeekOfMonth() || context.Payload.ToDate.IsLastWeekOfMonth()))
+                        if (StatutoryHelper.IsHiredThisMonth(context))
                         {
-                            divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
+                            totalDaysInMonth = DateTime.DaysInMonth(context.Payload.FromDate.Year, context.Payload.FromDate.Month);
+                            daysWorked = (context.Payload.ToDate.ToDateTime(TimeOnly.MinValue) -
+                                          context.Employee.HireDate.ToDateTime(TimeOnly.MinValue)).Days + 1;
+
+                            // If hired in last week → proration will apply
+                            if (!(context.Payload.FromDate.IsLastWeekOfMonth() || context.Payload.ToDate.IsLastWeekOfMonth()))
+                            {
+                                divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
+                            }
                         }
                     }
                 }
-            }
-            catch (CutoffMismatchException ex)
-            {
-                //AuditLogger.Warn(ex.Message);
-                divisor = 1;
+                catch (CutoffMismatchException ex)
+                {
+                    //AuditLogger.Warn(ex.Message);
+                    divisor = 1;
+                }
             }
 
             // FirstHalfMonth/SecondHalfMonth on their matching cutoff — release the full

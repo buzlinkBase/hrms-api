@@ -10,20 +10,20 @@ public class PayrollService : BaseService<Payroll>
         _mapper = mapper;
     }
 
+    // Deliberately NOT gated on IsPosted: the SSS/PHIC/HDMF contribution ledger this feeds
+    // alongside (SSSContributionService.LoadContributionsAsync et al.) is written
+    // unconditionally at Generate time and scoped the same way (month/year only), so gating
+    // this query on IsPosted while that one isn't would make an earlier-this-month draft
+    // "invisible" here but "already posted" there -- GetBalance's netting would then subtract
+    // a contribution from a bracket lookup that never saw the gross behind it, under-shooting
+    // (even flooring to zero) instead of truing up. See StatutoryHelper's Get*GrossBaseRate.
     public async Task<Dictionary<EmployeeKey, List<Payroll>>> LoadPostedPayrollAsync(DateOnly fromDate, DateOnly toDate,
         CancellationToken token)
     {
-        //var spec = new IsPostedSpec<Payroll>(true)
-        //    .And(new IsDateByMonthYearSpec<Payroll>(fromDate))
-        //    .AndNot(new IsDateWithinRangeSpec<Payroll>(fromDate, toDate))
-        //    ;
         return await GetQueryable(x =>
-                 //x.PayrollDate >= fromDate && x.PayrollDate <= toDate &&
-                 x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year  &&
-                 x.IsPosted)
+                 x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
-        ;
     }
 
     public async Task<Payroll?> FineOneAsync(Guid Id, CancellationToken token)

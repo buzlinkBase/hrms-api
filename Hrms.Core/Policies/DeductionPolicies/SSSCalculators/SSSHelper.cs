@@ -55,6 +55,10 @@ internal static class SSSHelper
         // Client capping is already fully applied in GetTable (by downgrading to a smaller,
         // self-consistent bracket) — ee/er/ec here are already the capped values, so this
         // just nets them against whatever's already been posted this month, same as always.
+        // Applies to BOTH salary types -- this netting is what makes the last cutoff's
+        // mandatory true-up correct (see CutoffDivisorResolver's doc comment); bypassing it
+        // for Variable would double-charge the last cutoff instead of withholding just the
+        // remainder.
         var contributions = GetCurrentMonthContribution(context);
         var eebalance = Math.Max(ee - contributions.Sum(x => x.EE), 0);
         var erbalance = Math.Max(er - contributions.Sum(x => x.ER), 0);

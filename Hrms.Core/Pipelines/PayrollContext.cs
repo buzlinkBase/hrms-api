@@ -24,6 +24,11 @@ public class CalculatorPayload : BasePayloadContext
     // Client.RetirementDaysPerYear keyed by Client.Id -- absent key or a null value means that
     // client gives no retirement benefit. See EmployeePayrollLineService.ComputeRetirementAccrual.
     public Dictionary<Guid, decimal?> ClientRetirementDaysPerYear { get; set; } = new();
+    // Populated by PayrollService.LoadPostedPayrollAsync -- despite the name, this includes
+    // still-unposted (draft) payrolls generated earlier this month, not just approved/Posted
+    // ones. Kept that way deliberately so it stays scoped identically to SSSContribution/
+    // PHICContribution/HDMFContribution below, which are also written at Generate time
+    // regardless of posted status.
     public Dictionary<EmployeeKey, List<Payroll>> PostedPriorPayrolls { get; set; } = new();
     public Dictionary<Leavekey, List<LeaveApplication>> Leaves { get; set; } = new();
     public Dictionary<EmployeeLeaveCreditsKey, decimal> LeaveCredits { get; set; } = new();
