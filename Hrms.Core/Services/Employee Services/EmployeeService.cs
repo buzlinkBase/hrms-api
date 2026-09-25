@@ -324,6 +324,31 @@ public class EmployeeService : BaseService<Employee>
             MetaData = new PaginationMetaData(await query.CountAsync(), payload.Page, payload.Limit)
         };
     }
+    // Setup → Employee table: filtering, sorting and paging all happen here, in the database,
+    // instead of shipping every employee to the browser. Same EmployeeModel projection as
+    // LoadAll so the table gets identical fields. See EmployeeListQueryBuilder.
+    public async Task<PaginatedResult<List<EmployeeModel>>> SearchAsync(EmployeeListQuery query, CancellationToken token)
+    {
+        var page = query.NormalizedPage;
+        var limit = query.NormalizedLimit;
+
+        var filtered = GetQueryable().ApplyFilters(query);
+        var total = await filtered.CountAsync(token);
+
+        var employees = await filtered
+            .ApplySort(query.SortField, query.SortOrder)
+            .Skip((page - 1) * limit)
+            .Take(limit)
+            .ProjectToType<EmployeeModel>(_config)
+            .ToListAsync(token);
+
+        return new PaginatedResult<List<EmployeeModel>>
+        {
+            Data = employees,
+            MetaData = new PaginationMetaData(total, page, limit),
+        };
+    }
+
     public async Task<PaginatedResult<List<EmployeeFullModel>>> LoadAllFullAsync(PaginationPayload payload, CancellationToken token)
     {
 

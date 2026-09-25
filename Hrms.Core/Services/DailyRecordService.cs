@@ -2,6 +2,7 @@
 using DocumentFormat.OpenXml.Office2010.ExcelAc;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using Microsoft.Extensions.Logging;
 
@@ -599,6 +600,23 @@ public class DailyRecordService : BaseService<DailyRecord>
         var dtrBatches = await _dtrBatchService.FindByCodesAsync(batchCodes, token);
         var dtrBatchesByCode = dtrBatches.ToDictionary(x => x.BatchCode);
 
+        // One lookup for every generator/deletion-requester across all batches, so the UI can
+        // show names without downloading the whole employee list to resolve a few ids.
+        var employeeIds = dtrBatches
+            .Select(x => x.GeneratedByEmployeeId)
+            .Concat(dtrBatches.Where(x => x.RequestedDeletionByEmployeeId.HasValue)
+                .Select(x => x.RequestedDeletionByEmployeeId!.Value))
+            .Distinct()
+            .ToList();
+        var employeeNames = employeeIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _uow.Repository.Find<Employee>(x => employeeIds.Contains(x.Id))
+                .AsNoTracking()
+                .ToListAsync(token))
+                .ToDictionary(x => x.Id, x => x.FullName());
+        string? NameOf(Guid? id) =>
+            id.HasValue && employeeNames.TryGetValue(id.Value, out var name) ? name : null;
+
         return records
          .GroupBy(x => x.Key)
          .Select(g =>
@@ -616,10 +634,16 @@ public class DailyRecordService : BaseService<DailyRecord>
                  IsPayrollGenerated = g.Key != null && usedBatchCodes.Contains(g.Key),
                  ApprovalStatus = dtrBatch?.ApprovalStatus ?? ApprovalStatus.Approved,
                  GeneratedByEmployeeId = dtrBatch?.GeneratedByEmployeeId,
+                 GeneratedByName = NameOf(dtrBatch?.GeneratedByEmployeeId),
                  PayrollGroupId = dtrBatch?.PayrollGroupId,
-                 GeneratedAt = dtrBatch?.CreatedAt,
+                 // Rows saved before CreatedAt was stamped for [DisableSoftDelete] entities hold
+                 // DateTime.MinValue -- report those as unknown rather than as year 1.
+                 GeneratedAt = dtrBatch != null && dtrBatch.CreatedAt > DateTime.MinValue
+                     ? dtrBatch.CreatedAt
+                     : null,
                  PendingDeletion = dtrBatch?.PendingDeletion ?? false,
                  RequestedDeletionByEmployeeId = dtrBatch?.RequestedDeletionByEmployeeId,
+                 RequestedDeletionByName = NameOf(dtrBatch?.RequestedDeletionByEmployeeId),
              };
          })
          .OrderByDescending(x=>x.Code)

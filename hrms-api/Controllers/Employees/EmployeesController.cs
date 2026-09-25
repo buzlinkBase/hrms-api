@@ -78,6 +78,16 @@ namespace Hrms.Api.Controllers
             return Ok(data);
         }
 
+        // Setup → Employee table only: server-side paging, sorting and column filters. The plain
+        // GET above stays as-is for the many screens that load the full list for dropdowns.
+        [HttpGet("list")]
+        [ProducesResponseType(typeof(ResponseModel<PaginatedResult<List<EmployeeModel>>>), 200)]
+        public async Task<IActionResult> Search([FromQuery] EmployeeListQuery query, CancellationToken token)
+        {
+            var data = await _service.SearchAsync(query, token);
+            return Ok(data);
+        }
+
         [HttpGet("full")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeFullModel>>), 200)]
         public async Task<IActionResult> GetFull([FromQuery] PaginationPayload payload, CancellationToken token)

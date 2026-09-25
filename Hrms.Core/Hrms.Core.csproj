@@ -6,9 +6,9 @@
 		<RootNamespace>Hrms.Core</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="Google.GenAI" />
 		<PackageReference Include="Bogus" />
-		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="ClosedXML" />
 		<PackageReference Include="Refit.HttpClientFactory" />
 		<PackageReference Include="Elastic.Clients.Elasticsearch" />

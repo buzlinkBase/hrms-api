@@ -176,14 +176,20 @@ public class BatchesModel
     public bool IsPayrollGenerated { get; set; }
     public ApprovalStatus ApprovalStatus { get; set; }
     public Guid? GeneratedByEmployeeId { get; set; }
+    // Resolved server-side so the UI doesn't have to download the whole employee list just to
+    // show one name -- see DailyRecordService.GetBatches.
+    public string? GeneratedByName { get; set; }
     public Guid? PayrollGroupId { get; set; }
-    // DTRBatch.CreatedAt -- null for a legacy batch with no DTRBatch row.
+    // DTRBatch.CreatedAt -- null for a legacy batch with no DTRBatch row, and for a batch saved
+    // before BuzlinkRepository 1.3.7 stamped CreatedAt on [DisableSoftDelete] entities (those
+    // rows hold 0001-01-01, which isn't a real time).
     public DateTime? GeneratedAt { get; set; }
     // True while a deletion request on this already-posted batch awaits its own
     // ApprovalApplicationType.DtrDeletion approval -- see DailyRecordService.RequestDeletionAsync.
     // ApprovalStatus stays Approved throughout; this is a separate, orthogonal concern.
     public bool PendingDeletion { get; set; }
     public Guid? RequestedDeletionByEmployeeId { get; set; }
+    public string? RequestedDeletionByName { get; set; }
 }
 
 public class TardinessReportModel
