@@ -264,12 +264,16 @@ public class ApprovalEngineService
         }
         else
         {
+            var completedStepNumber = instance.CurrentStepNumber;
             instance.CurrentStepNumber += 1;
             instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
             var nextStep = CurrentStep(instance);
             if (nextStep != null)
                 await PublishStepNotificationAsync(instance, nextStep, applicant, token);
+            // The applicant used to hear nothing between filing and the final decision, however
+            // many steps cleared in between -- tell them each time the chain moves forward.
+            await PublishProgressNotificationAsync(instance, applicant, completedStepNumber, note, token);
         }
 
         return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
@@ -423,6 +427,41 @@ public class ApprovalEngineService
                 DeliverPush = deliverPush && recipient.UserId != null,
             }, token);
         }
+    }
+
+    /// <summary>StatusLabel for an intermediate step clearing on a multi-step chain (the
+    /// instance is still InProgress). StepNumber is the step that was just approved.</summary>
+    public const string StepApprovedStatusLabel = "Step Approved";
+
+    // Applicant-facing "your application moved forward" notice for a multi-step chain -- sent
+    // when an intermediate step clears (the final step goes through
+    // PublishResolutionNotificationAsync instead). Same channels/preferences as the resolution
+    // notice, so an applicant who opted out of email for this type still gets the push.
+    private async Task PublishProgressNotificationAsync(
+        ApprovalInstance instance, Employee applicant, int completedStepNumber, string? note, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(applicant.Email) && applicant.UserId == null) return;
+
+        var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(applicant.Id, instance.ApplicationType, token);
+        var applicantName = $"{applicant.FirstName} {applicant.LastName}".Trim();
+
+        await _publisher.Publish(new ApprovalNotificationRequested
+        {
+            RecipientEmail = applicant.Email ?? string.Empty,
+            RecipientName = applicantName,
+            ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
+            ApplicantName = applicantName,
+            StatusLabel = StepApprovedStatusLabel,
+            StepNumber = completedStepNumber,
+            TotalSteps = instance.Workflow?.Steps.Count ?? 1,
+            Note = note,
+            ApplicationType = instance.ApplicationType.ToString(),
+            ApplicationId = instance.ApplicationId,
+            ApprovalInstanceId = instance.Id,
+            RecipientUserId = applicant.UserId,
+            DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
+            DeliverPush = deliverPush && applicant.UserId != null,
+        }, token);
     }
 
     private async Task PublishResolutionNotificationAsync(

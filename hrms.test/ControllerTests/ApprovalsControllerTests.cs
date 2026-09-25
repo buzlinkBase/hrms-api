@@ -50,17 +50,35 @@ public class ApprovalsControllerTests
         repo.AddAsync(Arg.Any<ApprovalInstance>(), Arg.Any<CancellationToken>())
             .Returns(new ValueTask())
             .AndDoes(call => instances.Add(call.Arg<ApprovalInstance>()));
+        repo.AddAsync(Arg.Any<ApprovalAction>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask())
+            .AndDoes(call =>
+            {
+                var action = call.Arg<ApprovalAction>();
+                action.CreatedAt = DateTime.UtcNow;
+                instances.Single(i => i.Id == action.ApprovalInstanceId).Actions.Add(action);
+            });
+        // EmployeeService.GetDisplayNamesAsync (actor names) reads through BaseService's
+        // FindAll<Employee>, not Find<Employee>.
+        repo.FindAll<Employee>().Returns(_ => employees.BuildMockDbSet());
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
         var engine = new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>());
+        var employeeService = new EmployeeService(
+            uow,
+            Substitute.For<MapsterMapper.IMapper>(),
+            new Mapster.TypeAdapterConfig(),
+            new DepartmentService(uow),
+            new PayrollGroupService(uow),
+            new BranchService(uow),
+            new CostCenterService(uow),
+            new PositionService(uow),
+            new SectionService(uow));
 
-        // EmployeeService is never touched on this test's path -- the caller already holds the
-        // coarse {Row}:View permission, so ApprovalsController.Get skips the applicant-lookup
-        // branch that would otherwise need it. PayrollBatchService is only touched for
-        // ApprovalApplicationType.PayrollPosting's dynamic permission-prefix lookup, never
-        // exercised by this test's Leave/Overtime-type fixtures.
-        var controller = new ApprovalsController(engine, null!, null!)
+        // PayrollBatchService is only touched for ApprovalApplicationType.PayrollPosting's
+        // dynamic permission-prefix lookup, never exercised by this test's Leave-type fixtures.
+        var controller = new ApprovalsController(engine, employeeService, null!)
         {
             ControllerContext = new ControllerContext
             {
@@ -119,5 +137,39 @@ public class ApprovalsControllerTests
         response.Steps[2].ApproverLabel.Should().Be("Your Manager");
         // Step 1 is also still resolved as the current step, unaffected by adding Steps.
         response.CurrentStepApproverLabel.Should().Be("Jane Doe");
+    }
+
+    // The Employee Portal can't load the employee list, so without a server-resolved name the
+    // applicant's timeline read "Step 1 — Approved by 08df1607…".
+    [Fact]
+    public async Task Get_ReturnsActorNameForEachRecordedAction()
+    {
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee(firstName: "Jane", lastName: "Doe");
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps =
+            [
+                new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, ApproverEmployee = approver, MinApprovals = 1, NamedApprovers = [] },
+                new ApprovalWorkflowStep { StepNumber = 2, ApproverType = ApproverType.ApplicantManager, MinApprovals = 1, NamedApprovers = [] },
+            ],
+        };
+        var (controller, engine) = BuildController([applicant, approver], [workflow], "Leave:View");
+        var applicationId = Guid.NewGuid();
+        await engine.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        await engine.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        var result = await controller.Get(ApprovalApplicationType.Leave, applicationId, CancellationToken.None);
+
+        var response = result.Should().BeOfType<OkObjectResult>().Subject.Value
+            .Should().BeOfType<ApprovalInstanceResponse>().Subject;
+        var action = response.Actions.Should().ContainSingle().Subject;
+        action.ActorEmployeeId.Should().Be(approver.Id);
+        action.ActorName.Should().Be("Jane Doe");
     }
 }

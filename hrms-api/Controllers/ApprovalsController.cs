@@ -87,6 +87,8 @@ namespace Hrms.Api.Controllers
             var currentStep = instance.Status == ApprovalInstanceStatus.InProgress
                 ? instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == instance.CurrentStepNumber)
                 : null;
+            var actorNames = await _employeeService.GetDisplayNamesAsync(
+                instance.Actions.Select(a => a.ActorEmployeeId), token);
 
             return Ok(new ApprovalInstanceResponse
             {
@@ -107,6 +109,7 @@ namespace Hrms.Api.Controllers
                     {
                         StepNumber = a.StepNumber,
                         ActorEmployeeId = a.ActorEmployeeId,
+                        ActorName = actorNames.GetValueOrDefault(a.ActorEmployeeId),
                         Action = a.Action,
                         Note = a.Note,
                         CreatedAt = a.CreatedAt,

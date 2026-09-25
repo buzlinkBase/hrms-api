@@ -557,6 +557,108 @@ public class ApprovalEngineServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    private static ApprovalWorkflow TwoStepWorkflow(Employee step1Approver, Employee step2Approver) => new()
+    {
+        Id = Guid.NewGuid(),
+        ApplicationType = ApprovalApplicationType.Overtime,
+        IsActive = true,
+        Steps =
+        [
+            new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = step1Approver.Id, MinApprovals = 1, NamedApprovers = [] },
+            new ApprovalWorkflowStep { StepNumber = 2, ApproverType = ApproverType.Person, ApproverEmployeeId = step2Approver.Id, MinApprovals = 1, NamedApprovers = [] },
+        ],
+    };
+
+    // The applicant used to hear nothing between filing and the final decision -- on a 2-step
+    // chain, step 1 clearing sent only the step-2 approver a notice, leaving the applicant's
+    // bell empty and their list stale until the very end.
+    [Fact]
+    public async Task RecordActionAsync_IntermediateStepClears_NotifiesApplicantOfProgress()
+    {
+        var applicant = BuildEmployee(email: "applicant@test.com", userId: Guid.NewGuid());
+        var step1Approver = BuildEmployee();
+        var step2Approver = BuildEmployee(email: "step2@test.com");
+        var (service, _, _, publisher) = BuildService(
+            [applicant, step1Approver, step2Approver], [TwoStepWorkflow(step1Approver, step2Approver)]);
+
+        var applicationId = Guid.NewGuid();
+        var instance = await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step1Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m =>
+                m.RecipientEmail == "applicant@test.com" &&
+                m.RecipientUserId == applicant.UserId &&
+                m.StatusLabel == ApprovalEngineService.StepApprovedStatusLabel &&
+                m.StepNumber == 1 && m.TotalSteps == 2 &&
+                m.ApplicationType == "Overtime" && m.ApplicationId == applicationId &&
+                m.ApprovalInstanceId == instance.Id &&
+                m.DeliverEmail && m.DeliverPush),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_FinalStep_SendsResolutionNotProgressNotice()
+    {
+        var applicant = BuildEmployee(email: "applicant@test.com", userId: Guid.NewGuid());
+        var step1Approver = BuildEmployee();
+        var step2Approver = BuildEmployee();
+        var (service, _, _, publisher) = BuildService(
+            [applicant, step1Approver, step2Approver], [TwoStepWorkflow(step1Approver, step2Approver)]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step1Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step2Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "applicant@test.com" && m.StatusLabel == "Approved"),
+            Arg.Any<CancellationToken>());
+        await publisher.DidNotReceive().Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.StatusLabel == ApprovalEngineService.StepApprovedStatusLabel),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_ProgressNotice_RespectsApplicantsEmailOptOut()
+    {
+        var applicant = BuildEmployee(email: "applicant@test.com", userId: Guid.NewGuid());
+        var step1Approver = BuildEmployee();
+        var step2Approver = BuildEmployee();
+        var optOut = new NotificationPreference
+        {
+            EmployeeId = applicant.Id,
+            ApplicationType = ApprovalApplicationType.Overtime,
+            EmailEnabled = false,
+            PushEnabled = true,
+        };
+        var (service, _, _, publisher) = BuildService(
+            [applicant, step1Approver, step2Approver], [TwoStepWorkflow(step1Approver, step2Approver)], [optOut]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step1Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m =>
+                m.StatusLabel == ApprovalEngineService.StepApprovedStatusLabel && !m.DeliverEmail && m.DeliverPush),
+            Arg.Any<CancellationToken>());
+    }
+
     /// <summary>
     /// Regression guard for a production 500 ("Duplicate entry ... for key
     /// IX_ApprovalInstances_ApplicationType_ApplicationId"): StartAsync used to unconditionally

@@ -55,6 +55,9 @@ public class ApprovalActionResponse
 {
     public int StepNumber { get; set; }
     public Guid ActorEmployeeId { get; set; }
+    // Resolved server-side -- the Employee Portal can't load the employee list to look names up,
+    // so without this the applicant's timeline showed "Approved by 08df1607…".
+    public string? ActorName { get; set; }
     public ApprovalActionType Action { get; set; }
     public string? Note { get; set; }
     public DateTime CreatedAt { get; set; }

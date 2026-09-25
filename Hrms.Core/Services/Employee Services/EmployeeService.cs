@@ -415,6 +415,17 @@ public class EmployeeService : BaseService<Employee>
             .FirstOrDefaultAsync(token);
     }
 
+    /// <summary>"First Last" display names for the given employee ids, in one query -- ids with no
+    /// matching employee are simply absent from the result.</summary>
+    public async Task<Dictionary<Guid, string>> GetDisplayNamesAsync(IEnumerable<Guid> ids, CancellationToken token)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0) return [];
+        return await GetQueryable(x => idList.Contains(x.Id))
+            .Select(x => new { x.Id, x.FirstName, x.LastName })
+            .ToDictionaryAsync(x => x.Id, x => $"{x.FirstName} {x.LastName}".Trim(), token);
+    }
+
     public async Task<Employee?> FineOneAsync(Guid Id, CancellationToken token)
     {
         var result = await GetQueryable(x => x.Id == Id)

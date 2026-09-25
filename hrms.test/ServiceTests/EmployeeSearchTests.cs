@@ -162,6 +162,21 @@ public class EmployeeSearchTests
         filtered.MetaData.TotalCount.Should().Be(2, "the total counts every match, not just the current page");
     }
 
+    // Backs ApprovalActionResponse.ActorName -- the approval timeline's "Approved by <name>".
+    [Fact]
+    public async Task GetDisplayNamesAsync_ReturnsFirstLastForKnownIds_AndSkipsUnknown()
+    {
+        using var db = await SeedAsync();
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var abella = context.Employees.Single(x => x.LastName == "Abella").Id;
+
+        var names = await service.GetDisplayNamesAsync([abella, abella, Guid.NewGuid()], CancellationToken.None);
+
+        names.Should().ContainSingle().Which.Should().Be(
+            new KeyValuePair<Guid, string>(abella, "Jerome Abella"));
+    }
+
     [Fact]
     public void Limit_IsCapped()
     {
