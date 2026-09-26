@@ -19,7 +19,7 @@ public class Program
        // start, message consumed) is Information-level and drowns out everything else in Seq --
        // baked in here rather than left to a per-environment Serilog:MinimumLevel:Override:
        // MassTransit env var, so it's never accidentally missing in a new environment.
-       .MinimumLevel.Override("MassTransit", LogEventLevel.Warning)
+       .MinimumLevel.Override("MassTransit", LogEventLevel.Error)
        .CreateLogger();
         builder.Host.UseSerilog();
         builder.Services.AddProblemDetails(c =>
