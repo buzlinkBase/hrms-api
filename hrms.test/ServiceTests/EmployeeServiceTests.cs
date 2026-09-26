@@ -108,6 +108,49 @@ public class EmployeeServiceTests
         result!.EmployeeNo.Should().Be("EMP-042");
     }
 
+    // Production outage: EmployeeFullModel.RestDays used to be the RestDay *entity*, whose
+    // virtual Employee navigation let the JSON serializer lazy-load Employee -> Manager ->
+    // DirectReports -> ... on every GET me/employee -- a RAM spike and a 60s+ hang that left My
+    // Profile blank. RestDays must come back as the DTO, carrying only Id/DayName.
+    [Fact]
+    public async Task GetFullByUserOrEmailAsync_ProjectsRestDaysToDto_WithoutTheEmployeeGraph()
+    {
+        var userId = Guid.NewGuid();
+        var employee = BuildEmployee(userId: userId);
+        var restDay = new RestDay { Id = Guid.NewGuid(), DayName = DayName.Sunday, EmployeeId = employee.Id, Employee = employee };
+        employee.RestDays = [restDay];
+        var service = BuildService(SeedRepo(employee));
+
+        var result = await service.GetFullByUserOrEmailAsync(userId, null, CancellationToken.None);
+
+        var projected = result!.RestDays.Should().ContainSingle().Subject;
+        projected.Should().BeOfType<RestDayModel>();
+        projected.Id.Should().Be(restDay.Id);
+        projected.DayName.Should().Be(DayName.Sunday);
+
+        var json = Newtonsoft.Json.JsonConvert.SerializeObject(result.RestDays);
+        json.Should().NotContain("Employee", "the rest-day payload must not drag the employee graph along");
+    }
+
+    // Guard against any EF entity creeping back into the portal/201 payload -- one entity-typed
+    // member (with lazy-loading proxies on) is all it takes to serialize half the database.
+    [Fact]
+    public void EmployeeFullModel_ExposesNoEntityTypes()
+    {
+        static Type Unwrap(Type t) =>
+            t.IsGenericType && typeof(System.Collections.IEnumerable).IsAssignableFrom(t) && t != typeof(string)
+                ? t.GetGenericArguments()[0]
+                : Nullable.GetUnderlyingType(t) ?? t;
+
+        var entityNamespace = typeof(Employee).Namespace!.Split('.').Take(3).Aggregate((a, b) => $"{a}.{b}"); // "Hrms.Domain.Entities"
+        var offenders = typeof(EmployeeFullModel).GetProperties()
+            .Where(p => Unwrap(p.PropertyType).Namespace?.StartsWith(entityNamespace) == true)
+            .Select(p => $"{p.Name}: {p.PropertyType.Name}")
+            .ToList();
+
+        offenders.Should().BeEmpty();
+    }
+
     /// <summary>
     /// EmployeeService.CreateValidatorAsync's Email-uniqueness check -- ResolveEmployeeIdAsync
     /// (and the approval engine's own approver-resolution, same pattern) matches an Employee by

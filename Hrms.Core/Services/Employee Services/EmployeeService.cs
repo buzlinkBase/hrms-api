@@ -1,4 +1,4 @@
-﻿using Hrms.Domain.Entities;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using System.Linq.Expressions;
@@ -364,12 +364,10 @@ public class EmployeeService : BaseService<Employee>
             ;
 
         var employees = await dataQuery
-            .Include(x => x.Skills)
-            .Include(x => x.Dependents)
-            .Include(x => x.Educations)
-            .Include(x => x.Assets)
-            .Include(x => x.EmployeeRecords)
-            .Include(x => x.Employments)
+            // One SQL per collection instead of a single JOIN across all six (Skills x Dependents x
+            // Educations x Assets x Records x Employments rows). The old Include()s were no-ops --
+            // EF ignores Include once ProjectToType shapes the result.
+            .AsSplitQuery()
             .ProjectToType<EmployeeFullModel>(_config)
             .ToListAsync(token);
 
@@ -383,12 +381,10 @@ public class EmployeeService : BaseService<Employee>
     public async Task<EmployeeFullModel?> GetFullByIdAsync(Guid id, CancellationToken token)
     {
         return await GetQueryable(x => x.Id == id)
-            .Include(x => x.Skills)
-            .Include(x => x.Dependents)
-            .Include(x => x.Educations)
-            .Include(x => x.Assets)
-            .Include(x => x.EmployeeRecords)
-            .Include(x => x.Employments)
+            // One SQL per collection instead of a single JOIN across all six (Skills x Dependents x
+            // Educations x Assets x Records x Employments rows). The old Include()s were no-ops --
+            // EF ignores Include once ProjectToType shapes the result.
+            .AsSplitQuery()
             .ProjectToType<EmployeeFullModel>(_config)
             .FirstOrDefaultAsync(token);
     }
@@ -398,12 +394,10 @@ public class EmployeeService : BaseService<Employee>
     public async Task<EmployeeFullModel?> GetFullByUserOrEmailAsync(Guid userId, string? email, CancellationToken token)
     {
         return await GetQueryable(x => x.UserId == userId || (email != null && x.Email == email))
-            .Include(x => x.Skills)
-            .Include(x => x.Dependents)
-            .Include(x => x.Educations)
-            .Include(x => x.Assets)
-            .Include(x => x.EmployeeRecords)
-            .Include(x => x.Employments)
+            // One SQL per collection instead of a single JOIN across all six (Skills x Dependents x
+            // Educations x Assets x Records x Employments rows). The old Include()s were no-ops --
+            // EF ignores Include once ProjectToType shapes the result.
+            .AsSplitQuery()
             .ProjectToType<EmployeeFullModel>(_config)
             .FirstOrDefaultAsync(token);
     }

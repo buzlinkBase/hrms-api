@@ -253,7 +253,11 @@ public class EmployeeFullModel
     public string ProfileImg { get; set; } = string.Empty;
     public EmployeeSettingModel? Settings { get; set; }
     //public  Branch? Branch { get; set; }
-    public ICollection<RestDay> RestDays { get; set; }
+    // DTO, never the RestDay entity: the entity's virtual Employee navigation let the JSON
+    // serializer lazy-load Employee -> Manager/DirectReports/PayrollGroup/... on every
+    // GET me/employee (EF Core 8+ lazy-loads even no-tracking results), fanning out across the
+    // tenant's data -- the production RAM spike and 60s+ hang behind a blank My Profile.
+    public ICollection<RestDayModel> RestDays { get; set; } = new List<RestDayModel>();
 
     public string? FullName { get; set; }
     public string? PayrollGroupName { get; set; }
