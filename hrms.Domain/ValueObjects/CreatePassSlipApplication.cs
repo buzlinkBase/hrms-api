@@ -21,4 +21,6 @@ public class PassSlipApplicationModel : UpdatePassSlipApplication
 {
     public string BatchCode { get; set; } = string.Empty;
     public string? EmployeeName { get; set; }
+    // "Filed On" on the portal's My Pass Slips list.
+    public DateTime CreatedAt { get; set; }
 }

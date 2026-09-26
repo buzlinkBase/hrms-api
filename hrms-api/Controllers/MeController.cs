@@ -227,13 +227,17 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("overtime-applications")]
-        [ProducesResponseType(typeof(ResponseModel<List<OverTimeApplication>>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<OvertimeApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyOvertimeApplications(CancellationToken token)
         {
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null) return NotFound();
 
-            return Ok(await _overtimeApplicationService.FindAllForEmployeeAsync(employeeId.Value, token));
+            // Mapped to the DTO, never the entity: its virtual Employee navigation let the JSON
+            // serializer lazy-load Employee -> Manager -> DirectReports -> ... per row -- the
+            // RAM spike and 30s timeout on My Overtime Applications (same root cause as me/employee).
+            var data = await _overtimeApplicationService.FindAllForEmployeeAsync(employeeId.Value, token);
+            return Ok(_mapper.Map<List<OvertimeApplicationModel>>(data));
         }
 
         // EmployeeId is forced on the payload before mapping, never trusted from the client —
@@ -267,13 +271,15 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("travel-order-applications")]
-        [ProducesResponseType(typeof(ResponseModel<List<TravelOrderApplication>>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<TravelOrderApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyTravelOrderApplications(CancellationToken token)
         {
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null) return NotFound();
 
-            return Ok(await _travelOrderApplicationService.FindAllForEmployeeAsync(employeeId.Value, token));
+            // DTO, not the entity -- see GetMyOvertimeApplications.
+            var data = await _travelOrderApplicationService.FindAllForEmployeeAsync(employeeId.Value, token);
+            return Ok(_mapper.Map<List<TravelOrderApplicationModel>>(data));
         }
 
         // EmployeeId forced on the payload before mapping, same as Overtime — CreateTravelOrder
@@ -308,13 +314,16 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("pass-slip-applications")]
-        [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplication>>), 200)]
+        [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyPassSlipApplications(CancellationToken token)
         {
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null) return NotFound();
 
-            return Ok(await _passSlipApplicationService.FindAllAsync(null, null, employeeId.Value, token));
+            // DTO, not the entity -- the Include'd Employee would otherwise be serialized with
+            // its whole lazy-loaded graph. See GetMyOvertimeApplications.
+            var data = await _passSlipApplicationService.FindAllAsync(null, null, employeeId.Value, token);
+            return Ok(_mapper.Map<List<PassSlipApplicationModel>>(data));
         }
 
         // EmployeeId forced as above — PassSlipApplicationService.AddAsync already forces

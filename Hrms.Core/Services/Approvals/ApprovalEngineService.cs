@@ -1,6 +1,7 @@
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Core.Messaging;
 using MassTransit;
 
 namespace Hrms.Core.Services.Approvals;
@@ -75,6 +76,8 @@ public class ApprovalEngineService
             var restartStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
             if (restartStep != null)
                 await PublishStepNotificationAsync(existing, restartStep, applicant, token);
+            else
+                await PublishPoolNotificationAsync(existing, applicant, token);
 
             return existing;
         }
@@ -98,6 +101,8 @@ public class ApprovalEngineService
         var firstStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
         if (firstStep != null)
             await PublishStepNotificationAsync(instance, firstStep, applicant, token);
+        else
+            await PublishPoolNotificationAsync(instance, applicant, token);
 
         return instance;
     }
@@ -331,7 +336,7 @@ public class ApprovalEngineService
                 RecipientName = $"{newApprover.FirstName} {newApprover.LastName}".Trim(),
                 ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
                 ApplicantName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
-                StatusLabel = "Pending Your Approval",
+                StatusLabel = PendingApprovalStatusLabel,
                 StepNumber = instance.CurrentStepNumber,
                 TotalSteps = instance.Workflow?.Steps.Count ?? 1,
                 ApplicationType = instance.ApplicationType.ToString(),
@@ -416,7 +421,7 @@ public class ApprovalEngineService
                 RecipientName = $"{recipient.FirstName} {recipient.LastName}".Trim(),
                 ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
                 ApplicantName = applicantName,
-                StatusLabel = "Pending Your Approval",
+                StatusLabel = PendingApprovalStatusLabel,
                 StepNumber = instance.CurrentStepNumber,
                 TotalSteps = totalSteps,
                 ApplicationType = instance.ApplicationType.ToString(),
@@ -428,6 +433,24 @@ public class ApprovalEngineService
             }, token);
         }
     }
+
+    /// <summary>StatusLabel for "an approver needs to act" -- the frontend keys its
+    /// "…is waiting on you" message off this exact value.</summary>
+    public const string PendingApprovalStatusLabel = "Pending Your Approval";
+
+    // No workflow configured (implicit fallback step): there's no named approver to address, and
+    // who holds {Row}:Approve is only known from JWT claims -- so hand it to the push-only approver
+    // group instead (see ApproverGroups). Without this, filing under an unconfigured type notified
+    // nobody at all.
+    private Task PublishPoolNotificationAsync(ApprovalInstance instance, Employee applicant, CancellationToken token) =>
+        _publisher.Publish(new ApprovalPoolNotificationRequested
+        {
+            ApplicationType = instance.ApplicationType,
+            ApplicationId = instance.ApplicationId,
+            ApprovalInstanceId = instance.Id,
+            ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
+            ApplicantName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
+        }, token);
 
     /// <summary>StatusLabel for an intermediate step clearing on a multi-step chain (the
     /// instance is still InProgress). StepNumber is the step that was just approved.</summary>

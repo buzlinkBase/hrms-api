@@ -27,4 +27,6 @@ public class UpdateTravelOrderApplication : CreateTravelOrderApplication
 
 public class TravelOrderApplicationModel : UpdateTravelOrderApplication
 {
+    // "Filed On" on the portal's My Official Business list.
+    public DateTime CreatedAt { get; set; }
 }

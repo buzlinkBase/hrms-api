@@ -21,4 +21,9 @@ public sealed class ApprovalPushNotificationService
 
     public Task PushToUserAsync(Guid userId, ApprovalPushNotification notification, CancellationToken token = default) =>
         _hubContext.Clients.User(userId.ToString()).SendAsync(EventName, notification, token);
+
+    // Everyone currently connected who may approve this type in this tenant -- the fallback-step
+    // audience, see ApproverGroups.
+    public Task PushToApproversAsync(Guid tenantId, ApprovalPushNotification notification, CancellationToken token = default) =>
+        _hubContext.Clients.Group(ApproverGroups.For(tenantId, notification.ApplicationType)).SendAsync(EventName, notification, token);
 }

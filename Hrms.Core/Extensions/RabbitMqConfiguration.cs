@@ -33,6 +33,7 @@ public static class RabbitMqConfiguration
             // publishes from ApprovalEngineService) to push via SignalR -- see
             // ApprovalPushNotificationWorker's own doc comment.
             x.AddConsumer<ApprovalPushNotificationWorker, ApprovalPushNotificationWorkerDefinition>();
+            x.AddConsumer<ApprovalPoolPushNotificationWorker, ApprovalPoolPushNotificationWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -121,5 +122,13 @@ public class ApprovalPushNotificationWorkerDefinition : ConsumerDefinition<Appro
     public ApprovalPushNotificationWorkerDefinition()
     {
         EndpointName = "hrms-approval-push-notification-que";
+    }
+}
+
+public class ApprovalPoolPushNotificationWorkerDefinition : ConsumerDefinition<ApprovalPoolPushNotificationWorker>
+{
+    public ApprovalPoolPushNotificationWorkerDefinition()
+    {
+        EndpointName = "hrms-approval-pool-push-notification-que";
     }
 }

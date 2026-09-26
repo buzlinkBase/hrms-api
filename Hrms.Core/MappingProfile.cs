@@ -173,15 +173,21 @@ public class MappingProfile : IRegister
 
         config.NewConfig<CreateOverTimeApplication, OverTimeApplication>();
         config.NewConfig<UpdateOvertimeApplication, OverTimeApplication>();
-        config.NewConfig<OverTimeApplication, OvertimeApplicationModel>();
+        // BaseEntity.CreatedAt is [AdaptIgnore] (so DTO -> entity updates can never overwrite it),
+        // which also blocks it by convention in the read direction -- mapped explicitly here for
+        // the portal lists' "Filed On" column.
+        config.NewConfig<OverTimeApplication, OvertimeApplicationModel>()
+            .Map(dest => dest.CreatedAt, src => src.CreatedAt);
 
         config.NewConfig<CreateTravelOrderApplication, TravelOrderApplication>();
         config.NewConfig<UpdateTravelOrderApplication, TravelOrderApplication>();
-        config.NewConfig<TravelOrderApplication, TravelOrderApplicationModel>();
+        config.NewConfig<TravelOrderApplication, TravelOrderApplicationModel>()
+            .Map(dest => dest.CreatedAt, src => src.CreatedAt);
 
         config.NewConfig<CreatePassSlipApplication, PassSlipApplication>();
         config.NewConfig<UpdatePassSlipApplication, PassSlipApplication>();
         config.NewConfig<PassSlipApplication, PassSlipApplicationModel>()
+            .Map(dest => dest.CreatedAt, src => src.CreatedAt)
             .Map(dest => dest.EmployeeName, src => src.Employee != null
                 ? (src.Employee.LastName ?? "") + ", " + (src.Employee.FirstName ?? "") + " " + (src.Employee.MiddleName ?? "")
                 : null);

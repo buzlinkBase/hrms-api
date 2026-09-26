@@ -25,4 +25,6 @@ public class OvertimeApplicationModel : UpdateOvertimeApplication
     public bool FlexiEndTime { get; set; }
     public bool PaidByNetDutyTime { get; set; }
     public double OverTimeThreshold { get; set; }
+    // "Filed On" on the portal's My Overtime Applications list.
+    public DateTime CreatedAt { get; set; }
 }

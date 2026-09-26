@@ -258,6 +258,10 @@ public class MeControllerTests
             .Returns(call => ((CreatePassSlipApplication)call.Arg<object>()).Adapt<PassSlipApplication>());
         mapper.Map<List<DeductionApplicationModel>>(Arg.Any<object>())
             .Returns(call => ((List<DeductionApplication>)call.Arg<object>()).Adapt<List<DeductionApplicationModel>>());
+        mapper.Map<List<OvertimeApplicationModel>>(Arg.Any<object>())
+            .Returns(call => ((List<OverTimeApplication>)call.Arg<object>()).Adapt<List<OvertimeApplicationModel>>());
+        mapper.Map<List<TravelOrderApplicationModel>>(Arg.Any<object>())
+            .Returns(call => ((List<TravelOrderApplication>)call.Arg<object>()).Adapt<List<TravelOrderApplicationModel>>());
 
         var callerUserId = caller?.UserId ?? Guid.NewGuid();
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -833,9 +837,54 @@ public class MeControllerTests
         var result = await controller.GetMyOvertimeApplications(CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        var applications = ok.Value.Should().BeAssignableTo<List<OverTimeApplication>>().Subject;
+        var applications = ok.Value.Should().BeAssignableTo<List<OvertimeApplicationModel>>().Subject;
         applications.Should().ContainSingle();
         applications[0].EmployeeId.Should().Be(caller.Id);
+    }
+
+    // Production outage: this endpoint used to return the OverTimeApplication entity, whose
+    // virtual Employee navigation let the JSON serializer lazy-load Employee -> Manager ->
+    // DirectReports -> ... per row -- RAM spike and a 30s timeout on My Overtime Applications
+    // right after filing. The payload must be the DTO, carrying CreatedAt ("Filed On") but no
+    // employee graph.
+    [Fact]
+    public async Task GetMyOvertimeApplications_ReturnsDtoWithoutTheEmployeeGraph()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var mine = BuildOvertimeApplication(caller.Id);
+        mine.Employee = caller;
+        mine.CreatedAt = new DateTime(2026, 9, 20, 8, 0, 0, DateTimeKind.Utc);
+        var (controller, _) = BuildController(caller, overtimeApplications: [mine]);
+
+        var result = await controller.GetMyOvertimeApplications(CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var applications = ok.Value.Should().BeOfType<List<OvertimeApplicationModel>>().Subject;
+        applications[0].CreatedAt.Should().Be(mine.CreatedAt);
+        Newtonsoft.Json.JsonConvert.SerializeObject(ok.Value)
+            .Should().NotContain("\"Employee\"", "the list payload must not drag the employee graph along");
+    }
+
+    // Guard against an EF entity creeping back into the portal list payloads -- one entity-typed
+    // member (with lazy-loading proxies on) is all it takes to serialize half the database.
+    [Theory]
+    [InlineData(typeof(OvertimeApplicationModel))]
+    [InlineData(typeof(TravelOrderApplicationModel))]
+    [InlineData(typeof(PassSlipApplicationModel))]
+    public void PortalApplicationModels_ExposeNoEntityTypes(Type model)
+    {
+        static Type Unwrap(Type t) =>
+            t.IsGenericType && typeof(System.Collections.IEnumerable).IsAssignableFrom(t) && t != typeof(string)
+                ? t.GetGenericArguments()[0]
+                : Nullable.GetUnderlyingType(t) ?? t;
+
+        var entityNamespace = typeof(OverTimeApplication).Namespace!; // "Hrms.Domain.Entities"
+        var offenders = model.GetProperties()
+            .Where(p => Unwrap(p.PropertyType).Namespace?.StartsWith(entityNamespace) == true)
+            .Select(p => $"{p.Name}: {p.PropertyType.Name}")
+            .ToList();
+
+        offenders.Should().BeEmpty();
     }
 
     [Fact]
@@ -889,9 +938,28 @@ public class MeControllerTests
         var result = await controller.GetMyTravelOrderApplications(CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        var applications = ok.Value.Should().BeAssignableTo<List<TravelOrderApplication>>().Subject;
+        var applications = ok.Value.Should().BeAssignableTo<List<TravelOrderApplicationModel>>().Subject;
         applications.Should().ContainSingle();
         applications[0].EmployeeId.Should().Be(caller.Id);
+    }
+
+    // Same regression guard as GetMyOvertimeApplications_ReturnsDtoWithoutTheEmployeeGraph.
+    [Fact]
+    public async Task GetMyTravelOrderApplications_ReturnsDtoWithoutTheEmployeeGraph()
+    {
+        var caller = BuildEmployee(Guid.NewGuid());
+        var mine = BuildTravelOrderApplication(caller.Id);
+        mine.Employee = caller;
+        mine.CreatedAt = new DateTime(2026, 9, 20, 8, 0, 0, DateTimeKind.Utc);
+        var (controller, _) = BuildController(caller, travelOrderApplications: [mine]);
+
+        var result = await controller.GetMyTravelOrderApplications(CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var applications = ok.Value.Should().BeOfType<List<TravelOrderApplicationModel>>().Subject;
+        applications[0].CreatedAt.Should().Be(mine.CreatedAt);
+        Newtonsoft.Json.JsonConvert.SerializeObject(ok.Value)
+            .Should().NotContain("\"Employee\"", "the list payload must not drag the employee graph along");
     }
 
     [Fact]
