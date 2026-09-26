@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
 		<TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -36,7 +36,7 @@
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-        <PackageReference Include="Serilog.Sinks.Loki" />
+        <PackageReference Include="Serilog.Sinks.Grafana.Loki" />
         <PackageReference Include="System.Management" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" />
     </ItemGroup>

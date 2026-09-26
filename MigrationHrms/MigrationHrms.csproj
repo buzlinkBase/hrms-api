@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net9.0</TargetFramework>
@@ -35,6 +35,7 @@
 		<PackageReference Include="Serilog.AspNetCore" />
 		<PackageReference Include="Serilog.Sinks.Console" />
 		<PackageReference Include="Serilog.Sinks.File" />
+		<PackageReference Include="Serilog.Sinks.Grafana.Loki" />
 		<PackageReference Include="Serilog.Sinks.Seq" />
 		
 	</ItemGroup>
