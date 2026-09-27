@@ -33,8 +33,25 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
         payload.Adapt(existing);
         existing.ApprovalStatus = previousStatus;
 
+        // Changed content goes back to the first approver if anyone already signed off.
+        if (existing.ApprovalStatus == ApprovalStatus.ForApproval)
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Overtime, existing.Id, token);
+
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
+    }
+
+    // Self-service edit: only the caller's own, still-pending application. See
+    // MeController.UpdateMyOvertimeApplication.
+    public async Task UpdateOwnAsync(UpdateOvertimeApplication payload, Guid employeeId, CancellationToken token)
+    {
+        var existing = await Context.OTApplications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == payload.Id, token);
+        if (existing == null || existing.EmployeeId != employeeId)
+            throw new NotFoundException("Overtime application not found.");
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("Only applications still awaiting approval can be edited.");
+
+        await UpdateAsync(payload, token);
     }
 
     public Task ApproveAsync(Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>

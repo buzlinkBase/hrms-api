@@ -130,6 +130,13 @@ public static class ServiceRegistrationsExt
         .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
         .AddHeaderPropagation();
 
+        builder.Services.AddRefitClient<ITenantClient>(new RefitSettings
+        {
+            ContentSerializer = new MessagePackContentSerializer(mpackOptions)
+        })
+        .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
+        .AddHeaderPropagation();
+
         builder.Services.AddRefitClient<IConnectionClient>(new RefitSettings
         {
             ContentSerializer = new MessagePackContentSerializer(mpackOptions)

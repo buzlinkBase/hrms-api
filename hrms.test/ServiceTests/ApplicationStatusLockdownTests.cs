@@ -108,6 +108,100 @@ public class ApplicationStatusLockdownTests
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*not awaiting approval*");
     }
 
+    [Fact]
+    public async Task Overtime_UpdateOwn_SomeoneElsesApplication_IsNotFound()
+    {
+        var (db, id, employeeId) = await SeedOvertimeAsync(ApprovalStatus.ForApproval);
+        using var _ = db;
+        await using var context = db.NewContext();
+        var uow = new UnitOfWorkService(context);
+        var service = new OvertimeApplicationService(uow, Engine(uow));
+
+        var act = () => service.UpdateOwnAsync(
+            new UpdateOvertimeApplication { Id = id, EmployeeId = employeeId, OTDate = new DateOnly(2026, 9, 18) },
+            Guid.NewGuid(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task Overtime_UpdateOwn_AlreadyApproved_IsRejected()
+    {
+        var (db, id, employeeId) = await SeedOvertimeAsync(ApprovalStatus.Approved);
+        using var _ = db;
+        await using var context = db.NewContext();
+        var uow = new UnitOfWorkService(context);
+        var service = new OvertimeApplicationService(uow, Engine(uow));
+
+        var act = () => service.UpdateOwnAsync(
+            new UpdateOvertimeApplication { Id = id, EmployeeId = employeeId, OTDate = new DateOnly(2026, 9, 18) },
+            employeeId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*still awaiting approval*");
+    }
+
+    // End to end on a real 2-step workflow: step 1 approves, the employee edits, and the chain
+    // goes back to step 1 in a new cycle instead of carrying the approval over to changed content.
+    [Fact]
+    public async Task Overtime_UpdateOwn_AfterStep1Approval_SendsItBackToTheFirstApprover()
+    {
+        using var db = new SqliteHrmsContext();
+        var id = Guid.NewGuid();
+        Employee applicant, step1, step2;
+        await using (var seed = db.NewContext())
+        {
+            applicant = await SeedEmployeeAsync(seed);
+            step1 = await SeedEmployeeAsync(seed);
+            step2 = await SeedEmployeeAsync(seed);
+            seed.Add(new Hrms.Domain.Entities.Approvals.ApprovalWorkflow
+            {
+                Id = Guid.NewGuid(),
+                Name = "OT two-step",
+                ApplicationType = ApprovalApplicationType.Overtime,
+                IsActive = true,
+                Steps =
+                [
+                    new() { Id = Guid.NewGuid(), StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = step1.Id, MinApprovals = 1, NamedApprovers = [] },
+                    new() { Id = Guid.NewGuid(), StepNumber = 2, ApproverType = ApproverType.Person, ApproverEmployeeId = step2.Id, MinApprovals = 1, NamedApprovers = [] },
+                ],
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var context = db.NewContext())
+        {
+            var uow = new UnitOfWorkService(context);
+            await new OvertimeApplicationService(uow, Engine(uow)).AddAsync(new OverTimeApplication
+            {
+                Id = id, EmployeeId = applicant.Id, Employee = null!, OTDate = new DateOnly(2026, 9, 17),
+                ApprovalStatus = ApprovalStatus.ForApproval,
+            }, CancellationToken.None);
+        }
+        await using (var context = db.NewContext())
+        {
+            var uow = new UnitOfWorkService(context);
+            await new OvertimeApplicationService(uow, Engine(uow))
+                .ApproveAsync(id, step1.Id, approverHasOverride: false, note: null, CancellationToken.None);
+        }
+        await using (var verify = db.NewContext())
+            (await verify.ApprovalInstances.SingleAsync(x => x.ApplicationId == id)).CurrentStepNumber.Should().Be(2);
+
+        await using (var context = db.NewContext())
+        {
+            var uow = new UnitOfWorkService(context);
+            await new OvertimeApplicationService(uow, Engine(uow)).UpdateOwnAsync(new UpdateOvertimeApplication
+            {
+                Id = id, EmployeeId = applicant.Id, OTDate = new DateOnly(2026, 9, 18), Remarks = "changed",
+            }, applicant.Id, CancellationToken.None);
+        }
+
+        await using var after = db.NewContext();
+        var instance = await after.ApprovalInstances.SingleAsync(x => x.ApplicationId == id);
+        instance.CurrentStepNumber.Should().Be(1);
+        instance.CycleNumber.Should().Be(2);
+        (await after.OTApplications.SingleAsync(x => x.Id == id)).ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
+    }
+
     // ---- Official Business ----
 
     [Fact]

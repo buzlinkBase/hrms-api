@@ -107,6 +107,42 @@ public class ApprovalEngineService
         return instance;
     }
 
+    // An application edited while still pending must be re-reviewed from the top if anyone has
+    // already approved it -- otherwise an approver's sign-off would silently carry over to content
+    // they never saw. Starts a new cycle at step 1 (prior cycles' actions stay as audit history,
+    // same as StartAsync's restart branch) and re-notifies the first approvers. A pending
+    // application nobody has approved yet is left alone: its first approvers were already
+    // notified and nothing they signed off on changed. Doesn't commit -- callers own the
+    // transaction, as with StartAsync.
+    public async Task<bool> RestartIfProgressedAsync(
+        ApprovalApplicationType type, Guid applicationId, CancellationToken token = default)
+    {
+        var instance = await GetInstanceAsync(type, applicationId, token);
+        if (instance is null || instance.Status != ApprovalInstanceStatus.InProgress) return false;
+
+        var progressed = instance.CurrentStepNumber > 1 || instance.Actions.Any(a =>
+            a.CycleNumber == instance.CycleNumber && a.Action == ApprovalActionType.Approved);
+        if (!progressed) return false;
+
+        instance.CycleNumber += 1;
+        instance.CurrentStepNumber = 1;
+        instance.ReassignedApproverEmployeeId = null;
+        _uow.Repository.Update(instance);
+
+        var applicant = await _uow.Repository.Find<Employee>(e => e.Id == instance.ApplicantEmployeeId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(token);
+        if (applicant is null) return true;
+
+        var firstStep = instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
+        if (firstStep != null)
+            await PublishStepNotificationAsync(instance, firstStep, applicant, token);
+        else
+            await PublishPoolNotificationAsync(instance, applicant, token);
+
+        return true;
+    }
+
     // Applicant's own department override first, else the tenant-wide default, else null (the
     // implicit single-step legacy fallback -- see ApprovalInstance.ApprovalWorkflowId).
     private async Task<ApprovalWorkflow?> ResolveActiveWorkflowAsync(
@@ -248,8 +284,12 @@ public class ApprovalEngineService
         }
 
         var minApprovals = currentStep?.MinApprovals ?? 1;
+        // Current cycle only -- a restarted chain (edit after partial approval, or a re-request)
+        // keeps prior cycles' actions as audit history, and those must not count toward quorum.
         var approverIdsForStep = instance.Actions
-            .Where(a => a.StepNumber == instance.CurrentStepNumber && a.Action == ApprovalActionType.Approved)
+            .Where(a => a.StepNumber == instance.CurrentStepNumber
+                && a.CycleNumber == instance.CycleNumber
+                && a.Action == ApprovalActionType.Approved)
             .Select(a => a.ActorEmployeeId)
             .Append(callerEmployeeId); // the action added above isn't in instance.Actions yet
 

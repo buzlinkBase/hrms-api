@@ -859,4 +859,99 @@ public class ApprovalEngineServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    // An application edited after an approver already signed off goes back to the first approver
+    // -- otherwise that approval would carry over to content they never saw.
+    [Fact]
+    public async Task RestartIfProgressedAsync_AfterStep1Approval_ResetsToStep1InANewCycle_AndRenotifiesFirstApprover()
+    {
+        var applicant = BuildEmployee();
+        var step1Approver = BuildEmployee(email: "step1@test.com");
+        var step2Approver = BuildEmployee();
+        var (service, instances, _, publisher) = BuildService(
+            [applicant, step1Approver, step2Approver], [TwoStepWorkflow(step1Approver, step2Approver)]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step1Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        var cycleBefore = instances.Single().CycleNumber;
+        publisher.ClearReceivedCalls();
+
+        var restarted = await service.RestartIfProgressedAsync(ApprovalApplicationType.Overtime, applicationId, CancellationToken.None);
+
+        restarted.Should().BeTrue();
+        var instance = instances.Single();
+        instance.CurrentStepNumber.Should().Be(1);
+        instance.CycleNumber.Should().Be(cycleBefore + 1);
+        instance.Status.Should().Be(ApprovalInstanceStatus.InProgress);
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "step1@test.com" && m.StepNumber == 1),
+            Arg.Any<CancellationToken>());
+    }
+
+    // The previous cycle's step-1 approval must neither block the approver from re-approving
+    // (duplicate guard) nor count toward the new cycle's quorum.
+    [Fact]
+    public async Task RestartIfProgressedAsync_FirstApproverMustApproveAgain_InTheNewCycle()
+    {
+        var applicant = BuildEmployee();
+        var step1Approver = BuildEmployee();
+        var step2Approver = BuildEmployee();
+        var (service, instances, _, _) = BuildService(
+            [applicant, step1Approver, step2Approver], [TwoStepWorkflow(step1Approver, step2Approver)]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step1Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        await service.RestartIfProgressedAsync(ApprovalApplicationType.Overtime, applicationId, CancellationToken.None);
+
+        var result = await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step1Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        result.CurrentStepNumber.Should().Be(2, "the re-approval in the new cycle clears step 1 again");
+        instances.Single().Actions.Count(a => a.ActorEmployeeId == step1Approver.Id).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task RestartIfProgressedAsync_NothingApprovedYet_LeavesInstanceAlone()
+    {
+        var applicant = BuildEmployee();
+        var step1Approver = BuildEmployee();
+        var step2Approver = BuildEmployee();
+        var (service, instances, _, publisher) = BuildService(
+            [applicant, step1Approver, step2Approver], [TwoStepWorkflow(step1Approver, step2Approver)]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        var cycleBefore = instances.Single().CycleNumber;
+        publisher.ClearReceivedCalls();
+
+        var restarted = await service.RestartIfProgressedAsync(ApprovalApplicationType.Overtime, applicationId, CancellationToken.None);
+
+        restarted.Should().BeFalse();
+        instances.Single().CycleNumber.Should().Be(cycleBefore);
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RestartIfProgressedAsync_ResolvedInstance_IsNotReopened()
+    {
+        var applicant = BuildEmployee();
+        var step1Approver = BuildEmployee();
+        var step2Approver = BuildEmployee();
+        var (service, instances, _, _) = BuildService(
+            [applicant, step1Approver, step2Approver], [TwoStepWorkflow(step1Approver, step2Approver)]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, step1Approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Declined, note: null, CancellationToken.None);
+
+        var restarted = await service.RestartIfProgressedAsync(ApprovalApplicationType.Overtime, applicationId, CancellationToken.None);
+
+        restarted.Should().BeFalse();
+        instances.Single().Status.Should().Be(ApprovalInstanceStatus.Declined);
+    }
 }

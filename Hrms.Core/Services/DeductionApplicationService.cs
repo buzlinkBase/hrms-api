@@ -140,9 +140,32 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         }
         await AddOrDeleteChildAsync(model, token);
         await ModifyAsync(model, token);
+
+        // Changed content goes back to the first approver if anyone already signed off.
+        if (model.ApprovalStatus == ApprovalStatus.ForApproval)
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Loan, model.Id, token);
+
         await CommitChangesAsync(token);
         return model;
     }
+
+    // Self-service edit: only the caller's own, still-pending loan, and only for a deduction type
+    // employees may file themselves. See MeController.UpdateMyLoanApplication.
+    public async Task<DeductionApplication> UpdateOwnAsync(UpdateDeductionApplication payload, Guid employeeId,
+        CancellationToken token)
+    {
+        var existing = await GetQueryable(x => x.Id == payload.Id)
+            .Select(x => new { x.EmployeeId, x.ApprovalStatus })
+            .FirstOrDefaultAsync(token);
+        if (existing == null || existing.EmployeeId != employeeId)
+            throw new NotFoundException("Loan application not found.");
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("Only applications still awaiting approval can be edited.");
+
+        await EnsurePortalFileableAsync(payload.DeductionId, token);
+        return await UpdateAsync(payload, token);
+    }
+
     public Task<List<DeductionApplication>> FindAllAsync(CancellationToken token)
     {
         return GetQueryable().ToListAsync(token);

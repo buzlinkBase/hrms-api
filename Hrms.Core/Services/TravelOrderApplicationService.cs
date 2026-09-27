@@ -32,8 +32,25 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         payload.Adapt(existing);
         existing.ApprovalStatus = previousStatus;
 
+        // Changed content goes back to the first approver if anyone already signed off.
+        if (existing.ApprovalStatus == ApprovalStatus.ForApproval)
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.OfficialBusiness, existing.Id, token);
+
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
+    }
+
+    // Self-service edit: only the caller's own, still-pending application. See
+    // MeController.UpdateMyTravelOrderApplication.
+    public async Task UpdateOwnAsync(UpdateTravelOrderApplication payload, Guid employeeId, CancellationToken token)
+    {
+        var existing = await Context.TravelOrderApplications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == payload.Id, token);
+        if (existing == null || existing.EmployeeId != employeeId)
+            throw new NotFoundException("Official business application not found.");
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("Only applications still awaiting approval can be edited.");
+
+        await UpdateAsync(payload, token);
     }
 
     public Task ApproveAsync(Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>

@@ -226,6 +226,22 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        // Self-service edit of the caller's own still-pending application. Ownership, the
+        // pending-only rule, the portal filing policy, and the "back to the first approver if
+        // anyone already approved" restart all live in LeaveApplicationService.UpdateOwnAsync.
+        [HttpPut("leave-applications/{id:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UpdateMyLeaveApplication(Guid id, [FromBody] UpdateLeaveApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.Id = id;
+            payload.EmployeeId = employeeId.Value;
+            await _leaveApplicationService.UpdateOwnAsync(payload, employeeId.Value, token);
+            return Ok();
+        }
+
         [HttpGet("overtime-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<OvertimeApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyOvertimeApplications(CancellationToken token)
@@ -267,6 +283,20 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             await _overtimeApplicationService.WithdrawAsync(id, employeeId.Value, token);
+            return Ok();
+        }
+
+        // See UpdateMyLeaveApplication -- same rules, enforced in OvertimeApplicationService.UpdateOwnAsync.
+        [HttpPut("overtime-applications/{id:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UpdateMyOvertimeApplication(Guid id, [FromBody] UpdateOvertimeApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.Id = id;
+            payload.EmployeeId = employeeId.Value;
+            await _overtimeApplicationService.UpdateOwnAsync(payload, employeeId.Value, token);
             return Ok();
         }
 
@@ -313,6 +343,21 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        // See UpdateMyLeaveApplication. Cost stays zeroed, same convention as filing.
+        [HttpPut("travel-order-applications/{id:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UpdateMyTravelOrderApplication(Guid id, [FromBody] UpdateTravelOrderApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.Id = id;
+            payload.EmployeeId = employeeId.Value;
+            payload.Cost = 0;
+            await _travelOrderApplicationService.UpdateOwnAsync(payload, employeeId.Value, token);
+            return Ok();
+        }
+
         [HttpGet("pass-slip-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyPassSlipApplications(CancellationToken token)
@@ -349,6 +394,20 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             await _passSlipApplicationService.WithdrawAsync(id, employeeId.Value, token);
+            return Ok();
+        }
+
+        // See UpdateMyLeaveApplication -- enforced in PassSlipApplicationService.UpdateOwnAsync.
+        [HttpPut("pass-slip-applications/{id:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UpdateMyPassSlipApplication(Guid id, [FromBody] UpdatePassSlipApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.Id = id;
+            payload.EmployeeId = employeeId.Value;
+            await _passSlipApplicationService.UpdateOwnAsync(payload, employeeId.Value, token);
             return Ok();
         }
 
@@ -463,6 +522,21 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             await _deductionApplicationService.WithdrawAsync(id, employeeId.Value, token);
+            return Ok();
+        }
+
+        // See UpdateMyLeaveApplication -- enforced in DeductionApplicationService.UpdateOwnAsync
+        // (which also re-checks the deduction type is still employee-fileable).
+        [HttpPut("loan-applications/{id:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UpdateMyLoanApplication(Guid id, [FromBody] UpdateDeductionApplication payload, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            payload.Id = id;
+            payload.EmployeeId = employeeId.Value;
+            await _deductionApplicationService.UpdateOwnAsync(payload, employeeId.Value, token);
             return Ok();
         }
 
