@@ -43,12 +43,22 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<TravelOrderApplicationModel>(data));
         }
 
+        private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
+        {
+            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return (approverEmployeeId, User.IsOwnerOrAdmin());
+        }
+
+        // Every filing starts ForApproval and goes through the approval workflow -- the filer
+        // never chooses the status, so no one can skip the approvers.
         [HttpPost]
         [RequirePermission("Official Business:Create")]
         [ProducesResponseType(typeof(ResponseModel<TravelOrderApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateTravelOrderApplication payload, CancellationToken token)
         {
             var data = _mapper.Map<TravelOrderApplication>(payload);
+            data.ApprovalStatus = ApprovalStatus.ForApproval;
             await _service.AddAsync(data, token);
             return Ok(_mapper.Map<TravelOrderApplicationModel>(data));
         }
@@ -62,25 +72,43 @@ namespace Hrms.Api.Controllers
             foreach (var item in payload)
             {
                 var data = _mapper.Map<TravelOrderApplication>(item);
-                data.ApprovalStatus = ApprovalStatus.Approved;
+                data.ApprovalStatus = ApprovalStatus.ForApproval;
                 await _service.AddAsync(data, token);
                 results.Add(_mapper.Map<TravelOrderApplicationModel>(data));
             }
             return Ok(results);
         }
 
+        // Field edit only -- the service ignores any status on the payload. Approve/Decline below
+        // are the only way to change it.
         [HttpPut("{id}")]
-        [RequirePermission("Official Business:Edit", "Official Business:Approve")]
+        [RequirePermission("Official Business:Edit")]
         [ProducesResponseType(typeof(ResponseModel<TravelOrderApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateTravelOrderApplication payload, CancellationToken token)
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<TravelOrderApplicationModel>(await _service.FineOneAsync(payload.Id, token)));
+        }
 
-            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
-                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
-            await _service.UpdateAsync(payload, token, approverEmployeeId, User.IsOwnerOrAdmin());
+        [HttpPost("{id}/approve")]
+        [RequirePermission("Official Business:Approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Approve(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.ApproveAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok();
+        }
 
-            return Ok(_mapper.Map<TravelOrderApplicationModel>(payload));
+        [HttpPost("{id}/decline")]
+        [RequirePermission("Official Business:Approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Decline(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.DeclineAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok();
         }
 
         [HttpDelete("{id}")]

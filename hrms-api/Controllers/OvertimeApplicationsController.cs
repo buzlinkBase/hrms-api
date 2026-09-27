@@ -43,12 +43,22 @@ namespace Hrms.Api.Controllers
             return Ok(_mapper.Map<OvertimeApplicationModel>(data));
         }
 
+        private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
+        {
+            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return (approverEmployeeId, User.IsOwnerOrAdmin());
+        }
+
+        // Every filing starts ForApproval and goes through the approval workflow -- the filer
+        // never chooses the status, so no one can skip the approvers.
         [HttpPost]
         [RequirePermission("Overtime:Create")]
         [ProducesResponseType(typeof(ResponseModel<OvertimeApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateOverTimeApplication payload, CancellationToken token)
         {
             var data = _mapper.Map<OverTimeApplication>(payload);
+            data.ApprovalStatus = ApprovalStatus.ForApproval;
             await _service.AddAsync(data, token);
             var respModel = _mapper.Map<OvertimeApplicationModel>(data);
             return Ok(respModel);
@@ -62,24 +72,42 @@ namespace Hrms.Api.Controllers
             var entities = _mapper.Map<List<OverTimeApplication>>(payload);
             foreach (var entity in entities)
             {
-                entity.ApprovalStatus = ApprovalStatus.Approved;
+                entity.ApprovalStatus = ApprovalStatus.ForApproval;
                 await _service.AddAsync(entity, token);
             }
             return Ok(_mapper.Map<List<OvertimeApplicationModel>>(entities));
         }
 
+        // Field edit only -- the service ignores any status on the payload. Approve/Decline below
+        // are the only way to change it.
         [HttpPut("{id}")]
-        [RequirePermission("Overtime:Edit", "Overtime:Approve")]
+        [RequirePermission("Overtime:Edit")]
         [ProducesResponseType(typeof(ResponseModel<OvertimeApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateOvertimeApplication payload, CancellationToken token)
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(_mapper.Map<OvertimeApplicationModel>(await _service.FineOneAsync(payload.Id, token)));
+        }
 
-            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
-                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
-            await _service.UpdateAsync(payload, token, approverEmployeeId, User.IsOwnerOrAdmin());
+        [HttpPost("{id}/approve")]
+        [RequirePermission("Overtime:Approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Approve(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.ApproveAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok();
+        }
 
-            return Ok(_mapper.Map<OvertimeApplicationModel>(payload));
+        [HttpPost("{id}/decline")]
+        [RequirePermission("Overtime:Approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Decline(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.DeclineAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok();
         }
 
         [HttpDelete("{id}")]

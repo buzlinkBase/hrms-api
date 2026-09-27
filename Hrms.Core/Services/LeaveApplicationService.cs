@@ -239,21 +239,10 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             ? (double)(to.DayNumber - from.DayNumber + 1)
             : fraction == DayFraction.FullDay ? 1.0 : 0.5;
 
-    public async Task<LeaveApplicationModel?> AddAsync(LeaveApplication model,
-        CancellationToken token)
-    {
-        await CreateAsync(model, token);
-        return _mapper.Map<LeaveApplicationModel>(model);
-    }
-
-    // approverEmployeeId/approverHasOverride are only consulted when this PUT is actually
-    // requesting an approve/decline transition (previousStatus ForApproval -> Approved/Declined)
-    // -- a plain field edit ignores them entirely. See LeaveApplicationsController.Put.
-    public async Task UpdateAsync(
-        UpdateLeaveApplication payload,
-        CancellationToken token,
-        Guid? approverEmployeeId = null,
-        bool approverHasOverride = false)
+    // Plain field edit -- never changes ApprovalStatus, whatever the payload says. Status only
+    // moves through ApproveAsync/DeclineAsync (the approval engine), so an edit can't bypass the
+    // configured approvers. See LeaveApplicationsController.Put.
+    public async Task UpdateAsync(UpdateLeaveApplication payload, CancellationToken token)
     {
         var existing = await Context.leaveApplications
             .Include(x => x.Leave)
@@ -261,30 +250,37 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             ?? throw new NotFoundException("Record not found");
 
         var previousStatus = existing.ApprovalStatus;
-        var isApprovalAction = previousStatus == ApprovalStatus.ForApproval
-            && payload.ApprovalStatus is ApprovalStatus.Approved or ApprovalStatus.Declined;
-
         payload.Adapt(existing);
+        existing.ApprovalStatus = previousStatus;
 
-        if (isApprovalAction)
-        {
-            // Undo Adapt's blind copy of the client-requested status -- the real outcome (which
-            // may just be "advanced to the next step, still ForApproval") comes from the engine.
-            existing.ApprovalStatus = previousStatus;
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
 
-            var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-                "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+    public Task ApproveAsync(Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        RecordDecisionAsync(id, ApprovalActionType.Approved, approverEmployeeId, approverHasOverride, note, token);
 
-            var action = payload.ApprovalStatus == ApprovalStatus.Approved
-                ? ApprovalActionType.Approved
-                : ApprovalActionType.Declined;
+    public Task DeclineAsync(Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        RecordDecisionAsync(id, ApprovalActionType.Declined, approverEmployeeId, approverHasOverride, note, token);
 
-            var result = await _approvalEngine.RecordActionAsync(
-                ApprovalApplicationType.Leave, existing.Id, existing.EmployeeId,
-                approverId, approverHasOverride, action, payload.Note, token);
+    private async Task RecordDecisionAsync(
+        Guid id, ApprovalActionType action, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
+    {
+        var existing = await Context.leaveApplications
+            .Include(x => x.Leave)
+            .FirstOrDefaultAsync(x => x.Id == id, token)
+            ?? throw new NotFoundException("Record not found");
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This leave application is not awaiting approval.");
 
-            existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
-        }
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
+
+        var previousStatus = existing.ApprovalStatus;
+        // The real outcome may just be "advanced to the next step, still ForApproval".
+        var result = await _approvalEngine.RecordActionAsync(
+            ApprovalApplicationType.Leave, existing.Id, existing.EmployeeId,
+            approverId, approverHasOverride, action, note, token);
+        existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
 
         await ApplyStatusTransitionSideEffectsAsync(existing, previousStatus, token);
 

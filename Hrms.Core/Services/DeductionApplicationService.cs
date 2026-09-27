@@ -107,10 +107,21 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
                 $"\"{deduction.Name}\" cannot be filed through the Employee Portal. Please coordinate with HR.");
     }
 
+    // Plain field edit -- never changes ApprovalStatus; only ApproveAsync/DeclineAsync/WithdrawAsync
+    // do. The model below is rebuilt from a payload that carries no status, so without carrying
+    // the stored one across it silently fell back to the entity default (Approved) -- editing a
+    // pending loan approved it with no approver ever involved.
     public async Task<DeductionApplication> UpdateAsync(UpdateDeductionApplication payload,
         CancellationToken token)
     {
+        // Projected, not the entity: the rebuilt model below is what gets attached and saved.
+        var currentStatus = await GetQueryable(x => x.Id == payload.Id)
+            .Select(x => (ApprovalStatus?)x.ApprovalStatus)
+            .FirstOrDefaultAsync(token)
+            ?? throw new NotFoundException("Record not found");
+
         var model = _mapper.Map<DeductionApplication>(payload);
+        model.ApprovalStatus = currentStatus;
         foreach (var item in payload.Details)
         {
             var detail = new DeductionApplicationDetail
@@ -157,8 +168,7 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This application is not awaiting approval.");
 
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         var result = await _approvalEngine.RecordActionAsync(
             ApprovalApplicationType.Loan, existing.Id, existing.EmployeeId,
@@ -177,8 +187,7 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This application is not awaiting approval.");
 
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         var result = await _approvalEngine.RecordActionAsync(
             ApprovalApplicationType.Loan, existing.Id, existing.EmployeeId,

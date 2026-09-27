@@ -53,50 +53,70 @@ namespace Hrms.Api.Controllers
             return Ok(data);
         }
 
+        private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
+        {
+            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return (approverEmployeeId, User.IsOwnerOrAdmin());
+        }
+
+        // Every filing starts ForApproval and goes through the approval workflow -- the filer
+        // never chooses the status, so no one can skip the approvers.
         [HttpPost]
         [RequirePermission("Leave:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateLeaveApplication payload, CancellationToken token)
         {
+            payload.ApprovalStatus = ApprovalStatus.ForApproval;
             await _service.AddAsync(payload, token);
-            await _service.CommitChangesAsync(token);
             return Ok();
         }
 
-        // Bulk create-as-approved (writes ApprovalStatus.Approved directly) -- treated as a
-        // bulk-create action; the auto-approve is a business-logic detail, not a second gate.
+        // Same path as a single filing per row (policy checks, approval workflow, grant events).
         [HttpPost("batch")]
         [RequirePermission("Leave:Create")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveApplicationModel>>), 200)]
         public async Task<IActionResult> PostBatch([FromBody] List<CreateLeaveApplication> payload, CancellationToken token)
         {
             var results = new List<LeaveApplicationModel?>();
-
             foreach (var item in payload)
             {
-                var entity = _mapper.Map<LeaveApplication>(item);
-                entity.ApprovalStatus = ApprovalStatus.Approved;
-                results.Add(await _service.AddAsync(entity, token));
+                item.ApprovalStatus = ApprovalStatus.ForApproval;
+                results.Add(await _service.AddAsync(item, token));
             }
-            await _service.CommitChangesAsync(token);
             return Ok(results);
         }
 
-        // This one PUT conflates a plain field edit and an approve/decline status change (the
-        // frontend's changeStatus reuses this same endpoint) -- no way to split without a
-        // backend code change, so either permission lets the call through.
+        // Field edit only -- the service ignores any status on the payload. Approve/Decline below
+        // are the only way to change it.
         [HttpPut("{id}")]
-        [RequirePermission("Leave:Edit", "Leave:Approve")]
+        [RequirePermission("Leave:Edit")]
         [ProducesResponseType(typeof(ResponseModel<LeaveApplicationModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateLeaveApplication payload, CancellationToken token)
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await _service.UpdateAsync(payload, token);
+            return Ok(await _service.FineOneAsync(payload.Id, token));
+        }
 
-            var approverEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
-                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
-            await _service.UpdateAsync(payload, token, approverEmployeeId, User.IsOwnerOrAdmin());
+        [HttpPost("{id}/approve")]
+        [RequirePermission("Leave:Approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Approve(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.ApproveAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok();
+        }
 
-            return Ok(_mapper.Map<LeaveApplicationModel>(payload));
+        [HttpPost("{id}/decline")]
+        [RequirePermission("Leave:Approve")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> Decline(Guid id, [FromBody] ApprovalActionRequest? body, CancellationToken token)
+        {
+            var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+            await _service.DeclineAsync(id, approverEmployeeId, hasOverride, body?.Note, token);
+            return Ok();
         }
 
         [HttpDelete("{id}")]

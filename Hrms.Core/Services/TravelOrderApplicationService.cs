@@ -22,42 +22,41 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         await CommitChangesAsync(token);
     }
 
-    public async Task UpdateAsync(
-        UpdateTravelOrderApplication payload,
-        CancellationToken token,
-        Guid? approverEmployeeId = null,
-        bool approverHasOverride = false)
+    // Plain field edit -- never changes ApprovalStatus (see OvertimeApplicationService.UpdateAsync).
+    public async Task UpdateAsync(UpdateTravelOrderApplication payload, CancellationToken token)
     {
-        var existing = await Context.TravelOrderApplications.FindAsync(new object[] { payload.Id }, token);
-        if (existing == null)
-        {
-            throw new NotFoundException("Record not found");
-        }
+        var existing = await Context.TravelOrderApplications.FindAsync(new object[] { payload.Id }, token)
+            ?? throw new NotFoundException("Record not found");
 
         var previousStatus = existing.ApprovalStatus;
-        var isApprovalAction = previousStatus == ApprovalStatus.ForApproval
-            && payload.ApprovalStatus is ApprovalStatus.Approved or ApprovalStatus.Declined;
-
         payload.Adapt(existing);
+        existing.ApprovalStatus = previousStatus;
 
-        if (isApprovalAction)
-        {
-            existing.ApprovalStatus = previousStatus;
+        await ModifyAsync(existing, token);
+        await CommitChangesAsync(token);
+    }
 
-            var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-                "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+    public Task ApproveAsync(Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        RecordDecisionAsync(id, ApprovalActionType.Approved, approverEmployeeId, approverHasOverride, note, token);
 
-            var action = payload.ApprovalStatus == ApprovalStatus.Approved
-                ? ApprovalActionType.Approved
-                : ApprovalActionType.Declined;
+    public Task DeclineAsync(Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token) =>
+        RecordDecisionAsync(id, ApprovalActionType.Declined, approverEmployeeId, approverHasOverride, note, token);
 
-            var result = await _approvalEngine.RecordActionAsync(
-                ApprovalApplicationType.OfficialBusiness, existing.Id, existing.EmployeeId,
-                approverId, approverHasOverride, action, payload.Note, token);
+    private async Task RecordDecisionAsync(
+        Guid id, ApprovalActionType action, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
+    {
+        var existing = await Context.TravelOrderApplications.FindAsync(new object[] { id }, token)
+            ?? throw new NotFoundException("Record not found");
+        if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
+            throw new InvalidOperationException("This official business application is not awaiting approval.");
 
-            existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
-        }
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
+        var result = await _approvalEngine.RecordActionAsync(
+            ApprovalApplicationType.OfficialBusiness, existing.Id, existing.EmployeeId,
+            approverId, approverHasOverride, action, note, token);
+
+        existing.ApprovalStatus = ApprovalEngineService.MapInstanceStatus(result.InstanceStatus);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }

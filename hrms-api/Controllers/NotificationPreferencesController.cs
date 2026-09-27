@@ -29,8 +29,7 @@ namespace Hrms.Api.Controllers
 
         private async Task<Guid> ResolveCallerEmployeeIdAsync(CancellationToken token) =>
             await _employeeService.ResolveEmployeeIdAsync(User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-            ?? throw new InvalidOperationException(
-                "Your account isn't linked to an Employee record, so notification preferences can't be resolved.");
+            ?? throw new AccountNotLinkedException("notification preferences can't be resolved");
 
         // Returns every ApprovalApplicationType the caller has an explicit row for -- a category
         // with no row is implicitly both-channels-on and the frontend renders that default

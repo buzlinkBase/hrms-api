@@ -53,8 +53,7 @@ public class EmployeeProfileUpdateRequestService : BaseService<EmployeeProfileUp
         if (!forceApply && request.EmployeeSnapshotUpdatedAt != employee.UpdatedAt)
             return new ApproveProfileUpdateResult(true, employee.UpdatedAt);
 
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         var result = await _approvalEngine.RecordActionAsync(
             ApprovalApplicationType.ProfileUpdate, request.Id, request.EmployeeId,
@@ -90,8 +89,7 @@ public class EmployeeProfileUpdateRequestService : BaseService<EmployeeProfileUp
         if (request.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This request is not awaiting approval.");
 
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         var result = await _approvalEngine.RecordActionAsync(
             ApprovalApplicationType.ProfileUpdate, request.Id, request.EmployeeId,

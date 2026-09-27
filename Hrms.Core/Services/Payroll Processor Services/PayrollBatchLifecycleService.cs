@@ -107,8 +107,7 @@ public class PayrollBatchLifecycleService
             ?? throw new NotFoundException("Payroll batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This payroll run is not awaiting approval.");
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         try
         {
@@ -147,8 +146,7 @@ public class PayrollBatchLifecycleService
             ?? throw new NotFoundException("Payroll batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This payroll run is not awaiting approval.");
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         try
         {
@@ -308,8 +306,7 @@ public class PayrollBatchLifecycleService
             ?? throw new NotFoundException("Payroll batch not found.");
         if (!batch.PendingDeletion)
             throw new InvalidOperationException("This payroll run has no deletion request awaiting approval.");
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         try
         {
@@ -344,8 +341,7 @@ public class PayrollBatchLifecycleService
             ?? throw new NotFoundException("Payroll batch not found.");
         if (!batch.PendingDeletion)
             throw new InvalidOperationException("This payroll run has no deletion request awaiting approval.");
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         try
         {

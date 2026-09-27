@@ -184,8 +184,7 @@ namespace Hrms.Api.Controllers
 
             var callerEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
                 User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-                ?? throw new InvalidOperationException(
-                    "Your account isn't linked to an Employee record, so this action can't be attributed to you. Contact an admin to link your account.");
+                ?? throw new AccountNotLinkedException("this action can't be attributed to you");
 
             await _approvalEngine.ReassignApproverAsync(
                 applicationType, applicationId, body.NewApproverEmployeeId, callerEmployeeId, body.Note, token);

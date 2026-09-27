@@ -52,15 +52,14 @@ namespace Hrms.Api.Controllers
             return Ok(result);
         }
 
-        // Admin-created loans are auto-approved on creation (no separate approve step for
-        // admin-originated ones) -- still a Create action, the auto-approve is a business-logic
-        // detail.
+        // Admin-filed loans start ForApproval like portal ones and go through the approval
+        // workflow -- the filer never sets the status, so no one can skip the approvers.
         [HttpPost]
         [RequirePermission("Loan/Deduction:Create")]
         [ProducesResponseType(typeof(ResponseModel<DeductionApplicationModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateDeductionApplication payload, CancellationToken token)
         {
-            var data = await _service.AddAsync(payload, ApprovalStatus.Approved, token);
+            var data = await _service.AddAsync(payload, ApprovalStatus.ForApproval, token);
             var respModel = _mapper.Map<DeductionApplicationModel>(data);
             return Ok(respModel);
         }

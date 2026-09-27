@@ -60,8 +60,7 @@ public class DailyRecordsController : ControllerBase
 
         var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
             User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-            ?? throw new InvalidOperationException(
-                "Your account isn't linked to an Employee record, so this batch can't be attributed to an approval applicant. Contact an admin to link your account.");
+            ?? throw new AccountNotLinkedException("this batch can't be attributed to an approval applicant");
 
         var rangeFrom = model.Min(x => x.WorkDate);
         var RangeTo = model.Max(x => x.WorkDate);
@@ -112,8 +111,7 @@ public class DailyRecordsController : ControllerBase
     {
         var requestedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
             User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-            ?? throw new InvalidOperationException(
-                "Your account isn't linked to an Employee record, so this request can't be attributed to an applicant. Contact an admin to link your account.");
+            ?? throw new AccountNotLinkedException("this request can't be attributed to an applicant");
         await _service.RequestDeletionAsync(batchId, requestedByEmployeeId, token);
         return Ok("success");
     }

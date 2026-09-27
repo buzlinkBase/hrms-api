@@ -1,4 +1,5 @@
-﻿using MessagePack;
+﻿using Hrms.Api.Extensions;
+using MessagePack;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Exceptions;
@@ -14,6 +15,7 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
     {
         var statusCode = exception switch
         {
+            AccountNotLinkedException => StatusCodes.Status400BadRequest,
             GuardException => StatusCodes.Status400BadRequest,
             ValidationException => StatusCodes.Status400BadRequest,
             UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
@@ -30,7 +32,11 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             Type = $"https://httpstatuses.com/{statusCode}",
             Title = GetTitleForStatus(statusCode),
             Status = statusCode,
-            Detail = exception.Message,
+            // Services can't know who's calling -- name the caller's own login email here, since
+            // that's exactly what an admin needs to put on the Employee record to link them.
+            Detail = exception is AccountNotLinkedException notLinked
+                ? notLinked.MessageFor(httpContext.User.GetUserClaim("email"))
+                : exception.Message,
             Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}"
         };
 

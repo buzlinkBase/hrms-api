@@ -35,7 +35,12 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
 
         var existing = await Context.PassSlipApplications.FindAsync(new object[] { payload.Id }, token);
         if (existing == null) throw new NotFoundException("Record not found");
+
+        // Plain field edit -- never changes ApprovalStatus; only Approve/Decline/Revoke do.
+        var previousStatus = existing.ApprovalStatus;
         payload.Adapt(existing);
+        existing.ApprovalStatus = previousStatus;
+
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);
     }
@@ -48,8 +53,7 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         if (passSlip.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This pass slip is not awaiting approval.");
 
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         var result = await _approvalEngine.RecordActionAsync(
             ApprovalApplicationType.PassSlip, passSlip.Id, passSlip.EmployeeId,
@@ -110,8 +114,7 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         if (passSlip.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This pass slip is not awaiting approval.");
 
-        var approverId = approverEmployeeId ?? throw new InvalidOperationException(
-            "Your account isn't linked to an Employee record, so this approval action can't be recorded. Contact an admin to link your account.");
+        var approverId = approverEmployeeId ?? throw new AccountNotLinkedException("this approval action can't be recorded");
 
         var result = await _approvalEngine.RecordActionAsync(
             ApprovalApplicationType.PassSlip, passSlip.Id, passSlip.EmployeeId,

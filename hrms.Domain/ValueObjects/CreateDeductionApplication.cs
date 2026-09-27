@@ -35,7 +35,12 @@ public class UpdateDeductionApplication : CreateDeductionApplication
     public List<UpdateDeductionApplicationDetail> Details { get; set; }
 
 }
-public class DeductionApplicationModel : UpdateDeductionApplication;
+// Response-only: ApprovalStatus is read here but never accepted on Create/Update -- only the
+// approve/decline endpoints (approval engine) change it.
+public class DeductionApplicationModel : UpdateDeductionApplication
+{
+    public ApprovalStatus ApprovalStatus { get; set; }
+}
 
 public class CreateDeductionApplicationDetail
 {

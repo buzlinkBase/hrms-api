@@ -89,8 +89,7 @@ namespace Hrms.Api.Controllers
         {
             var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
                 User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-                ?? throw new InvalidOperationException(
-                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
+                ?? throw new AccountNotLinkedException("this run can't be attributed to an approver applicant");
             var batch = Guid.CreateVersion7();
             var payrolls = await _service.GenerateAsync(payload, batch, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
@@ -107,8 +106,7 @@ namespace Hrms.Api.Controllers
         {
             var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
                 User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-                ?? throw new InvalidOperationException(
-                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
+                ?? throw new AccountNotLinkedException("this run can't be attributed to an approver applicant");
             var payrolls = await _service.GenerateThirteenthMonthAsync(payload, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
@@ -121,8 +119,7 @@ namespace Hrms.Api.Controllers
         {
             var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
                 User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-                ?? throw new InvalidOperationException(
-                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
+                ?? throw new AccountNotLinkedException("this run can't be attributed to an approver applicant");
             var payrolls = await _service.GenerateLastPayAsync(payload, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
@@ -149,8 +146,7 @@ namespace Hrms.Api.Controllers
         {
             var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
                 User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-                ?? throw new InvalidOperationException(
-                    "Your account isn't linked to an Employee record, so this run can't be attributed to an approver applicant. Contact an admin to link your account.");
+                ?? throw new AccountNotLinkedException("this run can't be attributed to an approver applicant");
             var payrolls = await _service.GenerateYearEndAdjustmentAsync(payload, generatedByEmployeeId, token);
             var response = new { data = payrolls, total = payrolls.Count };
             return Ok(response);
@@ -356,8 +352,7 @@ namespace Hrms.Api.Controllers
 
             var requestedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
                 User.GetRequiredUserId(), User.GetUserClaim("email"), token)
-                ?? throw new InvalidOperationException(
-                    "Your account isn't linked to an Employee record, so this request can't be attributed to an applicant. Contact an admin to link your account.");
+                ?? throw new AccountNotLinkedException("this request can't be attributed to an applicant");
             await _service.RequestDeletionAsync(batchId, requestedByEmployeeId, token);
             return Ok("success");
         }
