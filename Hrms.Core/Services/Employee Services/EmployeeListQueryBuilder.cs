@@ -80,7 +80,6 @@ public static class EmployeeListQueryBuilder
         if (HasAny(q.PositionIds)) query = query.Where(x => x.PositionId.HasValue && q.PositionIds!.Contains(x.PositionId.Value));
         if (HasAny(q.TimeShiftIds)) query = query.Where(x => x.TimeShiftId.HasValue && q.TimeShiftIds!.Contains(x.TimeShiftId.Value));
 
-        if (HasAny(q.JobLevels)) query = query.Where(x => q.JobLevels!.Contains(x.JobLevel));
         if (HasAny(q.SalaryTypes)) query = query.Where(x => q.SalaryTypes!.Contains(x.SalaryType));
         if (HasAny(q.EmploymentStatuses)) query = query.Where(x => q.EmploymentStatuses!.Contains(x.EmploymentStatus));
         if (HasAny(q.Statuses)) query = query.Where(x => q.Statuses!.Contains(x.Status));
@@ -88,6 +87,7 @@ public static class EmployeeListQueryBuilder
 
         if (Text(q.EmployeeNo) is { } employeeNo) query = query.Where(x => x.EmployeeNo.Contains(employeeNo));
         if (Text(q.BioId) is { } bioId) query = query.Where(x => x.BioId.HasValue && x.BioId.Value.ToString().Contains(bioId));
+        if (Text(q.JobLevel) is { } jobLevel) query = query.Where(x => x.JobLevel.Contains(jobLevel));
         if (Text(q.FullName) is { } name)
             query = query.Where(x => x.FirstName.Contains(name) || x.LastName.Contains(name) || x.MiddleName.Contains(name));
         if (Text(q.Email) is { } email) query = query.Where(x => x.Email != null && x.Email.Contains(email));

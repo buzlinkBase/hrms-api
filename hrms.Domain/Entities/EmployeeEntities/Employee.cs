@@ -17,7 +17,10 @@ public class Employee : BaseEntity
 
     public Guid? SectionId { get; set; }
     public Guid? PositionId { get; set; }
-    public JobLevelOption JobLevel { get; set; }
+    // Free text -- JobLevels.Suggested lists the common values the UI suggests. Rows saved before
+    // this was text hold the old enum names (e.g. "RankandFile"); the frontend displays those
+    // readably (formatJobLevel).
+    public string JobLevel { get; set; } = JobLevels.Default;
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; } = DateTime.UtcNow;

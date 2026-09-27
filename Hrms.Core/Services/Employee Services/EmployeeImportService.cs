@@ -165,7 +165,7 @@ public class EmployeeImportService
                 TIN = item.TIN ?? "",
                 Email = item.Email ?? "",
                 Contact = item.ContactNo ?? "",
-                JobLevel = JobLevelOption.RankandFile,
+                JobLevel = JobLevels.Default,
                 CivilStatus = item.CivilStatus ?? "",
                 DOB = item.DateOfBirth.HasValue ? item.DateOfBirth.Value : null,
                 EmploymentStatus = EmploymentStatus.Regular,

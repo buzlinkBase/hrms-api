@@ -25,11 +25,6 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
                 v => EnumParserConfig.SafeParseEnum(v, SalaryType.VARIABLE)
             );
 
-        builder.Property(x => x.JobLevel)
-          .HasConversion(
-                v => v.ToString(),
-                v => EnumParserConfig.SafeParseEnum(v, JobLevelOption.RankandFile)
-            );
         // Explicit SQL DEFAULT — a C# property initializer alone doesn't produce one, and
         // without it the migration would add this NOT NULL column with no default, which
         // would either fail against existing rows or silently backfill false (inverting the

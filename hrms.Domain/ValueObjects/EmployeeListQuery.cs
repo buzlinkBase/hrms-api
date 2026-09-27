@@ -37,7 +37,6 @@ public class EmployeeListQuery
     public List<Guid>? TimeShiftIds { get; set; }
 
     // Multi-select enums / fixed values.
-    public List<JobLevelOption>? JobLevels { get; set; }
     public List<SalaryType>? SalaryTypes { get; set; }
     public List<EmploymentStatus>? EmploymentStatuses { get; set; }
     public List<string>? Statuses { get; set; }
@@ -46,6 +45,8 @@ public class EmployeeListQuery
     // Free-text "contains" filters.
     public string? EmployeeNo { get; set; }
     public string? BioId { get; set; }
+    /// <summary>Job Level is free text, so it's searched rather than picked from a fixed list.</summary>
+    public string? JobLevel { get; set; }
     /// <summary>Matches first, last or middle name.</summary>
     public string? FullName { get; set; }
     public string? Email { get; set; }

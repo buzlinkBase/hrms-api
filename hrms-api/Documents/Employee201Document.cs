@@ -166,7 +166,7 @@ public class Employee201Document : IDocument
                 ("Section", "—"));
             TwoColRow(col,
                 ("Position", _e.PositionName),
-                ("Job Level", _e.JobLevel.ToString()));
+                ("Job Level", JobLevels.Display(_e.JobLevel)));
             TwoColRow(col,
                 ("Branch", _e.BranchName),
                 ("Client / Site", _e.ClientName));

@@ -118,6 +118,40 @@ public class EmployeeSearchTests
             .Should().Equal("Estrada");
     }
 
+    // Job Level is free text now -- a custom value (not one of JobLevels.Suggested) is stored and
+    // found by a partial search, and a row still holding a legacy enum name matches the same way.
+    [Fact]
+    public async Task JobLevelFilter_MatchesFreeTextAndLegacyValues_ByPartialText()
+    {
+        using var db = await SeedAsync();
+        await using (var seed = db.NewContext())
+        {
+            var projectLead = NewEmployee("Fajardo", "Eli", GroupSemi);
+            projectLead.JobLevel = "Project Lead";
+            var legacy = NewEmployee("Garcia", "Fe", GroupSemi);
+            legacy.JobLevel = "TechnicalSpecialist";
+            seed.Employees.AddRange(projectLead, legacy);
+            await seed.SaveChangesAsync();
+        }
+
+        // SQLite's Contains is case-sensitive (MySQL's default collation isn't), same as the other
+        // text filters' tests here.
+        (await LastNamesAsync(db, new EmployeeListQuery { JobLevel = "Project" }))
+            .Should().Equal("Fajardo");
+        (await LastNamesAsync(db, new EmployeeListQuery { JobLevel = "Technical" }))
+            .Should().Equal("Garcia");
+    }
+
+    [Theory]
+    [InlineData("RankandFile", "Rank and File")]
+    [InlineData("TechnicalSpecialist", "Technical Specialist")]
+    [InlineData("Project Lead", "Project Lead")]
+    [InlineData(null, "")]
+    public void JobLevelsDisplay_ShowsLegacyEnumNamesReadably(string? stored, string expected)
+    {
+        JobLevels.Display(stored).Should().Be(expected);
+    }
+
     [Fact]
     public async Task Keyword_MatchesRelatedNamesAndStatutoryNumbers()
     {

@@ -39,17 +39,36 @@ public enum Period
     Both
 }
 
-public enum JobLevelOption
+// Job Level is free text (Employee.JobLevel). These are only the common values the UI suggests
+// and the seeder/import fall back to -- any other value is equally valid.
+public static class JobLevels
 {
-    //Administrative,
-    Managerial,
-    Supervisory,
-    Executive,
-    RankandFile,
-    EntryLevel,
-    TechnicalSpecialist,
-    Contractual,
-    FieldStaff
+    public const string Default = "Rank and File";
+
+    public static readonly IReadOnlyList<string> Suggested =
+    [
+        "Managerial",
+        "Supervisory",
+        "Executive",
+        Default,
+        "Entry Level",
+        "Technical Specialist",
+        "Contractual",
+        "Field Staff",
+    ];
+
+    // Rows saved while Job Level was an enum store the enum name ("RankandFile") -- shown readably
+    // until they're re-saved. Any other value is already free text and is shown as-is.
+    private static readonly IReadOnlyDictionary<string, string> LegacyNames = new Dictionary<string, string>
+    {
+        ["RankandFile"] = Default,
+        ["EntryLevel"] = "Entry Level",
+        ["TechnicalSpecialist"] = "Technical Specialist",
+        ["FieldStaff"] = "Field Staff",
+    };
+
+    public static string Display(string? value) =>
+        value is not null && LegacyNames.TryGetValue(value, out var readable) ? readable : value ?? string.Empty;
 }
 
 public enum PaymentMethod

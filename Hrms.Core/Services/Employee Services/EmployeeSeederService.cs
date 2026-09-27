@@ -72,7 +72,7 @@ public class EmployeeSeederService
                 Contact = faker.Phone.PhoneNumber("09#########"),
                 Address1 = faker.Address.FullAddress(),
                 HireDate = DateOnly.FromDateTime(faker.Date.Past(3)),
-                JobLevel = faker.PickRandom<JobLevelOption>(),
+                JobLevel = faker.PickRandom(JobLevels.Suggested.ToList()),
                 EmploymentStatus = EmploymentStatus.Regular,
                 ModeOfPayment = PaymentMethod.ATM,
                 SalaryType = salaryType,

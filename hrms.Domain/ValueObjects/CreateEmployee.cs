@@ -32,7 +32,7 @@ public class CreateEmployee
     public string? Email { get; set; }
     public Guid? SectionId { get; set; }
     public Guid? PositionId { get; set; }
-    public JobLevelOption JobLevel { get; set; }
+    public string JobLevel { get; set; } = JobLevels.Default;
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; }
@@ -184,7 +184,7 @@ public class EmployeeFullModel
 
     public Guid? SectionId { get; set; }
     public Guid? PositionId { get; set; }
-    public JobLevelOption JobLevel { get; set; }
+    public string JobLevel { get; set; } = JobLevels.Default;
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; }
@@ -280,7 +280,7 @@ public class EmployeeModelPayrollRun
     public Guid? AreaId { get; set; }
     public PayrollGroupModel? PayrollGroup { get; set; }
     //public Guid? BranchId { get; set; }
-    public JobLevelOption JobLevel { get; set; }
+    public string JobLevel { get; set; } = JobLevels.Default;
     public DateOnly HireDate { get; set; }
     public DateTime? DateResigned { get; set; }
     public string FirstName { get; set; } = string.Empty;
