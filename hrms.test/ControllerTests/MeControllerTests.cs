@@ -344,6 +344,17 @@ public class MeControllerTests
     }
 
     [Fact]
+    public async Task GetMyRawAttendance_NoLinkedEmployee_ReturnsNotFound()
+    {
+        var (controller, _) = BuildController(caller: null);
+
+        var result = await controller.GetMyRawAttendance(
+            new DateTime(2026, 9, 1), new DateTime(2026, 9, 15), CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
     public async Task GetMyFixedSchedule_NoLinkedEmployee_ReturnsNotFound()
     {
         var (controller, _) = BuildController(caller: null);

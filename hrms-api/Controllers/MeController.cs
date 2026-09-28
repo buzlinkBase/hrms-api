@@ -164,6 +164,20 @@ namespace Hrms.Api.Controllers
             return Ok(result);
         }
 
+        // Portal counterpart of Timekeeping's Raw Logs (DailyRecordsController.GenerateRawColumnarView),
+        // always scoped to the caller's own employee record.
+        [HttpGet("raw-attendance")]
+        [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
+        public async Task<IActionResult> GetMyRawAttendance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var payload = new DTRRequestPayload { FromDate = DateOnly.FromDateTime(from), ToDate = DateOnly.FromDateTime(to), EmployeeId = employeeId };
+            var result = await _dtrCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload, ProcessorType.RawColumnarLog, token, IncludeNullResponse.Include);
+            return Ok(result);
+        }
+
         [HttpGet("fixed-schedule")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeFixedScheduleModel>>), 200)]
         public async Task<IActionResult> GetMyFixedSchedule(CancellationToken token)
