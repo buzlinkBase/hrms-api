@@ -1,3 +1,4 @@
+using hrms.test.TestSupport;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MapsterMapper;
@@ -35,7 +36,7 @@ public class EmployeeServiceTests
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
 
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
 
         return new EmployeeService(
             uow,

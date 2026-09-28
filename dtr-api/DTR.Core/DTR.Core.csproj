@@ -11,7 +11,7 @@
 	  <Compile Remove="Messaging\**" />
 	  <EmbeddedResource Remove="Messaging\**" />
 	  <None Remove="Messaging\**" /> 
-	</ItemGroup> 
+	</ItemGroup>
 	<ItemGroup> 
 		<PackageReference Include="Polly" />
 		<PackageReference Include="MessagePack" />

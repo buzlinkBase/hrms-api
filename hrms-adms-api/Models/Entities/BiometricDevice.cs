@@ -1,24 +1,29 @@
-﻿namespace Hrms.adms.Models.Entities;
+﻿using Onepunch.AuditEngine;
 
+namespace Hrms.adms.Models.Entities;
+
+// Audited for what an admin sets (name, placement, status). The [AuditIgnore] fields are what the
+// device itself reports on every push/heartbeat -- recording those would bury the admin changes.
+[Audited]
 public class BiometricDevice : BaseEntity, IEntityTenant
 {
     public string SN { get; set; } = string.Empty;
     public string DeviceName { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string MacAddress { get; set; } = string.Empty;
-    public string IpAddress { get; set; } = string.Empty;
-    public string Platform { get; set; } = string.Empty;
-    public string OemVendor { get; set; } = string.Empty;
-    public string FwVersion { get; set; } = string.Empty;
-    public string PushVersion { get; set; } = string.Empty;
-    public string? RegDeviceType { get; set; } = string.Empty;
-    public int LanguageCode { get; set; } = 69;
+    [AuditIgnore] public string MacAddress { get; set; } = string.Empty;
+    [AuditIgnore] public string IpAddress { get; set; } = string.Empty;
+    [AuditIgnore] public string Platform { get; set; } = string.Empty;
+    [AuditIgnore] public string OemVendor { get; set; } = string.Empty;
+    [AuditIgnore] public string FwVersion { get; set; } = string.Empty;
+    [AuditIgnore] public string PushVersion { get; set; } = string.Empty;
+    [AuditIgnore] public string? RegDeviceType { get; set; } = string.Empty;
+    [AuditIgnore] public int LanguageCode { get; set; } = 69;
     public Guid? BranchId { get; set; }
     public Guid? ClientId { get; set; }
     public Guid? DepartmentId { get; set; }
     public Guid? OperationAreaId { get; set; }
     public string Status { get; set; } = "Active";
-    public string State { get; set; } = "Offline";
+    [AuditIgnore] public string State { get; set; } = "Offline";
 }
 public class SystemCounters : BaseEntity
 {

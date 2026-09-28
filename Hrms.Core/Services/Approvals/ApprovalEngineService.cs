@@ -3,6 +3,7 @@ using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Core.Messaging;
 using MassTransit;
+using Onepunch.AuditEngine;
 
 namespace Hrms.Core.Services.Approvals;
 
@@ -31,12 +32,16 @@ public class ApprovalEngineService
 {
     private readonly IUnitOfWorkService _uow;
     private readonly IPublishEndpoint _publisher;
+    private readonly IAuditWriter? _audit;
     private readonly ApproverEligibilityResolver _eligibility = new();
 
-    public ApprovalEngineService(IUnitOfWorkService uow, IPublishEndpoint publisher)
+    // auditWriter is optional so the many direct constructions in tests stay valid; the
+    // container always supplies it (AddHrmsAuditTrail).
+    public ApprovalEngineService(IUnitOfWorkService uow, IPublishEndpoint publisher, IAuditWriter? auditWriter = null)
     {
         _uow = uow;
         _publisher = publisher;
+        _audit = auditWriter;
     }
 
     public async Task<ApprovalInstance> StartAsync(
@@ -285,6 +290,7 @@ public class ApprovalEngineService
             Action = action,
             Note = noteRequirement == NoteRequirement.None ? null : note,
         }, token);
+        await AuditActionAsync(instance, applicant, action, noteRequirement == NoteRequirement.None ? null : note, token);
 
         if (action == ApprovalActionType.Declined)
         {
@@ -399,6 +405,35 @@ public class ApprovalEngineService
                 DeliverPush = deliverPush && IsPushReachable(newApprover),
             }, token);
         }
+    }
+
+    // One audit event per approve/decline click, for every application type -- recorded here,
+    // where eligibility has just been confirmed, so it commits with the action itself. The actor
+    // (the approver's account) is resolved from the request by the audit pipeline.
+    private Task AuditActionAsync(
+        ApprovalInstance instance, Employee applicant, ApprovalActionType action, string? note, CancellationToken token)
+    {
+        if (_audit == null) return Task.CompletedTask;
+
+        var declined = action == ApprovalActionType.Declined;
+        var totalSteps = instance.Workflow?.Steps.Count ?? 1;
+        var metadata = new Dictionary<string, string?>
+        {
+            ["Step"] = instance.CurrentStepNumber.ToString(),
+            ["TotalSteps"] = totalSteps.ToString(),
+        };
+        if (!string.IsNullOrWhiteSpace(note)) metadata["Note"] = note;
+
+        return _audit.WriteAsync(new AuditEvent
+        {
+            EventType = declined ? AuditEventTypes.Reject : AuditEventTypes.Approve,
+            EntityType = instance.ApplicationType.ToString(),
+            EntityId = instance.ApplicationId.ToString(),
+            Description = $"{(declined ? "Declined" : "Approved")} {ApplicationTypeLabel(instance.ApplicationType)} " +
+                $"of {applicant.FirstName} {applicant.LastName}".TrimEnd() +
+                (totalSteps > 1 ? $" (step {instance.CurrentStepNumber} of {totalSteps})" : ""),
+            Metadata = metadata,
+        }, token);
     }
 
     private static ApprovalWorkflowStep? CurrentStep(ApprovalInstance instance) =>
@@ -533,6 +568,43 @@ public class ApprovalEngineService
             ApplicationType = instance.ApplicationType.ToString(),
             ApplicationId = instance.ApplicationId,
             ApprovalInstanceId = instance.Id,
+            RecipientUserId = applicant.UserId,
+            DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
+            DeliverPush = deliverPush && IsPushReachable(applicant),
+        }, token);
+    }
+
+    /// <summary>StatusLabel for an approved application being revoked afterwards.</summary>
+    public const string CancelledStatusLabel = "Cancelled";
+
+    /// <summary>
+    /// Tells the applicant their application's status changed outside the approval chain (e.g.
+    /// an approved pass slip revoked) -- same channels and notification preferences as the
+    /// approve/decline notice. Publishes through the outbox, so call it before the caller commits.
+    /// </summary>
+    public async Task NotifyApplicantAsync(
+        ApprovalApplicationType type, Guid applicationId, Guid applicantEmployeeId, string statusLabel, string? note,
+        CancellationToken token = default)
+    {
+        var applicant = await _uow.Repository.Find<Employee>(e => e.Id == applicantEmployeeId)
+            .AsNoTracking().FirstOrDefaultAsync(token);
+        if (applicant == null || (string.IsNullOrWhiteSpace(applicant.Email) && applicant.UserId == null)) return;
+
+        var instance = await GetInstanceReadOnlyAsync(type, applicationId, token);
+        var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(applicant.Id, type, token);
+        var applicantName = $"{applicant.FirstName} {applicant.LastName}".Trim();
+
+        await _publisher.Publish(new ApprovalNotificationRequested
+        {
+            RecipientEmail = applicant.Email ?? string.Empty,
+            RecipientName = applicantName,
+            ApplicationTypeLabel = ApplicationTypeLabel(type),
+            ApplicantName = applicantName,
+            StatusLabel = statusLabel,
+            Note = note,
+            ApplicationType = type.ToString(),
+            ApplicationId = applicationId,
+            ApprovalInstanceId = instance?.Id ?? Guid.Empty,
             RecipientUserId = applicant.UserId,
             DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
             DeliverPush = deliverPush && IsPushReachable(applicant),

@@ -1,7 +1,9 @@
+using Onepunch.AuditEngine;
 using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities;
 
+[Audited(EntityType = "Overtime")]
 public class OverTimeApplication : BaseEntity
 {
     public Guid EmployeeId { get; set; }

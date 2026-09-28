@@ -57,10 +57,21 @@ public class CommandService : BaseService<DeviceCommand>
             .Take(30)
             .ToList();
     }
+    // A device acknowledging a command it ran (AdmsController): a bulk delete, deliberately not
+    // audited -- that's the device's bookkeeping, not anyone's action.
     public async Task DeleteAsync(Guid Id)
     {
         await GetQueryable(x => x.Id == Id)
              .ExecuteDeleteAsync();
+    }
+
+    // An admin cancelling a queued command: removed through the change tracker so it's recorded
+    // in the audit trail (DeviceCommand is audited on create and delete).
+    public async Task CancelAsync(Guid Id, CancellationToken token = default)
+    {
+        var command = await GetQueryable(x => x.Id == Id).FirstOrDefaultAsync(token);
+        if (command != null)
+            await RemoveAsync(command);
     }
 }
 public record CommandReturnModel

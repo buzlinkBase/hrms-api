@@ -34,6 +34,8 @@ public static class RabbitMqConfiguration
             // ApprovalPushNotificationWorker's own doc comment.
             x.AddConsumer<ApprovalPushNotificationWorker, ApprovalPushNotificationWorkerDefinition>();
             x.AddConsumer<ApprovalPoolPushNotificationWorker, ApprovalPoolPushNotificationWorkerDefinition>();
+            // Read copy of AuthApi/TenantApi audit events for Security > Audit -- see AuditReplicaWorker.
+            x.AddConsumer<AuditReplicaWorker, AuditReplicaWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -130,5 +132,13 @@ public class ApprovalPoolPushNotificationWorkerDefinition : ConsumerDefinition<A
     public ApprovalPoolPushNotificationWorkerDefinition()
     {
         EndpointName = "hrms-approval-pool-push-notification-que";
+    }
+}
+
+public class AuditReplicaWorkerDefinition : ConsumerDefinition<AuditReplicaWorker>
+{
+    public AuditReplicaWorkerDefinition()
+    {
+        EndpointName = "hrms-audit-replica-que";
     }
 }

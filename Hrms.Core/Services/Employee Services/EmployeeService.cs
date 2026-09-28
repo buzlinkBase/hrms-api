@@ -13,7 +13,10 @@ public class EmployeeService : BaseService<Employee>
     private readonly PayrollGroupService _payrollGroupService;
     private readonly BranchService _branchService;
     private readonly SectionService _sectionService;
+    private readonly EmployeeAccountLinkService? _accountLinks;
 
+    // accountLinks is optional so the many direct constructions in tests stay valid; the
+    // container always supplies it.
     public EmployeeService(IUnitOfWorkService uow,
         IMapper mapper,
         TypeAdapterConfig config,
@@ -22,8 +25,8 @@ public class EmployeeService : BaseService<Employee>
         BranchService branchService,
         CostCenterService areaService,
         PositionService positionService,
-        SectionService sectionService
-
+        SectionService sectionService,
+        EmployeeAccountLinkService? accountLinks = null
         ) : base(uow)
     {
         _mapper = mapper;
@@ -32,6 +35,7 @@ public class EmployeeService : BaseService<Employee>
         _payrollGroupService = payrollGroupService;
         _branchService = branchService;
         _sectionService = sectionService;
+        _accountLinks = accountLinks;
     }
 
     protected override async Task<EvaluationResult> CreateValidatorAsync(Employee model, CancellationToken token)
@@ -394,6 +398,7 @@ public class EmployeeService : BaseService<Employee>
     public async Task<EmployeeFullModel?> GetFullByUserOrEmailAsync(Guid userId, string? email, CancellationToken token)
     {
         return await GetQueryable(x => x.UserId == userId || (email != null && x.Email == email))
+            .OrderByDescending(x => x.UserId == userId)
             // One SQL per collection instead of a single JOIN across all six (Skills x Dependents x
             // Educations x Assets x Records x Employments rows). The old Include()s were no-ops --
             // EF ignores Include once ProjectToType shapes the result.
@@ -402,11 +407,20 @@ public class EmployeeService : BaseService<Employee>
             .FirstOrDefaultAsync(token);
     }
 
+    // The account's own linked employee wins over one that merely shares its email. An employee
+    // matched only by email, and not linked to any account yet, gets linked to this one on the
+    // spot (see EmployeeAccountLinkService) -- from then on it's matched by UserId everywhere.
     public async Task<Guid?> ResolveEmployeeIdAsync(Guid userId, string? email, CancellationToken token)
     {
-        return await GetQueryable(x => x.UserId == userId || (email != null && x.Email == email))
-            .Select(x => (Guid?)x.Id)
+        var match = await GetQueryable(x => x.UserId == userId || (email != null && x.Email == email))
+            .OrderByDescending(x => x.UserId == userId)
+            .Select(x => new { x.Id, x.UserId })
             .FirstOrDefaultAsync(token);
+        if (match == null) return null;
+
+        if (match.UserId == null && userId != Guid.Empty)
+            _accountLinks?.RequestLink(match.Id, userId);
+        return match.Id;
     }
 
     /// <summary>"First Last" display names for the given employee ids, in one query -- ids with no

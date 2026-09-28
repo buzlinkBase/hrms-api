@@ -578,7 +578,7 @@ public class CommandsController : ControllerBase
         var tenantId = HttpContext.ParseTenant();
         if (tenantId == Guid.Empty) return Forbid("cannot parse tenant");
 
-        await _service.DeleteAsync(id);
+        await _service.CancelAsync(id);
         await _service.CommitChangesAsync();
         return Ok();
     }

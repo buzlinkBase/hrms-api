@@ -1,5 +1,7 @@
-﻿namespace Hrms.Domain.Entities.EmployeeEntities;
+using Onepunch.AuditEngine;
+namespace Hrms.Domain.Entities.EmployeeEntities;
 
+[Audited]
 public class Employee : BaseEntity
 {
     public Guid? UserId { get; set; }

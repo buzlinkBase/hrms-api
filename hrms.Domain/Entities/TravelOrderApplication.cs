@@ -1,7 +1,9 @@
-﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Onepunch.AuditEngine;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities;
  
+[Audited(EntityType = "OfficialBusiness")]
 public class TravelOrderApplication : BaseEntity
 {
     public Guid EmployeeId { get; set; }

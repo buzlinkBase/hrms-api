@@ -1,3 +1,4 @@
+using hrms.test.TestSupport;
 using Hrms.Domain.Entities;
 using Mapster;
 
@@ -14,7 +15,7 @@ public class DeductionServiceTests
 {
     public DeductionServiceTests()
     {
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
     }
 
     [Fact]

@@ -45,6 +45,9 @@ public sealed class SqliteHrmsContext : IDisposable
         schemaContext.Database.EnsureCreated();
     }
 
+    /// <summary>For registering HrmsContext in a test service container against this same database.</summary>
+    public string ConnectionString => _connectionString;
+
     public HrmsContext NewContext(Guid? tenantId = null) =>
         NewContext(new FakeTenantProvider(tenantId ?? Guid.Empty));
 

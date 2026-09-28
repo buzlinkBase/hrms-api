@@ -1,7 +1,9 @@
+using Onepunch.AuditEngine;
 using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities;
 
+[Audited(EntityType = "PassSlip")]
 public class PassSlipApplication : BaseEntity
 {
     public Guid EmployeeId { get; set; }

@@ -1,3 +1,4 @@
+using Onepunch.AuditEngine;
 using BuzlinkRepository;
 using Hrms.Domain.Entities.EmployeeEntities;
 
@@ -7,6 +8,7 @@ namespace Hrms.Domain.Entities.Approvals;
 // ApprovalWorkflowService for the one-active-per-(ApplicationType, ScopeDepartmentId) rule and
 // the "immutable once it has instances" versioning rule.
 [DisableSoftDelete]
+[Audited]
 public class ApprovalWorkflow : BaseEntity
 {
     public ApprovalApplicationType ApplicationType { get; set; }
@@ -24,6 +26,7 @@ public class ApprovalWorkflow : BaseEntity
 // One ordered step within a workflow. See Enums.ApproverType for what each ApproverType
 // resolves to and which of the fields below apply.
 [DisableSoftDelete]
+[Audited]
 public class ApprovalWorkflowStep : BaseEntity
 {
     public Guid ApprovalWorkflowId { get; set; }

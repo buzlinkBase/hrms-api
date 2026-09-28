@@ -6,6 +6,7 @@ using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
 using MockQueryable.NSubstitute;
 using NSubstitute;
+using Onepunch.AuditEngine;
 using Onepunch.Common.Lib.DTO;
 
 namespace hrms.test.ServiceTests;
@@ -35,7 +36,8 @@ public class ApprovalEngineServiceTests
     };
 
     private static (ApprovalEngineService Service, List<ApprovalInstance> Instances, List<ApprovalAction> Actions, IPublishEndpoint Publisher) BuildService(
-        List<Employee> employees, List<ApprovalWorkflow> workflows, List<NotificationPreference>? preferences = null)
+        List<Employee> employees, List<ApprovalWorkflow> workflows, List<NotificationPreference>? preferences = null,
+        IAuditWriter? audit = null)
     {
         var instances = new List<ApprovalInstance>();
         var actions = new List<ApprovalAction>();
@@ -68,7 +70,105 @@ public class ApprovalEngineServiceTests
         uow.Repository.Returns(repo);
 
         var publisher = Substitute.For<IPublishEndpoint>();
-        return (new ApprovalEngineService(uow, publisher), instances, actions, publisher);
+        return (new ApprovalEngineService(uow, publisher, audit), instances, actions, publisher);
+    }
+
+    // ---- audit trail: one Approve/Reject event per approve/decline click ----
+
+    private sealed class RecordingAuditWriter : IAuditWriter
+    {
+        public List<AuditEvent> Events { get; } = [];
+
+        public Task WriteAsync(AuditEvent auditEvent, CancellationToken token = default)
+        {
+            Events.Add(auditEvent);
+            return Task.CompletedTask;
+        }
+    }
+
+    // Stranger: a seeded employee who is not an approver for any step.
+    private static readonly Employee Stranger = BuildEmployee();
+
+    private static (ApprovalEngineService Service, RecordingAuditWriter Audit, Employee Applicant, Employee Approver) BuildAudited(
+        int steps = 1, int minApprovals = 1)
+    {
+        var applicant = BuildEmployee();
+        applicant.FirstName = "Ana";
+        applicant.LastName = "Reyes";
+        var approver = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = Enumerable.Range(1, steps)
+                .Select(n => new ApprovalWorkflowStep
+                {
+                    StepNumber = n, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id,
+                    MinApprovals = minApprovals, NamedApprovers = [], NoteRequirement = NoteRequirement.Optional,
+                })
+                .ToList(),
+        };
+        var audit = new RecordingAuditWriter();
+        var (service, _, _, _) = BuildService([applicant, approver, Stranger], [workflow], audit: audit);
+        return (service, audit, applicant, approver);
+    }
+
+    [Fact]
+    public async Task Approving_RecordsOneApproveEvent_OnTheApplicationsOwnRecord()
+    {
+        var (service, audit, applicant, approver) = BuildAudited(steps: 2);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+
+        await service.RecordActionAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        var approved = audit.Events.Should().ContainSingle().Subject;
+        approved.EventType.Should().Be(AuditEventTypes.Approve);
+        approved.EntityType.Should().Be("Leave", "the same entity type the LeaveApplication's own create/update events use");
+        approved.EntityId.Should().Be(applicationId.ToString());
+        approved.Description.Should().Be("Approved Leave of Ana Reyes (step 1 of 2)");
+        approved.Metadata["Step"].Should().Be("1");
+    }
+
+    [Fact]
+    public async Task Declining_RecordsARejectEvent_WithTheNote()
+    {
+        var (service, audit, applicant, approver) = BuildAudited();
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+
+        await service.RecordActionAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Declined, note: "Peak season", CancellationToken.None);
+
+        var rejected = audit.Events.Should().ContainSingle().Subject;
+        rejected.EventType.Should().Be(AuditEventTypes.Reject);
+        rejected.Description.Should().Be("Declined Leave of Ana Reyes");
+        rejected.Metadata["Note"].Should().Be("Peak season");
+    }
+
+    [Fact]
+    public async Task RefusedOrRepeatedActions_RecordNothingExtra()
+    {
+        // Two approvals needed, so the step stays open after the first click.
+        var (service, audit, applicant, approver) = BuildAudited(minApprovals: 2);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+
+        var ineligible = () => service.RecordActionAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, Stranger.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        await ineligible.Should().ThrowAsync<UnauthorizedAccessException>();
+        audit.Events.Should().BeEmpty("a refused action is not an approval");
+
+        // The same approver's click, then a double-click / client retry of it.
+        for (var i = 0; i < 2; i++)
+        {
+            await service.RecordActionAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+                callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+        }
+
+        audit.Events.Should().ContainSingle("the repeat is ignored by the engine, so it is not audited either");
     }
 
     [Fact]

@@ -27,7 +27,7 @@ public class EmployeeSearchTests
 
     private static EmployeeService BuildService(IUnitOfWorkService uow)
     {
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
         return new EmployeeService(
             uow,
             Substitute.For<IMapper>(),

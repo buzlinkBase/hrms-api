@@ -66,5 +66,8 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.Common.Lib\Onepunch.Common.Lib.csproj" />
+	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.AuditEngine.EntityFrameworkCore\Onepunch.AuditEngine.EntityFrameworkCore.csproj" />
+	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.AuditEngine.AspNetCore\Onepunch.AuditEngine.AspNetCore.csproj" />
+	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.AuditEngine.MassTransit\Onepunch.AuditEngine.MassTransit.csproj" />
 	</ItemGroup>
 </Project>

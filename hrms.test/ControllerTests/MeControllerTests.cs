@@ -1,3 +1,4 @@
+using hrms.test.TestSupport;
 using System.Linq.Expressions;
 using System.Security.Claims;
 using Hrms.Api.Controllers;
@@ -203,7 +204,7 @@ public class MeControllerTests
         uow.Repository.Returns(repo);
         uow.CommitChangesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
 
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
 
         var employeeService = new EmployeeService(
             uow,

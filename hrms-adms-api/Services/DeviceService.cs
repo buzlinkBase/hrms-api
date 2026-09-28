@@ -64,9 +64,16 @@ public class DeviceService : BaseService<BiometricDevice>
     public async Task UpdateDeviceInfo(ZkDeviceModel payload, CancellationToken token)
     {
         string sn = payload.DeviceInfo.SN;
-        // 1. Update the root Biometric Device identity table
-
-        await ModifyAsync(payload.DeviceInfo, token);
+        // 1. Update the root Biometric Device identity table -- only what the device reports.
+        // This used to save payload.DeviceInfo (a freshly built entity) over the stored row, which
+        // wiped everything an admin set on it (branch, client, department, project site, status,
+        // name) on every options push. The row is resolved by Id across tenants, the same way
+        // AdmsController resolved it from the serial number.
+        var device = await Context.BiometricDevices
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Id == payload.DeviceInfo.Id && x.DeletedAt == null, token);
+        if (device != null)
+            ApplyReportedInfo(device, payload.DeviceInfo);
 
         // 2. Perform flat table updates using highly efficient ExecuteUpdateAsync
         await UpsertSystemCounters(sn, payload.SystemCounters, token);
@@ -98,6 +105,25 @@ public class DeviceService : BaseService<BiometricDevice>
         // Final save for tracking operations falling back to insertions
         await Context.SaveChangesAsync(token);
         await CommitChangesAsync(token);
+    }
+
+    /// <summary>
+    /// Copies what a device reports about itself onto the stored device. Admin-managed fields --
+    /// placement (branch/client/department/project site), status, description -- are never
+    /// touched, and the name the device reports only fills in a name the admin left blank.
+    /// </summary>
+    public static void ApplyReportedInfo(BiometricDevice device, BiometricDevice reported)
+    {
+        device.MacAddress = reported.MacAddress;
+        device.IpAddress = reported.IpAddress;
+        device.Platform = reported.Platform;
+        device.OemVendor = reported.OemVendor;
+        device.FwVersion = reported.FwVersion;
+        device.PushVersion = reported.PushVersion;
+        device.RegDeviceType = reported.RegDeviceType;
+        device.LanguageCode = reported.LanguageCode;
+        if (string.IsNullOrWhiteSpace(device.DeviceName) && !string.IsNullOrWhiteSpace(reported.DeviceName))
+            device.DeviceName = reported.DeviceName;
     }
 
     private async Task UpsertBiometricDetailAsync(string sn, BiometricType type, BiometricDetail detail, CancellationToken token)
@@ -225,18 +251,20 @@ public class DeviceService : BaseService<BiometricDevice>
         }
     }
 
+    // An admin's edit of a device. Loaded and changed through the change tracker (not a bulk
+    // ExecuteUpdate) so the edit is recorded in the audit trail with its before/after values.
     public async Task<UpdateBiometricDevice> UpdateStatusAsync(UpdateBiometricDevice payload, Guid tenantId, CancellationToken token)
     {
-        await Context.BiometricDevices
-        .Where(x => x.Id == payload.Id && x.TenantId == tenantId)
-        .ExecuteUpdateAsync(x => x
-            .SetProperty(b => b.Status, payload.Status)
-            .SetProperty(b => b.SN, payload.SN)
-            .SetProperty(b => b.Description, payload.Description ?? "")
-            .SetProperty(b => b.BranchId, payload.BranchId)
-            .SetProperty(b => b.ClientId, payload.ClientId)
-            .SetProperty(b => b.OperationAreaId, payload.AreaId),
-            token);
+        var device = await Context.BiometricDevices
+            .FirstOrDefaultAsync(x => x.Id == payload.Id && x.TenantId == tenantId, token);
+        if (device == null) return payload;
+
+        device.Status = payload.Status;
+        device.SN = payload.SN;
+        device.Description = payload.Description ?? "";
+        device.BranchId = payload.BranchId;
+        device.ClientId = payload.ClientId;
+        device.OperationAreaId = payload.AreaId;
         await CommitChangesAsync(token);
         return payload;
     }

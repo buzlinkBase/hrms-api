@@ -3,6 +3,7 @@ using Asp.Versioning;
 using Hrms.adms.Filters;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
+using Hrms.adms.Services.Auditing;
 using Hrms.adms.Services.Processors;
 using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
@@ -124,6 +125,7 @@ public static class ServiceRegistrations
             var tp = sp.GetRequiredService<ITenantProvider>();
             options.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(tp));
         });
+        builder.Services.AddAdmsAuditTrail(builder.Configuration);
 
         builder.Services.AddCors(options =>
        {

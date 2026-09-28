@@ -32,7 +32,10 @@ public class UserOnboardedWorker : IConsumer<UserOnboarded>
             return;
         }
 
-        if (msg.UserId != employee.UserId)
+        // Only an employee already linked to a DIFFERENT account is left alone. This used to be
+        // `msg.UserId != employee.UserId`, which is also true for a not-yet-linked employee
+        // (UserId null) -- the normal case -- so no invitation ever actually linked anyone.
+        if (employee.UserId != null && employee.UserId != msg.UserId)
         {
             Log.Warning("UserOnboardedWorker: different user inviting same employee/email emp:{0} , user1:{1} user2:{2} ,, fullName: {3}", msg.EmployeeId, employee.UserId, msg.UserId, employee.FullName());
             return;

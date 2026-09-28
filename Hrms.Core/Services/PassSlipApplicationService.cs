@@ -154,6 +154,9 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         passSlip.ApprovalStatus = ApprovalStatus.Cancelled;
         passSlip.BatchCode = string.Empty;
         await ModifyAsync(passSlip, token);
+        // The applicant used to learn about a revoked pass slip only by noticing it in their list.
+        await _approvalEngine.NotifyApplicantAsync(ApprovalApplicationType.PassSlip, passSlip.Id, passSlip.EmployeeId,
+            ApprovalEngineService.CancelledStatusLabel, note: null, token);
         await CommitChangesAsync(token);
     }
 

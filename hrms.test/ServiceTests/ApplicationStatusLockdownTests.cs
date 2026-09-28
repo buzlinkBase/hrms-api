@@ -331,7 +331,7 @@ public class ApplicationStatusLockdownTests
     [Fact]
     public void Loan_ResponseModel_CarriesApprovalStatus()
     {
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
         var entity = new DeductionApplication { Id = Guid.NewGuid(), Note = "", Remarks = "", Breakdown = [], ApprovalStatus = ApprovalStatus.ForApproval };
 
         entity.Adapt<DeductionApplicationModel>().ApprovalStatus.Should().Be(ApprovalStatus.ForApproval);
@@ -356,7 +356,7 @@ public class ApplicationStatusLockdownTests
             await seed.SaveChangesAsync();
         }
 
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
         await using (var context = db.NewContext())
         {
             var uow = new UnitOfWorkService(context);

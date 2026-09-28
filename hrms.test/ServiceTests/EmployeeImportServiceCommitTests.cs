@@ -26,7 +26,7 @@ public class EmployeeImportServiceCommitTests
 {
     private static EmployeeImportService BuildService(IUnitOfWorkService uow)
     {
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
 
         var employeeService = new EmployeeService(
             uow,

@@ -1,3 +1,4 @@
+using Onepunch.AuditEngine;
 using BuzlinkRepository;
 
 namespace Hrms.Domain.Entities;
@@ -13,6 +14,7 @@ namespace Hrms.Domain.Entities;
 // deleted run would leave a soft-deleted PayrollBatch ghost behind with no children left to
 // show for it.
 [DisableSoftDelete]
+[Audited]
 public class PayrollBatch : BaseEntity
 {
     public DateOnly PayPeriodStart { get; set; }

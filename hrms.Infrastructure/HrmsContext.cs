@@ -4,6 +4,7 @@ using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
+using Onepunch.AuditEngine.EntityFrameworkCore;
 namespace Hrms.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,8 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
+        // Audit trail (Security > Audit) -- see HrmsAuditRegistration.
+        modelBuilder.ApplyAuditEngineModel();
         // One model for every tenant: the tenant is read per query, not baked into the model.
         modelBuilder.ApplyTenantAndDateFilters(this);
 

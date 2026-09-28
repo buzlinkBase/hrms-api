@@ -1,3 +1,4 @@
+using hrms.test.TestSupport;
 using System.Linq.Expressions;
 using System.Security.Claims;
 using Hrms.Api.Controllers;
@@ -45,7 +46,7 @@ public class WorkSchedulePlansControllerTests
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
 
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
 
         var employeeService = new EmployeeService(
             uow,

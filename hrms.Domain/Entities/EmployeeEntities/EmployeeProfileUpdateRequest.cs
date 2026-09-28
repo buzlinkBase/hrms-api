@@ -1,3 +1,4 @@
+using Onepunch.AuditEngine;
 namespace Hrms.Domain.Entities.EmployeeEntities;
 
 // Employee self-service edit of their own personal info, staged for approval -- the "temp
@@ -7,6 +8,7 @@ namespace Hrms.Domain.Entities.EmployeeEntities;
 // edited directly (e.g. by HR) while this request is still pending, that snapshot no longer
 // matches Employee.UpdatedAt by the time an approver acts, and ApproveAsync surfaces that as a
 // conflict instead of silently overwriting the more recent edit.
+[Audited(EntityType = "ProfileUpdate")]
 public class EmployeeProfileUpdateRequest : BaseEntity
 {
     public Guid EmployeeId { get; set; }

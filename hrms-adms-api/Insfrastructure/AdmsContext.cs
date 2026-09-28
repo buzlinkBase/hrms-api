@@ -1,4 +1,5 @@
-﻿
+﻿using Onepunch.AuditEngine.EntityFrameworkCore;
+
 namespace Hrms.adms.Insfrastructure;
 
 public class AdmsContext : DbContext, ICurrentTenantContext
@@ -40,6 +41,8 @@ public class AdmsContext : DbContext, ICurrentTenantContext
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
+        // Audit trail of device administration -- see AdmsAuditRegistration.
+        modelBuilder.ApplyAuditEngineModel();
         modelBuilder.Entity<BiometricDetail>(entity =>
         {
             entity.ToTable("BiometricDetails");

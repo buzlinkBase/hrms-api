@@ -1,3 +1,4 @@
+using hrms.test.TestSupport;
 using ClosedXML.Excel;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
@@ -68,7 +69,7 @@ public class EmployeeImportServicePreviewTests
 
         uow.Repository.Returns(repo);
 
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(MappingProfile).Assembly);
+        _ = TestMapping.GlobalSettings; // registers MappingProfile once per run (see TestMapping)
 
         var employeeService = new EmployeeService(
             uow,

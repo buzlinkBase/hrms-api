@@ -5,6 +5,7 @@ using Elastic.Transport;
 using Hrms.Api.Filters;
 using Hrms.Api.Providers;
 using Hrms.Core.Interfaces;
+using Hrms.Core.Services.Auditing;
 using Hrms.Infrastructure;
 using MessagePack;
 using MessagePack.AspNetCoreMvcFormatter;
@@ -48,6 +49,9 @@ public static class ServiceRegistrationsExt
         builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
         builder.Services.Configure<LeaveSchedulerOptions>(builder.Configuration.GetSection("LeaveScheduler"));
         builder.Services.AddHostedService<LeaveSchedulerService>(); // fires daily, discovers tenants from Leaves.TenantId
+        // Saves account <-> employee links found by email match -- see EmployeeAccountLinkService.
+        builder.Services.AddSingleton<EmployeeAccountLinkQueue>();
+        builder.Services.AddHostedService<EmployeeAccountLinkWorker>();
         builder.Services.AddScoped<LeaveDtrReconciliationService>();
 
         builder.Services.AddKeyedScoped<IFileParser, DatParser>(".dat");
@@ -178,6 +182,7 @@ public static class ServiceRegistrationsExt
             optionsBuilder.UseLazyLoadingProxies(true);
             optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(_tenantProvider));
         });
+        builder.Services.AddHrmsAuditTrail(builder.Configuration);
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>

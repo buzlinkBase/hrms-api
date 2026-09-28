@@ -1,5 +1,7 @@
-﻿namespace Hrms.Domain.Entities;
+using Onepunch.AuditEngine;
+namespace Hrms.Domain.Entities;
 
+[Audited(EntityType = "Loan")]
 public class DeductionApplication : BaseEntity
 {
     public Guid EmployeeId { get; set; }

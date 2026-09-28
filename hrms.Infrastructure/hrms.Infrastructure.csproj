@@ -42,6 +42,7 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
+        <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.AuditEngine.EntityFrameworkCore\Onepunch.AuditEngine.EntityFrameworkCore.csproj" />
     </ItemGroup>
     <ItemGroup>
       <Folder Include="db\migrations\" />

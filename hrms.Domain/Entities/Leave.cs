@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities.EmployeeEntities;
+using Onepunch.AuditEngine;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Domain.Entities;
 
@@ -54,6 +55,7 @@ public class Leave : BaseEntity
     public bool IsStatutory { get; set; }
 }
 
+[Audited(EntityType = "Leave")]
 public class LeaveApplication : BaseEntity
 {
     public Guid LeaveId { get; set; }

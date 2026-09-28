@@ -1,3 +1,4 @@
+using Onepunch.AuditEngine;
 using BuzlinkRepository;
 
 namespace Hrms.Domain.Entities;
@@ -11,6 +12,7 @@ namespace Hrms.Domain.Entities;
 // duplicated here — it's still read straight off the first DailyRecord row per batch, same as
 // before this entity existed.
 [DisableSoftDelete]
+[Audited(EntityType = "DtrBatch")]
 public class DTRBatch : BaseEntity
 {
     public string BatchCode { get; set; } = string.Empty;
