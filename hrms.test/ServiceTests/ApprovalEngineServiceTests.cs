@@ -496,6 +496,100 @@ public class ApprovalEngineServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    // An employee matched to their login by email (no invitation-linked UserId) used to get no
+    // push at all -- DeliverPush required UserId. The push worker now reaches them by email.
+    [Theory]
+    [InlineData(ApprovalActionType.Approved, "Approved")]
+    [InlineData(ApprovalActionType.Declined, "Declined")]
+    public async Task RecordActionAsync_Resolution_PushesToAnApplicantLinkedOnlyByEmail(ApprovalActionType action, string statusLabel)
+    {
+        var applicant = BuildEmployee(email: "applicant@test.com", userId: null);
+        var approver = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, _, _, publisher) = BuildService([applicant, approver], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, action, note: null, CancellationToken.None);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m =>
+                m.StatusLabel == statusLabel && m.RecipientEmail == "applicant@test.com" &&
+                m.RecipientUserId == null && m.DeliverPush),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_StepProgress_PushesToAnApplicantLinkedOnlyByEmail()
+    {
+        var applicant = BuildEmployee(email: "applicant@test.com", userId: null);
+        var first = BuildEmployee();
+        var second = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps =
+            [
+                new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = first.Id, MinApprovals = 1, NamedApprovers = [] },
+                new ApprovalWorkflowStep { StepNumber = 2, ApproverType = ApproverType.Person, ApproverEmployeeId = second.Id, MinApprovals = 1, NamedApprovers = [] },
+            ],
+        };
+        var (service, _, _, publisher) = BuildService([applicant, first, second], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, first.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m =>
+                m.StatusLabel == ApprovalEngineService.StepApprovedStatusLabel &&
+                m.RecipientEmail == "applicant@test.com" && m.DeliverPush),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_ApplicantWithNeitherEmailNorUserId_IsNotPushed()
+    {
+        var applicant = BuildEmployee(email: null, userId: null);
+        var approver = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, _, _, publisher) = BuildService([applicant, approver], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, approver.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        await publisher.DidNotReceive().Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.StatusLabel == "Approved"),
+            Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task RecordActionAsync_Decline_NotifiesApplicantWithNote()
     {

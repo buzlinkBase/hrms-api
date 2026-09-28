@@ -396,7 +396,7 @@ public class ApprovalEngineService
                 ApprovalInstanceId = instance.Id,
                 RecipientUserId = newApprover.UserId,
                 DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(newApprover.Email),
-                DeliverPush = deliverPush && newApprover.UserId != null,
+                DeliverPush = deliverPush && IsPushReachable(newApprover),
             }, token);
         }
     }
@@ -481,7 +481,7 @@ public class ApprovalEngineService
                 ApprovalInstanceId = instance.Id,
                 RecipientUserId = recipient.UserId,
                 DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(recipient.Email),
-                DeliverPush = deliverPush && recipient.UserId != null,
+                DeliverPush = deliverPush && IsPushReachable(recipient),
             }, token);
         }
     }
@@ -535,7 +535,7 @@ public class ApprovalEngineService
             ApprovalInstanceId = instance.Id,
             RecipientUserId = applicant.UserId,
             DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
-            DeliverPush = deliverPush && applicant.UserId != null,
+            DeliverPush = deliverPush && IsPushReachable(applicant),
         }, token);
     }
 
@@ -559,7 +559,7 @@ public class ApprovalEngineService
             ApprovalInstanceId = instance.Id,
             RecipientUserId = applicant.UserId,
             DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
-            DeliverPush = deliverPush && applicant.UserId != null,
+            DeliverPush = deliverPush && IsPushReachable(applicant),
         }, token);
     }
 
@@ -578,6 +578,11 @@ public class ApprovalEngineService
         return preference == null ? (true, true) : (preference.EmailEnabled, preference.PushEnabled);
     }
 
+    // A push reaches the person through their login email (ApprovalRecipientGroups) or, when the
+    // account was linked by invitation, their UserId -- only the UserId used to count, which left
+    // every employee matched to their account by email without live updates.
+    private static bool IsPushReachable(Employee employee) =>
+        employee.UserId != null || !string.IsNullOrWhiteSpace(employee.Email);
     private static string ApplicationTypeLabel(ApprovalApplicationType type) => type switch
     {
         ApprovalApplicationType.Leave => "Leave",

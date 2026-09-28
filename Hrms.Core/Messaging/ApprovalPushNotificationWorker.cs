@@ -7,25 +7,25 @@ namespace Hrms.Core.Messaging;
 // hrms-api self-consumes the SAME ApprovalNotificationRequested message it publishes (both
 // processes share the same RabbitMQ broker -- see RabbitMqConfiguration/tenantstore's
 // NotifTenantRabbitConfiguration) so the push channel can reuse NotificationHub without a new
-// service. TenantConsumeFilter<T> resolves the correct tenant DB context for this consumer from
-// the X-Tenant-ID header the publish side already stamps, same as every other consumer here --
-// not that this worker needs tenant DB access itself, since everything it needs already rode
-// along on the message.
+// service. TenantConsumeFilter<T> resolves the tenant from the X-Tenant-ID header the publish
+// side already stamps, same as every other consumer here.
 public class ApprovalPushNotificationWorker : IConsumer<ApprovalNotificationRequested>
 {
     private readonly ApprovalPushNotificationService _pushService;
+    private readonly ITenantProvider _tenantProvider;
 
-    public ApprovalPushNotificationWorker(ApprovalPushNotificationService pushService)
+    public ApprovalPushNotificationWorker(ApprovalPushNotificationService pushService, ITenantProvider tenantProvider)
     {
         _pushService = pushService;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task Consume(ConsumeContext<ApprovalNotificationRequested> context)
     {
         var message = context.Message;
-        if (!message.DeliverPush || message.RecipientUserId is not { } userId) return;
+        if (!message.DeliverPush) return;
 
-        await _pushService.PushToUserAsync(userId, new ApprovalPushNotification
+        var notification = new ApprovalPushNotification
         {
             ApplicationType = EnumParserConfig.SafeParseEnum(message.ApplicationType, ApprovalApplicationType.Leave),
             ApplicationId = message.ApplicationId,
@@ -36,6 +36,18 @@ public class ApprovalPushNotificationWorker : IConsumer<ApprovalNotificationRequ
             StepNumber = message.StepNumber,
             TotalSteps = message.TotalSteps,
             Note = message.Note,
-        }, context.CancellationToken);
+        };
+
+        // By company + login email first: reaches accounts matched to their employee record by
+        // email as well as by UserId (see ApprovalRecipientGroups). One target per message, so a
+        // connection never receives the same push twice.
+        if (!string.IsNullOrWhiteSpace(message.RecipientEmail) && _tenantProvider.TenantId != Guid.Empty)
+        {
+            await _pushService.PushToRecipientAsync(_tenantProvider.TenantId, message.RecipientEmail, notification, context.CancellationToken);
+            return;
+        }
+
+        if (message.RecipientUserId is { } userId)
+            await _pushService.PushToUserAsync(userId, notification, context.CancellationToken);
     }
 }

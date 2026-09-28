@@ -23,6 +23,12 @@ public class NotificationHub : Hub
             var permissions = user.FindAll("permission").Select(c => c.Value).ToHashSet();
             foreach (var group in ApproverGroups.GroupsFor(tenantId, isOwnerOrAdmin, permissions))
                 await Groups.AddToGroupAsync(Context.ConnectionId, group);
+
+            // This person's own approval pushes (their applications' status, steps assigned to
+            // them) -- addressed by email so accounts matched by email, not UserId, get them too.
+            var email = user.FindFirst("email")?.Value ?? user.FindFirst(ClaimTypes.Email)?.Value;
+            if (!string.IsNullOrWhiteSpace(email))
+                await Groups.AddToGroupAsync(Context.ConnectionId, ApprovalRecipientGroups.For(tenantId, email));
         }
 
         await base.OnConnectedAsync();
