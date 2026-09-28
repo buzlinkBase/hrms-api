@@ -13,7 +13,7 @@ public class LeaveLedgerService : BaseService<LeaveLedger>
     // component (PayrollProcessorService.GenerateLastPayAsync) — the caller only needs to
     // multiply the returned value by the employee's own DailyRate to get the peso amount.
     // Reads LeaveCredits.Balance directly — the entity's own authoritative hard balance, not
-    // the ledger-derived Sum(Add-Less) LoadCreditsAsync computes for other consumers — summed
+    // the ledger-derived Sum(Amount) LoadCreditsAsync computes for other consumers — summed
     // across every PeriodYear row per employee/leave-type (unused balances carry over),
     // restricted to leave types with ConvertToCash enabled, capped per type by
     // MaxCashConversionDays where set, then weighted by that leave type's own
@@ -56,7 +56,7 @@ public class LeaveLedgerService : BaseService<LeaveLedger>
     }
 
     // Manual HR correction of an employee's leave credits balance. Recorded as a
-    // LedgerEntryType.Adjustment ledger entry (Add/Less computed from the delta to the
+    // LedgerEntryType.Adjustment ledger entry (signed Amount = the delta to the
     // new balance) rather than overwriting LeaveCredits.Balance directly, so the ledger's
     // running-balance audit trail stays intact — mirrors the Grant entry pattern already
     // used by LeavePeriodGrantWorker (LeaveCredits + a matching LeaveLedger row, committed

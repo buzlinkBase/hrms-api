@@ -24,7 +24,7 @@ namespace Hrms.Core.Services;
 // that net, which keeps repeated post/unpost cycles, multi-batch leaves and cancellations from
 // double-reversing or skipping a batch.
 //
-// Ledger sum semantics (Σ Add − Σ Less per employee/leave) stay consistent with LeaveCredits:
+// Ledger sum semantics (Σ Amount per employee/leave) stay consistent with LeaveCredits:
 // approved → −reserved; posted → −consumed; unposted again → −reserved.
 public class LeaveDtrReconciliationService
 {
