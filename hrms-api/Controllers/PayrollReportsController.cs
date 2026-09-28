@@ -98,6 +98,14 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [HttpGet("cash-bond/{employeeId:guid}/entries")]
+        [RequirePermission("Payroll Reports:View")]
+        public async Task<IActionResult> CashBondEntries(Guid employeeId, [FromQuery] DateTime? asOf, CancellationToken token)
+        {
+            var data = await _reportService.GetCashBondEntriesAsync(employeeId, AsOfOrToday(asOf), token);
+            return Ok(new { data, total = data.Count });
+        }
+
         [HttpGet("leave-ledger")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> LeaveLedger([FromQuery] int year, CancellationToken token)
@@ -106,21 +114,48 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [HttpGet("leave-ledger/{employeeId:guid}/{leaveId:guid}/entries")]
+        [RequirePermission("Payroll Reports:View")]
+        public async Task<IActionResult> LeaveEntries(Guid employeeId, Guid leaveId, [FromQuery] int year, CancellationToken token)
+        {
+            var data = await _reportService.GetLeaveEntriesAsync(employeeId, leaveId, year, token);
+            return Ok(new { data, total = data.Count });
+        }
+
         [HttpGet("retirement-ledger")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> RetirementLedger([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> RetirementLedger([FromQuery] DateTime? asOf, CancellationToken token)
         {
-            var data = await _reportService.GetRetirementLedgerAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _reportService.GetRetirementSummaryAsync(AsOfOrToday(asOf), token);
+            return Ok(new { data, total = data.Count });
+        }
+
+        [HttpGet("retirement-ledger/{employeeId:guid}/entries")]
+        [RequirePermission("Payroll Reports:View")]
+        public async Task<IActionResult> RetirementEntries(Guid employeeId, [FromQuery] DateTime? asOf, CancellationToken token)
+        {
+            var data = await _reportService.GetRetirementEntriesAsync(employeeId, AsOfOrToday(asOf), token);
             return Ok(new { data, total = data.Count });
         }
 
         [HttpGet("uniform-allowance-ledger")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> UniformAllowanceLedger([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> UniformAllowanceLedger([FromQuery] DateTime? asOf, CancellationToken token)
         {
-            var data = await _reportService.GetUniformAllowanceLedgerAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _reportService.GetUniformAllowanceSummaryAsync(AsOfOrToday(asOf), token);
             return Ok(new { data, total = data.Count });
         }
+
+        [HttpGet("uniform-allowance-ledger/{employeeId:guid}/entries")]
+        [RequirePermission("Payroll Reports:View")]
+        public async Task<IActionResult> UniformAllowanceEntries(Guid employeeId, [FromQuery] DateTime? asOf, CancellationToken token)
+        {
+            var data = await _reportService.GetUniformAllowanceEntriesAsync(employeeId, AsOfOrToday(asOf), token);
+            return Ok(new { data, total = data.Count });
+        }
+
+        private static DateOnly AsOfOrToday(DateTime? asOf) =>
+            asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
 
         [HttpGet("reimbursement-list")]
         [RequirePermission("Payroll Reports:View")]

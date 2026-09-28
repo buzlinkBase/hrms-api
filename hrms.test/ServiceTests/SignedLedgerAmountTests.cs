@@ -62,13 +62,59 @@ public class SignedLedgerAmountTests
         await WithUowAsync(db, uow => new PayrollService(uow, Substitute.For<IMapper>())
             .AdjustRetirementBalanceAsync(employeeId, 5_000m, isAddition: false, "Over-removal", Mar31, CancellationToken.None));
 
-        var ledger = await WithReportsAsync(db, s => s.GetRetirementLedgerAsync(Jan31, Mar31, CancellationToken.None));
+        var ledger = await WithReportsAsync(db, s => s.GetRetirementEntriesAsync(employeeId, Mar31, CancellationToken.None));
 
-        ledger.Select(x => (x.Amount, x.Balance, x.Particulars)).Should().Equal(
+        ledger.Select(x => (x.Amount, x.Balance, x.Remarks)).Should().Equal(
             (1_000m, 1_000m, "Opening balance"),
             (-300m, 700m, "Correction"),
             (-700m, 0m, "Over-removal"));
         ledger.Sum(x => x.Amount).Should().Be(ledger[^1].Balance);
+    }
+
+    // One posted run: a payroll row carrying this run's retirement accrual and/or payout.
+    private static async Task<Guid> SeedAndPostRunAsync(
+        SqliteHrmsContext db, Guid employeeId, DateOnly periodEnd, decimal accrual, decimal payout)
+    {
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+        await using (var seed = db.NewContext(CompanyId))
+        {
+            seed.PayrollBatches.Add(new PayrollBatch
+            {
+                Id = batchId, TenantId = CompanyId, PayPeriodStart = periodEnd.AddDays(-14), PayPeriodEnd = periodEnd,
+            });
+            seed.Payrolls.Add(new Payroll
+            {
+                Id = payrollId, TenantId = CompanyId, EmployeeId = employeeId, PayrollBatchId = batchId,
+                PayPeriodStart = periodEnd.AddDays(-14), PayPeriodEnd = periodEnd, PayrollPeriod = $"{periodEnd:MMM yyyy}",
+                RetirementAccrual = accrual, RetirementPayout = payout,
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await WithUowAsync(db, uow => new PayrollService(uow, Substitute.For<IMapper>())
+            .PostBatchAsync(batchId, CancellationToken.None));
+        return payrollId;
+    }
+
+    [Fact]
+    public async Task Retirement_PostedAccrualIsPositive_PostedPayoutIsNegativeAndClamped()
+    {
+        using var db = new SqliteHrmsContext();
+        var employeeId = await SeedEmployeeAsync(db);
+
+        var jan = await SeedAndPostRunAsync(db, employeeId, Jan31, accrual: 1_000m, payout: 0m);
+        var feb = await SeedAndPostRunAsync(db, employeeId, Feb28, accrual: 500m, payout: 0m);
+        // Last pay cashing out more than the fund holds: only the 1,500 balance is paid.
+        var mar = await SeedAndPostRunAsync(db, employeeId, Mar31, accrual: 0m, payout: 5_000m);
+
+        var ledger = await WithReportsAsync(db, s => s.GetRetirementEntriesAsync(employeeId, Mar31, CancellationToken.None));
+
+        ledger.Select(x => (x.EntryType, x.PayrollId, x.Amount, x.Balance)).Should().Equal(
+            ("Accrual", (Guid?)jan, 1_000m, 1_000m),
+            ("Accrual", (Guid?)feb, 500m, 1_500m),
+            ("Payout", (Guid?)mar, -1_500m, 0m));
+        ledger.Sum(x => x.Amount).Should().Be(0m);
     }
 
     [Fact]
@@ -86,7 +132,7 @@ public class SignedLedgerAmountTests
         await WithUowAsync(db, uow => new UniformAllowanceFundService(uow)
             .ReleaseBatchAsync([(employeeId, 250m)], Mar31, "Uniform issuance", CancellationToken.None));
 
-        var ledger = await WithReportsAsync(db, s => s.GetUniformAllowanceLedgerAsync(Jan31, Mar31, CancellationToken.None));
+        var ledger = await WithReportsAsync(db, s => s.GetUniformAllowanceEntriesAsync(employeeId, Mar31, CancellationToken.None));
 
         ledger.Select(x => (x.EntryType, x.Amount)).Should().BeEquivalentTo(new[]
         {
@@ -113,7 +159,7 @@ public class SignedLedgerAmountTests
             .ReleaseBatchAsync([(employeeId, 1_000m)], Feb28, "Uniform issuance", CancellationToken.None));
 
         clamped.Should().Equal(employeeId);
-        var release = (await WithReportsAsync(db, s => s.GetUniformAllowanceLedgerAsync(Jan31, Feb28, CancellationToken.None)))
+        var release = (await WithReportsAsync(db, s => s.GetUniformAllowanceEntriesAsync(employeeId, Feb28, CancellationToken.None)))
             .Single(x => x.EntryType == "Release");
         release.Amount.Should().Be(-400m);
         release.Balance.Should().Be(0m);

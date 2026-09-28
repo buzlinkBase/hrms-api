@@ -259,63 +259,140 @@ public class PayrollReportService : BaseService<Payroll>
         }).OrderBy(x => x.FullName).ThenBy(x => x.LeaveCode).ToList();
     }
 
-    // Retirement Ledger — unlike GetLeaveLedgerAsync/GetDeductionLedgerAsync above (both
-    // current-balance snapshots), this is a real transaction log: every RetirementLedger entry
-    // (accrual or payout) posted within [from, to], oldest first per employee, mirroring
-    // RetirementFund.Balance's own running-total column as it stood after each entry.
-    public async Task<List<RetirementLedgerModel>> GetRetirementLedgerAsync(DateOnly from, DateOnly to, CancellationToken token)
+    // Retirement Ledger main list — one row per employee with entries dated up to asOf.
+    public async Task<List<FundLedgerSummaryModel>> GetRetirementSummaryAsync(DateOnly asOf, CancellationToken token) =>
+        await SummarizeFundAsync(await Context.RetirementLedgers.AsNoTracking()
+            .Where(x => x.EntryDate <= asOf)
+            .Select(x => new FundMovement(x.EmployeeId, x.EntryDate, x.Amount))
+            .ToListAsync(token), token);
+
+    // Uniform Allowance Ledger main list — same shape as GetRetirementSummaryAsync.
+    public async Task<List<FundLedgerSummaryModel>> GetUniformAllowanceSummaryAsync(DateOnly asOf, CancellationToken token) =>
+        await SummarizeFundAsync(await Context.UniformAllowanceLedgers.AsNoTracking()
+            .Where(x => x.EntryDate <= asOf)
+            .Select(x => new FundMovement(x.EmployeeId, x.EntryDate, x.Amount))
+            .ToListAsync(token), token);
+
+    private sealed record FundMovement(Guid EmployeeId, DateOnly EntryDate, decimal Amount);
+
+    private async Task<List<FundLedgerSummaryModel>> SummarizeFundAsync(List<FundMovement> movements, CancellationToken token)
     {
-        var rows = await Context.RetirementLedgers.AsNoTracking()
-            .Where(x => x.EntryDate >= from && x.EntryDate <= to)
-            .ToListAsync(token);
+        var employeeMap = await LoadEmployeeMapAsync(movements.Select(x => x.EmployeeId), token);
 
-        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
-
-        return rows.Select(r =>
-        {
-            employeeMap.TryGetValue(r.EmployeeId, out var e);
-            return new RetirementLedgerModel
+        return movements
+            .GroupBy(x => x.EmployeeId)
+            .Select(g =>
             {
-                EmployeeId = r.EmployeeId,
-                EmployeeNo = e?.EmployeeNo ?? "",
-                FullName = e.FullName(),
-                EntryType = r.EntryType.ToString(),
-                PayrollId = r.PayrollId,
-                EntryDate = r.EntryDate,
-                Amount = r.Amount,
-                Balance = r.Balance,
-                Particulars = r.Particulars,
-            };
-        }).OrderBy(x => x.FullName).ThenBy(x => x.EntryDate).ToList();
+                employeeMap.TryGetValue(g.Key, out var e);
+                return new FundLedgerSummaryModel
+                {
+                    EmployeeId = g.Key,
+                    EmployeeNo = e?.EmployeeNo ?? "",
+                    FullName = e.FullName(),
+                    TotalAdded = g.Where(x => x.Amount > 0).Sum(x => x.Amount),
+                    TotalDeducted = -g.Where(x => x.Amount < 0).Sum(x => x.Amount),
+                    Balance = g.Sum(x => x.Amount),
+                    EntryCount = g.Count(),
+                    LastEntryDate = g.Max(x => x.EntryDate),
+                };
+            })
+            .OrderBy(x => x.FullName)
+            .ToList();
     }
 
-    // Uniform Allowance Ledger — same real-transaction-log shape as GetRetirementLedgerAsync
-    // above: every UniformAllowanceLedger entry (accrual, manual adjustment, or release) posted
-    // within [from, to], oldest first per employee.
-    public async Task<List<UniformAllowanceLedgerModel>> GetUniformAllowanceLedgerAsync(DateOnly from, DateOnly to, CancellationToken token)
+    // Retirement Ledger details — one employee's entries up to asOf, oldest first, with the fund's
+    // running balance as it stood after each entry.
+    public async Task<List<LedgerEntryModel>> GetRetirementEntriesAsync(Guid employeeId, DateOnly asOf, CancellationToken token) =>
+        (await Context.RetirementLedgers.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.EntryDate <= asOf)
+            .OrderBy(x => x.EntryDate).ThenBy(x => x.CreatedAt)
+            .ToListAsync(token))
+        .Select(x => new LedgerEntryModel
+        {
+            EntryDate = x.EntryDate,
+            EntryType = x.EntryType.ToString(),
+            Amount = x.Amount,
+            Balance = x.Balance,
+            Remarks = x.Particulars,
+            PayrollId = x.PayrollId,
+        })
+        .ToList();
+
+    // Uniform Allowance Ledger details — same as GetRetirementEntriesAsync.
+    public async Task<List<LedgerEntryModel>> GetUniformAllowanceEntriesAsync(Guid employeeId, DateOnly asOf, CancellationToken token) =>
+        (await Context.UniformAllowanceLedgers.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.EntryDate <= asOf)
+            .OrderBy(x => x.EntryDate).ThenBy(x => x.CreatedAt)
+            .ToListAsync(token))
+        .Select(x => new LedgerEntryModel
+        {
+            EntryDate = x.EntryDate,
+            EntryType = x.EntryType.ToString(),
+            Amount = x.Amount,
+            Balance = x.Balance,
+            Remarks = x.Particulars,
+        })
+        .ToList();
+
+    // Cash Bond details — the same two sources GetCashBondReportAsync totals (payroll runs and
+    // manual entries), merged oldest first with a running collected total.
+    public async Task<List<LedgerEntryModel>> GetCashBondEntriesAsync(Guid employeeId, DateOnly asOf, CancellationToken token)
     {
-        var rows = await Context.UniformAllowanceLedgers.AsNoTracking()
-            .Where(x => x.EntryDate >= from && x.EntryDate <= to)
+        var fromPayroll = await Context.Payrolls.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf)
+            .Select(x => new { x.Id, x.PayPeriodStart, x.PayPeriodEnd, x.CashBondDeduction, x.CreatedAt })
+            .ToListAsync(token);
+        var adjustments = await Context.CashBondAdjustments.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.EntryDate <= asOf)
+            .Select(x => new { x.EntryDate, x.Amount, x.Particulars, x.CreatedAt })
             .ToListAsync(token);
 
-        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
-
-        return rows.Select(r =>
-        {
-            employeeMap.TryGetValue(r.EmployeeId, out var e);
-            return new UniformAllowanceLedgerModel
+        var entries = fromPayroll
+            .Select(x => (x.CreatedAt, Entry: new LedgerEntryModel
             {
-                EmployeeId = r.EmployeeId,
-                EmployeeNo = e?.EmployeeNo ?? "",
-                FullName = e.FullName(),
-                EntryType = r.EntryType.ToString(),
-                EntryDate = r.EntryDate,
-                Amount = r.Amount,
-                Balance = r.Balance,
-                Particulars = r.Particulars,
-            };
-        }).OrderBy(x => x.FullName).ThenBy(x => x.EntryDate).ToList();
+                EntryDate = x.PayPeriodEnd,
+                EntryType = "Payroll",
+                Amount = x.CashBondDeduction,
+                Remarks = $"Payroll {x.PayPeriodStart:MMM dd} – {x.PayPeriodEnd:MMM dd, yyyy}",
+                PayrollId = x.Id,
+            }))
+            .Concat(adjustments.Select(x => (x.CreatedAt, Entry: new LedgerEntryModel
+            {
+                EntryDate = x.EntryDate,
+                EntryType = "Adjustment",
+                Amount = x.Amount,
+                Remarks = x.Particulars,
+            })))
+            .OrderBy(x => x.Entry.EntryDate).ThenBy(x => x.CreatedAt)
+            .Select(x => x.Entry)
+            .ToList();
+
+        var balance = 0m;
+        foreach (var entry in entries)
+        {
+            balance += entry.Amount;
+            entry.Balance = balance;
+        }
+        return entries;
     }
+
+    // Leave Ledger details — one employee's credit movements for one leave type and period year
+    // (grants, accruals, reservations, deductions, adjustments, …), oldest first. Balance is the
+    // credits balance after each entry; reservations hold days without moving it.
+    public async Task<List<LedgerEntryModel>> GetLeaveEntriesAsync(Guid employeeId, Guid leaveId, int year, CancellationToken token) =>
+        (await Context.LeaveLedgers.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.LeaveId == leaveId && x.LeaveCredits.PeriodYear == year)
+            .OrderBy(x => x.EntryDate).ThenBy(x => x.CreatedAt)
+            .ToListAsync(token))
+        .Select(x => new LedgerEntryModel
+        {
+            EntryDate = x.EntryDate,
+            EntryType = x.EntryType.ToString(),
+            Amount = x.Amount,
+            Balance = x.Balance,
+            Remarks = x.Particulars,
+        })
+        .ToList();
 
     // Grouped and summed in SQL. Department/Branch come from the employee's CURRENT record
     // (Payroll has neither column) via a left join, so payroll of a deleted/missing employee lands

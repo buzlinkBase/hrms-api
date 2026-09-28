@@ -175,39 +175,35 @@ public class LeaveCreditsBalanceModel
     public decimal AvailableToFile { get; set; }
 }
 
-// One row per RetirementLedger entry (a true transaction log, unlike LeaveCreditsBalanceModel/
-// DeductionLedgerModel above which are current-balance snapshots) — every accrual (+Amount) and
-// payout (−Amount) ever posted against an employee's RetirementFund, in chronological order. See
-// PayrollReportService.GetRetirementLedgerAsync.
-public class RetirementLedgerModel
+// One employee's row on the Retirement / Uniform Allowance ledger screens, as of a date: what was
+// added (+), what was deducted (−) and the resulting balance. See
+// PayrollReportService.GetRetirementSummaryAsync / GetUniformAllowanceSummaryAsync.
+public class FundLedgerSummaryModel
 {
     public Guid EmployeeId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
-    public string EntryType { get; set; } = string.Empty;
-    public Guid? PayrollId { get; set; }
-    public DateOnly EntryDate { get; set; }
-    // Signed: + accrual/added, − payout/removed.
-    public decimal Amount { get; set; }
+    public decimal TotalAdded { get; set; }
+    // Positive magnitude of every − entry.
+    public decimal TotalDeducted { get; set; }
     public decimal Balance { get; set; }
-    public string Particulars { get; set; } = string.Empty;
+    public int EntryCount { get; set; }
+    public DateOnly? LastEntryDate { get; set; }
 }
 
-// One row per UniformAllowanceLedger entry -- a true transaction log like RetirementLedgerModel
-// above, but includes EntryType (Accrual/Adjustment/Release) since Uniform Allowance's ledger
-// has three distinct entry kinds the UI needs to tell apart, unlike Retirement's simpler
-// accrual/payout-only shape. See PayrollReportService.GetUniformAllowanceLedgerAsync.
-public class UniformAllowanceLedgerModel
+// One movement in an employee's ledger details (Cash Bond, Retirement, Uniform Allowance,
+// Leave), oldest first.
+public class LedgerEntryModel
 {
-    public Guid EmployeeId { get; set; }
-    public string EmployeeNo { get; set; } = string.Empty;
-    public string FullName { get; set; } = string.Empty;
-    public string EntryType { get; set; } = string.Empty;
     public DateOnly EntryDate { get; set; }
-    // Signed: + accrual/added, − release/removed.
+    public string EntryType { get; set; } = string.Empty;
+    // Signed: + adds to the balance, − deducts from it.
     public decimal Amount { get; set; }
+    // Balance after this entry.
     public decimal Balance { get; set; }
-    public string Particulars { get; set; } = string.Empty;
+    public string Remarks { get; set; } = string.Empty;
+    // Set when the entry came from a payroll run.
+    public Guid? PayrollId { get; set; }
 }
 
 public class ThirteenthMonthModel

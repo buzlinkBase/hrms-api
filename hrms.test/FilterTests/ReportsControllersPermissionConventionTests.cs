@@ -28,9 +28,13 @@ public class ReportsControllersPermissionConventionTests
         [nameof(PayrollReportsController.BankDisbursement), "Payroll Reports:View"],
         [nameof(PayrollReportsController.DeductionLedger), "Payroll Reports:View"],
         [nameof(PayrollReportsController.CashBond), "Payroll Reports:View"],
+        [nameof(PayrollReportsController.CashBondEntries), "Payroll Reports:View"],
         [nameof(PayrollReportsController.LeaveLedger), "Payroll Reports:View"],
+        [nameof(PayrollReportsController.LeaveEntries), "Payroll Reports:View"],
         [nameof(PayrollReportsController.RetirementLedger), "Payroll Reports:View"],
+        [nameof(PayrollReportsController.RetirementEntries), "Payroll Reports:View"],
         [nameof(PayrollReportsController.UniformAllowanceLedger), "Payroll Reports:View"],
+        [nameof(PayrollReportsController.UniformAllowanceEntries), "Payroll Reports:View"],
         [nameof(PayrollReportsController.ReimbursementList), "Payroll Reports:View"],
         [nameof(PayrollReportsController.CostSummary), "Payroll Reports:View"],
         [nameof(PayrollReportsController.YtdSummary), "Payroll Reports:View"],
@@ -62,7 +66,7 @@ public class ReportsControllersPermissionConventionTests
     }
 
     [Fact]
-    public void PayrollReportsController_HasExactly28GatedActions()
+    public void PayrollReportsController_HasExactly32GatedActions()
     {
         // Sanity check on the table above itself -- catches a forgotten row if the controller
         // ever grows a new report action.
@@ -70,7 +74,7 @@ public class ReportsControllersPermissionConventionTests
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Count(m => m.GetCustomAttribute<RequirePermissionAttribute>() != null);
 
-        gatedActionCount.Should().Be(28);
+        gatedActionCount.Should().Be(32);
     }
 
     [Theory]
