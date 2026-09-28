@@ -29,25 +29,18 @@ public class DTRCalcService
         return calculator.ProcessDailyRecords(processor, payload.FromDate, payload.ToDate, token, ignoreNull, processOnlyPairedAtt);
     }
     public CancellationToken GetToken => Token ?? CancellationToken.None;
-    public DTRRequestPayload GetPayload(DateOnly date)
+
+    /// <summary>
+    /// A fresh one-employee, one-day request for re-computing a single adjacent day (holiday
+    /// eligibility lookups). Previously this mutated and reused the outer request's payload, so
+    /// each lookup reloaded and computed the day for every employee the outer request covered
+    /// (a whole company, for a payroll run) and then read whichever employee came first.
+    /// </summary>
+    public static DTRRequestPayload GetEmployeeDayPayload(Guid employeeId, DateOnly date) => new()
     {
-        if (Payload == null)
-        {
-            return new DTRRequestPayload
-            {
-                BranchId = Guid.Empty,
-                ClientId = Guid.Empty,
-                DepartmentId = Guid.Empty,
-                EmployeeId = Guid.Empty,
-                OperationAreaId = Guid.Empty,
-                PayrollGroupId = Guid.Empty,
-                FromDate = date,
-                ToDate = date
-            };
-        }
-        Payload.FromDate = date;
-        Payload.ToDate = date;
-        return Payload;
-    }
+        EmployeeId = employeeId,
+        FromDate = date,
+        ToDate = date
+    };
 
 }

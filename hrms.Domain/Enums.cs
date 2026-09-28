@@ -445,6 +445,7 @@ public enum LedgerEntryType
     Expiry,         // balance forfeited at period end (forfeit / cap policy)
     Adjustment,     // manual HR correction
     CashConversion, // balance paid out as cash (monetization)
+    DtrCorrection,  // repair of a past DTR-posted deduction (e.g. hours once deducted as days) -- see LeaveDtrReconciliationService.RepairPostedDeductionsAsync
 }
 
 

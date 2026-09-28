@@ -21,13 +21,9 @@ public class CleanUpDormantCommandWatcher : BackgroundService
                 using (var scope = _factory.CreateScope())
                 {
                     var service = scope.ServiceProvider.GetRequiredService<CommandService>();
-                    var data = await service.FindOldCommandAsync();
-                    if (data != null && data.Any())
+                    var deleted = await service.DeleteOldCommandsAsync(stoppingToken);
+                    if (deleted > 0)
                     {
-                        foreach (var command in data)
-                        {
-                            await service.DeleteAsync(command.Id);
-                        }
                         await service.CommitChangesAsync();
                     }
                 }

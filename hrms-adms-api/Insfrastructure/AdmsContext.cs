@@ -1,7 +1,7 @@
 ﻿
 namespace Hrms.adms.Insfrastructure;
 
-public class AdmsContext : DbContext
+public class AdmsContext : DbContext, ICurrentTenantContext
 {
     private readonly ITenantProvider _tenantProvider;
     public AdmsContext(DbContextOptions<AdmsContext> options,
@@ -10,7 +10,10 @@ public class AdmsContext : DbContext
         _tenantProvider = tenantProvider;
     }
 
-    //public AdmsContext(DbContextOptions<AdmsContext> options):base(options) 
+    /// <summary>Read by the global query filters on every query -- see <see cref="TenantQueryFilters"/>.</summary>
+    public Guid CurrentTenantId => _tenantProvider?.TenantId ?? Guid.Empty;
+
+    //public AdmsContext(DbContextOptions<AdmsContext> options):base(options)
     //{
     //}
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -20,7 +23,8 @@ public class AdmsContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         //modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
-        modelBuilder.UseTenantAndDateFilter(_tenantProvider.TenantId);
+        // One model for every tenant: the tenant is read per query, not baked into the model.
+        modelBuilder.ApplyTenantAndDateFilters(this);
 
         // Every query implicitly filters on TenantId + DeletedAt via the global query filter above,
         // so every entity that carries them needs an index covering that filter.

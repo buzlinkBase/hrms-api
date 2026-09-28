@@ -100,5 +100,7 @@ public class DTRContextModel
     public Dictionary<EmployeePolicyKey, EmployeePolicyRule> EmployeePolicies { get; set; }
     public DTRCalcService? DtrService { get; set; }
     public TimeRangeLedger ValueCache { get; set; } = new();
+    /// <summary>Adjacent-day DTR records computed for holiday eligibility, keyed by employee and date.</summary>
+    public Dictionary<(Guid EmployeeId, DateOnly Date), DTRDetailModel?> AdjacentDayRecords { get; } = new();
 
 }

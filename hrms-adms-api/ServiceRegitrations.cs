@@ -2,6 +2,7 @@
 using Asp.Versioning;
 using Hrms.adms.Filters;
 using Hrms.adms.Models.DTO;
+using Hrms.adms.Providers;
 using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
 using MessagePack;
@@ -15,6 +16,7 @@ using Onepunch.Common.Lib.DbServices;
 using Onepunch.Common.Lib.Security;
 using Polly;
 using Refit;
+using StackExchange.Redis;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -114,16 +116,14 @@ public static class ServiceRegistrations
             options.Headers.Add("X-Api-Key");
         });
 
+        var sqlVersion = new MySqlServerVersion(new Version(8, 4, 8));
         builder.Services.AddDbContext<AdmsContext>((sp, options) =>
         {
             var connectionString = builder.Configuration.GetConnectionString("AdmsConnection");
             options.UseLazyLoadingProxies(true);
-            var serverVersion = new MySqlServerVersion(new Version(9, 2, 0));
-            options.UseMySql(connectionString, serverVersion);
+            options.UseMySql(connectionString, sqlVersion);
             var tp = sp.GetRequiredService<ITenantProvider>();
             options.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(tp));
-            options.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
-
         });
 
         builder.Services.AddCors(options =>
@@ -264,47 +264,36 @@ public static class ServiceRegistrations
              };
          });
 
-        // Resolve JwksClient lazily from the real (post-Build) app container instead of a
-        // throwaway one built eagerly here.
+        // JWKS keys: in-process -> shared Redis copy -> single-flight fetch with failure backoff.
+        // See JwksKeyCache for why the old inline blocking resolver was replaced.
+        var redisConnection = builder.Configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrWhiteSpace(redisConnection))
+        {
+            builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnection));
+            builder.Services.AddSingleton<IJwksStore, RedisJwksStore>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<IJwksStore, NullJwksStore>();
+        }
+        builder.Services.AddSingleton(sp => new JwksKeyCache(
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<IJwksStore>(),
+            builder.Configuration["ApiServices:AuthService"] ?? ""));
+
         builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IHttpClientFactory>((options, httpClientFactory) =>
+            .Configure<JwksKeyCache>((options, jwksKeyCache) =>
             {
-                var authUrl = (builder.Configuration["ApiServices:AuthService"] ?? "").TrimEnd('/') + "/";
                 var legacySigningKey = builder.Configuration["JwtSettings:SigningKey"];
                 var allowLegacyHmac = builder.Configuration.GetValue<bool?>("JwtSettings:AllowLegacyHmacValidation") ?? true;
-
-                List<SecurityKey> cachedKeys = new();
-                DateTime cacheExpiry = DateTime.MinValue;
-                object cacheLock = new();
+                SecurityKey? legacyKey = allowLegacyHmac && !string.IsNullOrEmpty(legacySigningKey)
+                    ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacySigningKey))
+                    : null;
 
                 options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
                 {
-                    bool stale;
-                    lock (cacheLock) stale = DateTime.UtcNow > cacheExpiry;
-
-                    if (stale)
-                    {
-                        try
-                        {
-                            var client = httpClientFactory.CreateClient();
-                            var json = client.GetStringAsync($"{authUrl}.well-known/jwks.json").GetAwaiter().GetResult();
-                            var jwks = new JsonWebKeySet(json);
-                            lock (cacheLock)
-                            {
-                                cachedKeys = jwks.GetSigningKeys().ToList();
-                                cacheExpiry = DateTime.UtcNow.AddMinutes(10);
-                            }
-                        }
-                        catch { }
-                    }
-
-                    List<SecurityKey> keys;
-                    lock (cacheLock) keys = cachedKeys.ToList();
-
-                    if (allowLegacyHmac && !string.IsNullOrEmpty(legacySigningKey))
-                        keys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacySigningKey)));
-
-                    return keys;
+                    var keys = jwksKeyCache.GetKeys();
+                    return legacyKey == null ? keys : [.. keys, legacyKey];
                 };
             });
     }

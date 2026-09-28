@@ -361,5 +361,22 @@ public class PayrollService : BaseService<Payroll>
             .ThenBy(x => x.FullName)
             .ToListAsync(token);
     }
+
+    /// <summary>
+    /// <see cref="GetAsync"/> for the Payroll Summary list response. These rows are serialized
+    /// straight to JSON, and the serializer walks every navigation -- with lazy-loading proxies that
+    /// fired one DeductionCollection query per row (and held every result in memory) for data the
+    /// list never shows. Lazy loading is switched off for the rest of this request's context, so
+    /// only what <see cref="GetAsync"/> included is returned.
+    /// </summary>
+    public async Task<List<Payroll>> GetForListAsync(
+        DateOnly? from, DateOnly? to,
+        Guid? employeeId, Guid? clientId, Guid? payrollGroupId, Guid? payrollBatchId,
+        CancellationToken token)
+    {
+        var data = await GetAsync(from, to, employeeId, clientId, payrollGroupId, payrollBatchId, token);
+        Uow.Context.ChangeTracker.LazyLoadingEnabled = false;
+        return data;
+    }
 }
 

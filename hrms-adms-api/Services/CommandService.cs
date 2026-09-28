@@ -32,17 +32,19 @@ public class CommandService : BaseService<DeviceCommand>
         return data;
     }
 
-    public async Task<List<DeviceCommand>> FindOldCommandAsync()
+    /// <summary>
+    /// Deletes every command created before the cleanup cutoff in one statement -- no rows are
+    /// loaded into memory. Runs without a tenant (background job), so it spans all tenants.
+    /// </summary>
+    public async Task<int> DeleteOldCommandsAsync(CancellationToken token = default)
     {
         if (!int.TryParse(_configuration["CLEAN_UP_AGE"], out int maxAgeMinutes))
         {
             maxAgeMinutes = 480; // 8 hours default
         }
         DateTime cutoffTime = DateTime.UtcNow.AddMinutes(-maxAgeMinutes);
-        // 3. Query records created BEFORE the cutoff point and execute asynchronously
-        var data = await GetQueryable(x => x.CreatedAt < cutoffTime)
-            .ToListAsync();
-        return data;
+        return await GetQueryable(x => x.CreatedAt < cutoffTime)
+            .ExecuteDeleteAsync(token);
     }
 
     public async Task<List<DeviceCommand>> GetAllCommandsAsync(string sn)

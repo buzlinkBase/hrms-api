@@ -11,8 +11,7 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
     public CreateAttendanceWorker(
         AttendanceService attService,
         IUnitOfWorkService uow,
-        IPublishEndpoint publish,
-        EmployeeService employeeService)
+        IPublishEndpoint publish)
     {
         _attService = attService;
         _uow = uow;
@@ -22,6 +21,8 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
     public async Task Consume(ConsumeContext<AttendancePayloadWrapper> context)
     {
         var messages = context.Message.AttLogs;
+        if (messages == null || messages.Count == 0) return;
+
         var atts = await new AttEmployeeSetter(_uow)
             .ParseAttLogs(messages, LOGSOURCE.SYNC);
         await _attService.AddRangeAsync(atts);
@@ -51,18 +52,20 @@ public class AttEmployeeSetter
 
         if (bioIds.Count == 0)  return new List<Attendance>();
 
-        var employees = await _service.Context.Employees
-        .Where(x => x.BioId.HasValue && bioIds.Contains(x.BioId.Value))
-        .GroupBy(x => x.BioId!.Value)
-        .ToDictionaryAsync(
-            g => g.Key,
-            g => g.First() 
-        );
+        // Untracked projection of just the fields stamped onto the logs -- not tracked lazy-loading
+        // Employee proxies, which the change tracker would otherwise hold for the whole batch.
+        var employees = (await _service.Context.Employees
+            .AsNoTracking()
+            .Where(x => x.BioId.HasValue && bioIds.Contains(x.BioId.Value))
+            .Select(x => new EmployeeRef(x.BioId!.Value, x.Id, x.BranchId, x.DepartmentId, x.ClientId, x.AreaId))
+            .ToListAsync())
+            .GroupBy(x => x.BioId)
+            .ToDictionary(g => g.Key, g => g.First());
 
         var atts = new List<Attendance>();
         foreach (var att in messages)
         {
-            employees.TryGetValue(att.BioId, out Employee? employee);
+            employees.TryGetValue(att.BioId, out EmployeeRef? employee);
             var attendance = new Attendance
             {
                 BatchCode = att.BatchId,
@@ -83,4 +86,6 @@ public class AttEmployeeSetter
         }
         return atts;
     }
+
+    private sealed record EmployeeRef(int BioId, Guid Id, Guid? BranchId, Guid? DepartmentId, Guid? ClientId, Guid? AreaId);
 }

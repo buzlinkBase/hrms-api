@@ -123,13 +123,17 @@ public class EmployeeImportService
             var shiftKey = new ShiftKey(sanitizedShiftName, startTime, endTime, lunchOut, lunchIn);
             shifts.TryGetValue(shiftKey, out TimeShift? timeShift);
 
-            clients.TryGetValue(item.ClientName!, out Client? client);
+            Client? client = null;
+            if (!string.IsNullOrWhiteSpace(item.ClientName))
+            {
+                clients.TryGetValue(item.ClientName.Trim(), out client);
+            }
 
             var pgKey = GetPayrollGroupKey(item);
             pyGroups.TryGetValue(pgKey, out PayrollGroup? pg);
 
             departments.TryGetValue(item.DepartmentName!, out Department? department);
-            // Unlike DepartmentName/ClientName, ProjectSiteName has no SetDefaults fallback --
+            // Unlike DepartmentName, ProjectSiteName (like ClientName) has no SetDefaults fallback --
             // it legitimately stays null for any row that leaves the (optional) column blank,
             // and Dictionary.TryGetValue throws ArgumentNullException on a null key, so this
             // must be guarded rather than looked up unconditionally like the others above.
@@ -447,10 +451,6 @@ public class EmployeeImportService
             {
                 item.PayrollGroup = "--";
             }
-            if (string.IsNullOrWhiteSpace(item.ClientName))
-            {
-                item.ClientName = "--";
-            }
             if (string.IsNullOrWhiteSpace(item.RestDay1))
             {
                 item.RestDay1 = "";
@@ -468,58 +468,58 @@ public class EmployeeImportService
 
     private void MapFields(ExcelMapper mapper)
     {
-        mapper.AddMapping<EmployeeImportModel>("BioId", p => p.BioId);
-        mapper.AddMapping<EmployeeImportModel>("Branch Code", p => p.BranchCode);
-        mapper.AddMapping<EmployeeImportModel>("FirstName", p => p.FirstName);
-        mapper.AddMapping<EmployeeImportModel>("MiddleName", p => p.MiddleName);
-        mapper.AddMapping<EmployeeImportModel>("LastName", p => p.LastName);
-        mapper.AddMapping<EmployeeImportModel>("Suffix", p => p.Suffix);
-        mapper.AddMapping<EmployeeImportModel>("Gender", p => p.Gender);
-        mapper.AddMapping<EmployeeImportModel>("Email", p => p.Email);
-        mapper.AddMapping<EmployeeImportModel>("Hire Date", p => p.HireDate);
-        mapper.AddMapping<EmployeeImportModel>("Date Birth", p => p.DateOfBirth);
-        mapper.AddMapping<EmployeeImportModel>("Contact Number", p => p.ContactNo);
-        mapper.AddMapping<EmployeeImportModel>("Bank Name", p => p.BankName);
-        mapper.AddMapping<EmployeeImportModel>("Bank No", p => p.BankNo);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.BioId, p => p.BioId);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.BranchCode, p => p.BranchCode);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.FirstName, p => p.FirstName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.MiddleName, p => p.MiddleName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.LastName, p => p.LastName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Suffix, p => p.Suffix);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Gender, p => p.Gender);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Email, p => p.Email);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.HireDate, p => p.HireDate);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.DateBirth, p => p.DateOfBirth);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.ContactNumber, p => p.ContactNo);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.BankName, p => p.BankName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.BankNo, p => p.BankNo);
 
-        mapper.AddMapping<EmployeeImportModel>("Rest Day 1", p => p.RestDay1);
-        mapper.AddMapping<EmployeeImportModel>("Rest Day 2", p => p.RestDay2);
-        mapper.AddMapping<EmployeeImportModel>("Department Name", p => p.DepartmentName);
-        mapper.AddMapping<EmployeeImportModel>("Project Site", p => p.ProjectSiteName);
-        mapper.AddMapping<EmployeeImportModel>("Client Name", p => p.ClientName);
-        mapper.AddMapping<EmployeeImportModel>("Payroll Group", p => p.PayrollGroup);
-        mapper.AddMapping<EmployeeImportModel>("Shift Name", p => p.ShiftName);
-        mapper.AddMapping<EmployeeImportModel>("Shift Type", p => p.ShiftType);
-        mapper.AddMapping<EmployeeImportModel>("AMIN", p => p.AMIn);
-        mapper.AddMapping<EmployeeImportModel>("AM Out", p => p.AmOut);
-        mapper.AddMapping<EmployeeImportModel>("PM In", p => p.PMIn);
-        mapper.AddMapping<EmployeeImportModel>("PM OUT", p => p.PMOut);
-        mapper.AddMapping<EmployeeImportModel>("Break Duration", p => p.BreakDuration);
-        mapper.AddMapping<EmployeeImportModel>("Max Working Minutes", p => p.MaxWorkingMinutes);
-        mapper.AddMapping<EmployeeImportModel>("PaidLunchBreak", p => p.PaidLunchBreak);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.RestDay1, p => p.RestDay1);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.RestDay2, p => p.RestDay2);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.DepartmentName, p => p.DepartmentName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.ProjectSite, p => p.ProjectSiteName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.ClientName, p => p.ClientName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.PayrollGroup, p => p.PayrollGroup);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.ShiftName, p => p.ShiftName);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.ShiftType, p => p.ShiftType);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.AmIn, p => p.AMIn);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.AmOut, p => p.AmOut);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.PmIn, p => p.PMIn);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.PmOut, p => p.PMOut);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.BreakDuration, p => p.BreakDuration);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.MaxWorkingMinutes, p => p.MaxWorkingMinutes);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.PaidLunchBreak, p => p.PaidLunchBreak);
 
-        mapper.AddMapping<EmployeeImportModel>("SSS", p => p.SSS);
-        mapper.AddMapping<EmployeeImportModel>("PHIC", p => p.PHIC);
-        mapper.AddMapping<EmployeeImportModel>("HDMF", p => p.HDMF);
-        mapper.AddMapping<EmployeeImportModel>("TIN", p => p.TIN);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Sss, p => p.SSS);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Phic, p => p.PHIC);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Hdmf, p => p.HDMF);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Tin, p => p.TIN);
 
-        mapper.AddMapping<EmployeeImportModel>("SalaryType", p => p.SalaryType);
-        mapper.AddMapping<EmployeeImportModel>("Monthly Rate", p => p.MonthlyRate);
-        mapper.AddMapping<EmployeeImportModel>("Daily Rate", p => p.DailyRate);
-        mapper.AddMapping<EmployeeImportModel>("Cash Bond", p => p.CashBond);
-        mapper.AddMapping<EmployeeImportModel>("Civil Status", p => p.CivilStatus);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.SalaryType, p => p.SalaryType);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.MonthlyRate, p => p.MonthlyRate);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.DailyRate, p => p.DailyRate);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.CashBond, p => p.CashBond);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.CivilStatus, p => p.CivilStatus);
 
-        mapper.AddMapping<EmployeeImportModel>("Cut-Off 1", p => p.Cutoff1);
-        mapper.AddMapping<EmployeeImportModel>("Cut-Off 2", p => p.Cutoff2);
-        mapper.AddMapping<EmployeeImportModel>("Cut-Off 3", p => p.Cutoff3);
-        mapper.AddMapping<EmployeeImportModel>("Cut-Off 4", p => p.Cutoff4);
-        mapper.AddMapping<EmployeeImportModel>("EOM 1", p => p.EOM1);
-        mapper.AddMapping<EmployeeImportModel>("EOM 2", p => p.EOM2);
-        mapper.AddMapping<EmployeeImportModel>("EOM 3", p => p.EOM3);
-        mapper.AddMapping<EmployeeImportModel>("EOM 4", p => p.EOM4);
-        mapper.AddMapping<EmployeeImportModel>("Address 1", p => p.Address1);
-        mapper.AddMapping<EmployeeImportModel>("Address 2", p => p.Address2);
-        mapper.AddMapping<EmployeeImportModel>("Blood Type", p => p.BloodType);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Cutoff1, p => p.Cutoff1);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Cutoff2, p => p.Cutoff2);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Cutoff3, p => p.Cutoff3);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Cutoff4, p => p.Cutoff4);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom1, p => p.EOM1);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom2, p => p.EOM2);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom3, p => p.EOM3);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom4, p => p.EOM4);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Address1, p => p.Address1);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Address2, p => p.Address2);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.BloodType, p => p.BloodType);
 
     }
 
@@ -860,12 +860,15 @@ public class EmployeeImportService
         return TimeSpan.TryParse(x.PMIn.Trim(), out var lunchIn) ? lunchIn : null;
     }
 
+    // Client is optional: a blank Client Name means "no client", never a placeholder client.
+    // Keyed by trimmed name, case-insensitively -- the same way StoreClientsAsync matches
+    // existing clients -- so "Acme" and " acme " resolve to one client.
     private Dictionary<string, Client> ExtractClients(List<EmployeeImportModel> data)
     {
         return data
-            .GroupBy(x => x.ClientName)
-            .Select(g => new Client { Name = string.IsNullOrWhiteSpace(g.Key) ? "--" : g.Key })
-            .ToDictionary(x => x.Name, x => x);
+            .Where(x => !string.IsNullOrWhiteSpace(x.ClientName))
+            .GroupBy(x => x.ClientName!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => new Client { Name = g.Key }, StringComparer.OrdinalIgnoreCase);
     }
 
     private Dictionary<string, PayrollGroup> ExtractPayrollGroups(List<EmployeeImportModel> data)
@@ -1172,6 +1175,7 @@ public class TemplateDownloaderService
     public async Task<MemoryStream> GetEmployeeTemplate(CancellationToken token)
     {
         var (workbook, _) = await BuildTemplateWorkbookAsync(token);
+        using var ownedWorkbook = workbook;
         var stream = new MemoryStream();
         workbook.SaveAs(stream);
         stream.Position = 0; // Crucial: Reset the stream position to the beginning!
@@ -1188,12 +1192,10 @@ public class TemplateDownloaderService
     public async Task<MemoryStream> GetEmployeeTemplateWithErrors(List<EmployeeImportPreviewRow> rows, CancellationToken token)
     {
         var (workbook, worksheet) = await BuildTemplateWorkbookAsync(token);
+        using var ownedWorkbook = workbook;
 
-        // The real column headers live on row 2 -- row 1 is a merged "Instructions" banner, and
-        // MapFields' header-text mapping is what the upload endpoint actually keys off, not the
-        // banner text -- so locating columns has to scan row 2, not row 1.
-        const int headerRow = 2;
-        const int firstDataRow = 3;
+        const int headerRow = HeaderRow;
+        const int firstDataRow = SampleRow;
 
         // Header text here must match the real template's row-2 headers exactly (whitespace
         // included -- the lookup below is case-insensitive but not space-insensitive) and the
@@ -1202,64 +1204,56 @@ public class TemplateDownloaderService
         // the same left-to-right order as the template's actual columns for easier upkeep.
         (string Header, Action<IXLCell, EmployeeImportPreviewRow> Write)[] fieldWriters =
         {
-            ("BioId", (c, r) => c.Value = r.BioId),
-            ("Branch Code", (c, r) => c.Value = r.BranchCode),
-            ("FirstName", (c, r) => c.Value = r.FirstName),
-            ("MiddleName", (c, r) => c.Value = r.MiddleName),
-            ("LastName", (c, r) => c.Value = r.LastName),
-            ("Suffix", (c, r) => c.Value = r.Suffix),
-            ("Gender", (c, r) => c.Value = r.Gender),
-            ("Rest Day 1", (c, r) => c.Value = r.RestDay1),
-            ("Rest Day 2", (c, r) => c.Value = r.RestDay2),
-            ("Department Name", (c, r) => c.Value = r.DepartmentName),
-            ("Project Site", (c, r) => c.Value = r.ProjectSiteName),
-            ("Client Name", (c, r) => c.Value = r.ClientName),
-            ("Payroll Group", (c, r) => c.Value = r.PayrollGroup),
-            ("Cut-Off 1", (c, r) => c.Value = r.Cutoff1),
-            ("EOM 1", (c, r) => c.Value = r.EOM1),
-            ("Cut-Off 2", (c, r) => c.Value = r.Cutoff2),
-            ("EOM 2", (c, r) => c.Value = r.EOM2),
-            ("Cut-Off 3", (c, r) => c.Value = r.Cutoff3),
-            ("EOM 3", (c, r) => c.Value = r.EOM3),
-            ("Cut-Off 4", (c, r) => c.Value = r.Cutoff4),
-            ("EOM 4", (c, r) => c.Value = r.EOM4),
-            ("Shift Name", (c, r) => c.Value = r.ShiftName),
-            ("Shift Type", (c, r) => c.Value = r.ShiftType),
-            ("AMIN", (c, r) => c.Value = r.AMIn),
-            ("AM Out", (c, r) => c.Value = r.AmOut),
-            ("PM In", (c, r) => c.Value = r.PMIn),
-            ("PM OUT", (c, r) => c.Value = r.PMOut),
-            ("Break Duration", (c, r) => c.Value = r.BreakDuration),
-            ("Max Working Minutes", (c, r) => c.Value = r.MaxWorkingMinutes),
-            ("PaidLunchBreak", (c, r) => c.Value = r.PaidLunchBreak),
-            ("SalaryType", (c, r) => c.Value = r.SalaryType),
-            ("Monthly Rate", (c, r) => c.Value = r.MonthlyRate),
-            ("Daily Rate", (c, r) => c.Value = r.DailyRate),
-            ("Cash Bond", (c, r) => c.Value = r.CashBond),
-            ("Hire Date", (c, r) => { if (r.HireDate.HasValue) c.Value = r.HireDate.Value.ToDateTime(TimeOnly.MinValue); }),
-            ("SSS", (c, r) => c.Value = r.SSS),
-            ("PHIC", (c, r) => c.Value = r.PHIC),
-            ("HDMF", (c, r) => c.Value = r.HDMF),
-            ("TIN", (c, r) => c.Value = r.TIN),
-            ("Email", (c, r) => c.Value = r.Email),
-            ("Date Birth", (c, r) => { if (r.DateOfBirth.HasValue) c.Value = r.DateOfBirth.Value; }),
-            ("Contact Number", (c, r) => c.Value = r.ContactNo),
-            ("Civil Status", (c, r) => c.Value = r.CivilStatus),
-            ("Blood Type", (c, r) => c.Value = r.BloodType),
-            ("Address 1", (c, r) => c.Value = r.Address1),
-            ("Address 2", (c, r) => c.Value = r.Address2),
+            (EmployeeTemplateHeaders.BioId, (c, r) => c.Value = r.BioId),
+            (EmployeeTemplateHeaders.BranchCode, (c, r) => c.Value = r.BranchCode),
+            (EmployeeTemplateHeaders.FirstName, (c, r) => c.Value = r.FirstName),
+            (EmployeeTemplateHeaders.MiddleName, (c, r) => c.Value = r.MiddleName),
+            (EmployeeTemplateHeaders.LastName, (c, r) => c.Value = r.LastName),
+            (EmployeeTemplateHeaders.Suffix, (c, r) => c.Value = r.Suffix),
+            (EmployeeTemplateHeaders.Gender, (c, r) => c.Value = r.Gender),
+            (EmployeeTemplateHeaders.RestDay1, (c, r) => c.Value = r.RestDay1),
+            (EmployeeTemplateHeaders.RestDay2, (c, r) => c.Value = r.RestDay2),
+            (EmployeeTemplateHeaders.DepartmentName, (c, r) => c.Value = r.DepartmentName),
+            (EmployeeTemplateHeaders.ProjectSite, (c, r) => c.Value = r.ProjectSiteName),
+            (EmployeeTemplateHeaders.ClientName, (c, r) => c.Value = r.ClientName),
+            (EmployeeTemplateHeaders.PayrollGroup, (c, r) => c.Value = r.PayrollGroup),
+            (EmployeeTemplateHeaders.Cutoff1, (c, r) => c.Value = r.Cutoff1),
+            (EmployeeTemplateHeaders.Eom1, (c, r) => c.Value = r.EOM1),
+            (EmployeeTemplateHeaders.Cutoff2, (c, r) => c.Value = r.Cutoff2),
+            (EmployeeTemplateHeaders.Eom2, (c, r) => c.Value = r.EOM2),
+            (EmployeeTemplateHeaders.Cutoff3, (c, r) => c.Value = r.Cutoff3),
+            (EmployeeTemplateHeaders.Eom3, (c, r) => c.Value = r.EOM3),
+            (EmployeeTemplateHeaders.Cutoff4, (c, r) => c.Value = r.Cutoff4),
+            (EmployeeTemplateHeaders.Eom4, (c, r) => c.Value = r.EOM4),
+            (EmployeeTemplateHeaders.ShiftName, (c, r) => c.Value = r.ShiftName),
+            (EmployeeTemplateHeaders.ShiftType, (c, r) => c.Value = r.ShiftType),
+            (EmployeeTemplateHeaders.AmIn, (c, r) => c.Value = r.AMIn),
+            (EmployeeTemplateHeaders.AmOut, (c, r) => c.Value = r.AmOut),
+            (EmployeeTemplateHeaders.PmIn, (c, r) => c.Value = r.PMIn),
+            (EmployeeTemplateHeaders.PmOut, (c, r) => c.Value = r.PMOut),
+            (EmployeeTemplateHeaders.BreakDuration, (c, r) => c.Value = r.BreakDuration),
+            (EmployeeTemplateHeaders.MaxWorkingMinutes, (c, r) => c.Value = r.MaxWorkingMinutes),
+            (EmployeeTemplateHeaders.PaidLunchBreak, (c, r) => c.Value = r.PaidLunchBreak),
+            (EmployeeTemplateHeaders.SalaryType, (c, r) => c.Value = r.SalaryType),
+            (EmployeeTemplateHeaders.MonthlyRate, (c, r) => c.Value = r.MonthlyRate),
+            (EmployeeTemplateHeaders.DailyRate, (c, r) => c.Value = r.DailyRate),
+            (EmployeeTemplateHeaders.CashBond, (c, r) => c.Value = r.CashBond),
+            (EmployeeTemplateHeaders.HireDate, (c, r) => { if (r.HireDate.HasValue) c.Value = r.HireDate.Value.ToDateTime(TimeOnly.MinValue); }),
+            (EmployeeTemplateHeaders.Sss, (c, r) => c.Value = r.SSS),
+            (EmployeeTemplateHeaders.Phic, (c, r) => c.Value = r.PHIC),
+            (EmployeeTemplateHeaders.Hdmf, (c, r) => c.Value = r.HDMF),
+            (EmployeeTemplateHeaders.Tin, (c, r) => c.Value = r.TIN),
+            (EmployeeTemplateHeaders.Email, (c, r) => c.Value = r.Email),
+            (EmployeeTemplateHeaders.DateBirth, (c, r) => { if (r.DateOfBirth.HasValue) c.Value = r.DateOfBirth.Value; }),
+            (EmployeeTemplateHeaders.ContactNumber, (c, r) => c.Value = r.ContactNo),
+            (EmployeeTemplateHeaders.CivilStatus, (c, r) => c.Value = r.CivilStatus),
+            (EmployeeTemplateHeaders.BloodType, (c, r) => c.Value = r.BloodType),
+            (EmployeeTemplateHeaders.Address1, (c, r) => c.Value = r.Address1),
+            (EmployeeTemplateHeaders.Address2, (c, r) => c.Value = r.Address2),
         };
 
         var lastHeaderCol = worksheet.Row(headerRow).LastCellUsed()?.Address.ColumnNumber ?? 1;
-        var columnByHeader = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (var col = 1; col <= lastHeaderCol; col++)
-        {
-            var text = worksheet.Cell(headerRow, col).GetString();
-            if (!string.IsNullOrWhiteSpace(text) && !columnByHeader.ContainsKey(text))
-            {
-                columnByHeader[text] = col;
-            }
-        }
+        var columnByHeader = MapHeaderColumns(worksheet);
 
         var errorsColumn = lastHeaderCol + 1;
         worksheet.Cell(headerRow, errorsColumn).Value = "Import Errors";
@@ -1295,6 +1289,30 @@ public class TemplateDownloaderService
         return stream;
     }
 
+    // Row 1 of the template is a merged "Instructions" banner; the real column headers are on
+    // row 2 (what MapFields' header-text mapping keys off on upload), and row 3 is the sample row.
+    private const int HeaderRow = 2;
+    private const int SampleRow = 3;
+
+    // Header text -> column number, from the template's header row (case-insensitive).
+    private static Dictionary<string, int> MapHeaderColumns(IXLWorksheet worksheet)
+    {
+        var lastHeaderCol = worksheet.Row(HeaderRow).LastCellUsed()?.Address.ColumnNumber ?? 1;
+        var columnByHeader = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var col = 1; col <= lastHeaderCol; col++)
+        {
+            var text = worksheet.Cell(HeaderRow, col).GetString().Trim();
+            if (!string.IsNullOrWhiteSpace(text) && !columnByHeader.ContainsKey(text))
+            {
+                columnByHeader[text] = col;
+            }
+        }
+        return columnByHeader;
+    }
+
+    // Prefills the sample row by HEADER, never by cell address -- the template has gained
+    // columns over time, and hard-coded addresses ("AE3") drifted onto the wrong columns (today's
+    // date landed in Monthly Rate). A header missing from the template is skipped, not thrown on.
     private async Task<(XLWorkbook Workbook, IXLWorksheet Worksheet)> BuildTemplateWorkbookAsync(CancellationToken token)
     {
         string templatePath = Path.Combine(_environment.ContentRootPath, "wwwroot", "Templates", "employee_template.xlsx");
@@ -1302,24 +1320,23 @@ public class TemplateDownloaderService
             .GetQueryable()
             .Select(x => x.Code)
             .ToListAsync(token);
-        ;
 
         var departments = await _departmentService
             .GetQueryable()
             .Select(x => x.Name)
             .ToListAsync(token);
-        ;
+
+        var payrollGroups = await _payrollGroupService
+            .GetQueryable()
+            .Select(x => x.Name)
+            .ToListAsync(token);
 
         var workbook = new XLWorkbook(templatePath);
         var worksheet = workbook.Worksheet(1);
+        var columns = MapHeaderColumns(worksheet);
 
-        //branches
-        var helperSheet = workbook.Worksheets.Add("Branches");
-        CreateSheet(helperSheet, branchList);
-        var range = helperSheet.Range(1, 1, branchList.Count, 1);
-        worksheet.Cell("B3").CreateDataValidation().List(range);
-        worksheet.Cell("B3").Value = branchList.FirstOrDefault();
-
+        AddListDropdown(workbook, worksheet, columns, EmployeeTemplateHeaders.BranchCode, "Branches",
+            branchList, branchList.FirstOrDefault());
 
         // Rest Days -- day-name dropdown plus a blank entry, so employees without a configured
         // rest day can leave Rest Day 1 / Rest Day 2 empty instead of being forced to pick a
@@ -1327,74 +1344,126 @@ public class TemplateDownloaderService
         // ExtractRestDay/UploadAsync above).
         var dayNames = new List<string> { "" };
         dayNames.AddRange(Enum.GetNames(typeof(DayName)));
-        helperSheet = workbook.Worksheets.Add("RestDays");
-        CreateSheet(helperSheet, dayNames);
-        range = helperSheet.Range(1, 1, dayNames.Count, 1);
-        worksheet.Cell("H3").CreateDataValidation().List(range);
-        worksheet.Cell("H3").Value = "Saturday";
-        worksheet.Cell("I3").CreateDataValidation().List(range);
-        worksheet.Cell("I3").Value = "Sunday";
+        var restDays = AddHelperSheet(workbook, "RestDays", dayNames);
+        SetSampleDropdown(worksheet, columns, EmployeeTemplateHeaders.RestDay1, restDays, "Saturday");
+        SetSampleDropdown(worksheet, columns, EmployeeTemplateHeaders.RestDay2, restDays, "Sunday");
 
-        //departments
-        helperSheet = workbook.Worksheets.Add("Departments");
-        CreateSheet(helperSheet, departments);
-        range = helperSheet.Range(1, 1, departments.Count, 1);
-        worksheet.Cell("J3").CreateDataValidation().List(range);
-        worksheet.Cell("J3").Value = departments.FirstOrDefault();
+        AddListDropdown(workbook, worksheet, columns, EmployeeTemplateHeaders.DepartmentName, "Departments",
+            departments, departments.FirstOrDefault());
 
+        AddListDropdown(workbook, worksheet, columns, EmployeeTemplateHeaders.PayrollGroup, "payrollgroups",
+            payrollGroups,
+            payrollGroups.FirstOrDefault(x => x.Contains("Semi-Monthly", StringComparison.OrdinalIgnoreCase))
+                ?? payrollGroups.FirstOrDefault());
 
-        //PayrollGroups
-        var payrollgroups = await _payrollGroupService
-           .GetQueryable()
-           .Select(x => x.Name)
-           .ToListAsync(token);
+        AddListDropdown(workbook, worksheet, columns, EmployeeTemplateHeaders.ShiftType, "ShiftTypes",
+            ["Fixed", "Split"], "Fixed");
 
-        helperSheet = workbook.Worksheets.Add("payrollgroups");
-        CreateSheet(helperSheet, payrollgroups);
-        range = helperSheet.Range(1, 1, payrollgroups.Count, 1);
-        worksheet.Cell("L3").CreateDataValidation().List(range);
-        worksheet.Cell("L3").Value = payrollgroups.FirstOrDefault(x => x.Contains("Semi-Monthly"));
+        var trueFalse = AddHelperSheet(workbook, "trueFalse", ["False", "True"]);
+        foreach (var header in new[]
+                 {
+                     EmployeeTemplateHeaders.Eom1, EmployeeTemplateHeaders.Eom2,
+                     EmployeeTemplateHeaders.Eom3, EmployeeTemplateHeaders.Eom4,
+                     EmployeeTemplateHeaders.PaidLunchBreak,
+                 })
+        {
+            SetSampleDropdown(worksheet, columns, header, trueFalse, "False");
+        }
 
+        AddListDropdown(workbook, worksheet, columns, EmployeeTemplateHeaders.SalaryType, "SalaryType",
+            ["Variable", "Fixed"], "Fixed");
 
-        var shiftTypes = new List<string>() { "Fixed", "Split" };
-        helperSheet = workbook.Worksheets.Add("ShiftTypes");
-        CreateSheet(helperSheet, shiftTypes);
-        range = helperSheet.Range(1, 1, shiftTypes.Count, 1);
-        worksheet.Cell("V3").CreateDataValidation().List(range);
-        worksheet.Cell("V3").Value = shiftTypes.FirstOrDefault();
-
-        //paid breaks
-        var trueFalse = new List<string>() { "False", "True" };
-        helperSheet = workbook.Worksheets.Add("trueFalse");
-        CreateSheet(helperSheet, trueFalse);
-        var truFalserange = helperSheet.Range(1, 1, trueFalse.Count, 1);
-
-        worksheet.Cell("N3").CreateDataValidation().List(truFalserange);
-        worksheet.Cell("N3").Value = trueFalse.FirstOrDefault();
-        worksheet.Cell("P3").CreateDataValidation().List(truFalserange);
-        worksheet.Cell("P3").Value = trueFalse.FirstOrDefault();
-        worksheet.Cell("R3").CreateDataValidation().List(truFalserange);
-        worksheet.Cell("R3").Value = trueFalse.FirstOrDefault();
-        worksheet.Cell("T3").CreateDataValidation().List(truFalserange);
-        worksheet.Cell("T3").Value = trueFalse.FirstOrDefault();
-        worksheet.Cell("AC3").CreateDataValidation().List(truFalserange);
-        worksheet.Cell("AC3").Value = trueFalse.FirstOrDefault();
-
-        //salary Type
-        var SalaryTypes = new List<string>() { "Variable", "Fixed" };
-        helperSheet = workbook.Worksheets.Add("SalaryType");
-        CreateSheet(helperSheet, SalaryTypes);
-        range = helperSheet.Range(1, 1, SalaryTypes.Count, 1);
-        worksheet.Cell("AD3").CreateDataValidation().List(range);
-        worksheet.Cell("AD3").Value = SalaryTypes.LastOrDefault();
-
-        worksheet.Cell("AE3").Value = DateTime.UtcNow.Date;
+        // Company-local "today" -- UTC's date is still yesterday before 8 AM in Manila.
+        if (columns.TryGetValue(EmployeeTemplateHeaders.HireDate, out var hireDateColumn))
+        {
+            var manila = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+            worksheet.Cell(SampleRow, hireDateColumn).Value = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, manila).Date;
+        }
 
         return (workbook, worksheet);
     }
-    private void CreateSheet<T>(IXLWorksheet helperSheet, List<T> data)
+
+    // A dropdown whose source is its own hidden helper sheet. Nothing is added when there are no
+    // values (e.g. a new company with no branches yet) -- a list over an empty range is broken.
+    private static void AddListDropdown(XLWorkbook workbook, IXLWorksheet worksheet, Dictionary<string, int> columns,
+        string header, string helperSheetName, List<string> values, string? defaultValue)
     {
-        helperSheet.Cell(1, 1).InsertData(data);
-        helperSheet.Hide();
+        if (values.Count == 0) return;
+        var source = AddHelperSheet(workbook, helperSheetName, values);
+        SetSampleDropdown(worksheet, columns, header, source, defaultValue);
     }
+
+    private static IXLRange AddHelperSheet(XLWorkbook workbook, string name, List<string> values)
+    {
+        var helperSheet = workbook.Worksheets.Add(name);
+        helperSheet.Cell(1, 1).InsertData(values);
+        helperSheet.Hide();
+        return helperSheet.Range(1, 1, values.Count, 1);
+    }
+
+    private static void SetSampleDropdown(IXLWorksheet worksheet, Dictionary<string, int> columns,
+        string header, IXLRange source, string? defaultValue)
+    {
+        if (!columns.TryGetValue(header, out var column)) return;
+        var cell = worksheet.Cell(SampleRow, column);
+        cell.CreateDataValidation().List(source);
+        if (defaultValue != null) cell.Value = defaultValue;
+    }}
+
+/// <summary>
+/// Column headers of employee_template.xlsx (row 2), exactly as written there. The upload
+/// mapping (MapFields), the error template (GetEmployeeTemplateWithErrors) and the sample-row
+/// prefill (BuildTemplateWorkbookAsync) all locate columns by these, never by cell address --
+/// so a column inserted into the template can't shift one value under another header.
+/// </summary>
+public static class EmployeeTemplateHeaders
+{
+    public const string BioId = "BioId";
+    public const string BranchCode = "Branch Code";
+    public const string FirstName = "FirstName";
+    public const string MiddleName = "MiddleName";
+    public const string LastName = "LastName";
+    public const string Suffix = "Suffix";
+    public const string Gender = "Gender";
+    public const string RestDay1 = "Rest Day 1";
+    public const string RestDay2 = "Rest Day 2";
+    public const string DepartmentName = "Department Name";
+    public const string ProjectSite = "Project Site";
+    public const string ClientName = "Client Name";
+    public const string PayrollGroup = "Payroll Group";
+    public const string Cutoff1 = "Cut-Off 1";
+    public const string Cutoff2 = "Cut-Off 2";
+    public const string Cutoff3 = "Cut-Off 3";
+    public const string Cutoff4 = "Cut-Off 4";
+    public const string Eom1 = "EOM 1";
+    public const string Eom2 = "EOM 2";
+    public const string Eom3 = "EOM 3";
+    public const string Eom4 = "EOM 4";
+    public const string ShiftName = "Shift Name";
+    public const string ShiftType = "Shift Type";
+    public const string AmIn = "AMIN";
+    public const string AmOut = "AM Out";
+    public const string PmIn = "PM In";
+    public const string PmOut = "PM OUT";
+    public const string BreakDuration = "Break Duration";
+    public const string MaxWorkingMinutes = "Max Working Minutes";
+    public const string PaidLunchBreak = "PaidLunchBreak";
+    public const string SalaryType = "SalaryType";
+    public const string MonthlyRate = "Monthly Rate";
+    public const string DailyRate = "Daily Rate";
+    public const string CashBond = "Cash Bond";
+    public const string HireDate = "Hire Date";
+    public const string Sss = "SSS";
+    public const string Phic = "PHIC";
+    public const string Hdmf = "HDMF";
+    public const string Tin = "TIN";
+    public const string Email = "Email";
+    public const string DateBirth = "Date Birth";
+    public const string ContactNumber = "Contact Number";
+    public const string CivilStatus = "Civil Status";
+    public const string BloodType = "Blood Type";
+    public const string Address1 = "Address 1";
+    public const string Address2 = "Address 2";
+    public const string BankName = "Bank Name";
+    public const string BankNo = "Bank No";
 }

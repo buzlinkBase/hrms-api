@@ -236,7 +236,8 @@ public class ApplicationStatusLockdownTests
 
     private static LeaveApplicationService BuildLeaveService(IUnitOfWorkService uow) => new(
         uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(), Substitute.For<IPublishEndpoint>(),
-        Substitute.For<ILogger<LeaveApplicationService>>(), null!, Engine(uow));
+        Substitute.For<ILogger<LeaveApplicationService>>(), null!, Engine(uow),
+        new LeaveDtrReconciliationService(uow, Substitute.For<ILogger<LeaveDtrReconciliationService>>()));
 
     private static async Task<(SqliteHrmsContext Db, Guid Id, Guid EmployeeId, Guid LeaveId)> SeedLeaveAsync(ApprovalStatus status)
     {

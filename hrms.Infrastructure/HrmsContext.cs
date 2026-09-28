@@ -8,7 +8,7 @@ namespace Hrms.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
 
-public class HrmsContext : DbContext, IDbContext
+public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext
 {
     private readonly TenantConnectionStringInfo _tenantConnectionInfo;
     private readonly ITenantProvider _tenantProvider;
@@ -23,7 +23,10 @@ public class HrmsContext : DbContext, IDbContext
         _tenantConnectionInfo = tenantConnectionInfo;
         _tenantProvider = tenantProvider;
         _configuration = configuration;
-    }  
+    }
+
+    /// <summary>Read by the global query filters on every query -- see <see cref="TenantQueryFilters"/>.</summary>
+    public Guid CurrentTenantId => _tenantProvider?.TenantId ?? Guid.Empty;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     { 
@@ -32,7 +35,8 @@ public class HrmsContext : DbContext, IDbContext
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
-        modelBuilder.UseTenantAndDateFilter(_tenantProvider?.TenantId ?? Guid.Empty);
+        // One model for every tenant: the tenant is read per query, not baked into the model.
+        modelBuilder.ApplyTenantAndDateFilters(this);
 
         // Every query implicitly filters on TenantId + DeletedAt via the global query filter above,
         // so every entity that carries them needs an index covering that filter.

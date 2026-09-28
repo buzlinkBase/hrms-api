@@ -16,7 +16,7 @@ namespace hrms.test.ServiceTests;
 /// Department, PayrollGroup, etc.
 ///
 /// Regression guard: "Project Site" is an OPTIONAL import column with no SetDefaults fallback
-/// (unlike Department/Client, which always default to "--"), so a blank cell leaves
+/// (unlike Department, which defaults to "--"), so a blank cell leaves
 /// EmployeeImportModel.ProjectSiteName null. PersistAsync used to look that up with
 /// Dictionary.TryGetValue(item.ProjectSiteName!, ...) unconditionally, which throws
 /// ArgumentNullException on a null key -- meaning ANY row without a Project Site value aborted
@@ -161,6 +161,68 @@ public class EmployeeImportServiceCommitTests
         employee.AreaId.Should().NotBeNull("the second file supplied a Project Site");
         (await verify.EmployeeSettings.CountAsync(x => x.EmployeeId == employee.Id)).Should().Be(1,
             "re-importing must not create a second EmployeeSetting row for the same employee");
+    }
+
+    private static MemoryStream BuildWorkbookWithClients(params (string BioId, string FirstName, string? Client)[] rows)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(2, 1).Value = EmployeeTemplateHeaders.BioId;
+        sheet.Cell(2, 2).Value = EmployeeTemplateHeaders.FirstName;
+        sheet.Cell(2, 3).Value = EmployeeTemplateHeaders.LastName;
+        sheet.Cell(2, 4).Value = EmployeeTemplateHeaders.ClientName;
+
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var row = i + 3;
+            sheet.Cell(row, 1).Value = rows[i].BioId;
+            sheet.Cell(row, 2).Value = rows[i].FirstName;
+            sheet.Cell(row, 3).Value = "Tester";
+            if (rows[i].Client != null) sheet.Cell(row, 4).Value = rows[i].Client;
+        }
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+    // Client is optional: a blank Client Name used to become a placeholder client named "--"
+    // that every such employee was attached to.
+    [Fact]
+    public async Task Upload_BlankClient_LeavesClientEmpty_AndCreatesNoPlaceholderClient()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+        var sut = BuildService(new UnitOfWorkService(context));
+
+        using var file = BuildWorkbookWithClients(("2001", "Noel", null));
+        await sut.Upload(file, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.Employees.SingleAsync(x => x.FirstName == "Noel")).ClientId.Should().BeNull();
+        (await verify.Clients.AnyAsync()).Should().BeFalse("no client was named in the file");
+    }
+
+    [Fact]
+    public async Task Upload_NamedClients_AreCreatedOnce_IgnoringCaseAndSpacing()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+        var sut = BuildService(new UnitOfWorkService(context));
+
+        using var file = BuildWorkbookWithClients(
+            ("2002", "Rosa", "Acme Corp"),
+            ("2003", "Lito", " acme corp "),
+            ("2004", "Tess", null));
+        await sut.Upload(file, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        var client = await verify.Clients.SingleAsync();
+        client.Name.Should().Be("Acme Corp");
+        (await verify.Employees.SingleAsync(x => x.FirstName == "Rosa")).ClientId.Should().Be(client.Id);
+        (await verify.Employees.SingleAsync(x => x.FirstName == "Lito")).ClientId.Should().Be(client.Id);
+        (await verify.Employees.SingleAsync(x => x.FirstName == "Tess")).ClientId.Should().BeNull();
     }
 
     [Fact]

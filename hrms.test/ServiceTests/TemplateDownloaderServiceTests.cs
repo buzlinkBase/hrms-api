@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using Microsoft.AspNetCore.Hosting;
 using MockQueryable.NSubstitute;
 using NSubstitute;
+using System.Runtime.CompilerServices;
 
 namespace hrms.test.ServiceTests;
 
@@ -28,10 +29,91 @@ public class TemplateDownloaderServiceTests
         // GetEmployeeTemplate reads the real wwwroot/Templates/employee_template.xlsx shipped
         // with the app -- pointing ContentRootPath at the actual hrms-api project directory
         // exercises the real file, same as production, rather than needing a fixture copy.
-        environment.ContentRootPath.Returns(
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "hrms-api")));
+        environment.ContentRootPath.Returns(FindApiProjectDirectory());
 
         return new TemplateDownloaderService(environment, new BranchService(uow), new DepartmentService(uow), new PayrollGroupService(uow));
+    }
+
+    // Finds the hrms-api project by walking up from this test file's source location (and, as a
+    // fallback, the test output directory) -- a fixed number of ".." from the output directory
+    // only worked for the default bin/Debug/netX layout and broke under --artifacts-path builds.
+    private static string FindApiProjectDirectory([CallerFilePath] string sourceFile = "")
+    {
+        foreach (var start in new[] { Path.GetDirectoryName(sourceFile), AppContext.BaseDirectory })
+        {
+            if (string.IsNullOrEmpty(start)) continue;
+            for (var dir = new DirectoryInfo(start); dir != null; dir = dir.Parent)
+            {
+                var candidate = Path.Combine(dir.FullName, "hrms-api");
+                if (File.Exists(Path.Combine(candidate, "wwwroot", "Templates", "employee_template.xlsx")))
+                    return candidate;
+            }
+        }
+        throw new DirectoryNotFoundException("hrms-api/wwwroot/Templates/employee_template.xlsx not found.");
+    }
+
+    private static async Task<IXLWorksheet> DownloadAsync(TemplateDownloaderService sut, XLWorkbook[] keepAlive)
+    {
+        var stream = await sut.GetEmployeeTemplate(CancellationToken.None);
+        stream.Position = 0;
+        keepAlive[0] = new XLWorkbook(stream);
+        return keepAlive[0].Worksheet(1);
+    }
+
+    // Row-3 (sample row) cell under the given row-2 header.
+    private static IXLCell SampleCell(IXLWorksheet worksheet, string header)
+    {
+        var column = worksheet.Row(2).CellsUsed().Single(c => c.GetString().Trim() == header).Address.ColumnNumber;
+        return worksheet.Cell(3, column);
+    }
+
+    [Fact]
+    public async Task GetEmployeeTemplate_PrefillsEachValueUnderItsOwnHeader()
+    {
+        var sut = BuildService(
+            branches: [new Branch { Code = "MAIN" }, new Branch { Code = "NORTH" }],
+            payrollGroups: [new PayrollGroup { Name = "Monthly" }, new PayrollGroup { Name = "Semi-Monthly A" }],
+            departments: [new Department { Name = "Operations" }]);
+        var keepAlive = new XLWorkbook[1];
+        var worksheet = await DownloadAsync(sut, keepAlive);
+        using var _ = keepAlive[0];
+
+        SampleCell(worksheet, EmployeeTemplateHeaders.MonthlyRate).DataType.Should().NotBe(XLDataType.DateTime,
+            "today's date used to land in Monthly Rate after columns were added to the template");
+        SampleCell(worksheet, EmployeeTemplateHeaders.HireDate).DataType.Should().Be(XLDataType.DateTime);
+        SampleCell(worksheet, EmployeeTemplateHeaders.BranchCode).GetString().Should().Be("MAIN");
+        SampleCell(worksheet, EmployeeTemplateHeaders.DepartmentName).GetString().Should().Be("Operations");
+        SampleCell(worksheet, EmployeeTemplateHeaders.PayrollGroup).GetString().Should().Be("Semi-Monthly A");
+        SampleCell(worksheet, EmployeeTemplateHeaders.SalaryType).GetString().Should().Be("Fixed");
+        SampleCell(worksheet, EmployeeTemplateHeaders.ShiftType).GetString().Should().Be("Fixed");
+        SampleCell(worksheet, EmployeeTemplateHeaders.Eom1).GetString().Should().Be("False");
+        SampleCell(worksheet, EmployeeTemplateHeaders.PaidLunchBreak).GetString().Should().Be("False");
+        SampleCell(worksheet, EmployeeTemplateHeaders.RestDay1).GetString().Should().Be("Saturday");
+    }
+
+    [Fact]
+    public async Task GetEmployeeTemplate_NoSemiMonthlyGroup_FallsBackToTheFirstGroup()
+    {
+        var sut = BuildService(
+            branches: [new Branch { Code = "MAIN" }],
+            payrollGroups: [new PayrollGroup { Name = "Weekly" }, new PayrollGroup { Name = "Monthly" }]);
+        var keepAlive = new XLWorkbook[1];
+        var worksheet = await DownloadAsync(sut, keepAlive);
+        using var _ = keepAlive[0];
+
+        SampleCell(worksheet, EmployeeTemplateHeaders.PayrollGroup).GetString().Should().Be("Weekly");
+    }
+
+    [Fact]
+    public async Task GetEmployeeTemplate_CompanyWithNoSetupData_StillDownloads_WithoutEmptyDropdownSources()
+    {
+        var sut = BuildService();
+        var keepAlive = new XLWorkbook[1];
+        var worksheet = await DownloadAsync(sut, keepAlive);
+        using var _ = keepAlive[0];
+
+        keepAlive[0].Worksheets.Select(w => w.Name).Should().NotContain(["Branches", "Departments", "payrollgroups"]);
+        SampleCell(worksheet, EmployeeTemplateHeaders.HireDate).DataType.Should().Be(XLDataType.DateTime);
     }
 
     [Fact]

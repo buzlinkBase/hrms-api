@@ -21,8 +21,8 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
 
         var configBuilder = new ConfigurationBuilder()
             .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: false)
-            //.AddJsonFile("appsettings.Development.json", optional: true)
+            //.AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.Development.json", optional: true)
             .AddEnvironmentVariables()
             ;
 
@@ -48,8 +48,9 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
         }
 
         var optionsBuilder = new DbContextOptionsBuilder<AdmsContext>();
-        var serverVersion = ServerVersion.AutoDetect(connectionString);
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        // Explicit, deterministic, and fast
+        var sqlVersion = new MySqlServerVersion(new Version(8, 4, 8)); // or Version(9, 2, 0)
+        optionsBuilder.UseMySql(connectionString, sqlVersion);
 
         return new AdmsContext(optionsBuilder.Options, new DesignTimeTenantProvider());
     }

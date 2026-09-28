@@ -283,6 +283,11 @@ public class DailyRecordService : BaseService<DailyRecord>
     // clears approval).
     private async Task ExecuteBatchDeletionAsync(string batchCode, CancellationToken token)
     {
+        // Give back every leave day this batch consumed BEFORE its rows go -- otherwise the
+        // Deduction entries outlive the DTR and those days stay charged forever. Same
+        // transaction as the delete; a no-op for an unposted draft (nothing was consumed).
+        await _reconciliation.ReverseConsumptionAsync(batchCode, token);
+        await SaveChangesAsync(token);
         await ExecuteDeleteAsync(x => x.BatchCode == batchCode, token);
         // Cleans up the now-orphaned DTRBatch header row alongside its DailyRecord rows -- a
         // no-op for a legacy batch that predates this entity.
@@ -380,15 +385,6 @@ public class DailyRecordService : BaseService<DailyRecord>
             throw;
         }
     }
-    public async Task DeleteAsync(DateRangePayload payload, List<Guid> employeeIds,
-        CancellationToken token)
-    {
-        await ExecuteDeleteAsync(x =>
-        employeeIds.Contains(x.EmployeeId) &&
-        x.WorkDate >= payload.FromDate && x.WorkDate <= payload.ToDate, token);
-        await CommitChangesAsync(token);
-    }
-
     public async Task<(Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records, DateOnly FromDate, DateOnly ToDate)>
     LoadForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
     {
@@ -573,19 +569,26 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     public async Task<List<BatchesModel>> GetBatches(DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
-        var records = await Context.DailyTimeRecords
+        // Batches with any day in the range, then aggregated over ALL of each batch's rows -- the
+        // old query kept only x.First() per batch, so every batch showed one day as its period
+        // ("Sep 01 – Sep 01"), 1 employee, and the posted flag of a single row.
+        var codesInRange = Context.DailyTimeRecords
             .Where(x => x.WorkDate >= fromDate && x.WorkDate <= toDate && x.BatchCode != null)
+            .Select(x => x.BatchCode)
+            .Distinct();
+
+        var records = await Context.DailyTimeRecords
+            .Where(x => codesInRange.Contains(x.BatchCode))
             .GroupBy(x => x.BatchCode)
-            .Select(x => new
+            .Select(g => new
             {
-                x.Key,
-                x.First().WorkDate,
-                x.First().EmployeeId,
-                x.First().Posted,
-                x.First().PostingDescription,
-                x.First().CreatedAt
+                g.Key,
+                FromDate = g.Min(x => x.WorkDate),
+                ToDate = g.Max(x => x.WorkDate),
+                EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
+                UnpostedCount = g.Count(x => !x.Posted),
+                PostingDescription = g.Max(x => x.PostingDescription),
             })
-            .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(token);
 
         var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
@@ -614,7 +617,6 @@ public class DailyRecordService : BaseService<DailyRecord>
             id.HasValue && employeeNames.TryGetValue(id.Value, out var name) ? name : null;
 
         return records
-         .GroupBy(x => x.Key)
          .Select(g =>
          {
              dtrBatchesByCode.TryGetValue(g.Key ?? "", out var dtrBatch);
@@ -622,11 +624,13 @@ public class DailyRecordService : BaseService<DailyRecord>
              {
                  Id = dtrBatch?.Id,
                  Code = g.Key,
-                 FromDate = g.Min(x => x.WorkDate),
-                 ToDate = g.Max(x => x.WorkDate),
-                 EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
-                 IsPosted = g.All(x => x.Posted),
-                 PostingDescription = g.FirstOrDefault()?.PostingDescription ?? "",
+                 // The batch header's pay period is authoritative; legacy batches without a
+                 // DTRBatch row fall back to the span of their DTR days.
+                 FromDate = dtrBatch is { PayPeriodStart: var start } && start != default ? start : g.FromDate,
+                 ToDate = dtrBatch is { PayPeriodEnd: var end } && end != default ? end : g.ToDate,
+                 EmployeeCount = g.EmployeeCount,
+                 IsPosted = g.UnpostedCount == 0,
+                 PostingDescription = g.PostingDescription ?? "",
                  IsPayrollGenerated = g.Key != null && usedBatchCodes.Contains(g.Key),
                  ApprovalStatus = dtrBatch?.ApprovalStatus ?? ApprovalStatus.Approved,
                  GeneratedByEmployeeId = dtrBatch?.GeneratedByEmployeeId,

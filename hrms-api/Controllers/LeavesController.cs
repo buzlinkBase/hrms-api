@@ -126,5 +126,25 @@ namespace Hrms.Api.Controllers
             var credits = await _leaveLedgerService.AdjustBalanceAsync(payload, token);
             return Ok(new { credits.Id, credits.Balance, credits.Granted, credits.Used });
         }
+
+        /// <summary>
+        /// Recomputes, for one credits year, what every posted DTR batch should have consumed
+        /// per leave application (in days, from the batch's current DTR rows) and corrects the
+        /// difference with DtrCorrection ledger entries -- repairs deductions posted before the
+        /// hours-to-days fix and leftovers of batches deleted before deletion rolled back the
+        /// ledger. dryRun=true (the default) only previews. Safe to run repeatedly.
+        /// </summary>
+        [HttpPost("credits/reconcile-dtr")]
+        [RequirePermission("Leave Setup:Edit")]
+        [ProducesResponseType(typeof(ResponseModel<List<LeaveDtrRepairSummary>>), 200)]
+        public async Task<IActionResult> ReconcileWithDtr(
+            [FromServices] LeaveDtrReconciliationService reconciliation,
+            [FromQuery] int year,
+            [FromQuery] bool dryRun = true,
+            CancellationToken token = default)
+        {
+            var lines = await reconciliation.RepairPostedDeductionsAsync(year, dryRun, token);
+            return Ok(await reconciliation.SummarizeAsync(lines, token));
+        }
     }
 }

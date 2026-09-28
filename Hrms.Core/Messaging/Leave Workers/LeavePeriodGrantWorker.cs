@@ -50,6 +50,8 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
                 x.EmploymentStatus == EmploymentStatus.Probationary ||
                 x.EmploymentStatus == EmploymentStatus.Contract)
             .AsNoTracking()
+            // Only what the eligibility check needs -- not every column of every active employee.
+            .Select(x => new { x.Id, x.HireDate })
             .ToListAsync(token);
 
         // Load existing year keys in one query — the primary idempotency guard

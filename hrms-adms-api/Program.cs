@@ -66,7 +66,16 @@ public class Program
             }
             options.RoutePrefix = "swagger";
         });
-        app.UseSerilogRequestLogging();
+        app.UseSerilogRequestLogging(options =>
+        {
+            // Devices poll /iclock every few seconds; successful polls are noise that floods the
+            // log pipeline, so only failures from that path are logged at Information or above.
+            options.GetLevel = (httpContext, _, ex) =>
+                ex != null || httpContext.Response.StatusCode >= 500 ? Serilog.Events.LogEventLevel.Error
+                : httpContext.Request.Path.StartsWithSegments("/iclock") && httpContext.Response.StatusCode < 400
+                    ? Serilog.Events.LogEventLevel.Debug
+                    : Serilog.Events.LogEventLevel.Information;
+        });
         app.UseRouting();
         app.UseCors("AllowAll");
         //app.UseMiddleware<ApiKeyMiddleware>();

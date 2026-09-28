@@ -16,6 +16,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     private readonly ILogger<LeaveApplicationService> _logger;
     private readonly DailyRecordService _dailyRecordService;
     private readonly ApprovalEngineService _approvalEngine;
+    private readonly LeaveDtrReconciliationService _reconciliation;
 
     public LeaveApplicationService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
@@ -23,7 +24,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         IPublishEndpoint publisher,
         ILogger<LeaveApplicationService> logger,
         DailyRecordService dailyRecordService,
-        ApprovalEngineService approvalEngine) : base(uow)
+        ApprovalEngineService approvalEngine,
+        LeaveDtrReconciliationService reconciliation) : base(uow)
     {
         _config    = config;
         _mapper    = mapper;
@@ -31,6 +33,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         _logger    = logger;
         _dailyRecordService = dailyRecordService;
         _approvalEngine = approvalEngine;
+        _reconciliation = reconciliation;
     }
 
     protected override Task<EvaluationResult> CreateValidatorAsync(LeaveApplication model, CancellationToken token = default)
@@ -319,7 +322,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         else if (previousStatus == ApprovalStatus.Approved &&
                  existing.ApprovalStatus is ApprovalStatus.Cancelled or ApprovalStatus.Declined)
         {
-            await RestoreCreditsAsync(existing, token);
+            var reason = existing.ApprovalStatus == ApprovalStatus.Cancelled ? "cancelled" : "declined";
+            await RestoreCreditsAsync(existing, reason, token);
         }
 
         // Any status change that affects leave hours (approve, cancel, decline) invalidates
@@ -399,7 +403,10 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         }, token);
     }
 
-    private async Task RestoreCreditsAsync(LeaveApplication app, CancellationToken token)
+    // Undoes whatever the leave still holds on the ledger when it stops counting (cancelled,
+    // declined or deleted): the outstanding soft hold AND every DTR batch that already consumed
+    // it -- both can apply at once for a leave only partly covered by posted DTRs.
+    private async Task RestoreCreditsAsync(LeaveApplication app, string reason, CancellationToken token)
     {
         var leave = app.Leave
             ?? await _uow.Repository.Find<Leave>(x => x.Id == app.LeaveId).FirstOrDefaultAsync(token);
@@ -407,9 +414,6 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
         if (app.PayType == PayType.WithoutPay) return;
         if (leave.PaySource == PaySource.Government) return;
-
-        var today       = DateTime.UtcNow;
-        var statusLabel = app.ApprovalStatus == ApprovalStatus.Cancelled ? "Cancelled" : "Declined";
 
         var credits = await _uow.Repository
             .Find<LeaveCredits>(x =>
@@ -420,9 +424,6 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
         if (credits == null) return;
 
-        // Determine which phase we're in by inspecting the ledger for this application:
-        // net reserved > 0  → Phase 1 (DTR not yet posted) — just release the soft hold
-        // net reserved == 0 → Phase 2 (DTR already posted)  — reverse the actual deduction
         var reservedSum = await _uow.Repository
             .Find<LeaveLedger>(x =>
                 x.ReferenceApplicationId == app.Id &&
@@ -439,7 +440,6 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
         if (netReserved > 0)
         {
-            // Phase 1: reservation still active — release the soft hold
             credits.Reserved -= netReserved;
 
             await Context.Set<LeaveLedger>().AddAsync(new LeaveLedger
@@ -447,65 +447,23 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                 EmployeeId             = app.EmployeeId,
                 LeaveId                = app.LeaveId,
                 EntryType              = LedgerEntryType.Released,
-                EntryDate              = DateOnly.FromDateTime(today),
+                EntryDate              = DateOnly.FromDateTime(DateTime.UtcNow),
                 Add                    = netReserved,
                 Less                   = 0m,
                 Balance                = credits.Balance,
-                Particulars            = $"Reservation released — leave {statusLabel}",
+                Particulars            = $"Reservation released — leave {reason}",
                 LeaveCreditsId         = credits.Id,
                 ReferenceApplicationId = app.Id,
             }, token);
 
             _logger.LogInformation(
-                "Leave {Status}: released {Days} day(s) reservation for employee {EmployeeId}",
-                statusLabel, netReserved, app.EmployeeId);
+                "Leave {Reason}: released {Days} day(s) reservation for employee {EmployeeId}",
+                reason, netReserved, app.EmployeeId);
         }
-        else
-        {
-            // Phase 2: DTR already posted — reverse the confirmed deduction.
-            // Guard against double-reversal (e.g., unpost already reversed it first).
-            var alreadyReversed = await _uow.Repository
-                .Find<LeaveLedger>(x =>
-                    x.ReferenceApplicationId == app.Id &&
-                    x.EntryType              == LedgerEntryType.Reversal)
-                .AnyAsync(token);
 
-            if (alreadyReversed) return;
-
-            var deductedAmount = await _uow.Repository
-                .Find<LeaveLedger>(x =>
-                    x.ReferenceApplicationId == app.Id &&
-                    x.EntryType              == LedgerEntryType.Deduction)
-                .SumAsync(x => x.Less, token);
-
-            if (deductedAmount <= 0) return;
-
-            credits.Used    -= deductedAmount;
-            credits.Balance += deductedAmount;
-
-            await Context.Set<LeaveLedger>().AddAsync(new LeaveLedger
-            {
-                EmployeeId             = app.EmployeeId,
-                LeaveId                = app.LeaveId,
-                EntryType              = LedgerEntryType.Reversal,
-                EntryDate              = DateOnly.FromDateTime(today),
-                Add                    = deductedAmount,
-                Less                   = 0m,
-                Balance                = credits.Balance,
-                Particulars            = $"Leave {statusLabel} — reversal of DTR-confirmed {deductedAmount:0.##} day(s)",
-                LeaveCreditsId         = credits.Id,
-                ReferenceApplicationId = app.Id,
-            }, token);
-
-            _logger.LogInformation(
-                "Leave {Status}: reversed DTR-confirmed {Days} day(s) deduction for employee {EmployeeId}",
-                statusLabel, deductedAmount, app.EmployeeId);
-        }
+        // DTR-confirmed days: one Reversal per batch that still consumes this leave.
+        await _reconciliation.ReverseApplicationDeductionsAsync(app, reason, token);
     }
-
-
-
-
     public Task<List<LeaveApplicationModel>> RangeAsync(DateEmployeeRequestPayload payload,
         CancellationToken token)
     {
@@ -538,9 +496,32 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     {
         return _mapper.Map<LeaveApplicationModel>(await GetOneAsync(Id, token));
     }
+    // Deleting an approved leave must stop it consuming credits, exactly like cancelling it:
+    // release/reverse what it holds and unpost its posted DTR days so they get re-run without it.
     public async Task Delete(Guid Id, CancellationToken token)
     {
-        await RemoveAsync(Id, token);
+        var existing = await Context.leaveApplications
+            .Include(x => x.Leave)
+            .FirstOrDefaultAsync(x => x.Id == Id, token);
+
+        if (existing is null)
+        {
+            await RemoveAsync(Id, token);
+            return;
+        }
+
+        if (existing.ApprovalStatus == ApprovalStatus.Approved)
+        {
+            await RestoreCreditsAsync(existing, "deleted", token);
+            await InvalidatePostedDtrAsync(existing, token);
+        }
+
+        // Soft delete by stamping DeletedAt (what SoftDeleteInterceptor would do) instead of
+        // Remove(): LeaveLedger.ReferenceApplicationId is OnDelete(SetNull), so a tracked Remove
+        // makes EF null that link on every tracked ledger row -- including the reversals written
+        // just above -- and the leave's ledger history would lose its application.
+        existing.DeletedAt = DateTime.UtcNow;
+        await ModifyAsync(existing, token);
     }
 
     // Finance-only action: record the SSS/government reimbursement claim's progress for a

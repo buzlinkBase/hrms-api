@@ -1,4 +1,6 @@
+using Hrms.Core.Services.LeaveConsumption;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.Extensions.Logging;
 
 namespace Hrms.Core.Services;
@@ -9,12 +11,21 @@ namespace Hrms.Core.Services;
 // LeaveCredits.Reserved — the hard Balance is untouched.
 //
 // Phase 2 (DTR post): ConsumeReservationsAsync converts reservations into authoritative
-// Deduction entries using each DailyRecord's LeavesInfo, summed per LeaveId so records
-// that overlap more than one leave application on the same day are attributed correctly.
-// The reservation is released and Used/Balance are updated with the DTR-confirmed amounts.
+// Deduction entries, in DAYS, for the leave days the posted DTR rows actually carry — only for
+// applications that are still approved and not deleted (see LeaveConsumptionCalculator).
 //
-// On unpost: ReverseConsumptionAsync undoes Phase 2. If the leave is still Approved the
-// days go back to Reserved; if Cancelled/Declined a plain Reversal is written.
+// On unpost / DTR deletion: ReverseConsumptionAsync undoes Phase 2 for that batch only. If the
+// leave is still Approved the days go back to Reserved; if Cancelled/Declined/deleted a plain
+// Reversal is written.
+//
+// Every Phase 2 entry (Released, Deduction, Reversal, Reserved-on-unpost, DtrCorrection) carries
+// DtrBatchCode, so "what does this batch currently consume for this application" is always
+// Σ Deduction − Σ Reversal ± Σ DtrCorrection over that batch's entries. All reversals work from
+// that net, which keeps repeated post/unpost cycles, multi-batch leaves and cancellations from
+// double-reversing or skipping a batch.
+//
+// Ledger sum semantics (Σ Add − Σ Less per employee/leave) stay consistent with LeaveCredits:
+// approved → −reserved; posted → −consumed; unposted again → −reserved.
 public class LeaveDtrReconciliationService
 {
     private readonly IUnitOfWorkService _uow;
@@ -34,231 +45,350 @@ public class LeaveDtrReconciliationService
         CancellationToken token)
     {
         // PaidLeaveHours is deliberately 0 for a OneTime-payout leave day (paid as a lump sum
-        // during a specific payroll run instead — see LeaveApplication.PayoutMode), so also
-        // catch those days via LeavesInfo presence or their credit reservation would never be
-        // consumed. LeavesInfo can also carry WithoutPay entries (ProcessUnPaidLeave tags them
-        // "UnpaidLeave"), but that's harmless here — the per-application loop below already
-        // skips app.PayType == WithoutPay, same as before this change.
-        var leaveRecords = records.Where(r => r.PaidLeaveHours > 0 || (r.LeavesInfo?.Count > 0)).ToList();
+        // during a specific payroll run instead — see LeaveApplication.PayoutMode), so leave days
+        // are found via LeavesInfo presence, not PaidLeaveHours.
+        var leaveRecords = records.Where(r => r.LeavesInfo is { Count: > 0 }).ToList();
         if (leaveRecords.Count == 0) return;
 
-        var employeeIds = leaveRecords.Select(r => r.EmployeeId).ToHashSet();
-        var minDate     = leaveRecords.Min(r => r.WorkDate);
-        var maxDate     = leaveRecords.Max(r => r.WorkDate);
-        var today       = DateTime.UtcNow;
+        var applications = await LoadApprovedApplicationsAsync(leaveRecords, token);
+        var consumption  = LeaveConsumptionCalculator.Compute(leaveRecords, applications);
 
-        var applications = await _uow.Repository
-            .Find<LeaveApplication>(x =>
-                employeeIds.Contains(x.EmployeeId) &&
-                x.LeaveDateFrom  <= maxDate         &&
-                x.LeaveDateTo    >= minDate         &&
-                x.ApprovalStatus == ApprovalStatus.Approved)
-            .Include(x => x.Leave)
-            .ToListAsync(token);
+        if (consumption.ExcludedDays > 0)
+            _logger.LogWarning(
+                "DTR post {BatchCode}: {Days} leave day(s) skipped — no approved leave application covers them (deleted, declined, cancelled or pending)",
+                batchCode, consumption.ExcludedDays);
+
+        var batchEndDate = leaveRecords.Max(r => r.WorkDate);
+        var today        = DateOnly.FromDateTime(DateTime.UtcNow);
 
         foreach (var app in applications)
         {
-            if (app.Leave?.PaySource == PaySource.Government) continue;
-            if (app.PayType == PayType.WithoutPay) continue;
+            if (!IsCreditTracked(app)) continue;
+            if (!consumption.DaysByApplication.TryGetValue(app.Id, out var days) || days <= 0) continue;
 
-            var appRecords = leaveRecords
-                .Where(r => r.EmployeeId == app.EmployeeId &&
-                            r.WorkDate   >= app.LeaveDateFrom &&
-                            r.WorkDate   <= app.LeaveDateTo)
-                .ToList();
+            // Idempotency: this batch already has a live (not reversed) deduction for the leave.
+            var batchEntries = await BatchEntriesAsync(app.Id, batchCode, token);
+            if (NetConsumed(batchEntries) > 0) continue;
 
-            if (appRecords.Count == 0) continue;
-
-            // Attribute hours by LeaveId (not just date range) so a day with more than one
-            // leave application in flight doesn't have its hours mis-split or double-counted.
-            var actualConsumed = (decimal)appRecords
-                .Where(r => r.LeavesInfo != null)
-                .SelectMany(r => r.LeavesInfo!)
-                .Where(li => li.LeaveId == app.LeaveId)
-                .Sum(li => li.Hours);
-
-            if (actualConsumed <= 0) continue;
-
-            // Idempotency: don't write a second Deduction for the same batch + application
-            var alreadyConsumed = await _uow.Repository
-                .Find<LeaveLedger>(x =>
-                    x.ReferenceApplicationId == app.Id  &&
-                    x.DtrBatchCode           == batchCode &&
-                    x.EntryType              == LedgerEntryType.Deduction)
-                .AnyAsync(token);
-
-            if (alreadyConsumed) continue;
-
-            var credits = await _uow.Repository
-                .Find<LeaveCredits>(x =>
-                    x.EmployeeId == app.EmployeeId &&
-                    x.LeaveId    == app.LeaveId    &&
-                    x.PeriodYear == app.LeaveDateFrom.Year)
-                .FirstOrDefaultAsync(token);
-
+            var credits = await FindCreditsAsync(app, token);
             if (credits == null) continue;
 
-            // Compute net outstanding reservation for this application
-            var reservedSum = await _uow.Repository
-                .Find<LeaveLedger>(x =>
-                    x.ReferenceApplicationId == app.Id &&
-                    x.EntryType              == LedgerEntryType.Reserved)
-                .SumAsync(x => x.Less, token);
-
-            var releasedSum = await _uow.Repository
-                .Find<LeaveLedger>(x =>
-                    x.ReferenceApplicationId == app.Id &&
-                    x.EntryType              == LedgerEntryType.Released)
-                .SumAsync(x => x.Add, token);
-
-            var netReserved = reservedSum - releasedSum;
-
-            // Release the outstanding soft hold (if any) — the actual Deduction below is authoritative
-            if (netReserved > 0)
+            // Release the soft hold this batch confirms. When the batch reaches the leave's last
+            // day, release whatever is left (actual can be less than the estimate); otherwise
+            // only this batch's share, so a later batch of the same leave still has its hold.
+            var netReserved = await NetReservedAsync(app.Id, token);
+            var release = batchEndDate >= app.LeaveDateTo ? netReserved : Math.Min(netReserved, days);
+            if (release > 0)
             {
-                credits.Reserved -= netReserved;
-
-                _uow.Repository.Add(new LeaveLedger
-                {
-                    Id                     = Guid.NewGuid(),
-                    EmployeeId             = app.EmployeeId,
-                    LeaveId                = app.LeaveId,
-                    LeaveCreditsId         = credits.Id,
-                    EntryType              = LedgerEntryType.Released,
-                    EntryDate              = DateOnly.FromDateTime(today),
-                    Add                    = netReserved,
-                    Less                   = 0m,
-                    Balance                = credits.Balance,
-                    Particulars            = $"Reservation released — DTR batch {batchCode}",
-                    ReferenceApplicationId = app.Id,
-                    DtrBatchCode           = batchCode,
-                });
+                credits.Reserved -= release;
+                AddEntry(credits, app, LedgerEntryType.Released, today, add: release, less: 0m,
+                    $"Reservation released — DTR batch {batchCode}", batchCode);
             }
 
-            // Write the authoritative deduction using DTR-confirmed actual days
-            credits.Used    += actualConsumed;
-            credits.Balance -= actualConsumed;
-
-            _uow.Repository.Add(new LeaveLedger
-            {
-                Id                     = Guid.NewGuid(),
-                EmployeeId             = app.EmployeeId,
-                LeaveId                = app.LeaveId,
-                LeaveCreditsId         = credits.Id,
-                EntryType              = LedgerEntryType.Deduction,
-                EntryDate              = DateOnly.FromDateTime(today),
-                Add                    = 0m,
-                Less                   = actualConsumed,
-                Balance                = credits.Balance,
-                Particulars            = $"DTR-confirmed leave deduction — {app.LeaveDateFrom:MMM dd} to {app.LeaveDateTo:MMM dd, yyyy} (batch {batchCode})",
-                ReferenceApplicationId = app.Id,
-                DtrBatchCode           = batchCode,
-            });
+            credits.Used    += days;
+            credits.Balance -= days;
+            AddEntry(credits, app, LedgerEntryType.Deduction, today, add: 0m, less: days,
+                $"DTR-confirmed leave deduction — {app.LeaveDateFrom:MMM dd} to {app.LeaveDateTo:MMM dd, yyyy} (batch {batchCode})",
+                batchCode);
 
             _logger.LogInformation(
-                "DTR post {BatchCode}: consumed {Actual} day(s) for employee {EmployeeId} " +
-                "(reserved was {Reserved}, delta returned to balance: {Delta})",
-                batchCode, actualConsumed, app.EmployeeId, netReserved, netReserved - actualConsumed);
+                "DTR post {BatchCode}: consumed {Days} day(s) for employee {EmployeeId} (released {Released} reserved)",
+                batchCode, days, app.EmployeeId, release);
         }
     }
 
+    // Unpost or deletion of a DTR batch: gives back exactly what this batch still consumes.
     public async Task ReverseConsumptionAsync(string batchCode, CancellationToken token)
     {
-        var deductions = await _uow.Repository
-            .Find<LeaveLedger>(x =>
-                x.DtrBatchCode == batchCode &&
-                x.EntryType    == LedgerEntryType.Deduction)
+        var entries = await _uow.Repository
+            .Find<LeaveLedger>(x => x.DtrBatchCode == batchCode && x.ReferenceApplicationId != null)
             .ToListAsync(token);
+        if (entries.Count == 0) return;
 
-        if (deductions.Count == 0) return;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var today = DateTime.UtcNow;
-
-        foreach (var deduction in deductions)
+        foreach (var group in entries.GroupBy(x => (AppId: x.ReferenceApplicationId!.Value, x.LeaveCreditsId)))
         {
-            // Skip if RestoreCreditsAsync already wrote a Reversal when the leave was cancelled
-            // while the DTR was posted — prevents double-reversal.
-            var alreadyReversed = await _uow.Repository
-                .Find<LeaveLedger>(x =>
-                    x.ReferenceApplicationId == deduction.ReferenceApplicationId &&
-                    x.EntryType              == LedgerEntryType.Reversal)
-                .AnyAsync(token);
-
-            if (alreadyReversed) continue;
+            var net = NetConsumed(group);
+            if (net <= 0) continue;
 
             var credits = await _uow.Repository
-                .Find<LeaveCredits>(x => x.Id == deduction.LeaveCreditsId)
+                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
                 .FirstOrDefaultAsync(token);
-
             if (credits == null) continue;
 
-            credits.Used    -= deduction.Less;
-            credits.Balance += deduction.Less;
+            var app = await _uow.Repository
+                .Find<LeaveApplication>(x => x.Id == group.Key.AppId)
+                .FirstOrDefaultAsync(token);
+            var first = group.First();
 
-            var appStillApproved = deduction.ReferenceApplicationId.HasValue &&
-                await _uow.Repository
-                    .Find<LeaveApplication>(x =>
-                        x.Id             == deduction.ReferenceApplicationId.Value &&
-                        x.ApprovalStatus == ApprovalStatus.Approved)
-                    .AnyAsync(token);
+            credits.Used    -= net;
+            credits.Balance += net;
+            AddEntry(credits, first.EmployeeId, first.LeaveId, group.Key.AppId, LedgerEntryType.Reversal, today,
+                add: net, less: 0m, $"Reversal — DTR batch {batchCode} unposted/deleted", batchCode);
 
-            if (appStillApproved)
+            // Still approved (and not deleted): the leave goes back to waiting for a DTR, so its
+            // hold returns — the amount this batch released, falling back to the days consumed.
+            if (app is { ApprovalStatus: ApprovalStatus.Approved })
             {
-                // Restore the ORIGINAL reservation amount, not just the actual consumed days.
-                // When this batch posted, it wrote a Released entry for the full estimated reservation.
-                // Using only deduction.Less (actual days) would under-reserve if actual < estimated,
-                // inflating AvailableToFile while the leave is still pending.
-                var originalReservation = await _uow.Repository
-                    .Find<LeaveLedger>(x =>
-                        x.ReferenceApplicationId == deduction.ReferenceApplicationId &&
-                        x.DtrBatchCode           == batchCode &&
-                        x.EntryType              == LedgerEntryType.Released)
-                    .SumAsync(x => x.Add, token);
-
-                // Fall back to actual days if no Released entry exists (e.g. second batch in a multi-batch leave)
-                var reserveBack = originalReservation > 0 ? originalReservation : deduction.Less;
+                var releasedByBatch = group.Where(x => x.EntryType == LedgerEntryType.Released).Sum(x => x.Add)
+                                    - group.Where(x => x.EntryType == LedgerEntryType.Reserved).Sum(x => x.Less);
+                var reserveBack = releasedByBatch > 0 ? releasedByBatch : net;
 
                 credits.Reserved += reserveBack;
-
-                _uow.Repository.Add(new LeaveLedger
-                {
-                    Id                     = Guid.NewGuid(),
-                    EmployeeId             = deduction.EmployeeId,
-                    LeaveId                = deduction.LeaveId,
-                    LeaveCreditsId         = credits.Id,
-                    EntryType              = LedgerEntryType.Reserved,
-                    EntryDate              = DateOnly.FromDateTime(today),
-                    Add                    = 0m,
-                    Less                   = reserveBack,
-                    Balance                = credits.Balance,
-                    Particulars            = $"Re-reserved on DTR unpost — batch {batchCode}",
-                    ReferenceApplicationId = deduction.ReferenceApplicationId,
-                    DtrBatchCode           = batchCode,
-                });
-            }
-            else
-            {
-                // Leave cancelled/declined — plain reversal, no re-reservation
-                _uow.Repository.Add(new LeaveLedger
-                {
-                    Id                     = Guid.NewGuid(),
-                    EmployeeId             = deduction.EmployeeId,
-                    LeaveId                = deduction.LeaveId,
-                    LeaveCreditsId         = credits.Id,
-                    EntryType              = LedgerEntryType.Reversal,
-                    EntryDate              = DateOnly.FromDateTime(today),
-                    Add                    = deduction.Less,
-                    Less                   = 0m,
-                    Balance                = credits.Balance,
-                    Particulars            = $"Reversal on DTR unpost — batch {batchCode}",
-                    ReferenceApplicationId = deduction.ReferenceApplicationId,
-                    DtrBatchCode           = batchCode,
-                });
+                AddEntry(credits, first.EmployeeId, first.LeaveId, group.Key.AppId, LedgerEntryType.Reserved, today,
+                    add: 0m, less: reserveBack, $"Re-reserved — DTR batch {batchCode} unposted/deleted", batchCode);
             }
 
             _logger.LogInformation(
-                "DTR unpost {BatchCode}: reversed {Days} day(s) for application {AppId} (re-reserved: {Restored})",
-                batchCode, deduction.Less, deduction.ReferenceApplicationId, appStillApproved);
+                "DTR batch {BatchCode} reversed: {Days} day(s) for application {AppId} (re-reserved: {Reserved})",
+                batchCode, net, group.Key.AppId, app is { ApprovalStatus: ApprovalStatus.Approved });
         }
     }
+
+    // Leave cancelled/declined/deleted after DTRs were posted: reverses every batch that still
+    // consumes it, one Reversal per batch (so a later unpost of any of those batches is a no-op).
+    public async Task ReverseApplicationDeductionsAsync(LeaveApplication app, string reason, CancellationToken token)
+    {
+        var entries = await _uow.Repository
+            .Find<LeaveLedger>(x => x.ReferenceApplicationId == app.Id && x.DtrBatchCode != null)
+            .ToListAsync(token);
+        if (entries.Count == 0) return;
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        foreach (var group in entries.GroupBy(x => (Batch: x.DtrBatchCode!, x.LeaveCreditsId)))
+        {
+            var net = NetConsumed(group);
+            if (net <= 0) continue;
+
+            var credits = await _uow.Repository
+                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
+                .FirstOrDefaultAsync(token);
+            if (credits == null) continue;
+
+            credits.Used    -= net;
+            credits.Balance += net;
+            AddEntry(credits, app, LedgerEntryType.Reversal, today, add: net, less: 0m,
+                $"Leave {reason} — reversal of DTR-confirmed {net:0.##} day(s) (batch {group.Key.Batch})", group.Key.Batch);
+
+            _logger.LogInformation(
+                "Leave {Reason}: reversed {Days} day(s) of batch {BatchCode} for employee {EmployeeId}",
+                reason, net, group.Key.Batch, app.EmployeeId);
+        }
+    }
+
+    // One-off repair for deductions posted before the hours→days fix (and any other drift):
+    // recomputes what each posted batch should consume per application from its DTR rows, and
+    // writes a DtrCorrection for the difference. Re-running is a no-op — corrections are part of
+    // the net it compares against. A batch whose DTR rows are gone (deleted before deletion
+    // rolled back the ledger) should consume 0, so its leftover deduction is reversed too.
+    public async Task<List<LeaveDtrRepairLine>> RepairPostedDeductionsAsync(int year, bool dryRun, CancellationToken token)
+    {
+        var entries = await _uow.Repository
+            .Find<LeaveLedger>(x =>
+                x.DtrBatchCode != null &&
+                x.ReferenceApplicationId != null &&
+                x.LeaveCredits.PeriodYear == year &&
+                (x.EntryType == LedgerEntryType.Deduction ||
+                 x.EntryType == LedgerEntryType.Reversal ||
+                 x.EntryType == LedgerEntryType.DtrCorrection))
+            .ToListAsync(token);
+        if (entries.Count == 0) return [];
+
+        var groups = entries
+            .GroupBy(x => (Batch: x.DtrBatchCode!, AppId: x.ReferenceApplicationId!.Value, x.LeaveCreditsId))
+            .ToList();
+
+        // Correct consumption, per batch, from the batch's currently posted DTR rows.
+        var targets = new Dictionary<(string Batch, Guid AppId), decimal>();
+        foreach (var batchCode in groups.Select(g => g.Key.Batch).Distinct())
+        {
+            var records = await _uow.Repository
+                .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
+                .Include(x => x.LeavesInfo)
+                .AsNoTracking()
+                .ToListAsync(token);
+            var leaveRecords = records.Where(r => r.LeavesInfo is { Count: > 0 }).ToList();
+            if (leaveRecords.Count == 0) continue;
+
+            var applications = await LoadApprovedApplicationsAsync(leaveRecords, token);
+            var consumption  = LeaveConsumptionCalculator.Compute(leaveRecords, applications);
+            foreach (var app in applications.Where(IsCreditTracked))
+            {
+                if (consumption.DaysByApplication.TryGetValue(app.Id, out var days))
+                    targets[(batchCode, app.Id)] = days;
+            }
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var lines = new List<LeaveDtrRepairLine>();
+
+        foreach (var group in groups)
+        {
+            var current = NetConsumed(group);
+            var correct = targets.GetValueOrDefault((group.Key.Batch, group.Key.AppId));
+            var delta   = correct - current;
+            var first   = group.First();
+
+            lines.Add(new LeaveDtrRepairLine(first.EmployeeId, first.LeaveId, group.Key.Batch, group.Key.AppId, current, correct, delta));
+            if (dryRun || Math.Abs(delta) < 0.01m) continue;
+
+            var credits = await _uow.Repository
+                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
+                .FirstOrDefaultAsync(token);
+            if (credits == null) continue;
+
+            // delta > 0: under-charged, consume more; delta < 0: over-charged, give back.
+            credits.Used    += delta;
+            credits.Balance -= delta;
+            AddEntry(credits, first.EmployeeId, first.LeaveId, group.Key.AppId, LedgerEntryType.DtrCorrection, today,
+                add: delta < 0 ? -delta : 0m, less: delta > 0 ? delta : 0m,
+                $"DTR correction — batch {group.Key.Batch}: {current:0.##} → {correct:0.##} day(s)", group.Key.Batch);
+        }
+
+        if (!dryRun && lines.Any(l => Math.Abs(l.Delta) >= 0.01m))
+            await _uow.CommitChangesAsync("", token);
+
+        return lines;
+    }
+
+    // Per employee + leave type totals of RepairPostedDeductionsAsync's lines, for the preview/
+    // result table HR reviews (the per-batch lines are too granular to read).
+    public async Task<List<LeaveDtrRepairSummary>> SummarizeAsync(List<LeaveDtrRepairLine> lines, CancellationToken token)
+    {
+        if (lines.Count == 0) return [];
+
+        var employeeIds = lines.Select(l => l.EmployeeId).ToHashSet();
+        var leaveIds    = lines.Select(l => l.LeaveId).ToHashSet();
+        var employees = await _uow.Repository.Find<Employee>(e => employeeIds.Contains(e.Id))
+            .AsNoTracking()
+            .Select(e => new { e.Id, e.EmployeeNo, e.FirstName, e.LastName })
+            .ToDictionaryAsync(e => e.Id, token);
+        var leaves = await _uow.Repository.Find<Leave>(l => leaveIds.Contains(l.Id))
+            .AsNoTracking()
+            .Select(l => new { l.Id, l.Code, l.Description })
+            .ToDictionaryAsync(l => l.Id, token);
+
+        return lines
+            .GroupBy(l => (l.EmployeeId, l.LeaveId))
+            .Select(g =>
+            {
+                var employee = employees.GetValueOrDefault(g.Key.EmployeeId);
+                var leave    = leaves.GetValueOrDefault(g.Key.LeaveId);
+                return new LeaveDtrRepairSummary(
+                    g.Key.EmployeeId,
+                    employee?.EmployeeNo ?? "",
+                    employee == null ? "" : $"{employee.FirstName} {employee.LastName}".Trim(),
+                    g.Key.LeaveId,
+                    leave?.Code ?? "",
+                    leave?.Description ?? "",
+                    g.Sum(x => x.CurrentDays),
+                    g.Sum(x => x.CorrectDays),
+                    g.Sum(x => x.Delta));
+            })
+            .Where(s => Math.Abs(s.Delta) >= 0.01m)
+            .OrderBy(s => s.FullName)
+            .ThenBy(s => s.LeaveCode)
+            .ToList();
+    }
+
+    // ---- helpers ----
+
+    // Government-paid and without-pay leaves never touch company leave credits.
+    private static bool IsCreditTracked(LeaveApplication app) =>
+        app.Leave?.PaySource != PaySource.Government && app.PayType != PayType.WithoutPay;
+
+    // Approved and (via the global soft-delete filter) not deleted — the only applications that
+    // may consume credits.
+    private async Task<List<LeaveApplication>> LoadApprovedApplicationsAsync(List<DailyRecord> leaveRecords, CancellationToken token)
+    {
+        var employeeIds = leaveRecords.Select(r => r.EmployeeId).ToHashSet();
+        var minDate     = leaveRecords.Min(r => r.WorkDate);
+        var maxDate     = leaveRecords.Max(r => r.WorkDate);
+
+        return await _uow.Repository
+            .Find<LeaveApplication>(x =>
+                employeeIds.Contains(x.EmployeeId) &&
+                x.LeaveDateFrom  <= maxDate &&
+                x.LeaveDateTo    >= minDate &&
+                x.ApprovalStatus == ApprovalStatus.Approved)
+            .Include(x => x.Leave)
+            .ToListAsync(token);
+    }
+
+    private Task<List<LeaveLedger>> BatchEntriesAsync(Guid appId, string batchCode, CancellationToken token) =>
+        _uow.Repository
+            .Find<LeaveLedger>(x => x.ReferenceApplicationId == appId && x.DtrBatchCode == batchCode)
+            .ToListAsync(token);
+
+    // What a batch currently consumes for one application.
+    internal static decimal NetConsumed(IEnumerable<LeaveLedger> batchEntries)
+    {
+        decimal net = 0m;
+        foreach (var e in batchEntries)
+        {
+            net += e.EntryType switch
+            {
+                LedgerEntryType.Deduction     => e.Less,
+                LedgerEntryType.Reversal      => -e.Add,
+                LedgerEntryType.DtrCorrection => e.Less - e.Add,
+                _                             => 0m,
+            };
+        }
+        return net;
+    }
+
+    private async Task<decimal> NetReservedAsync(Guid appId, CancellationToken token)
+    {
+        var entries = await _uow.Repository
+            .Find<LeaveLedger>(x =>
+                x.ReferenceApplicationId == appId &&
+                (x.EntryType == LedgerEntryType.Reserved || x.EntryType == LedgerEntryType.Released))
+            .ToListAsync(token);
+        return entries.Where(x => x.EntryType == LedgerEntryType.Reserved).Sum(x => x.Less)
+             - entries.Where(x => x.EntryType == LedgerEntryType.Released).Sum(x => x.Add);
+    }
+
+    private Task<LeaveCredits?> FindCreditsAsync(LeaveApplication app, CancellationToken token) =>
+        _uow.Repository
+            .Find<LeaveCredits>(x =>
+                x.EmployeeId == app.EmployeeId &&
+                x.LeaveId    == app.LeaveId    &&
+                x.PeriodYear == app.LeaveDateFrom.Year)
+            .FirstOrDefaultAsync(token);
+
+    private void AddEntry(LeaveCredits credits, LeaveApplication app, LedgerEntryType type, DateOnly date,
+        decimal add, decimal less, string particulars, string batchCode) =>
+        AddEntry(credits, app.EmployeeId, app.LeaveId, app.Id, type, date, add, less, particulars, batchCode);
+
+    private void AddEntry(LeaveCredits credits, Guid employeeId, Guid leaveId, Guid appId, LedgerEntryType type,
+        DateOnly date, decimal add, decimal less, string particulars, string batchCode) =>
+        _uow.Repository.Add(new LeaveLedger
+        {
+            Id                     = Guid.NewGuid(),
+            EmployeeId             = employeeId,
+            LeaveId                = leaveId,
+            LeaveCreditsId         = credits.Id,
+            EntryType              = type,
+            EntryDate              = date,
+            Add                    = add,
+            Less                   = less,
+            Balance                = credits.Balance,
+            Particulars            = particulars,
+            ReferenceApplicationId = appId,
+            DtrBatchCode           = batchCode,
+        });
 }
+
+/// <summary>One application's consumption for one DTR batch, before/after the repair.</summary>
+public record LeaveDtrRepairLine(
+    Guid EmployeeId, Guid LeaveId, string BatchCode, Guid ApplicationId,
+    decimal CurrentDays, decimal CorrectDays, decimal Delta);
+
+/// <summary>Repair preview/result row: one employee's leave type, summed across batches. Delta
+/// &gt; 0 means more days are charged after the repair; &lt; 0 means days are given back.</summary>
+public record LeaveDtrRepairSummary(
+    Guid EmployeeId, string EmployeeNo, string FullName,
+    Guid LeaveId, string LeaveCode, string LeaveDescription,
+    decimal CurrentDays, decimal CorrectDays, decimal Delta);

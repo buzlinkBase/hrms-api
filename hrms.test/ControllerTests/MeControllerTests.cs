@@ -234,7 +234,8 @@ public class MeControllerTests
         var leaveApplicationService = new LeaveApplicationService(
             uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(),
             Substitute.For<IPublishEndpoint>(), Substitute.For<ILogger<LeaveApplicationService>>(),
-            dailyRecordService, approvalEngineService);
+            dailyRecordService, approvalEngineService,
+            new LeaveDtrReconciliationService(uow, Substitute.For<ILogger<LeaveDtrReconciliationService>>()));
         var overtimeApplicationService = new OvertimeApplicationService(uow, approvalEngineService);
         var travelOrderApplicationService = new TravelOrderApplicationService(uow, approvalEngineService);
         var passSlipApplicationService = new PassSlipApplicationService(uow, new AttendanceService(uow), approvalEngineService);

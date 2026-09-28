@@ -243,7 +243,7 @@ namespace Hrms.Api.Controllers
 
             var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : (DateOnly?)null;
             var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : (DateOnly?)null;
-            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, payrollBatchId, token);
+            var data = await _payrollService.GetForListAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, payrollBatchId, token);
             return Ok(new { data, total = data.Count });
         }
 

@@ -207,14 +207,25 @@ public class LegalHolidayEligibilityEvaluator : IHolidayEligibilityEvaluator
     {
         var payload = context.Payload;
         var employee = payload.Data.Employee;
-        var dtrService = payload.Provider.DtrContextModel.DtrService;
+        var dtrContext = payload.Provider.DtrContextModel;
+        var dtrService = dtrContext.DtrService;
 
         if (dtrService is null)
             return null;
 
-        var curPayload = dtrService.GetPayload(date);
-        var result = await dtrService.GetDTRInfoAsync<DTRDetailModel>(curPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
-        return result.FirstOrDefault();
+        // Memoized per run: consecutive holidays and the forward/backward searches of
+        // neighbouring holidays ask for the same employee-day repeatedly.
+        var key = (employee.Id, date);
+        if (dtrContext.AdjacentDayRecords.TryGetValue(key, out var cached))
+            return cached;
+
+        // Only this employee, only this day -- not the outer request's whole employee set.
+        var dayPayload = DTRCalcService.GetEmployeeDayPayload(employee.Id, date);
+        var result = await dtrService.GetDTRInfoAsync<DTRDetailModel>(dayPayload, ProcessorType.DTRDetail, dtrService.GetToken, IncludeNullResponse.Include, true);
+        var record = result.FirstOrDefault(x => x.EmployeeId == employee.Id);
+
+        dtrContext.AdjacentDayRecords[key] = record;
+        return record;
     }
 }
 

@@ -162,6 +162,8 @@ public static class ServiceRegistrationsExt
         {
             builder.Services.AddSingleton<ISearchEngineService, NullSearchService>();
         }
+
+        var sqlVersion = new MySqlServerVersion(new Version(8, 4, 8));
         builder.Services.AddDbContext<HrmsContext>((provider, optionsBuilder) =>
         {
             if (optionsBuilder.IsConfigured) return;
@@ -172,11 +174,9 @@ public static class ServiceRegistrationsExt
             {
                 connectionString = _tenantConnectionInfo.ConnectionString;
             }
-            var serverVersion = ServerVersion.AutoDetect(connectionString);//new MySqlServerVersion(new Version(9, 2, 0));
-            optionsBuilder.UseMySql(connectionString, serverVersion, x => x.UseNetTopologySuite());
+            optionsBuilder.UseMySql(connectionString, sqlVersion, x => x.UseNetTopologySuite());
             optionsBuilder.UseLazyLoadingProxies(true);
             optionsBuilder.AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(_tenantProvider));
-            optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
         });
         builder.Services.AddCors(options =>
         {
@@ -332,47 +332,27 @@ public static class ServiceRegistrationsExt
              };
          });
 
-        // Resolve JwksClient lazily from the real (post-Build) app container instead of a
-        // throwaway one built eagerly here.
+        // JWKS keys: in-process -> shared Redis copy -> single-flight fetch with failure backoff.
+        // See JwksKeyCache for why the old inline blocking resolver was replaced.
+        builder.Services.AddSingleton<IJwksStore, RedisJwksStore>();
+        builder.Services.AddSingleton(sp => new JwksKeyCache(
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<IJwksStore>(),
+            builder.Configuration["ApiServices:AuthService"] ?? ""));
+
         builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IHttpClientFactory>((options, httpClientFactory) =>
+            .Configure<JwksKeyCache>((options, jwksKeyCache) =>
             {
-                var authUrl = (builder.Configuration["ApiServices:AuthService"] ?? "").TrimEnd('/') + "/";
                 var legacySigningKey = builder.Configuration["JwtSettings:SigningKey"];
                 var allowLegacyHmac = builder.Configuration.GetValue<bool?>("JwtSettings:AllowLegacyHmacValidation") ?? true;
-
-                List<SecurityKey> cachedKeys = new();
-                DateTime cacheExpiry = DateTime.MinValue;
-                object cacheLock = new();
+                SecurityKey? legacyKey = allowLegacyHmac && !string.IsNullOrEmpty(legacySigningKey)
+                    ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacySigningKey))
+                    : null;
 
                 options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
                 {
-                    bool stale;
-                    lock (cacheLock) stale = DateTime.UtcNow > cacheExpiry;
-
-                    if (stale)
-                    {
-                        try
-                        {
-                            var client = httpClientFactory.CreateClient();
-                            var json = client.GetStringAsync($"{authUrl}.well-known/jwks.json").GetAwaiter().GetResult();
-                            var jwks = new JsonWebKeySet(json);
-                            lock (cacheLock)
-                            {
-                                cachedKeys = jwks.GetSigningKeys().ToList();
-                                cacheExpiry = DateTime.UtcNow.AddMinutes(10);
-                            }
-                        }
-                        catch { }
-                    }
-
-                    List<SecurityKey> keys;
-                    lock (cacheLock) keys = cachedKeys.ToList();
-
-                    if (allowLegacyHmac && !string.IsNullOrEmpty(legacySigningKey))
-                        keys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacySigningKey)));
-
-                    return keys;
+                    var keys = jwksKeyCache.GetKeys();
+                    return legacyKey == null ? keys : [.. keys, legacyKey];
                 };
             });
     }

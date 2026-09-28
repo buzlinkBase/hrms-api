@@ -26,7 +26,9 @@ builder.HrmsConfigRabbitMq();
 builder.Services.AddDbContext<TenantContext>(options =>
 {
     var conn = builder.Configuration.GetConnectionString("TenantStoreConnection");
-    options.UseMySql(conn, ServerVersion.AutoDetect(conn));
+    // Explicit, deterministic, and fast
+    var sqlVersion = new MySqlServerVersion(new Version(8, 4, 8)); // or Version(9, 2, 0)
+    options.UseMySql(conn, sqlVersion);
 });
 
 try

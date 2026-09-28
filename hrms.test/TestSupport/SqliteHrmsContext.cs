@@ -45,12 +45,15 @@ public sealed class SqliteHrmsContext : IDisposable
         schemaContext.Database.EnsureCreated();
     }
 
-    public HrmsContext NewContext(Guid? tenantId = null)
+    public HrmsContext NewContext(Guid? tenantId = null) =>
+        NewContext(new FakeTenantProvider(tenantId ?? Guid.Empty));
+
+    public HrmsContext NewContext(ITenantProvider tenantProvider)
     {
         var options = new DbContextOptionsBuilder<HrmsContext>()
             .UseSqlite(_connectionString, x => x.UseNetTopologySuite())
             .Options;
-        return new HrmsContext(options, null!, new FakeTenantProvider(tenantId ?? Guid.Empty), null!);
+        return new HrmsContext(options, null!, tenantProvider, null!);
     }
 
     public void Dispose() => _keepAlive.Dispose();
