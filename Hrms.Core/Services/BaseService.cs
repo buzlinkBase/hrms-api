@@ -56,6 +56,13 @@ public abstract class BaseService<T> where T : class, IEntity
         return await _uow.Repository.FindOneAsync<T>(Id, token);
     }
 
+    // Untracked single-row read for GET-by-id style lookups whose result is only mapped/returned.
+    // Use GetOneAsync instead when the caller modifies and saves the entity.
+    protected Task<T?> GetOneReadOnlyAsync(Guid Id, CancellationToken token = default)
+    {
+        return _uow.Repository.FindAll<T>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == Id, token);
+    }
+
     protected async Task CreateRangeAsync(IEnumerable<T> models, CancellationToken token = default)
     {
         if (!models.Any()) return;

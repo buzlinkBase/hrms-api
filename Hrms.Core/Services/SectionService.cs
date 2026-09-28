@@ -45,7 +45,7 @@ public class SectionService : BaseService<Section>
 
     public async Task<Section?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task Delete(Guid Id, CancellationToken token)
     {

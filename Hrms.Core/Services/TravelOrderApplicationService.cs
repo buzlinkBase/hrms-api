@@ -94,6 +94,7 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
                     && employeeIds.Contains(x.EmployeeId)
                     && x.ApprovalStatus == ApprovalStatus.Approved
                     )
+                 .AsNoTracking()
                  .GroupBy(a => new TravelKey(a.EmployeeId))
                  .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.StartDate).ToList(), token);
         ;
@@ -111,7 +112,7 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
 
     public async Task<TravelOrderApplication?> FineOneAsync(Guid id, CancellationToken token)
     {
-        return await GetOneAsync(id, token);
+        return await GetOneReadOnlyAsync(id, token);
     }
 
     // Self-service cancel of the employee's own still-pending application. See

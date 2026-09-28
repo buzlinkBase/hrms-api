@@ -163,20 +163,32 @@ public class ApprovalEngineService
             .FirstOrDefaultAsync(token);
     }
 
+    // Tracked: the write paths (Start/Restart/RecordAction/Reassign) modify what this returns.
     public async Task<ApprovalInstance?> GetInstanceAsync(
         ApprovalApplicationType type, Guid applicationId, CancellationToken token = default) =>
-        await _uow.Repository.Find<ApprovalInstance>(i => i.ApplicationType == type && i.ApplicationId == applicationId)
+        await InstanceQuery(type, applicationId).FirstOrDefaultAsync(token);
+
+    // Untracked twin for callers that only display or evaluate the instance.
+    public async Task<ApprovalInstance?> GetInstanceReadOnlyAsync(
+        ApprovalApplicationType type, Guid applicationId, CancellationToken token = default) =>
+        await InstanceQuery(type, applicationId).AsNoTracking().FirstOrDefaultAsync(token);
+
+    // Steps -> NamedApprovers and Actions are sibling collections: as one SQL statement they
+    // multiply into Steps x NamedApprovers x Actions rows, so the query is split per collection.
+    private IQueryable<ApprovalInstance> InstanceQuery(ApprovalApplicationType type, Guid applicationId) =>
+        _uow.Repository.Find<ApprovalInstance>(i => i.ApplicationType == type && i.ApplicationId == applicationId)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.NamedApprovers)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverEmployee)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverDepartment)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverPosition)
             .Include(i => i.Actions)
-            .FirstOrDefaultAsync(token);
+            .OrderBy(i => i.Id)
+            .AsSplitQuery();
 
     public async Task<bool> IsCallerEligibleAsync(
         ApprovalApplicationType type, Guid applicationId, Guid callerEmployeeId, CancellationToken token = default)
     {
-        var instance = await GetInstanceAsync(type, applicationId, token);
+        var instance = await GetInstanceReadOnlyAsync(type, applicationId, token);
         if (instance is null || instance.Status != ApprovalInstanceStatus.InProgress) return false;
 
         var caller = await _uow.Repository.Find<Employee>(e => e.Id == callerEmployeeId).AsNoTracking().FirstOrDefaultAsync(token);

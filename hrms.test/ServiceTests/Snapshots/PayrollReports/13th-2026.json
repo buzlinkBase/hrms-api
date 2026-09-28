@@ -1,0 +1,54 @@
+[
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000013",
+    "EmployeeNo": "",
+    "FullName": "",
+    "Year": 2026,
+    "TotalBasicPayForYear": 9000.25,
+    "ThirteenthMonthPay": 750.020833,
+    "TotalSpecialBonusesForYear": 945,
+    "Status": "NotGenerated",
+    "NetPay": null,
+    "PayrollId": null,
+    "AcknowledgedAt": null
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000010",
+    "EmployeeNo": "E-001",
+    "FullName": "Alpha, Ana Jr Maria",
+    "Year": 2026,
+    "TotalBasicPayForYear": 17001,
+    "ThirteenthMonthPay": 1416.75,
+    "TotalSpecialBonusesForYear": 1300,
+    "Status": "Posted",
+    "NetPay": 7500.5,
+    "PayrollId": "00000000-0000-0000-0000-000000000104",
+    "AcknowledgedAt": null
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000011",
+    "EmployeeNo": "E-002",
+    "FullName": "Bravo, Ben  Bautista",
+    "Year": 2026,
+    "TotalBasicPayForYear": 7000.25,
+    "ThirteenthMonthPay": 583.354167,
+    "TotalSpecialBonusesForYear": 735,
+    "Status": "NotGenerated",
+    "NetPay": null,
+    "PayrollId": null,
+    "AcknowledgedAt": null
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000012",
+    "EmployeeNo": "E-003",
+    "FullName": "Charlie, Cy  ",
+    "Year": 2026,
+    "TotalBasicPayForYear": 8000,
+    "ThirteenthMonthPay": 666.666667,
+    "TotalSpecialBonusesForYear": 0,
+    "Status": "NotGenerated",
+    "NetPay": null,
+    "PayrollId": null,
+    "AcknowledgedAt": null
+  }
+]

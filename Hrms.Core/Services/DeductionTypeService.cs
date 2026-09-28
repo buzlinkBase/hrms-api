@@ -36,7 +36,7 @@ public class DeductionTypeService : BaseService<DeductionType>
     }
     public async Task<DeductionType?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {

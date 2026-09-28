@@ -102,6 +102,7 @@ public class LeaveDtrReconciliationService
     {
         var entries = await _uow.Repository
             .Find<LeaveLedger>(x => x.DtrBatchCode == batchCode && x.ReferenceApplicationId != null)
+            .AsNoTracking()
             .ToListAsync(token);
         if (entries.Count == 0) return;
 
@@ -152,6 +153,7 @@ public class LeaveDtrReconciliationService
     {
         var entries = await _uow.Repository
             .Find<LeaveLedger>(x => x.ReferenceApplicationId == app.Id && x.DtrBatchCode != null)
+            .AsNoTracking()
             .ToListAsync(token);
         if (entries.Count == 0) return;
 
@@ -193,6 +195,7 @@ public class LeaveDtrReconciliationService
                 (x.EntryType == LedgerEntryType.Deduction ||
                  x.EntryType == LedgerEntryType.Reversal ||
                  x.EntryType == LedgerEntryType.DtrCorrection))
+            .AsNoTracking()
             .ToListAsync(token);
         if (entries.Count == 0) return [];
 
@@ -320,6 +323,7 @@ public class LeaveDtrReconciliationService
     private Task<List<LeaveLedger>> BatchEntriesAsync(Guid appId, string batchCode, CancellationToken token) =>
         _uow.Repository
             .Find<LeaveLedger>(x => x.ReferenceApplicationId == appId && x.DtrBatchCode == batchCode)
+            .AsNoTracking()
             .ToListAsync(token);
 
     // What a batch currently consumes for one application.
@@ -345,6 +349,7 @@ public class LeaveDtrReconciliationService
             .Find<LeaveLedger>(x =>
                 x.ReferenceApplicationId == appId &&
                 (x.EntryType == LedgerEntryType.Reserved || x.EntryType == LedgerEntryType.Released))
+            .AsNoTracking()
             .ToListAsync(token);
         return entries.Where(x => x.EntryType == LedgerEntryType.Reserved).Sum(x => x.Less)
              - entries.Where(x => x.EntryType == LedgerEntryType.Released).Sum(x => x.Add);

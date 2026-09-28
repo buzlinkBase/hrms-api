@@ -175,7 +175,7 @@ public class AttendanceService : BaseService<Attendance>
             .ToListAsync();
     }
 
-    public async Task<List<AttendanceModel>> GetRawLogs(AttendanceFilter filter)
+    public async Task<List<AttendanceModel>> GetRawLogs(AttendanceFilter filter, CancellationToken token = default)
     {
         DateTime fromDate = (filter?.FromDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue);
         DateTime toDate = (filter?.ToDate ?? DateOnly.MinValue).ToDateTime(TimeOnly.MinValue).AddDays(1);
@@ -189,12 +189,15 @@ public class AttendanceService : BaseService<Attendance>
 
 
         return await Uow.Context.Attendances
+            .AsNoTracking()
             .Where(x => x.WorkDateTime >= fromDate && x.WorkDateTime < toDate &&
                         (EmployeeId == null || x.EmployeeId == EmployeeId) &&
                         (BranchId == null || x.BranchId == BranchId) &&
                         (DepartmentId == null || x.DepartmentId == DepartmentId) &&
-                        (PayrollGroupId == null || x.DepartmentId == PayrollGroupId) &&
-                        (OperationAreaId == null || x.EmployeeId == OperationAreaId))
+                        (ClientId == null || x.ClientId == ClientId) &&
+                        // Logs carry no payroll group of their own -- it's the employee's.
+                        (PayrollGroupId == null || (x.Employee != null && x.Employee.PayrollGroupId == PayrollGroupId)) &&
+                        (OperationAreaId == null || x.OperationAreaId == OperationAreaId))
             .Select(x => new AttendanceModel
             {
                 Id = x.Id,
@@ -214,7 +217,7 @@ public class AttendanceService : BaseService<Attendance>
             })
             .OrderByDescending(x => x.Name)
             .ThenBy(x => x.WorkDateTime)
-            .ToListAsync();
+            .ToListAsync(token);
     }
 
     private static (DateOnly fromDate, DateOnly toDate) GetDateRange(DTRRequestPayload payload)
@@ -236,30 +239,14 @@ public class AttendanceService : BaseService<Attendance>
         var areaId = payload.OperationAreaId;
         var clientId = payload.ClientId;
 
-        var fromWD = payload.FromDate;
-        var toWD = payload.ToDate;
         var from = payload.FromDate.AddDays(TimeAllowance.AttLookbackDays).ToDateTime(TimeOnly.MinValue);
         var to = payload.ToDate.AddDays(TimeAllowance.AttLookforward).ToDateTime(TimeOnly.MinValue);
 
-        var dtrLookup = await _uow.Context.DailyTimeRecords
-            .Where(dtr => dtr.WorkDate >= fromWD &&
-                          dtr.WorkDate <= toWD)
-            .Select(dtr => new
-            {
-                dtr.EmployeeId,
-                dtr.WorkDate
-            })
-            .ToListAsync(token);
-
-        var dtrSet = new HashSet<(Guid EmployeeId, DateOnly WorkDate)>(
-            dtrLookup.Select(d => (d.EmployeeId, d.WorkDate))
-        );
         var spec = new UserHasViewSpec<Attendance>(canProcess);
 
         var data = await _uow.Repository
             .Find(spec)
             .AsNoTracking()
-            .AsSplitQuery()
             .Include(x => x.Employee)
             .Where(x =>
                 x.Status == "Active" &&

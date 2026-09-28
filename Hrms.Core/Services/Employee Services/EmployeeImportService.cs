@@ -252,6 +252,10 @@ public class EmployeeImportService
         {
             HeaderRowNumber = 1,
             MinRowNumber = ExcelMinDataRowNumber,
+            // Own factory per import: ExcelMapper's default is one process-wide static cache, and
+            // MapFields' AddMapping calls mutate it -- two imports at once raced on it ("An item
+            // with the same key has already been added").
+            TypeMapperFactory = new TypeMapperFactory(),
         };
         MapFields(mapper);
 

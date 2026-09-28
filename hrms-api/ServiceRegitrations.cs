@@ -333,27 +333,19 @@ public static class ServiceRegistrationsExt
          });
 
         // JWKS keys: in-process -> shared Redis copy -> single-flight fetch with failure backoff.
-        // See JwksKeyCache for why the old inline blocking resolver was replaced.
-        builder.Services.AddSingleton<IJwksStore, RedisJwksStore>();
-        builder.Services.AddSingleton(sp => new JwksKeyCache(
-            sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<IJwksStore>(),
-            builder.Configuration["ApiServices:AuthService"] ?? ""));
+        // See Onepunch.Common.Lib.Security.JwksKeyCache for why the old inline blocking resolver
+        // was replaced. Reuses the IConnectionMultiplexer registered above.
+        builder.Services.AddJwksKeyCache(
+            builder.Configuration["ApiServices:AuthService"] ?? "",
+            builder.Configuration.GetConnectionString("Redis"));
 
         builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<JwksKeyCache>((options, jwksKeyCache) =>
             {
-                var legacySigningKey = builder.Configuration["JwtSettings:SigningKey"];
-                var allowLegacyHmac = builder.Configuration.GetValue<bool?>("JwtSettings:AllowLegacyHmacValidation") ?? true;
-                SecurityKey? legacyKey = allowLegacyHmac && !string.IsNullOrEmpty(legacySigningKey)
-                    ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacySigningKey))
-                    : null;
-
-                options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
-                {
-                    var keys = jwksKeyCache.GetKeys();
-                    return legacyKey == null ? keys : [.. keys, legacyKey];
-                };
+                options.TokenValidationParameters.IssuerSigningKeyResolver = JwksServiceCollectionExtensions.CreateSigningKeyResolver(
+                    jwksKeyCache,
+                    builder.Configuration["JwtSettings:SigningKey"],
+                    builder.Configuration.GetValue<bool?>("JwtSettings:AllowLegacyHmacValidation") ?? true);
             });
     }
 }

@@ -33,7 +33,7 @@ public class UnderTimeApplicationService : BaseService<UnderTimeApplication>
     }
     public async Task<UnderTimeApplication?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task Delete(Guid Id, CancellationToken token)
     {
@@ -50,6 +50,7 @@ public class UnderTimeApplicationService : BaseService<UnderTimeApplication>
                  (x.PayrollDate >= from &&
                  x.PayrollDate <= to) &&
                  employeeIds.Contains(x.EmployeeId))
+                 .AsNoTracking()
                  .GroupBy(a => new UTKey(a.EmployeeId, a.PayrollDate))
                  .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.PayrollDate).FirstOrDefault(), token);
         ;

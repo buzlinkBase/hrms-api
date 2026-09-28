@@ -73,7 +73,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<ApprovalInstanceResponse>), 200)]
         public async Task<IActionResult> Get(ApprovalApplicationType applicationType, Guid applicationId, CancellationToken token)
         {
-            var instance = await _approvalEngine.GetInstanceAsync(applicationType, applicationId, token);
+            var instance = await _approvalEngine.GetInstanceReadOnlyAsync(applicationType, applicationId, token);
             if (instance == null) return NotFound();
 
             if (!User.HasAnyPermission($"{await ResolvePermissionPrefixAsync(applicationType, applicationId, token)}:View"))

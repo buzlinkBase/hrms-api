@@ -21,7 +21,8 @@ public class DTRCalcService
     {
         var processor = DTRProcessorFactory.Create<T>(processorType, _serviceProvider);
         var canProcess = true;
-        var context = await _payloadRangeService.SetPayload(canProcess, payload, removedoublePunch);
+        // The token reaches the payload queries, so an abandoned request stops loading data.
+        var context = await _payloadRangeService.SetPayload(canProcess, payload, removedoublePunch, token);
         Token = token;
         Payload = payload;
         context.DtrService = this;

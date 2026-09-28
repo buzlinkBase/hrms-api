@@ -285,8 +285,10 @@ public class PayrollService : BaseService<Payroll>
     public async Task<Dictionary<Guid, decimal>> GetRetirementBalancesAsync(List<Guid> employeeIds, CancellationToken token)
     {
         if (employeeIds.Count == 0) return new();
+        // Only the two columns needed -- not full tracked fund entities.
         return await Context.RetirementFunds
             .Where(x => employeeIds.Contains(x.EmployeeId))
+            .Select(x => new { x.EmployeeId, x.Balance })
             .ToDictionaryAsync(x => x.EmployeeId, x => x.Balance, token);
     }
 

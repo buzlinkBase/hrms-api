@@ -1,0 +1,61 @@
+{
+  "Item1": {
+    "PeriodFrom": "2026-01-01",
+    "PeriodTo": "2026-01-31",
+    "AmendedReturn": false,
+    "EmployeeCount": 3,
+    "Line15_TotalCompensation": 50002.5,
+    "Line16A_StatutoryMinimumWage": 0,
+    "Line16B_MWEPremiumPay": 0,
+    "Line16C_OtherNonTaxable": 8575,
+    "Line17_TotalNonTaxable": 8575,
+    "Line18_TaxableCompensation": 41427.5,
+    "Line19_TaxWithheld": 2800,
+    "HasUnwithheldTaxWarning": false,
+    "UnclassifiedEmployeeCount": 2
+  },
+  "Item2": [
+    {
+      "EmployeeId": "00000000-0000-0000-0000-000000000013",
+      "EmployeeNo": "",
+      "FullName": "",
+      "IsMinimumWageEarner": false,
+      "AtcCode": "KR010",
+      "GrossCompensation": 18000.5,
+      "StatutoryMinimumWage": 0,
+      "MWEPremiumPay": 0,
+      "OtherNonTaxable": 3087,
+      "TaxableCompensation": 14913.5,
+      "TaxWithheld": 1008,
+      "IsUnclassified": true
+    },
+    {
+      "EmployeeId": "00000000-0000-0000-0000-000000000010",
+      "EmployeeNo": "E-001",
+      "FullName": "Alpha, Ana Jr Maria",
+      "IsMinimumWageEarner": false,
+      "AtcCode": "KR010",
+      "GrossCompensation": 18001.5,
+      "StatutoryMinimumWage": 0,
+      "MWEPremiumPay": 0,
+      "OtherNonTaxable": 3087,
+      "TaxableCompensation": 14914.5,
+      "TaxWithheld": 1008,
+      "IsUnclassified": false
+    },
+    {
+      "EmployeeId": "00000000-0000-0000-0000-000000000011",
+      "EmployeeNo": "E-002",
+      "FullName": "Bravo, Ben  Bautista",
+      "IsMinimumWageEarner": false,
+      "AtcCode": "KR010",
+      "GrossCompensation": 14000.5,
+      "StatutoryMinimumWage": 0,
+      "MWEPremiumPay": 0,
+      "OtherNonTaxable": 2401,
+      "TaxableCompensation": 11599.5,
+      "TaxWithheld": 784,
+      "IsUnclassified": true
+    }
+  ]
+}

@@ -58,7 +58,7 @@ public class BranchService : BaseService<Branch>
     }
     public async Task<Branch?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task Delete(Guid Id, CancellationToken token)
     {

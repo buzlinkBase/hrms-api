@@ -38,7 +38,7 @@ public class EmployeeAssignAssetService : BaseService<AssignAsset>
     }
     public async Task<AssignAsset?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {

@@ -252,7 +252,7 @@ public class AttendanceController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RawRowLogs([FromQuery] AttendanceFilter filter, CancellationToken ct)
     {
-        var result = await _attendanceService.GetRawLogs(filter);
+        var result = await _attendanceService.GetRawLogs(filter, ct);
         return Ok(result);
     }
 

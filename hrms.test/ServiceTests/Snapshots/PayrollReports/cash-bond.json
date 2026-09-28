@@ -1,0 +1,26 @@
+[
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000013",
+    "EmployeeNo": "",
+    "FullName": "",
+    "CashBondRate": 0,
+    "TotalCollected": 126,
+    "PayrollRunsCount": 1
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000010",
+    "EmployeeNo": "E-001",
+    "FullName": "Alpha, Ana Jr Maria",
+    "CashBondRate": 100,
+    "TotalCollected": 294,
+    "PayrollRunsCount": 6
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000011",
+    "EmployeeNo": "E-002",
+    "FullName": "Bravo, Ben  Bautista",
+    "CashBondRate": 0,
+    "TotalCollected": 350,
+    "PayrollRunsCount": 3
+  }
+]

@@ -118,6 +118,7 @@ public class ChangeRestDayService : BaseService<ChangeRestDay>
                 x.PayrollDate >= fromDate
                 && x.PayrollDate <= toDate
                 && x.ApprovalStatus == ApprovalStatus.Approved)
+         .AsNoTracking()
          .GroupBy(x => new ResDaykey(x.EmployeeId, x.PayrollDate))
          .ToDictionaryAsync(x => x.Key, x => x.ToList(), token)
          ;

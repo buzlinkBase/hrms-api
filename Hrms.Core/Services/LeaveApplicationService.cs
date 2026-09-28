@@ -558,6 +558,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             // Needed so PayrollProcessorService can label each payout by leave type
             // (Leave.Description) when building PayrollSummaryLine.OneTimePayoutBreakdown.
             .Include(x => x.Leave)
+            .AsNoTracking()
             .GroupBy(x => x.EmployeeId)
             .ToDictionaryAsync(g => new EmployeeKey(g.Key), g => g.ToList(), token);
     }
@@ -574,6 +575,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                 && x.ApprovalStatus == ApprovalStatus.Approved
                 && employeeIds.Contains(x.EmployeeId))
             .Include(x => x.Leave)
+            .AsNoTracking()
             .ToListAsync(token);
 
         return rawData

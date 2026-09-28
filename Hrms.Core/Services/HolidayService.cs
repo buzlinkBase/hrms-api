@@ -39,6 +39,7 @@ public class HolidayService : BaseService<Holiday>
     {
         var holidays = await _uow.Repository.Find<Holiday>(x =>
         x.IsRecuring || x.HolYear == year)
+            .AsNoTracking()
             .Include(x => x.Area)
             .ToListAsync(token);
 
@@ -72,7 +73,10 @@ public class HolidayService : BaseService<Holiday>
     {
         from = from.AddDays(-4);
         var holidays = await _uow.Repository
-            .Find<Holiday>(x => x.IsRecuring || (x.HolDate >= from && x.HolDate <= to) && x.Status=="Active")
+            // Active only -- recurring holidays included. Operator precedence used to make this
+            // "IsRecuring || (inRange && Active)", so inactive recurring holidays still applied.
+            .Find<Holiday>(x => (x.IsRecuring || (x.HolDate >= from && x.HolDate <= to)) && x.Status == "Active")
+            .AsNoTracking()
             .ToListAsync(token)
             ;
 
@@ -125,13 +129,14 @@ public class HolidayService : BaseService<Holiday>
     }
     public async Task<HolidayModel?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        var result = await GetOneAsync(Id, token);
+        var result = await GetOneReadOnlyAsync(Id, token);
         return _mapper.Map<HolidayModel?>(result);
     }
 
     public async Task<HolidayModel?> FindLatest(Guid Id, CancellationToken token)
     {
-        var result = await GetOneAsync(Id, token);
+        // Untracked: the date is re-resolved on this copy for display only, never saved.
+        var result = await GetOneReadOnlyAsync(Id, token);
         if (result == null) return _mapper.Map<HolidayModel?>(result);
         var curDate = DateTime.UtcNow;
         if (result.IsRecuring)

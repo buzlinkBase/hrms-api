@@ -58,7 +58,7 @@ public class TimeShiftService : BaseService<TimeShift>
     }
     public async Task<TimeShift?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task DeleteAsync(Guid Id, CancellationToken token)
     {

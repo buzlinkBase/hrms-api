@@ -1,0 +1,33 @@
+{
+  "Item1": {
+    "PeriodFrom": "2026-12-01",
+    "PeriodTo": "2026-12-31",
+    "AmendedReturn": true,
+    "EmployeeCount": 1,
+    "Line15_TotalCompensation": 1075,
+    "Line16A_StatutoryMinimumWage": 0,
+    "Line16B_MWEPremiumPay": 0,
+    "Line16C_OtherNonTaxable": 535,
+    "Line17_TotalNonTaxable": 535,
+    "Line18_TaxableCompensation": 540,
+    "Line19_TaxWithheld": 460,
+    "HasUnwithheldTaxWarning": false,
+    "UnclassifiedEmployeeCount": 0
+  },
+  "Item2": [
+    {
+      "EmployeeId": "00000000-0000-0000-0000-000000000010",
+      "EmployeeNo": "E-001",
+      "FullName": "Alpha, Ana Jr Maria",
+      "IsMinimumWageEarner": false,
+      "AtcCode": "KR010",
+      "GrossCompensation": 1075,
+      "StatutoryMinimumWage": 0,
+      "MWEPremiumPay": 0,
+      "OtherNonTaxable": 535,
+      "TaxableCompensation": 540,
+      "TaxWithheld": 460,
+      "IsUnclassified": false
+    }
+  ]
+}

@@ -117,6 +117,7 @@ public class EmployeeProfileUpdateRequestService : BaseService<EmployeeProfileUp
     public async Task<List<EmployeeProfileUpdateRequestModel>> FindAllAsync(Guid? employeeId, CancellationToken token)
     {
         var query = Context.EmployeeProfileUpdateRequests
+            .AsNoTracking()
             .Include(x => x.Employee)
             .AsQueryable();
 
@@ -129,6 +130,7 @@ public class EmployeeProfileUpdateRequestService : BaseService<EmployeeProfileUp
     public async Task<EmployeeProfileUpdateRequestModel?> FindOneWithCurrentValuesAsync(Guid id, CancellationToken token)
     {
         var request = await Context.EmployeeProfileUpdateRequests
+            .AsNoTracking()
             .Include(x => x.Employee)
             .FirstOrDefaultAsync(x => x.Id == id, token);
         return request == null ? null : ToModel(request);

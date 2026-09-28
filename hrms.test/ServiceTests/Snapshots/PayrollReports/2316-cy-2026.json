@@ -1,0 +1,18 @@
+{
+  "EmployeeId": "00000000-0000-0000-0000-000000000012",
+  "EmployeeNo": "E-003",
+  "FullName": "Charlie, Cy  ",
+  "TIN": "",
+  "RDOCode": "",
+  "Address": "",
+  "CivilStatus": "",
+  "Year": 2026,
+  "GrossCompensation": 8000,
+  "NonTaxableCompensation": 0,
+  "TaxableCompensation": 7830,
+  "ThirteenthMonthPay": 666.666667,
+  "TotalSSS": 100,
+  "TotalPhilHealth": 50,
+  "TotalPagIbig": 20,
+  "TotalTaxWithheld": 300
+}

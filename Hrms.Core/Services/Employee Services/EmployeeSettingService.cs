@@ -26,7 +26,7 @@ public class EmployeeSettingService(IUnitOfWorkService uow)
     }
     public async Task<EmployeeSetting?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
 }
 

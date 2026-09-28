@@ -35,7 +35,7 @@ public class EmployeeSkillService : BaseService<Skill>
     }
     public async Task<Skill?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task Delete(Guid Id, CancellationToken token)
     {

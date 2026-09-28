@@ -1,0 +1,57 @@
+[
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000013",
+    "EmployeeNo": "",
+    "FullName": "",
+    "ModeOfPayment": "Cash",
+    "BankName": "",
+    "BankNo": "",
+    "PayPeriodStart": "2026-01-01",
+    "PayPeriodEnd": "2026-01-15",
+    "NetPay": 13500.5
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000010",
+    "EmployeeNo": "E-001",
+    "FullName": "Alpha, Ana Jr Maria",
+    "ModeOfPayment": "ATM",
+    "BankName": "BDO",
+    "BankNo": "123",
+    "PayPeriodStart": "2026-01-01",
+    "PayPeriodEnd": "2026-01-15",
+    "NetPay": 1500.5
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000010",
+    "EmployeeNo": "E-001",
+    "FullName": "Alpha, Ana Jr Maria",
+    "ModeOfPayment": "ATM",
+    "BankName": "BDO",
+    "BankNo": "123",
+    "PayPeriodStart": "2026-01-16",
+    "PayPeriodEnd": "2026-01-31",
+    "NetPay": 3000.5
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000010",
+    "EmployeeNo": "E-001",
+    "FullName": "Alpha, Ana Jr Maria",
+    "ModeOfPayment": "ATM",
+    "BankName": "BDO",
+    "BankNo": "123",
+    "PayPeriodStart": "2026-02-01",
+    "PayPeriodEnd": "2026-02-15",
+    "NetPay": 4500.5
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000011",
+    "EmployeeNo": "E-002",
+    "FullName": "Bravo, Ben  Bautista",
+    "ModeOfPayment": "Cash",
+    "BankName": "",
+    "BankNo": "",
+    "PayPeriodStart": "2026-01-01",
+    "PayPeriodEnd": "2026-01-15",
+    "NetPay": 10500.5
+  }
+]

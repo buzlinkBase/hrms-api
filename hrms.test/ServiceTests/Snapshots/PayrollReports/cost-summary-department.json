@@ -1,0 +1,32 @@
+[
+  {
+    "GroupId": "00000000-0000-0000-0000-000000000003",
+    "GroupName": "Operations",
+    "EmployeeCount": 1,
+    "TotalBasicPay": 15000.5,
+    "TotalGrossIncome": 30001,
+    "TotalDeductions": 7500,
+    "TotalNetPay": 22501,
+    "EmployerContributionsCost": 5370
+  },
+  {
+    "GroupId": "00000000-0000-0000-0000-000000000002",
+    "GroupName": "Accounting",
+    "EmployeeCount": 1,
+    "TotalBasicPay": 11001.25,
+    "TotalGrossIncome": 22002.5,
+    "TotalDeductions": 5500,
+    "TotalNetPay": 16502.5,
+    "EmployerContributionsCost": 3938
+  },
+  {
+    "GroupId": null,
+    "GroupName": "Unassigned",
+    "EmployeeCount": 1,
+    "TotalBasicPay": 9000.25,
+    "TotalGrossIncome": 18000.5,
+    "TotalDeductions": 4500,
+    "TotalNetPay": 13500.5,
+    "EmployerContributionsCost": 3222
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "GroupId": null,
+    "GroupName": "Unassigned",
+    "EmployeeCount": 3,
+    "TotalBasicPay": 34001.75,
+    "TotalGrossIncome": 68003.5,
+    "TotalDeductions": 17000,
+    "TotalNetPay": 51003.5,
+    "EmployerContributionsCost": 12172
+  },
+  {
+    "GroupId": "00000000-0000-0000-0000-000000000005",
+    "GroupName": "Client X",
+    "EmployeeCount": 1,
+    "TotalBasicPay": 1000.25,
+    "TotalGrossIncome": 2000.5,
+    "TotalDeductions": 500,
+    "TotalNetPay": 1500.5,
+    "EmployerContributionsCost": 358
+  }
+]

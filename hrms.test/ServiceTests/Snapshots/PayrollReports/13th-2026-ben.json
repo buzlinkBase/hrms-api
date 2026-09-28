@@ -1,0 +1,15 @@
+[
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000011",
+    "EmployeeNo": "E-002",
+    "FullName": "Bravo, Ben  Bautista",
+    "Year": 2026,
+    "TotalBasicPayForYear": 7000.25,
+    "ThirteenthMonthPay": 583.354167,
+    "TotalSpecialBonusesForYear": 735,
+    "Status": "NotGenerated",
+    "NetPay": null,
+    "PayrollId": null,
+    "AcknowledgedAt": null
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000013",
+    "EmployeeNo": "",
+    "FullName": "",
+    "TIN": "",
+    "Year": 2026,
+    "GrossCompensation": 18000.5,
+    "NonTaxableCompensation": 954,
+    "TaxableCompensation": 13500,
+    "ThirteenthMonthPay": 750.020833,
+    "TotalSSS": 981,
+    "TotalPhilHealth": 990,
+    "TotalPagIbig": 999,
+    "TotalTaxWithheld": 1008
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000010",
+    "EmployeeNo": "E-001",
+    "FullName": "Alpha, Ana Jr Maria",
+    "TIN": "111-111",
+    "Year": 2026,
+    "GrossCompensation": 39153,
+    "NonTaxableCompensation": 1862,
+    "TaxableCompensation": 30470,
+    "ThirteenthMonthPay": 1833.458333,
+    "TotalSSS": 1923,
+    "TotalPhilHealth": 1905,
+    "TotalPagIbig": 1902,
+    "TotalTaxWithheld": 1924
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000011",
+    "EmployeeNo": "E-002",
+    "FullName": "Bravo, Ben  Bautista",
+    "TIN": "",
+    "Year": 2026,
+    "GrossCompensation": 14000.5,
+    "NonTaxableCompensation": 742,
+    "TaxableCompensation": 10500,
+    "ThirteenthMonthPay": 583.354167,
+    "TotalSSS": 763,
+    "TotalPhilHealth": 770,
+    "TotalPagIbig": 777,
+    "TotalTaxWithheld": 784
+  },
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000012",
+    "EmployeeNo": "E-003",
+    "FullName": "Charlie, Cy  ",
+    "TIN": "",
+    "Year": 2026,
+    "GrossCompensation": 8000,
+    "NonTaxableCompensation": 0,
+    "TaxableCompensation": 7830,
+    "ThirteenthMonthPay": 666.666667,
+    "TotalSSS": 100,
+    "TotalPhilHealth": 50,
+    "TotalPagIbig": 20,
+    "TotalTaxWithheld": 300
+  }
+]

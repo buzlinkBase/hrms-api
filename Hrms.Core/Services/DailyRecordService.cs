@@ -398,9 +398,12 @@ public class DailyRecordService : BaseService<DailyRecord>
             return ([], today, today);
         }
 
+        // The projection pulls two collections per DTR row (LeavesInfo and the employee's payroll
+        // group CutoffDays); as one statement they multiply rows, so it runs as split queries.
         var recordsList = await GetQueryable(x => batchCodes.Contains(x.BatchCode!))
              .AsNoTracking()
              .ProjectToType<DailyRecordRunModel>(_config)
+             .AsSplitQuery()
              .ToListAsync(token);
 
         // Guard 3: Return early if database returns no matching records
@@ -469,21 +472,24 @@ public class DailyRecordService : BaseService<DailyRecord>
         if (payload.BatchCodes != null && payload.BatchCodes.Count > 0)
         {
             query = GetQueryable(x => x.Posted && payload.BatchCodes.Contains(x.BatchCode!))
-                .AsNoTracking()
-                .Include(x => x.Employee);
+                .AsNoTracking();
         }
         else
         {
             query = GetQueryable(GetQueryExpression(payload))
-                .AsNoTracking()
-                .Include(x => x.Employee);
+                .AsNoTracking();
         }
 
-        return await query
+        // Same two collections as LoadForPayrollRunAsync -- split. (No Include needed: EF ignores
+        // Include once ProjectToType shapes the result.)
+        var records = await query
             .ProjectToType<DailyRecordRunModel>(_config)
+            .AsSplitQuery()
             .Where(x => x.EmployeeId != null)
+            .ToListAsync(token);
+        return records
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
-            .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
+            .ToDictionary(x => x.Key, x => x.ToList());
     }
 
     private Expression<Func<DailyRecord, bool>> GetQueryExpression(DTRQueryPayload payload)
@@ -611,6 +617,8 @@ public class DailyRecordService : BaseService<DailyRecord>
             ? new Dictionary<Guid, string>()
             : (await _uow.Repository.Find<Employee>(x => employeeIds.Contains(x.Id))
                 .AsNoTracking()
+                // Name columns only, not full employee rows.
+                .Select(x => new Employee { Id = x.Id, FirstName = x.FirstName, LastName = x.LastName, MiddleName = x.MiddleName, Suffix = x.Suffix })
                 .ToListAsync(token))
                 .ToDictionary(x => x.Id, x => x.FullName());
         string? NameOf(Guid? id) =>

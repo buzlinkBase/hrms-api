@@ -54,6 +54,7 @@ internal class Program
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
         builder.Services.AddGeminiAiExtraction(builder.Configuration);
+        builder.Services.AddApiResponseCompression();
         builder.Services.AddDataProtection()
         .PersistKeysToFileSystem(new DirectoryInfo(@"/app/dp-keys"));
 
@@ -68,6 +69,9 @@ internal class Program
         forwardedOptions.KnownNetworks.Clear();
         forwardedOptions.KnownProxies.Clear();
         app.UseForwardedHeaders(forwardedOptions);
+        // Right after forwarded headers so it wraps every response body (exception handler,
+        // Swagger and controllers alike). See ResponseCompressionExtensions for what's compressed.
+        app.UseResponseCompression();
         // 2. SECOND: API Documentation
         app.UseExceptionHandler();
         app.UseStatusCodePages();

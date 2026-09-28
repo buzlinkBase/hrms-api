@@ -10,6 +10,7 @@ public class GeneralSettingService : BaseService<GeneralSetting>
     {
         var settingsList = await Uow.Repository
             .FindAll<GeneralSetting>()
+            .AsNoTracking()
             .Where(x => x.IdentityType == identityType)
             .ToListAsync();
 
@@ -40,6 +41,7 @@ public class GeneralSettingService : BaseService<GeneralSetting>
         // 1. Fetch filtered entities from database into memory
         var settingsList = await Uow.Repository
             .FindAll<GeneralSetting>()
+            .AsNoTracking()
             .Where(x => x.IdentityType == identityType && x.IdentityTypeId != null && validIdentities.Contains(x.IdentityTypeId))
             .ToListAsync();
 

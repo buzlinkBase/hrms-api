@@ -35,7 +35,7 @@ public class PositionService : BaseService<Position>
 
     public async Task<Position?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task Delete(Guid Id, CancellationToken token)
     {

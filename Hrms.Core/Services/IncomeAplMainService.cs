@@ -119,7 +119,7 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
 
     public async Task<OtherIncomeApplication?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
     public async Task DeleteParent(Guid Id, CancellationToken token)
     {

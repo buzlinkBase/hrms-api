@@ -1,0 +1,21 @@
+[
+  {
+    "EmployeeId": "00000000-0000-0000-0000-000000000010",
+    "EmployeeNo": "E-001",
+    "FullName": "Alpha, Ana Jr Maria",
+    "Year": 2026,
+    "TotalBasicPay": 16001.25,
+    "TotalOvertimePay": 1161,
+    "TotalHolidayPay": 1142,
+    "TotalAllowances": 1163,
+    "TotalOtherIncome": 1154,
+    "TotalGrossIncome": 27152.5,
+    "TotalSSS": 1269,
+    "TotalPhilHealth": 1245,
+    "TotalPagIbig": 1236,
+    "TotalWithholdingTax": 1252,
+    "TotalOtherDeductions": 1248,
+    "TotalDeductions": 5745,
+    "TotalNetPay": 21407.5
+  }
+]

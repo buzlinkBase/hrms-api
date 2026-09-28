@@ -1,0 +1,18 @@
+{
+  "EmployeeId": "00000000-0000-0000-0000-000000000010",
+  "EmployeeNo": "E-001",
+  "FullName": "Alpha, Ana Maria Jr",
+  "TIN": "111-111",
+  "RDOCode": "",
+  "Address": "",
+  "CivilStatus": "",
+  "Year": 2026,
+  "GrossCompensation": 39153,
+  "NonTaxableCompensation": 1862,
+  "TaxableCompensation": 30470,
+  "ThirteenthMonthPay": 1833.458333,
+  "TotalSSS": 1923,
+  "TotalPhilHealth": 1905,
+  "TotalPagIbig": 1902,
+  "TotalTaxWithheld": 1924
+}

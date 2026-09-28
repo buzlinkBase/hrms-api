@@ -47,7 +47,7 @@ public class AnnualTaxService : BaseService<AnnualTaxTable>
 
     public async Task<AnnualTaxTable?> FineOneAsync(Guid id, CancellationToken token)
     {
-        return await GetOneAsync(id, token);
+        return await GetOneReadOnlyAsync(id, token);
     }
 
     public async Task Delete(Guid id, CancellationToken token)

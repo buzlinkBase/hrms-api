@@ -143,8 +143,10 @@ public class UniformAllowanceFundService : BaseService<UniformAllowanceFund>
     public async Task<Dictionary<Guid, decimal>> GetBalancesAsync(List<Guid> employeeIds, CancellationToken token)
     {
         if (employeeIds.Count == 0) return new();
+        // Only the two columns needed -- not full tracked fund entities.
         return await Context.UniformAllowanceFunds
             .Where(x => employeeIds.Contains(x.EmployeeId))
+            .Select(x => new { x.EmployeeId, x.Balance })
             .ToDictionaryAsync(x => x.EmployeeId, x => x.Balance, token);
     }
 }

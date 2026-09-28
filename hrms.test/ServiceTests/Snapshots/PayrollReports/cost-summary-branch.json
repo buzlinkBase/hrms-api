@@ -1,0 +1,22 @@
+[
+  {
+    "GroupId": null,
+    "GroupName": "Unassigned",
+    "EmployeeCount": 2,
+    "TotalBasicPay": 24000.75,
+    "TotalGrossIncome": 48001.5,
+    "TotalDeductions": 12000,
+    "TotalNetPay": 36001.5,
+    "EmployerContributionsCost": 8592
+  },
+  {
+    "GroupId": "00000000-0000-0000-0000-000000000004",
+    "GroupName": "Manila",
+    "EmployeeCount": 1,
+    "TotalBasicPay": 11001.25,
+    "TotalGrossIncome": 22002.5,
+    "TotalDeductions": 5500,
+    "TotalNetPay": 16502.5,
+    "EmployerContributionsCost": 3938
+  }
+]

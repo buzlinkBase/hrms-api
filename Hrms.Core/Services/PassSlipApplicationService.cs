@@ -176,6 +176,7 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
     public async Task<List<PassSlipApplication>> FindAllAsync(DateOnly? from, DateOnly? to, Guid? employeeId, CancellationToken token)
     {
         var query = Context.PassSlipApplications
+            .AsNoTracking()
             .Include(x => x.Employee)
             .AsQueryable();
 

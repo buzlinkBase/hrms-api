@@ -96,7 +96,7 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
 
     public async Task<OverTimeApplication?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneAsync(Id, token);
+        return await GetOneReadOnlyAsync(Id, token);
     }
 
     // Self-service cancel of the employee's own still-pending application. See
