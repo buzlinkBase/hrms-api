@@ -213,7 +213,7 @@ public class PayrollService : BaseService<Payroll>
                     EntryType = RetirementLedgerEntryType.Accrual,
                     PayrollId = payroll.Id,
                     EntryDate = payroll.PayPeriodEnd,
-                    Add = payroll.RetirementAccrual,
+                    Amount = payroll.RetirementAccrual,
                     Balance = fund.Balance,
                     Particulars = $"Retirement accrual for payroll {payroll.PayrollPeriod}",
                 });
@@ -230,7 +230,7 @@ public class PayrollService : BaseService<Payroll>
                     EntryType = RetirementLedgerEntryType.Payout,
                     PayrollId = payroll.Id,
                     EntryDate = payroll.PayPeriodEnd,
-                    Less = payout,
+                    Amount = -payout,
                     Balance = fund.Balance,
                     Particulars = $"Retirement fund payout — {payroll.PayrollPeriod}",
                 });
@@ -253,17 +253,15 @@ public class PayrollService : BaseService<Payroll>
             Context.RetirementFunds.Add(fund);
         }
 
-        var add = isAddition ? amount : 0m;
-        var less = isAddition ? 0m : ClampRetirementPayout(amount, fund.Balance);
-        fund.Balance += add - less;
+        var signed = isAddition ? amount : -ClampRetirementPayout(amount, fund.Balance);
+        fund.Balance += signed;
         Context.RetirementLedgers.Add(new RetirementLedger
         {
             EmployeeId = employeeId,
             RetirementFund = fund,
             EntryType = RetirementLedgerEntryType.Adjustment,
             EntryDate = entryDate,
-            Add = add,
-            Less = less,
+            Amount = signed,
             Balance = fund.Balance,
             Particulars = particulars,
         });

@@ -257,7 +257,7 @@ public class SavedDtrDeletionLockTests
         seed.LeaveLedgers.Add(new LeaveLedger
         {
             Id = Guid.NewGuid(), EmployeeId = employeeId, LeaveId = leave.Id, LeaveCreditsId = credits.Id,
-            EntryType = LedgerEntryType.Reserved, EntryDate = Sep3, Less = 2m, Balance = 10m,
+            EntryType = LedgerEntryType.Reserved, EntryDate = Sep3, Amount = -2m, Balance = 10m,
             ReferenceApplicationId = app.Id, Particulars = "Leave approved",
         });
         await seed.SaveChangesAsync();

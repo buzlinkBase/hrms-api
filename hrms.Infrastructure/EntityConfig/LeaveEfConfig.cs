@@ -195,8 +195,7 @@ namespace Hrms.Infrastructure.EntityConfig
                     v => v.ToString(),
                     v => EnumParserConfig.SafeParseEnum(v, LedgerEntryType.Adjustment));
 
-            builder.Property(x => x.Add).HasPrecision(18, 4);
-            builder.Property(x => x.Less).HasPrecision(18, 4);
+            builder.Property(x => x.Amount).HasPrecision(18, 4);
             builder.Property(x => x.Balance).HasPrecision(18, 4);
             builder.Property(x => x.DtrBatchCode).HasMaxLength(100);
             builder.Property(x => x.AccrualDedupeKey).HasMaxLength(100);

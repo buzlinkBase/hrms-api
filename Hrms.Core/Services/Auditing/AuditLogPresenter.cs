@@ -74,6 +74,7 @@ public static class AuditLogPresenter
         ("Role", "Role"),
         ("RolePermission", "Role Permission"),
         ("Company", "Company"),
+        ("CashBondAdjustment", "Cash Bond Adjustment"),
         ("BiometricDevice", "Biometric Device"),
         ("DeviceCommand", "Device Command"),
         ("BiometricTemplate", "Biometric Template"),

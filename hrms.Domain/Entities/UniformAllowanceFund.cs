@@ -25,7 +25,7 @@ public enum UniformAllowanceEntryType
 }
 
 // Append-only audit trail of every accrual/adjustment/release against a UniformAllowanceFund,
-// mirroring LeaveLedger/RetirementLedger's Add/Less/Balance shape.
+// mirroring LeaveLedger/RetirementLedger's signed Amount/Balance shape.
 public class UniformAllowanceLedger : BaseEntity
 {
     public Guid EmployeeId { get; set; }
@@ -34,8 +34,8 @@ public class UniformAllowanceLedger : BaseEntity
     public virtual UniformAllowanceFund UniformAllowanceFund { get; set; } = null!;
     public UniformAllowanceEntryType EntryType { get; set; }
     public DateOnly EntryDate { get; set; }
-    public decimal Add { get; set; }
-    public decimal Less { get; set; }
+    // Signed pesos: + accrual / adjustment added, − release / adjustment removed.
+    public decimal Amount { get; set; }
     public decimal Balance { get; set; }   // running balance after this entry
     public string Particulars { get; set; } = string.Empty;
 

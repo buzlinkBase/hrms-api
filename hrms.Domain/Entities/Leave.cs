@@ -137,8 +137,10 @@ public class LeaveLedger : BaseEntity
     // ── Entry ─────────────────────────────────────────────────────────────────
     public LedgerEntryType EntryType { get; set; }
     public DateOnly EntryDate { get; set; }
-    public decimal Add { get; set; }            // days credited (Grant, Accrual, CarryOver, Reversal, Adjustment+)
-    public decimal Less { get; set; }           // days debited  (Deduction, Expiry, CashConversion, Adjustment-)
+    // Signed days: + credited (Grant, Accrual, CarryOver, Reversal, Released, Adjustment+),
+    // − debited (Deduction, Expiry, CashConversion, Reserved, Adjustment−). DtrCorrection carries
+    // its signed delta. Σ Amount per credits row = −(Used + Reserved) + everything granted.
+    public decimal Amount { get; set; }
     public decimal Balance { get; set; }        // running balance after this entry
     public string Particulars { get; set; } = string.Empty;
 

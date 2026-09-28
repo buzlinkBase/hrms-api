@@ -47,7 +47,7 @@ public class UniformAllowanceFundService : BaseService<UniformAllowanceFund>
             UniformAllowanceFund = fund,
             EntryType = UniformAllowanceEntryType.Accrual,
             EntryDate = entryDate,
-            Add = amount,
+            Amount = amount,
             Balance = fund.Balance,
             Particulars = particulars,
             AccrualDedupeKey = $"{employeeId}|{entryDate:yyyy-MM}",
@@ -80,17 +80,15 @@ public class UniformAllowanceFundService : BaseService<UniformAllowanceFund>
     public async Task AdjustAsync(Guid employeeId, decimal amount, bool isAddition, string particulars, DateOnly entryDate, CancellationToken token)
     {
         var fund = await GetOrCreateFundAsync(employeeId, token);
-        var add = isAddition ? amount : 0m;
-        var less = isAddition ? 0m : ClampAmount(amount, fund.Balance);
-        fund.Balance += add - less;
+        var signed = isAddition ? amount : -ClampAmount(amount, fund.Balance);
+        fund.Balance += signed;
         Context.UniformAllowanceLedgers.Add(new UniformAllowanceLedger
         {
             EmployeeId = employeeId,
             UniformAllowanceFund = fund,
             EntryType = UniformAllowanceEntryType.Adjustment,
             EntryDate = entryDate,
-            Add = add,
-            Less = less,
+            Amount = signed,
             Balance = fund.Balance,
             Particulars = particulars,
         });
@@ -130,7 +128,7 @@ public class UniformAllowanceFundService : BaseService<UniformAllowanceFund>
                 UniformAllowanceFund = fund,
                 EntryType = UniformAllowanceEntryType.Release,
                 EntryDate = periodDate,
-                Less = payout,
+                Amount = -payout,
                 Balance = fund.Balance,
                 Particulars = particulars,
             });

@@ -65,6 +65,7 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext
     public DbSet<PayrollDeductionDetail> PayrollDeductionDetails { get; set; }
     public DbSet<RetirementFund> RetirementFunds { get; set; }
     public DbSet<RetirementLedger> RetirementLedgers { get; set; }
+    public DbSet<CashBondAdjustment> CashBondAdjustments { get; set; }
     public DbSet<UniformAllowanceFund> UniformAllowanceFunds { get; set; }
     public DbSet<UniformAllowanceLedger> UniformAllowanceLedgers { get; set; }
     public DbSet<PayrollBatch> PayrollBatches { get; set; }

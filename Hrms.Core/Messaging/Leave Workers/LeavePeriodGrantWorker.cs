@@ -105,8 +105,7 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
                     LeaveCreditsId = credits.Id,
                     EntryType      = LedgerEntryType.Grant,
                     EntryDate      = entryDate,
-                    Add            = credits.Granted,
-                    Less           = 0m,
+                    Amount         = credits.Granted,
                     Balance        = credits.Balance,
                     Particulars    = $"Period grant — {leave.Description} {year}",
                 });

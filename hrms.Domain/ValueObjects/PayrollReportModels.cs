@@ -60,18 +60,30 @@ public class CashBondReportModel
     public string EmployeeNo { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public decimal CashBondRate { get; set; }
+    // Net of manual entries (CashBondAdjustment) -- e.g. the opening balance from before this system.
+    public decimal Adjustments { get; set; }
+    public decimal CollectedFromPayroll { get; set; }
+    // Adjustments + CollectedFromPayroll.
     public decimal TotalCollected { get; set; }
     public int PayrollRunsCount { get; set; }
 }
 
 // "My Cash Bond" (employee portal) -- same TotalCollected concept as CashBondReportModel, plus
-// the actual list of payroll runs that contributed to it. See
+// the payroll runs and manual entries that make it up. See
 // PayrollReportService.GetMyCashBondAsync / MeController.GetMyCashBond.
 public class MyCashBondModel
 {
     public decimal CashBondRate { get; set; }
     public decimal TotalCollected { get; set; }
     public List<MyCashBondRunModel> Runs { get; set; } = new();
+    public List<MyCashBondAdjustmentModel> Adjustments { get; set; } = new();
+}
+public class MyCashBondAdjustmentModel
+{
+    public DateOnly EntryDate { get; set; }
+    // Signed: positive adds to the total, negative removes from it.
+    public decimal Amount { get; set; }
+    public string Particulars { get; set; } = string.Empty;
 }
 public class MyCashBondRunModel
 {
@@ -164,8 +176,8 @@ public class LeaveCreditsBalanceModel
 }
 
 // One row per RetirementLedger entry (a true transaction log, unlike LeaveCreditsBalanceModel/
-// DeductionLedgerModel above which are current-balance snapshots) — every accrual (Add) and
-// payout (Less) ever posted against an employee's RetirementFund, in chronological order. See
+// DeductionLedgerModel above which are current-balance snapshots) — every accrual (+Amount) and
+// payout (−Amount) ever posted against an employee's RetirementFund, in chronological order. See
 // PayrollReportService.GetRetirementLedgerAsync.
 public class RetirementLedgerModel
 {
@@ -175,8 +187,8 @@ public class RetirementLedgerModel
     public string EntryType { get; set; } = string.Empty;
     public Guid? PayrollId { get; set; }
     public DateOnly EntryDate { get; set; }
-    public decimal Add { get; set; }
-    public decimal Less { get; set; }
+    // Signed: + accrual/added, − payout/removed.
+    public decimal Amount { get; set; }
     public decimal Balance { get; set; }
     public string Particulars { get; set; } = string.Empty;
 }
@@ -192,8 +204,8 @@ public class UniformAllowanceLedgerModel
     public string FullName { get; set; } = string.Empty;
     public string EntryType { get; set; } = string.Empty;
     public DateOnly EntryDate { get; set; }
-    public decimal Add { get; set; }
-    public decimal Less { get; set; }
+    // Signed: + accrual/added, − release/removed.
+    public decimal Amount { get; set; }
     public decimal Balance { get; set; }
     public string Particulars { get; set; } = string.Empty;
 }

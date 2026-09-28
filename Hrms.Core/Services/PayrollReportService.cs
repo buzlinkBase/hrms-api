@@ -108,33 +108,45 @@ public class PayrollReportService : BaseService<Payroll>
         }).OrderBy(x => x.FullName).ToList();
     }
 
-    // Cash Bond tracking — one row per employee, summing every posted payroll run's
-    // CashBondDeduction (see CashBondDeductionPolicy) up to asOf, alongside the employee's
-    // current per-run rate for reference. Optionally scoped to a subset of employees (used by
-    // LastPayrollService's informational status line).
+    // Cash Bond tracking — one row per employee: every posted payroll run's CashBondDeduction
+    // (see CashBondDeductionPolicy) up to asOf, plus manual entries (CashBondAdjustment, e.g. the
+    // opening balance from before this system) dated up to asOf, alongside the employee's current
+    // per-run rate. Optionally scoped to a subset of employees (used by LastPayrollService's
+    // informational status line, which therefore counts the opening balance too).
     public async Task<List<CashBondReportModel>> GetCashBondReportAsync(DateOnly asOf, CancellationToken token, List<Guid>? employeeIds = null)
     {
-        var rows = await Context.Payrolls.AsNoTracking()
+        var fromPayroll = await Context.Payrolls.AsNoTracking()
             .Where(x => x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf
                 && (employeeIds == null || employeeIds.Contains(x.EmployeeId)))
             .GroupBy(x => x.EmployeeId)
-            .Select(g => new { EmployeeId = g.Key, TotalCollected = g.Sum(x => x.CashBondDeduction), RunsCount = g.Count() })
-            .ToListAsync(token);
-        if (rows.Count == 0) return [];
+            .Select(g => new { EmployeeId = g.Key, Collected = g.Sum(x => x.CashBondDeduction), RunsCount = g.Count() })
+            .ToDictionaryAsync(x => x.EmployeeId, token);
+        var adjustments = await Context.CashBondAdjustments.AsNoTracking()
+            .Where(x => x.EntryDate <= asOf && (employeeIds == null || employeeIds.Contains(x.EmployeeId)))
+            .GroupBy(x => x.EmployeeId)
+            .Select(g => new { EmployeeId = g.Key, Net = g.Sum(x => x.Amount) })
+            .ToDictionaryAsync(x => x.EmployeeId, x => x.Net, token);
 
-        var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
+        var ids = fromPayroll.Keys.Union(adjustments.Keys).ToList();
+        if (ids.Count == 0) return [];
+        var employeeMap = await LoadEmployeeMapAsync(ids, token);
 
-        return rows.Select(r =>
+        return ids.Select(id =>
         {
-            employeeMap.TryGetValue(r.EmployeeId, out var e);
+            employeeMap.TryGetValue(id, out var e);
+            fromPayroll.TryGetValue(id, out var payroll);
+            var collected = payroll?.Collected ?? 0m;
+            var adjusted = adjustments.GetValueOrDefault(id);
             return new CashBondReportModel
             {
-                EmployeeId = r.EmployeeId,
+                EmployeeId = id,
                 EmployeeNo = e?.EmployeeNo ?? "",
                 FullName = e.FullName(),
                 CashBondRate = e?.CashBond ?? 0,
-                TotalCollected = r.TotalCollected,
-                PayrollRunsCount = r.RunsCount,
+                Adjustments = adjusted,
+                CollectedFromPayroll = collected,
+                TotalCollected = adjusted + collected,
+                PayrollRunsCount = payroll?.RunsCount ?? 0,
             };
         })
         .OrderBy(x => x.FullName)
@@ -142,7 +154,7 @@ public class PayrollReportService : BaseService<Payroll>
     }
 
     // "My Cash Bond" (employee portal) — same source as GetCashBondReportAsync, scoped to one
-    // employee, plus the actual contributing payroll runs for the expandable breakdown.
+    // employee, plus the payroll runs and manual entries that make up the total.
     public async Task<MyCashBondModel> GetMyCashBondAsync(Guid employeeId, CancellationToken token)
     {
         var employee = await _employeeService.FineOneAsync(employeeId, token);
@@ -157,13 +169,56 @@ public class PayrollReportService : BaseService<Payroll>
                 Amount = x.CashBondDeduction,
             })
             .ToListAsync(token);
+        var adjustments = await Context.CashBondAdjustments.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId)
+            .OrderByDescending(x => x.EntryDate)
+            .Select(x => new MyCashBondAdjustmentModel
+            {
+                EntryDate = x.EntryDate,
+                Amount = x.Amount,
+                Particulars = x.Particulars,
+            })
+            .ToListAsync(token);
 
         return new MyCashBondModel
         {
             CashBondRate = employee?.CashBond ?? 0,
-            TotalCollected = runs.Sum(x => x.Amount),
+            TotalCollected = runs.Sum(x => x.Amount) + adjustments.Sum(x => x.Amount),
             Runs = runs,
+            Adjustments = adjustments,
         };
+    }
+
+    // Manual HR entry against an employee's cash bond collected total -- typically the opening
+    // balance of cash bond deducted before this system was adopted. An additive delta +
+    // direction, like PayrollService.AdjustRetirementBalanceAsync; a removal is clamped to what
+    // has been collected so far, so the total never goes negative.
+    public async Task AdjustCashBondAsync(
+        Guid employeeId, decimal amount, bool isAddition, string particulars, DateOnly entryDate, CancellationToken token)
+    {
+        if (amount <= 0)
+            throw new InvalidOperationException("Amount must be greater than zero.");
+        if (!await _uow.Repository.FindAll<Employee>().AnyAsync(x => x.Id == employeeId, token))
+            throw new NotFoundException("Employee not found.");
+
+        var less = 0m;
+        if (!isAddition)
+        {
+            var collected = (await GetCashBondReportAsync(DateOnly.MaxValue, token, [employeeId]))
+                .SingleOrDefault()?.TotalCollected ?? 0m;
+            less = Math.Min(amount, Math.Max(collected, 0m));
+            if (less <= 0)
+                throw new InvalidOperationException("This employee has no cash bond collected to remove.");
+        }
+
+        Context.CashBondAdjustments.Add(new CashBondAdjustment
+        {
+            EmployeeId = employeeId,
+            EntryDate = entryDate,
+            Amount = isAddition ? amount : -less,
+            Particulars = particulars.Trim(),
+        });
+        await CommitChangesAsync(token);
     }
 
     // Leave credits balances — LeaveCredits already holds the authoritative per-employee,
@@ -227,8 +282,7 @@ public class PayrollReportService : BaseService<Payroll>
                 EntryType = r.EntryType.ToString(),
                 PayrollId = r.PayrollId,
                 EntryDate = r.EntryDate,
-                Add = r.Add,
-                Less = r.Less,
+                Amount = r.Amount,
                 Balance = r.Balance,
                 Particulars = r.Particulars,
             };
@@ -256,8 +310,7 @@ public class PayrollReportService : BaseService<Payroll>
                 FullName = e.FullName(),
                 EntryType = r.EntryType.ToString(),
                 EntryDate = r.EntryDate,
-                Add = r.Add,
-                Less = r.Less,
+                Amount = r.Amount,
                 Balance = r.Balance,
                 Particulars = r.Particulars,
             };

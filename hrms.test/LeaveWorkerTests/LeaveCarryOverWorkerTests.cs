@@ -47,7 +47,7 @@ public class LeaveCarryOverWorkerTests : LeaveWorkerTestBase
         addedCredits.Should().BeEmpty();
         addedLedgers.Should().ContainSingle();
         addedLedgers[0].EntryType.Should().Be(LedgerEntryType.Expiry);
-        addedLedgers[0].Less.Should().Be(10m);
+        addedLedgers[0].Amount.Should().Be(-10m);
         addedLedgers[0].EntryDate.Should().Be(CloseDate);
     }
 
@@ -75,7 +75,7 @@ public class LeaveCarryOverWorkerTests : LeaveWorkerTestBase
 
         addedLedgers.Should().ContainSingle();
         addedLedgers[0].EntryType.Should().Be(LedgerEntryType.CarryOver);
-        addedLedgers[0].Add.Should().Be(10m);
+        addedLedgers[0].Amount.Should().Be(10m);
         addedLedgers[0].LeaveCreditsId.Should().Be(addedCredits[0].Id);
     }
 
@@ -98,8 +98,8 @@ public class LeaveCarryOverWorkerTests : LeaveWorkerTestBase
         addedCredits[0].Granted.Should().Be(6m);
 
         addedLedgers.Should().HaveCount(2);
-        addedLedgers.Should().Contain(l => l.EntryType == LedgerEntryType.Expiry && l.Less == 4m);
-        addedLedgers.Should().Contain(l => l.EntryType == LedgerEntryType.CarryOver && l.Add == 6m);
+        addedLedgers.Should().Contain(l => l.EntryType == LedgerEntryType.Expiry && l.Amount == -4m);
+        addedLedgers.Should().Contain(l => l.EntryType == LedgerEntryType.CarryOver && l.Amount == 6m);
     }
 
     [Fact]

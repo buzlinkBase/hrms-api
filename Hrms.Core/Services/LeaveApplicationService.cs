@@ -395,8 +395,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             LeaveId                = app.LeaveId,
             EntryType              = LedgerEntryType.Reserved,
             EntryDate              = DateOnly.FromDateTime(DateTime.UtcNow),
-            Less                   = (decimal)days,
-            Add                    = 0m,
+            Amount                 = -(decimal)days,
             Balance                = credits.Balance,
             Particulars            = $"Leave approved — reserved {days:0.##} day(s) pending DTR confirmation ({app.LeaveDateFrom:MMM dd}–{app.LeaveDateTo:MMM dd, yyyy})",
             LeaveCreditsId         = credits.Id,
@@ -425,19 +424,13 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
         if (credits == null) return;
 
-        var reservedSum = await _uow.Repository
+        // Still held = what was reserved (negative entries) minus what was released (positive
+        // entries): −Σ Amount over both.
+        var netReserved = -await _uow.Repository
             .Find<LeaveLedger>(x =>
                 x.ReferenceApplicationId == app.Id &&
-                x.EntryType              == LedgerEntryType.Reserved)
-            .SumAsync(x => x.Less, token);
-
-        var releasedSum = await _uow.Repository
-            .Find<LeaveLedger>(x =>
-                x.ReferenceApplicationId == app.Id &&
-                x.EntryType              == LedgerEntryType.Released)
-            .SumAsync(x => x.Add, token);
-
-        var netReserved = reservedSum - releasedSum;
+                (x.EntryType == LedgerEntryType.Reserved || x.EntryType == LedgerEntryType.Released))
+            .SumAsync(x => x.Amount, token);
 
         if (netReserved > 0)
         {
@@ -449,8 +442,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
                 LeaveId                = app.LeaveId,
                 EntryType              = LedgerEntryType.Released,
                 EntryDate              = DateOnly.FromDateTime(DateTime.UtcNow),
-                Add                    = netReserved,
-                Less                   = 0m,
+                Amount                 = netReserved,
                 Balance                = credits.Balance,
                 Particulars            = $"Reservation released — leave {reason}",
                 LeaveCreditsId         = credits.Id,

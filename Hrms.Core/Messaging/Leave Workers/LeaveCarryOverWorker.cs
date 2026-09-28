@@ -101,8 +101,7 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
                     LeaveCreditsId = credit.Id,
                     EntryType      = LedgerEntryType.Expiry,
                     EntryDate      = closeDate,
-                    Add            = 0m,
-                    Less           = expiryAmount,
+                    Amount         = -expiryAmount,
                     Balance        = credit.Balance,
                     Particulars    = $"Year-end expiry — {leave.Description} {fromYear}",
                 });
@@ -133,8 +132,7 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
                     LeaveCreditsId = nextCredits.Id,
                     EntryType      = LedgerEntryType.CarryOver,
                     EntryDate      = DateOnly.FromDateTime(nextStart),
-                    Add            = carryAmount,
-                    Less           = 0m,
+                    Amount         = carryAmount,
                     Balance        = carryAmount,
                     Particulars    = $"Carry-over from {fromYear} — {leave.Description}",
                 });

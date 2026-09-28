@@ -39,7 +39,7 @@ public class LeaveAccrualWorkerTests : LeaveWorkerTestBase
         credit.Balance.Should().Be(11.5m);
         addedLedgers.Should().ContainSingle();
         addedLedgers[0].EntryType.Should().Be(LedgerEntryType.Accrual);
-        addedLedgers[0].Add.Should().Be(1.5m);
+        addedLedgers[0].Amount.Should().Be(1.5m);
         addedLedgers[0].LeaveCreditsId.Should().Be(credit.Id);
     }
 
@@ -116,7 +116,7 @@ public class LeaveAccrualWorkerTests : LeaveWorkerTestBase
 
         credit.Balance.Should().Be(11m);
         addedLedgers.Should().ContainSingle();
-        addedLedgers[0].Add.Should().Be(1m); // capped, not the full 3
+        addedLedgers[0].Amount.Should().Be(1m); // capped, not the full 3
     }
 
     [Fact]

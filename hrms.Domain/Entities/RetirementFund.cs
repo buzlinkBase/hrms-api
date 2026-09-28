@@ -27,7 +27,7 @@ public enum RetirementLedgerEntryType
 }
 
 // Append-only audit trail of every accrual/payout/adjustment against a RetirementFund, mirroring
-// LeaveLedger's Add/Less shape.
+// LeaveLedger's signed-Amount shape.
 public class RetirementLedger : BaseEntity
 {
     public Guid EmployeeId { get; set; }
@@ -40,8 +40,8 @@ public class RetirementLedger : BaseEntity
     public Guid? PayrollId { get; set; }
     public virtual Payroll? Payroll { get; set; }
     public DateOnly EntryDate { get; set; }
-    public decimal Add { get; set; }
-    public decimal Less { get; set; }
+    // Signed pesos: + accrual / adjustment added, − payout / adjustment removed.
+    public decimal Amount { get; set; }
     public decimal Balance { get; set; }   // running balance after this entry
     public string Particulars { get; set; } = string.Empty;
 }

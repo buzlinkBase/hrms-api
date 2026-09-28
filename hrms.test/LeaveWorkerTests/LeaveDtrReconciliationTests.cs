@@ -55,7 +55,7 @@ public class LeaveDtrReconciliationTests
         seed.LeaveLedgers.Add(new LeaveLedger
         {
             Id = Guid.NewGuid(), EmployeeId = employee.Id, LeaveId = leave.Id, LeaveCreditsId = credits.Id,
-            EntryType = LedgerEntryType.Reserved, EntryDate = Jan5, Less = 2m, Balance = 10m,
+            EntryType = LedgerEntryType.Reserved, EntryDate = Jan5, Amount = -2m, Balance = 10m,
             ReferenceApplicationId = app.Id, Particulars = "Leave approved",
         });
 
@@ -102,7 +102,7 @@ public class LeaveDtrReconciliationTests
         await using var verify = db.NewContext();
         var entries = await verify.LeaveLedgers.AsNoTracking().Where(x => x.LeaveCreditsId == s.CreditsId).ToListAsync();
         var credits = await verify.LeaveCredits.AsNoTracking().SingleAsync(x => x.Id == s.CreditsId);
-        entries.Sum(x => x.Add - x.Less).Should().Be(-(credits.Used + credits.Reserved));
+        entries.Sum(x => x.Amount).Should().Be(-(credits.Used + credits.Reserved));
     }
 
     [Fact]
@@ -314,13 +314,13 @@ public class LeaveDtrReconciliationTests
                 new LeaveLedger
                 {
                     Id = Guid.NewGuid(), EmployeeId = s.EmployeeId, LeaveId = s.LeaveId, LeaveCreditsId = s.CreditsId,
-                    EntryType = LedgerEntryType.Released, EntryDate = Jan5, Add = 2m, Balance = 10m,
+                    EntryType = LedgerEntryType.Released, EntryDate = Jan5, Amount = 2m, Balance = 10m,
                     ReferenceApplicationId = s.ApplicationId, DtrBatchCode = BatchA, Particulars = "released",
                 },
                 new LeaveLedger
                 {
                     Id = Guid.NewGuid(), EmployeeId = s.EmployeeId, LeaveId = s.LeaveId, LeaveCreditsId = s.CreditsId,
-                    EntryType = LedgerEntryType.Deduction, EntryDate = Jan5, Less = 8m, Balance = 2m,
+                    EntryType = LedgerEntryType.Deduction, EntryDate = Jan5, Amount = -8m, Balance = 2m,
                     ReferenceApplicationId = s.ApplicationId, DtrBatchCode = BatchA, Particulars = "old deduction",
                 });
             await seed.SaveChangesAsync();
@@ -355,7 +355,7 @@ public class LeaveDtrReconciliationTests
             seed.LeaveLedgers.Add(new LeaveLedger
             {
                 Id = Guid.NewGuid(), EmployeeId = s.EmployeeId, LeaveId = s.LeaveId, LeaveCreditsId = s.CreditsId,
-                EntryType = LedgerEntryType.Deduction, EntryDate = Jan5, Less = 1m, Balance = 9m,
+                EntryType = LedgerEntryType.Deduction, EntryDate = Jan5, Amount = -1m, Balance = 9m,
                 ReferenceApplicationId = s.ApplicationId, DtrBatchCode = "DTR-deleted", Particulars = "orphan",
             });
             await seed.SaveChangesAsync();

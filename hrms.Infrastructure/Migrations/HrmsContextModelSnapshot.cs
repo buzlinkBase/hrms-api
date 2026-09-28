@@ -500,6 +500,50 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("Branches");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.CashBondAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Particulars")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("CashBondAdjustments");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.ChangeHoliday", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3388,7 +3432,7 @@ namespace Hrms.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<decimal>("Add")
+                    b.Property<decimal>("Amount")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
@@ -3421,10 +3465,6 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<Guid>("LeaveId")
                         .HasColumnType("char(36)");
-
-                    b.Property<decimal>("Less")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("Particulars")
                         .IsRequired()
@@ -5285,7 +5325,7 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<decimal>("Add")
+                    b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("Balance")
@@ -5306,9 +5346,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<string>("EntryType")
                         .IsRequired()
                         .HasColumnType("longtext");
-
-                    b.Property<decimal>("Less")
-                        .HasColumnType("decimal(65,30)");
 
                     b.Property<string>("Particulars")
                         .IsRequired()
@@ -5916,7 +5953,7 @@ namespace Hrms.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<decimal>("Add")
+                    b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("Balance")
@@ -5937,9 +5974,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<string>("EntryType")
                         .IsRequired()
                         .HasColumnType("longtext");
-
-                    b.Property<decimal>("Less")
-                        .HasColumnType("decimal(65,30)");
 
                     b.Property<string>("Particulars")
                         .IsRequired()
@@ -6495,6 +6529,17 @@ namespace Hrms.Infrastructure.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("OperationArea");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.CashBondAdjustment", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ChangeHoliday", b =>

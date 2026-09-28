@@ -81,13 +81,13 @@ public class LeaveDtrReconciliationService
             if (release > 0)
             {
                 credits.Reserved -= release;
-                AddEntry(credits, app, LedgerEntryType.Released, today, add: release, less: 0m,
+                AddEntry(credits, app, LedgerEntryType.Released, today, amount: release,
                     $"Reservation released — DTR batch {batchCode}", batchCode);
             }
 
             credits.Used    += days;
             credits.Balance -= days;
-            AddEntry(credits, app, LedgerEntryType.Deduction, today, add: 0m, less: days,
+            AddEntry(credits, app, LedgerEntryType.Deduction, today, amount: -days,
                 $"DTR-confirmed leave deduction — {app.LeaveDateFrom:MMM dd} to {app.LeaveDateTo:MMM dd, yyyy} (batch {batchCode})",
                 batchCode);
 
@@ -126,19 +126,21 @@ public class LeaveDtrReconciliationService
             credits.Used    -= net;
             credits.Balance += net;
             AddEntry(credits, first.EmployeeId, first.LeaveId, group.Key.AppId, LedgerEntryType.Reversal, today,
-                add: net, less: 0m, $"Reversal — DTR batch {batchCode} unposted/deleted", batchCode);
+                amount: net, $"Reversal — DTR batch {batchCode} unposted/deleted", batchCode);
 
             // Still approved (and not deleted): the leave goes back to waiting for a DTR, so its
             // hold returns — the amount this batch released, falling back to the days consumed.
             if (app is { ApprovalStatus: ApprovalStatus.Approved })
             {
-                var releasedByBatch = group.Where(x => x.EntryType == LedgerEntryType.Released).Sum(x => x.Add)
-                                    - group.Where(x => x.EntryType == LedgerEntryType.Reserved).Sum(x => x.Less);
+                // Net released by this batch: released (+) plus any earlier re-reserve (−).
+                var releasedByBatch = group
+                    .Where(x => x.EntryType is LedgerEntryType.Released or LedgerEntryType.Reserved)
+                    .Sum(x => x.Amount);
                 var reserveBack = releasedByBatch > 0 ? releasedByBatch : net;
 
                 credits.Reserved += reserveBack;
                 AddEntry(credits, first.EmployeeId, first.LeaveId, group.Key.AppId, LedgerEntryType.Reserved, today,
-                    add: 0m, less: reserveBack, $"Re-reserved — DTR batch {batchCode} unposted/deleted", batchCode);
+                    amount: -reserveBack, $"Re-reserved — DTR batch {batchCode} unposted/deleted", batchCode);
             }
 
             _logger.LogInformation(
@@ -171,7 +173,7 @@ public class LeaveDtrReconciliationService
 
             credits.Used    -= net;
             credits.Balance += net;
-            AddEntry(credits, app, LedgerEntryType.Reversal, today, add: net, less: 0m,
+            AddEntry(credits, app, LedgerEntryType.Reversal, today, amount: net,
                 $"Leave {reason} — reversal of DTR-confirmed {net:0.##} day(s) (batch {group.Key.Batch})", group.Key.Batch);
 
             _logger.LogInformation(
@@ -235,8 +237,8 @@ public class LeaveDtrReconciliationService
             .GroupBy(x => (x.ReferenceApplicationId, x.LeaveCreditsId));
         foreach (var group in stale)
         {
-            var held = group.Where(x => x.EntryType == LedgerEntryType.Reserved).Sum(x => x.Less)
-                     - group.Where(x => x.EntryType == LedgerEntryType.Released).Sum(x => x.Add);
+            // Reserved rows are negative, Released positive: what's still held is minus their sum.
+            var held = -group.Sum(x => x.Amount);
             if (held < 0.01m) continue;
 
             var first = group.First();
@@ -258,8 +260,7 @@ public class LeaveDtrReconciliationService
                 LeaveCreditsId         = credits.Id,
                 EntryType              = LedgerEntryType.Released,
                 EntryDate              = today,
-                Add                    = held,
-                Less                   = 0m,
+                Amount                 = held,
                 Balance                = credits.Balance,
                 Particulars            = "Reservation released — leave no longer active (repair)",
                 ReferenceApplicationId = group.Key.ReferenceApplicationId,
@@ -330,7 +331,7 @@ public class LeaveDtrReconciliationService
             credits.Used    += delta;
             credits.Balance -= delta;
             AddEntry(credits, first.EmployeeId, first.LeaveId, group.Key.AppId, LedgerEntryType.DtrCorrection, today,
-                add: delta < 0 ? -delta : 0m, less: delta > 0 ? delta : 0m,
+                amount: -delta,
                 $"DTR correction — batch {group.Key.Batch}: {current:0.##} → {correct:0.##} day(s)", group.Key.Batch);
         }
 
@@ -407,22 +408,12 @@ public class LeaveDtrReconciliationService
             .AsNoTracking()
             .ToListAsync(token);
 
-    // What a batch currently consumes for one application.
-    internal static decimal NetConsumed(IEnumerable<LeaveLedger> batchEntries)
-    {
-        decimal net = 0m;
-        foreach (var e in batchEntries)
-        {
-            net += e.EntryType switch
-            {
-                LedgerEntryType.Deduction     => e.Less,
-                LedgerEntryType.Reversal      => -e.Add,
-                LedgerEntryType.DtrCorrection => e.Less - e.Add,
-                _                             => 0m,
-            };
-        }
-        return net;
-    }
+    // What a batch currently consumes for one application: minus the signed sum of its
+    // Deduction (−), Reversal (+) and DtrCorrection (±) rows.
+    internal static decimal NetConsumed(IEnumerable<LeaveLedger> batchEntries) =>
+        -batchEntries
+            .Where(e => e.EntryType is LedgerEntryType.Deduction or LedgerEntryType.Reversal or LedgerEntryType.DtrCorrection)
+            .Sum(e => e.Amount);
 
     private async Task<decimal> NetReservedAsync(Guid appId, CancellationToken token)
     {
@@ -432,8 +423,8 @@ public class LeaveDtrReconciliationService
                 (x.EntryType == LedgerEntryType.Reserved || x.EntryType == LedgerEntryType.Released))
             .AsNoTracking()
             .ToListAsync(token);
-        return entries.Where(x => x.EntryType == LedgerEntryType.Reserved).Sum(x => x.Less)
-             - entries.Where(x => x.EntryType == LedgerEntryType.Released).Sum(x => x.Add);
+        // Reserved rows are negative, Released positive.
+        return -entries.Sum(x => x.Amount);
     }
 
     private Task<LeaveCredits?> FindCreditsAsync(LeaveApplication app, CancellationToken token) =>
@@ -445,11 +436,11 @@ public class LeaveDtrReconciliationService
             .FirstOrDefaultAsync(token);
 
     private void AddEntry(LeaveCredits credits, LeaveApplication app, LedgerEntryType type, DateOnly date,
-        decimal add, decimal less, string particulars, string batchCode) =>
-        AddEntry(credits, app.EmployeeId, app.LeaveId, app.Id, type, date, add, less, particulars, batchCode);
+        decimal amount, string particulars, string batchCode) =>
+        AddEntry(credits, app.EmployeeId, app.LeaveId, app.Id, type, date, amount, particulars, batchCode);
 
     private void AddEntry(LeaveCredits credits, Guid employeeId, Guid leaveId, Guid appId, LedgerEntryType type,
-        DateOnly date, decimal add, decimal less, string particulars, string batchCode) =>
+        DateOnly date, decimal amount, string particulars, string batchCode) =>
         _uow.Repository.Add(new LeaveLedger
         {
             Id                     = Guid.NewGuid(),
@@ -458,8 +449,7 @@ public class LeaveDtrReconciliationService
             LeaveCreditsId         = credits.Id,
             EntryType              = type,
             EntryDate              = date,
-            Add                    = add,
-            Less                   = less,
+            Amount                 = amount,
             Balance                = credits.Balance,
             Particulars            = particulars,
             ReferenceApplicationId = appId,

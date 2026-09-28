@@ -4,6 +4,8 @@
     "EmployeeNo": "",
     "FullName": "",
     "CashBondRate": 0,
+    "Adjustments": 0,
+    "CollectedFromPayroll": 126,
     "TotalCollected": 126,
     "PayrollRunsCount": 1
   },
@@ -12,6 +14,8 @@
     "EmployeeNo": "E-001",
     "FullName": "Alpha, Ana Jr Maria",
     "CashBondRate": 100,
+    "Adjustments": 0,
+    "CollectedFromPayroll": 294,
     "TotalCollected": 294,
     "PayrollRunsCount": 6
   },
@@ -20,6 +24,8 @@
     "EmployeeNo": "E-002",
     "FullName": "Bravo, Ben  Bautista",
     "CashBondRate": 0,
+    "Adjustments": 0,
+    "CollectedFromPayroll": 350,
     "TotalCollected": 350,
     "PayrollRunsCount": 3
   }

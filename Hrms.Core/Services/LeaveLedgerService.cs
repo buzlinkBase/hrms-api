@@ -108,8 +108,7 @@ public class LeaveLedgerService : BaseService<LeaveLedger>
             LeaveCreditsId = credits.Id,
             EntryType = LedgerEntryType.Adjustment,
             EntryDate = DateOnly.FromDateTime(DateTime.UtcNow),
-            Add = delta > 0 ? delta : 0m,
-            Less = delta < 0 ? -delta : 0m,
+            Amount = delta,
             Balance = credits.Balance,
             Particulars = particulars,
         }, token);
@@ -198,7 +197,7 @@ public class LeaveLedgerService : BaseService<LeaveLedger>
         return await GetQueryable()
              .Where(x => employeeIds.Contains(x.EmployeeId))
              .GroupBy(x => new EmployeeLeaveCreditsKey(x.EmployeeId, x.LeaveId))
-             .ToDictionaryAsync(x => x.Key, x => x.Sum(x => x.Add - x.Less), token)
+             .ToDictionaryAsync(x => x.Key, x => x.Sum(x => x.Amount), token)
              ;
     }
 
