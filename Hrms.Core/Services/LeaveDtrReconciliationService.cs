@@ -185,7 +185,91 @@ public class LeaveDtrReconciliationService
     // writes a DtrCorrection for the difference. Re-running is a no-op — corrections are part of
     // the net it compares against. A batch whose DTR rows are gone (deleted before deletion
     // rolled back the ledger) should consume 0, so its leftover deduction is reversed too.
+    // Also releases reservations still held by leaves that no longer count (see
+    // ReleaseStaleReservationsAsync).
     public async Task<List<LeaveDtrRepairLine>> RepairPostedDeductionsAsync(int year, bool dryRun, CancellationToken token)
+    {
+        var lines = await RepairBatchDeductionsAsync(year, dryRun, token);
+        lines.AddRange(await ReleaseStaleReservationsAsync(year, dryRun, token));
+
+        if (!dryRun && lines.Any(l => Math.Abs(l.Delta) >= 0.01m))
+            await _uow.CommitChangesAsync("", token);
+
+        return lines;
+    }
+
+    /// <summary>BatchCode of the repair lines that release a stale reservation.</summary>
+    public const string ReservationRepairBatchCode = "Reservation";
+
+    // Leaves deleted before deletion gave credits back still hold their approval-time
+    // reservation: a hard delete nulled their ledger rows' ReferenceApplicationId (SetNull), a
+    // soft delete skipped the release. Any Reserved − Released still outstanding for something
+    // other than an approved, not-deleted application is released here, per credits row.
+    private async Task<List<LeaveDtrRepairLine>> ReleaseStaleReservationsAsync(int year, bool dryRun, CancellationToken token)
+    {
+        var entries = await _uow.Repository
+            .Find<LeaveLedger>(x =>
+                x.LeaveCredits.PeriodYear == year &&
+                (x.EntryType == LedgerEntryType.Reserved || x.EntryType == LedgerEntryType.Released))
+            .AsNoTracking()
+            .ToListAsync(token);
+        if (entries.Count == 0) return [];
+
+        var referencedIds = entries
+            .Where(x => x.ReferenceApplicationId != null)
+            .Select(x => x.ReferenceApplicationId!.Value)
+            .ToHashSet();
+        // The global soft-delete filter leaves deleted applications out.
+        var liveIds = (await _uow.Repository
+            .Find<LeaveApplication>(x => referencedIds.Contains(x.Id) && x.ApprovalStatus == ApprovalStatus.Approved)
+            .AsNoTracking()
+            .Select(x => x.Id)
+            .ToListAsync(token))
+            .ToHashSet();
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var lines = new List<LeaveDtrRepairLine>();
+
+        var stale = entries
+            .Where(x => x.ReferenceApplicationId is not { } id || !liveIds.Contains(id))
+            .GroupBy(x => (x.ReferenceApplicationId, x.LeaveCreditsId));
+        foreach (var group in stale)
+        {
+            var held = group.Where(x => x.EntryType == LedgerEntryType.Reserved).Sum(x => x.Less)
+                     - group.Where(x => x.EntryType == LedgerEntryType.Released).Sum(x => x.Add);
+            if (held < 0.01m) continue;
+
+            var first = group.First();
+            lines.Add(new LeaveDtrRepairLine(first.EmployeeId, first.LeaveId, ReservationRepairBatchCode,
+                group.Key.ReferenceApplicationId ?? Guid.Empty, held, 0m, -held));
+            if (dryRun) continue;
+
+            var credits = await _uow.Repository
+                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
+                .FirstOrDefaultAsync(token);
+            if (credits == null) continue;
+
+            credits.Reserved = Math.Max(0m, credits.Reserved - held);
+            _uow.Repository.Add(new LeaveLedger
+            {
+                Id                     = Guid.NewGuid(),
+                EmployeeId             = first.EmployeeId,
+                LeaveId                = first.LeaveId,
+                LeaveCreditsId         = credits.Id,
+                EntryType              = LedgerEntryType.Released,
+                EntryDate              = today,
+                Add                    = held,
+                Less                   = 0m,
+                Balance                = credits.Balance,
+                Particulars            = "Reservation released — leave no longer active (repair)",
+                ReferenceApplicationId = group.Key.ReferenceApplicationId,
+            });
+        }
+
+        return lines;
+    }
+
+    private async Task<List<LeaveDtrRepairLine>> RepairBatchDeductionsAsync(int year, bool dryRun, CancellationToken token)
     {
         var entries = await _uow.Repository
             .Find<LeaveLedger>(x =>
@@ -249,9 +333,6 @@ public class LeaveDtrReconciliationService
                 add: delta < 0 ? -delta : 0m, less: delta > 0 ? delta : 0m,
                 $"DTR correction — batch {group.Key.Batch}: {current:0.##} → {correct:0.##} day(s)", group.Key.Batch);
         }
-
-        if (!dryRun && lines.Any(l => Math.Abs(l.Delta) >= 0.01m))
-            await _uow.CommitChangesAsync("", token);
 
         return lines;
     }

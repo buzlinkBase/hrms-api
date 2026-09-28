@@ -1,4 +1,5 @@
 ﻿using Hrms.Core.Messaging.LeaveWorkers;
+using Hrms.Core.Services.Applications;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
@@ -498,6 +499,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
     }
     // Deleting an approved leave must stop it consuming credits, exactly like cancelling it:
     // release/reverse what it holds and unpost its posted DTR days so they get re-run without it.
+    // Refused while a saved DTR still includes its days (see SavedDtrDeletionPolicy), so in
+    // practice only the approval-time reservation is left to give back.
     public async Task Delete(Guid Id, CancellationToken token)
     {
         var existing = await Context.leaveApplications
@@ -509,6 +512,9 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             await RemoveAsync(Id, token);
             return;
         }
+
+        await SavedDtrDeletionPolicy.EnsureDeletableAsync(Context.DailyTimeRecords, existing.ApprovalStatus,
+            existing.EmployeeId, existing.LeaveDateFrom, existing.LeaveDateTo, "leave", token);
 
         if (existing.ApprovalStatus == ApprovalStatus.Approved)
         {

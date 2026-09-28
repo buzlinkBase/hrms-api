@@ -242,8 +242,28 @@ public class LeaveDtrReconciliationTests
         await AssertLedgerMatchesCreditsAsync(db, s);
     }
 
+    private static LeaveApplicationService LeaveService(IUnitOfWorkService uow) => new(
+        uow, new TypeAdapterConfig(), Substitute.For<IMapper>(), Substitute.For<IPublishEndpoint>(),
+        Substitute.For<ILogger<LeaveApplicationService>>(), DtrService(uow),
+        new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>()), Reconciliation(uow));
+
     [Fact]
-    public async Task DeletingAnApprovedLeave_AfterTwoBatchesPosted_ReversesEachBatchOnce()
+    public async Task DeletingAnApprovedLeave_WhileItsDtrIsSaved_IsRefused()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedAsync(db, (BatchA, Jan5), (BatchB, Jan6));
+        await RunAsync(db, uow => DtrService(uow).PostAsync(BatchA, CancellationToken.None));
+
+        var act = () => RunAsync(db, uow => LeaveService(uow).Delete(s.ApplicationId, CancellationToken.None));
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage($"*{BatchA}, {BatchB}*");
+        var credits = await CreditsAsync(db, s);
+        credits.Used.Should().Be(1m, "nothing is given back while the DTR still pays the leave");
+        await AssertLedgerMatchesCreditsAsync(db, s);
+    }
+
+    [Fact]
+    public async Task CancellingAnApprovedLeave_AfterTwoBatchesPosted_ReversesEachBatchOnce()
     {
         using var db = new SqliteHrmsContext();
         var s = await SeedAsync(db, (BatchA, Jan5), (BatchB, Jan6));
@@ -252,18 +272,15 @@ public class LeaveDtrReconciliationTests
 
         await RunAsync(db, async uow =>
         {
-            var leaveService = new LeaveApplicationService(
-                uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>(), Substitute.For<IPublishEndpoint>(),
-                Substitute.For<ILogger<LeaveApplicationService>>(), DtrService(uow),
-                new ApprovalEngineService(uow, Substitute.For<IPublishEndpoint>()), Reconciliation(uow));
-            await leaveService.Delete(s.ApplicationId, CancellationToken.None);
-            await leaveService.CommitChangesAsync(CancellationToken.None);
+            var app = await uow.Repository.Find<LeaveApplication>(x => x.Id == s.ApplicationId).SingleAsync();
+            await Reconciliation(uow).ReverseApplicationDeductionsAsync(app, "cancelled", CancellationToken.None);
+            await uow.CommitChangesAsync("", CancellationToken.None);
         });
 
         var credits = await CreditsAsync(db, s);
         credits.Used.Should().Be(0m);
         credits.Balance.Should().Be(10m);
-        credits.Reserved.Should().Be(0m, "a deleted leave holds nothing");
+        credits.Reserved.Should().Be(0m);
 
         await using (var verify = db.NewContext())
         {
@@ -271,7 +288,6 @@ public class LeaveDtrReconciliationTests
                 .Where(x => x.ReferenceApplicationId == s.ApplicationId && x.EntryType == LedgerEntryType.Reversal)
                 .ToListAsync();
             reversals.Select(x => x.DtrBatchCode).Should().BeEquivalentTo([BatchA, BatchB]);
-            (await verify.DailyTimeRecords.AnyAsync(x => x.Posted)).Should().BeFalse("its DTR days are unposted to be re-run without it");
         }
 
         // A later unpost of either batch has nothing left to reverse.
@@ -350,5 +366,68 @@ public class LeaveDtrReconciliationTests
         var repaired = await CreditsAsync(db, s);
         repaired.Used.Should().Be(0m);
         repaired.Balance.Should().Be(10m);
+    }
+
+    // ---- stale reservations (leaves deleted before deletion gave credits back) ----
+
+    [Fact]
+    public async Task Repair_ReleasesTheReservationOfASoftDeletedLeave_AndIsSafeToRerun()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedAsync(db); // approved, reserved 2 days, no DTR
+        await using (var edit = db.NewContext())
+        {
+            var app = await edit.leaveApplications.SingleAsync(x => x.Id == s.ApplicationId);
+            app.DeletedAt = DateTime.UtcNow; // deleted without releasing, as before the fix
+            await edit.SaveChangesAsync();
+        }
+
+        List<LeaveDtrRepairLine> preview = [];
+        await RunAsync(db, async uow => preview = await Reconciliation(uow).RepairPostedDeductionsAsync(2026, dryRun: true, CancellationToken.None));
+        preview.Should().ContainSingle().Which.Should().Match<LeaveDtrRepairLine>(l =>
+            l.BatchCode == LeaveDtrReconciliationService.ReservationRepairBatchCode && l.Delta == -2m);
+        (await CreditsAsync(db, s)).Reserved.Should().Be(2m, "a dry run writes nothing");
+
+        await RunAsync(db, uow => Reconciliation(uow).RepairPostedDeductionsAsync(2026, dryRun: false, CancellationToken.None));
+        (await CreditsAsync(db, s)).Reserved.Should().Be(0m);
+        await AssertLedgerMatchesCreditsAsync(db, s);
+
+        List<LeaveDtrRepairLine> rerun = [];
+        await RunAsync(db, async uow => rerun = await Reconciliation(uow).RepairPostedDeductionsAsync(2026, dryRun: false, CancellationToken.None));
+        rerun.Should().BeEmpty();
+        (await CreditsAsync(db, s)).Reserved.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task Repair_ReleasesAReservationWhoseLeaveWasHardDeleted()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedAsync(db);
+        await using (var edit = db.NewContext())
+        {
+            // A hard delete nulled the ledger's link (OnDelete SetNull) and removed the row.
+            var reserved = await edit.LeaveLedgers.SingleAsync(x => x.ReferenceApplicationId == s.ApplicationId);
+            reserved.ReferenceApplicationId = null;
+            edit.leaveApplications.Remove(await edit.leaveApplications.SingleAsync(x => x.Id == s.ApplicationId));
+            await edit.SaveChangesAsync();
+        }
+
+        await RunAsync(db, uow => Reconciliation(uow).RepairPostedDeductionsAsync(2026, dryRun: false, CancellationToken.None));
+
+        (await CreditsAsync(db, s)).Reserved.Should().Be(0m);
+        await AssertLedgerMatchesCreditsAsync(db, s);
+    }
+
+    [Fact]
+    public async Task Repair_LeavesTheReservationOfAStillApprovedLeaveAlone()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedAsync(db);
+
+        List<LeaveDtrRepairLine> lines = [];
+        await RunAsync(db, async uow => lines = await Reconciliation(uow).RepairPostedDeductionsAsync(2026, dryRun: false, CancellationToken.None));
+
+        lines.Should().BeEmpty();
+        (await CreditsAsync(db, s)).Reserved.Should().Be(2m);
     }
 }

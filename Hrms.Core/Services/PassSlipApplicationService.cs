@@ -1,3 +1,4 @@
+using Hrms.Core.Services.Applications;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -196,6 +197,11 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
 
     public async Task Delete(Guid id, CancellationToken token)
     {
+        var existing = await Context.PassSlipApplications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, token);
+        if (existing != null)
+            await SavedDtrDeletionPolicy.EnsureDeletableAsync(Context.DailyTimeRecords, existing.ApprovalStatus,
+                existing.EmployeeId, existing.ApplicationDate, existing.ApplicationDate, "pass slip", token);
+
         await RemoveAsync(id, token);
         await CommitChangesAsync(token);
     }

@@ -1,3 +1,4 @@
+using Hrms.Core.Services.Applications;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Mapster;
@@ -132,6 +133,11 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
 
     public async Task Delete(Guid id, CancellationToken token)
     {
+        var existing = await Context.TravelOrderApplications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, token);
+        if (existing != null)
+            await SavedDtrDeletionPolicy.EnsureDeletableAsync(Context.DailyTimeRecords, existing.ApprovalStatus,
+                existing.EmployeeId, existing.StartDate, existing.EndDate, "official business", token);
+
         await RemoveAsync(id, token);
         await CommitChangesAsync(token);
     }

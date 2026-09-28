@@ -1,4 +1,5 @@
-﻿using Hrms.Core.Services.Approvals;
+﻿using Hrms.Core.Services.Applications;
+using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Mapster;
 
@@ -115,6 +116,11 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
     }
     public async Task Delete(Guid Id, CancellationToken token)
     {
+        var existing = await Context.OTApplications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == Id, token);
+        if (existing != null)
+            await SavedDtrDeletionPolicy.EnsureDeletableAsync(Context.DailyTimeRecords, existing.ApprovalStatus,
+                existing.EmployeeId, existing.OTDate, existing.OTDate, "overtime", token);
+
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
     }
