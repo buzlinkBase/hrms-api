@@ -47,8 +47,8 @@ public static class ServiceRegistrationsExt
         builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
         builder.Services.Configure<HMacSetting>(builder.Configuration.GetSection("HMacSettings"));
         builder.Services.Configure<ApiKeySetting>(builder.Configuration.GetSection("ApiKeySettings"));
-        builder.Services.Configure<LeaveSchedulerOptions>(builder.Configuration.GetSection("LeaveScheduler"));
-        builder.Services.AddHostedService<LeaveSchedulerService>(); // fires daily, discovers tenants from Leaves.TenantId
+        // Leave carry-over/grant/accrual and uniform-allowance accrual run as the Quartz
+        // DailyBenefitsJob -- see AddHrmsQuartz (RabbitMqConfiguration).
         // Saves account <-> employee links found by email match -- see EmployeeAccountLinkService.
         builder.Services.AddSingleton<EmployeeAccountLinkQueue>();
         builder.Services.AddHostedService<EmployeeAccountLinkWorker>();

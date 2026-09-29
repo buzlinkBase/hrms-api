@@ -5,11 +5,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Hrms.Core.Messaging.LeaveWorkers;
 
-// Runs on Dec 31. Applies each leave type's CarryOverType policy to the closing year's
-// balances, writes CarryOver/Expiry ledger entries, and creates the next year's credit records.
+// Runs on the first day of the new fiscal year, before that year's period grant (see
+// DailyBenefitsWorker) -- so the closing year's balance is final, not a snapshot taken while its
+// last day is still being worked. Applies each leave type's CarryOverType policy to the closing
+// year's balances and writes CarryOver/Expiry ledger entries. Carried days go into the next
+// year's credit record, which is created if missing or topped up if something (e.g. the accrual
+// opener) already created it.
 //
-// Idempotency: pre-checks for existing next-year credit records and existing Expiry ledger
-// entries to skip employees already processed. Catches duplicate-key exceptions as a last resort.
+// Idempotency: an Expiry entry dated the closing day marks a credit's expiry as done; a CarryOver
+// entry dated the next period's first day marks that employee+leave's carry as done. A re-run
+// skips whatever is already done. Duplicate-key exceptions are the last resort.
 public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
 {
     private readonly IUnitOfWorkService _uow;
@@ -21,15 +26,18 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
         _logger = logger;
     }
 
-    public async Task Consume(ConsumeContext<RunLeaveCarryOver> context)
+    public Task Consume(ConsumeContext<RunLeaveCarryOver> context) =>
+        RunAsync(context.Message, context.CancellationToken);
+
+    public async Task RunAsync(RunLeaveCarryOver message, CancellationToken token)
     {
-        var fromYear         = context.Message.FromYear;
-        var fiscalStartMonth = context.Message.FiscalYearStartMonth;
+        var fromYear         = message.FromYear;
+        var fiscalStartMonth = message.FiscalYearStartMonth;
         var nextYear         = fromYear + 1;
-        var token            = context.CancellationToken;
         var closeDate        = FiscalYearHelper.LastDayOfFiscalYear(fromYear, fiscalStartMonth);
         var nextStart        = FiscalYearHelper.PeriodStart(nextYear, fiscalStartMonth);
         var nextEnd          = FiscalYearHelper.PeriodEnd(nextYear, fiscalStartMonth);
+        var nextStartDate    = DateOnly.FromDateTime(nextStart);
         var carryCount  = 0;
         var expiryCount = 0;
 
@@ -38,23 +46,26 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
             .Include(x => x.Leave)
             .ToListAsync(token);
 
-        // Pre-check: which credit records were already processed (have an Expiry or CarryOver ledger entry)?
-        // Use the exact closeDate so non-calendar fiscal years (end month ≠ Dec) are matched correctly.
-        var alreadyProcessedIds = await _uow.Repository
-            .Find<LeaveLedger>(x =>
-                (x.EntryType == LedgerEntryType.Expiry || x.EntryType == LedgerEntryType.CarryOver) &&
-                x.EntryDate == closeDate)
+        // Credits whose closing-year expiry was already written (exact closeDate, so
+        // non-calendar fiscal years are matched correctly).
+        var alreadyExpiredIds = await _uow.Repository
+            .Find<LeaveLedger>(x => x.EntryType == LedgerEntryType.Expiry && x.EntryDate == closeDate)
             .Select(x => x.LeaveCreditsId)
             .ToHashSetAsync(token);
 
-        // Pre-check: next-year credit records already created
-        var nextYearSet = (await _uow.Repository
-            .Find<LeaveCredits>(x => x.PeriodYear == nextYear)
-            .AsNoTracking()
+        // Employee+leave pairs whose carry into the next year was already written.
+        var alreadyCarried = (await _uow.Repository
+            .Find<LeaveLedger>(x => x.EntryType == LedgerEntryType.CarryOver && x.EntryDate == nextStartDate)
             .Select(x => new { x.EmployeeId, x.LeaveId })
             .ToListAsync(token))
             .Select(k => (k.EmployeeId, k.LeaveId))
             .ToHashSet();
+
+        // Next-year rows that already exist -- carried days are added to these rather than lost.
+        var nextYearRows = (await _uow.Repository
+            .Find<LeaveCredits>(x => x.PeriodYear == nextYear)
+            .ToListAsync(token))
+            .ToDictionary(x => (x.EmployeeId, x.LeaveId));
 
         var newCredits = new List<LeaveCredits>();
         var newLedgers = new List<LeaveLedger>();
@@ -67,8 +78,10 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
             // PerEvent leaves don't carry over — each event is independent
             if (leave.AccrualBasis == AccrualBasis.PerEvent) continue;
 
-            // Skip if already processed on a previous (retried) run
-            if (alreadyProcessedIds.Contains(credit.Id)) continue;
+            var key          = (credit.EmployeeId, credit.LeaveId);
+            var expiryDone   = alreadyExpiredIds.Contains(credit.Id);
+            var carryDone    = alreadyCarried.Contains(key);
+            if (expiryDone && carryDone) continue;
 
             var remaining    = credit.Balance;
             decimal carryAmount  = 0m;
@@ -90,7 +103,7 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
                     break;
             }
 
-            if (expiryAmount > 0)
+            if (expiryAmount > 0 && !expiryDone)
             {
                 credit.Balance -= expiryAmount;
                 newLedgers.Add(new LeaveLedger
@@ -108,21 +121,27 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
                 expiryCount++;
             }
 
-            if (carryAmount > 0 && !nextYearSet.Contains((credit.EmployeeId, credit.LeaveId)))
+            if (carryAmount > 0 && !carryDone)
             {
-                var nextCredits = new LeaveCredits
+                if (!nextYearRows.TryGetValue(key, out var nextCredits))
                 {
-                    Id         = Guid.NewGuid(),
-                    EmployeeId = credit.EmployeeId,
-                    LeaveId    = credit.LeaveId,
-                    PeriodYear = nextYear,
-                    FromDate   = nextStart,
-                    ToDate     = nextEnd,
-                    Granted    = carryAmount,
-                    Used       = 0m,
-                    Balance    = carryAmount,
-                };
-                newCredits.Add(nextCredits);
+                    nextCredits = new LeaveCredits
+                    {
+                        Id         = Guid.NewGuid(),
+                        EmployeeId = credit.EmployeeId,
+                        LeaveId    = credit.LeaveId,
+                        PeriodYear = nextYear,
+                        FromDate   = nextStart,
+                        ToDate     = nextEnd,
+                        Granted    = 0m,
+                        Used       = 0m,
+                        Balance    = 0m,
+                    };
+                    newCredits.Add(nextCredits);
+                    nextYearRows[key] = nextCredits;
+                }
+                nextCredits.Granted += carryAmount;
+                nextCredits.Balance += carryAmount;
 
                 newLedgers.Add(new LeaveLedger
                 {
@@ -131,9 +150,9 @@ public class LeaveCarryOverWorker : IConsumer<RunLeaveCarryOver>
                     LeaveId        = credit.LeaveId,
                     LeaveCreditsId = nextCredits.Id,
                     EntryType      = LedgerEntryType.CarryOver,
-                    EntryDate      = DateOnly.FromDateTime(nextStart),
+                    EntryDate      = nextStartDate,
                     Amount         = carryAmount,
-                    Balance        = carryAmount,
+                    Balance        = nextCredits.Balance,
                     Particulars    = $"Carry-over from {fromYear} — {leave.Description}",
                 });
                 carryCount++;

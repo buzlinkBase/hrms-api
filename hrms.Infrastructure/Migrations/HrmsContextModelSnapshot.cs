@@ -23,6 +23,292 @@ namespace Hrms.Infrastructure.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("Hrms.Domain.Entities.Announcements.Announcement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("AckRequiredVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AcknowledgeByUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ArchivedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("BinnedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("ExcludeInactive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid?>("ExpireJobToken")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LastEditedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("PinnedUntilUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("PublishAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("PublishJobToken")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PublishedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid?>("PublishedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("PurgeJobToken")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("RequiresAcknowledgement")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("StateBeforeArchive")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("StateBeforeDelete")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("UnpublishReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("UnpublishedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UnpublishedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("State", "BinnedAtUtc");
+
+                    b.HasIndex("State", "ExpiresAtUtc");
+
+                    b.HasIndex("State", "PublishAtUtc");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("Announcements");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Announcements.AnnouncementAudienceRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AnnouncementId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsExclusion")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("TargetLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("TargetValue")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnnouncementId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("AnnouncementAudienceRules");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Announcements.AnnouncementRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("AcknowledgedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("AcknowledgedVersion")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("AnnouncementId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("BranchName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("DeliveredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DepartmentName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("EmployeeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("EmployeeNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("FirstViewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("LastRemindedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("LastViewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PositionName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("RemindCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnnouncementId", "EmployeeId")
+                        .IsUnique();
+
+                    b.HasIndex("EmployeeId", "FirstViewedAt");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("AnnouncementRecipients");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.AnnualTaxTable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6399,6 +6685,28 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("AuditEvents", (string)null);
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.Announcements.AnnouncementAudienceRule", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.Announcements.Announcement", "Announcement")
+                        .WithMany("AudienceRules")
+                        .HasForeignKey("AnnouncementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Announcement");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Announcements.AnnouncementRecipient", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.Announcements.Announcement", "Announcement")
+                        .WithMany("Recipients")
+                        .HasForeignKey("AnnouncementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Announcement");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalAction", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Actor")
@@ -7150,6 +7458,13 @@ namespace Hrms.Infrastructure.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("TimeShift");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Announcements.Announcement", b =>
+                {
+                    b.Navigation("AudienceRules");
+
+                    b.Navigation("Recipients");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalInstance", b =>

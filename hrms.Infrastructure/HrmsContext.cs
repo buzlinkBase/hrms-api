@@ -1,5 +1,6 @@
 ﻿using BuzlinkRepository;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Announcements;
 using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using MassTransit;
@@ -151,6 +152,9 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext
     public DbSet<ApprovalInstance> ApprovalInstances { get; set; }
     public DbSet<ApprovalAction> ApprovalActions { get; set; }
     public DbSet<NotificationPreference> NotificationPreferences { get; set; }
+    public DbSet<Announcement> Announcements { get; set; }
+    public DbSet<AnnouncementAudienceRule> AnnouncementAudienceRules { get; set; }
+    public DbSet<AnnouncementRecipient> AnnouncementRecipients { get; set; }
 
     #endregion
 } 

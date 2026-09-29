@@ -165,6 +165,66 @@ public class EmployeeSearchTests
             .Should().Equal("Abella");
     }
 
+    // Regression: the whole search text was matched against one column at a time, so a name typed
+    // the way the table shows it ("Last, First"), or in natural order ("First Last"), matched no
+    // single column and found nobody.
+    [Theory]
+    [InlineData("Abella, Jerome")]
+    [InlineData("Jerome Abella")]
+    [InlineData("abella jerome")]
+    [InlineData("  Jerome   Abella  ")]
+    public async Task Keyword_FindsAPersonByFullName_InAnyOrder(string keyword)
+    {
+        using var db = await SeedAsync();
+
+        // SQLite is case-sensitive where MySQL isn't -- compare case-insensitively here.
+        var normalized = keyword.Contains("abella") ? "Abella Jerome" : keyword;
+        (await LastNamesAsync(db, new EmployeeListQuery { Keyword = normalized }))
+            .Should().Equal("Abella");
+    }
+
+    [Fact]
+    public async Task Keyword_EveryWordMustMatchSomething()
+    {
+        using var db = await SeedAsync();
+
+        (await LastNamesAsync(db, new EmployeeListQuery { Keyword = "Dela Rosa, Carla" }))
+            .Should().Equal(new[] { "Dela Rosa" }, "a two-word surname plus a first name");
+        (await LastNamesAsync(db, new EmployeeListQuery { Keyword = "Cruz Zenith" }))
+            .Should().BeEmpty("Cruz is with Acme, not Zenith");
+        (await LastNamesAsync(db, new EmployeeListQuery { Keyword = "Ben Acme" }))
+            .Should().Equal(new[] { "Cruz" }, "name and client together narrow it down");
+    }
+
+    // Imported client names carry double spaces ("Metro Retails  Store Group"); a search typed
+    // with single spaces used to miss everyone at that client.
+    [Fact]
+    public async Task Keyword_IgnoresDifferencesInSpacing()
+    {
+        using var db = await SeedAsync();
+        await using (var seed = db.NewContext())
+        {
+            var client = new Client { Id = Guid.NewGuid(), Name = "Metro Retails  Store Group Inc." };
+            seed.Clients.Add(client);
+            seed.Employees.Add(NewEmployee("Ando", "Hazel", GroupSemi, client.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        (await LastNamesAsync(db, new EmployeeListQuery { Keyword = "Metro Retails Store" }))
+            .Should().Equal("Ando");
+    }
+
+    [Fact]
+    public async Task FullNameColumnFilter_FindsNameAsShownInTheTable()
+    {
+        using var db = await SeedAsync();
+
+        (await LastNamesAsync(db, new EmployeeListQuery { FullName = "Dela Rosa, Carla" }))
+            .Should().Equal("Dela Rosa");
+        (await LastNamesAsync(db, new EmployeeListQuery { FullName = "Carla Cruz" }))
+            .Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Sorts_ByWhitelistedField_AndFallsBackToNameForUnknownField()
     {

@@ -74,20 +74,19 @@ namespace Hrms.Api.Controllers
         }
 
         /// <summary>
-        /// Manually trigger the leave period grant for a given year.
-        /// Creates LeaveCredits and Grant ledger entries for all eligible employees.
-        /// Defaults to the current year if no year is provided.
+        /// Manually trigger the leave period grant for a given fiscal year (the company's
+        /// FiscalYearStartMonth applies). Creates LeaveCredits and Grant ledger entries for all
+        /// eligible employees. Defaults to the current fiscal year if no year is provided.
         /// </summary>
         [HttpPost("credits/grant")]
         [RequirePermission("Leave Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> TriggerPeriodGrant(
-            [FromServices] IPublishEndpoint publisher,
+            [FromServices] LeavePeriodGrantTriggerService trigger,
             [FromQuery] int? year,
             CancellationToken token)
         {
-            var targetYear = year ?? DateTime.UtcNow.Year;
-            await publisher.Publish(new RunLeavePeriodGrant(targetYear), token);
+            var targetYear = await trigger.TriggerAsync(year, token);
             return Ok($"Leave period grant triggered for {targetYear}. Credits will be created shortly.");
         }
 

@@ -46,11 +46,29 @@ public static class EmployeeListQueryBuilder
         IQueryable<Employee> query, System.Linq.Expressions.Expression<Func<Employee, TKey>> key, bool descending) =>
         descending ? query.OrderByDescending(key) : query.OrderBy(key);
 
+    // Enough for "Last, First Middle Suffix" plus a client/site word; more is noise.
+    private const int MaxSearchTerms = 6;
+    private static readonly char[] TermSeparators = [' ', ',', '\t'];
+
+    /// <summary>
+    /// Search text split into words. Each word must match somewhere (AND across words, OR across
+    /// fields), so a name typed the way the table shows it ("Dela Rosa, Carla"), in natural order
+    /// ("Carla Dela Rosa"), or with different spacing than what's stored (imported client names
+    /// carry double spaces) still finds the person. Matching the whole text against one column
+    /// at a time found none of those.
+    /// </summary>
+    internal static IReadOnlyList<string> SearchTerms(string? text) =>
+        string.IsNullOrWhiteSpace(text)
+            ? []
+            : text.Split(TermSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxSearchTerms)
+                .ToList();
+
     public static IQueryable<Employee> ApplyFilters(this IQueryable<Employee> query, EmployeeListQuery q)
     {
-        if (!string.IsNullOrWhiteSpace(q.Keyword))
+        foreach (var k in SearchTerms(q.Keyword))
         {
-            var k = q.Keyword.Trim();
             query = query.Where(x =>
                 x.FirstName.Contains(k) ||
                 x.LastName.Contains(k) ||
@@ -88,8 +106,10 @@ public static class EmployeeListQueryBuilder
         if (Text(q.EmployeeNo) is { } employeeNo) query = query.Where(x => x.EmployeeNo.Contains(employeeNo));
         if (Text(q.BioId) is { } bioId) query = query.Where(x => x.BioId.HasValue && x.BioId.Value.ToString().Contains(bioId));
         if (Text(q.JobLevel) is { } jobLevel) query = query.Where(x => x.JobLevel.Contains(jobLevel));
-        if (Text(q.FullName) is { } name)
-            query = query.Where(x => x.FirstName.Contains(name) || x.LastName.Contains(name) || x.MiddleName.Contains(name));
+        foreach (var name in SearchTerms(q.FullName))
+            query = query.Where(x =>
+                x.FirstName.Contains(name) || x.LastName.Contains(name) ||
+                x.MiddleName.Contains(name) || x.Suffix.Contains(name));
         if (Text(q.Email) is { } email) query = query.Where(x => x.Email != null && x.Email.Contains(email));
         if (Text(q.Contact) is { } contact) query = query.Where(x => x.Contact.Contains(contact));
         if (Text(q.SSSNo) is { } sss) query = query.Where(x => x.SSSNo.Contains(sss));

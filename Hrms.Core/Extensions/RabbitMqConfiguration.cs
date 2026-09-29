@@ -1,4 +1,6 @@
 ﻿using Hrms.Core.Messaging;
+using Hrms.Core.Messaging.Announcements;
+using Hrms.Core.Messaging.DailyBenefits;
 using Hrms.Core.Messaging.BenefitWorkers;
 using Hrms.Core.Messaging.Filter;
 using Hrms.Core.Messaging.LeaveWorkers;
@@ -6,6 +8,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using OnePunch.Auth.Core.Messaging;
+using Quartz;
 
 namespace Hrms.Core.Extensions;
 
@@ -16,8 +19,14 @@ public static class RabbitMqConfiguration
         var settings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>();
         if (settings == null) return;
 
+        builder.AddHrmsQuartz();
+
         builder.Services.AddMassTransit(x =>
         {
+            // Future-dated messages (e.g. an announcement's auto-publish) are held by Quartz -- see
+            // AddHrmsQuartz -- then published at their due time.
+            x.AddPublishMessageScheduler();
+            x.AddQuartzConsumers();
             x.AddConsumer<CreateAttendanceWorker, AttendanceConsumerDefinition>();
             x.AddConsumer<TenantCreationCompletedWorker, TenantCreatedDefinition>();
             x.AddConsumer<AccountLinkedWorker, AccountLinkedDefinition>();
@@ -36,6 +45,10 @@ public static class RabbitMqConfiguration
             x.AddConsumer<ApprovalPoolPushNotificationWorker, ApprovalPoolPushNotificationWorkerDefinition>();
             // Read copy of AuthApi/TenantApi audit events for Security > Audit -- see AuditReplicaWorker.
             x.AddConsumer<AuditReplicaWorker, AuditReplicaWorkerDefinition>();
+            // Auto-publish / auto-archive / purge of announcements -- see AnnouncementLifecycleScheduler.
+            x.AddConsumer<AnnouncementLifecycleWorker, AnnouncementLifecycleWorkerDefinition>();
+            // One company's daily benefits steps, in order -- queued by the Quartz DailyBenefitsJob.
+            x.AddConsumer<DailyBenefitsWorker, DailyBenefitsWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();
@@ -54,6 +67,7 @@ public static class RabbitMqConfiguration
                     cb.TripThreshold = 15; // Trip after 15 failures
                     cb.ResetInterval = TimeSpan.FromMinutes(5); // Wait 5 mins before trying again
                 });
+                cfg.UsePublishMessageScheduler();
                 cfg.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                 cfg.UsePublishFilter(typeof(TenantPublishFilter<>), context);
                 cfg.Host(settings.Uri);
@@ -63,6 +77,58 @@ public static class RabbitMqConfiguration
         });
     }
 }
+public static class QuartzConfiguration
+{
+    /// <summary>
+    /// Quartz as MassTransit's message scheduler, with a persistent job store in the shared HRIS
+    /// database (ConnectionStrings:Quartz, else HrmsConnection) so scheduled messages survive
+    /// restarts and broker loss. Clustered: with several API instances each job fires on exactly
+    /// one of them. Needs Quartz's standard QRTZ_ tables (tables_mysql_innodb.sql for Quartz.NET
+    /// 3.x) in that database.
+    /// </summary>
+    public static void AddHrmsQuartz(this WebApplicationBuilder builder)
+    {
+        var connectionString = builder.Configuration.GetConnectionString("Quartz")
+                               ?? builder.Configuration.GetConnectionString("HrmsConnection")
+                               ?? throw new InvalidOperationException("No connection string for the Quartz job store.");
+
+        builder.Services.AddQuartz(q =>
+        {
+            q.SchedulerName = "hrms-scheduler";
+            q.SchedulerId = "AUTO";
+            q.UsePersistentStore(store =>
+            {
+                store.UseProperties = true;
+                store.UseMySqlConnector(db =>
+                {
+                    db.ConnectionString = connectionString;
+                    db.TablePrefix = "QRTZ_";
+                });
+                store.UseSystemTextJsonSerializer();
+                store.UseClustering();
+            });
+
+            // Daily benefits run (leave carry-over/grant/accrual, uniform allowance). Hour of day
+            // in UTC -- the old LeaveScheduler:RunAtHour setting, default midnight. A fire missed
+            // while every instance was down runs once as soon as one is back, and the job itself
+            // catches up any days it missed (see DailyBenefitsJob).
+            var runAtHour = Math.Clamp(builder.Configuration.GetValue<int?>("LeaveScheduler:RunAtHour") ?? 0, 0, 23);
+            q.AddJob<DailyBenefitsJob>(DailyBenefitsJob.Key, job => job.StoreDurably());
+            q.AddTrigger(trigger => trigger
+                .ForJob(DailyBenefitsJob.Key)
+                .WithIdentity(DailyBenefitsJob.TriggerKey)
+                .WithCronSchedule($"0 0 {runAtHour} * * ?", cron => cron
+                    .InTimeZone(TimeZoneInfo.Utc)
+                    .WithMisfireHandlingInstructionFireAndProceed()));
+        });
+        builder.Services.AddQuartzHostedService(options =>
+        {
+            options.StartDelay = TimeSpan.FromSeconds(5);
+            options.WaitForJobsToComplete = true;
+        });
+    }
+}
+
 public class AttendanceConsumerDefinition : ConsumerDefinition<CreateAttendanceWorker>
 {
     public AttendanceConsumerDefinition()
@@ -132,6 +198,14 @@ public class ApprovalPoolPushNotificationWorkerDefinition : ConsumerDefinition<A
     public ApprovalPoolPushNotificationWorkerDefinition()
     {
         EndpointName = "hrms-approval-pool-push-notification-que";
+    }
+}
+
+public class AnnouncementLifecycleWorkerDefinition : ConsumerDefinition<AnnouncementLifecycleWorker>
+{
+    public AnnouncementLifecycleWorkerDefinition()
+    {
+        EndpointName = "hrms-announcement-lifecycle-que";
     }
 }
 

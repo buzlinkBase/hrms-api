@@ -99,21 +99,87 @@ public class LeavePeriodGrantWorkerTests : LeaveWorkerTestBase
     }
 
     [Fact]
-    public async Task EmployeeAlreadyHasACreditForThisYear_IsSkipped()
+    public async Task EmployeeAlreadyGrantedThisYear_IsSkipped()
     {
         var (worker, repo) = BuildWorker();
         var leave = BuildLeave(AccrualBasis.None);
         var employee = BuildEmployee(EmploymentStatus.Regular, hireDate: new DateOnly(2020, 1, 1));
         SeedFind(repo, leave);
         SeedFind(repo, employee);
-        SeedFind(repo, BuildCredits(leave, employee.Id, 2026, granted: 15));
+        var existing = BuildCredits(leave, employee.Id, 2026, granted: 15);
+        SeedFind(repo, existing);
+        SeedFind(repo, Ledger(existing, LedgerEntryType.Grant));
         var addedCredits = CaptureAdds<LeaveCredits>(repo);
+        var addedLedgers = CaptureAdds<LeaveLedger>(repo);
 
         var context = CreateConsumeContext(new RunLeavePeriodGrant(2026, FiscalYearStartMonth: 1));
         await worker.Consume(context);
 
         addedCredits.Should().BeEmpty();
+        addedLedgers.Should().BeEmpty();
+        existing.Granted.Should().Be(15m);
     }
+
+    // A record HR set by hand (manual Adjustment) is theirs -- the grant must not stack on it.
+    [Fact]
+    public async Task RecordSetByHrThisYear_IsLeftAlone()
+    {
+        var (worker, repo) = BuildWorker();
+        var leave = BuildLeave(AccrualBasis.None, credits: 5);
+        var employee = BuildEmployee(EmploymentStatus.Regular, hireDate: new DateOnly(2020, 1, 1));
+        SeedFind(repo, leave);
+        SeedFind(repo, employee);
+        var existing = BuildCredits(leave, employee.Id, 2026, granted: 12);
+        SeedFind(repo, existing);
+        SeedFind(repo, Ledger(existing, LedgerEntryType.Adjustment));
+        var addedLedgers = CaptureAdds<LeaveLedger>(repo);
+
+        await worker.Consume(CreateConsumeContext(new RunLeavePeriodGrant(2026, FiscalYearStartMonth: 1)));
+
+        addedLedgers.Should().BeEmpty();
+        existing.Granted.Should().Be(12m);
+    }
+
+    // Regression: carry-over runs first and creates the new year's record for anyone with
+    // unused days -- the grant used to see "a record exists" and skip them, so exactly the
+    // people who carried days over never got their new year's credits.
+    [Fact]
+    public async Task RecordOpenedByCarryOver_GetsTheGrantAddedToIt()
+    {
+        var (worker, repo) = BuildWorker();
+        var leave = BuildLeave(AccrualBasis.None, credits: 5);
+        var employee = BuildEmployee(EmploymentStatus.Regular, hireDate: new DateOnly(2020, 1, 1));
+        SeedFind(repo, leave);
+        SeedFind(repo, employee);
+        var carried = BuildCredits(leave, employee.Id, 2026, granted: 3);
+        SeedFind(repo, carried);
+        SeedFind(repo, Ledger(carried, LedgerEntryType.CarryOver));
+        var addedCredits = CaptureAdds<LeaveCredits>(repo);
+        var addedLedgers = CaptureAdds<LeaveLedger>(repo);
+
+        await worker.Consume(CreateConsumeContext(new RunLeavePeriodGrant(2026, FiscalYearStartMonth: 1)));
+
+        addedCredits.Should().BeEmpty("the grant goes into the existing record");
+        carried.Granted.Should().Be(8m);
+        carried.Balance.Should().Be(8m);
+        var grant = addedLedgers.Should().ContainSingle().Subject;
+        grant.EntryType.Should().Be(LedgerEntryType.Grant);
+        grant.Amount.Should().Be(5m);
+        grant.Balance.Should().Be(8m);
+        grant.LeaveCreditsId.Should().Be(carried.Id);
+    }
+
+    private static LeaveLedger Ledger(LeaveCredits credits, LedgerEntryType type) => new()
+    {
+        Id = NewId(),
+        EmployeeId = credits.EmployeeId,
+        LeaveId = credits.LeaveId,
+        LeaveCreditsId = credits.Id,
+        EntryType = type,
+        EntryDate = new DateOnly(credits.PeriodYear, 1, 1),
+        Amount = credits.Granted,
+        Balance = credits.Balance,
+    };
 
     [Fact]
     public async Task MultipleLeaveTypesAndEmployees_GrantsTheFullCrossProductMinusExisting()
@@ -125,8 +191,10 @@ public class LeavePeriodGrantWorkerTests : LeaveWorkerTestBase
         var empY = BuildEmployee(EmploymentStatus.Probationary, hireDate: new DateOnly(2020, 1, 1));
         SeedFind(repo, leaveA, leaveB);
         SeedFind(repo, empX, empY);
-        // empY already has a credit for leaveA this year -> that one pairing should be skipped
-        SeedFind(repo, BuildCredits(leaveA, empY.Id, 2026, granted: 5));
+        // empY was already granted leaveA this year -> that one pairing should be skipped
+        var alreadyGranted = BuildCredits(leaveA, empY.Id, 2026, granted: 5);
+        SeedFind(repo, alreadyGranted);
+        SeedFind(repo, Ledger(alreadyGranted, LedgerEntryType.Grant));
         var addedCredits = CaptureAdds<LeaveCredits>(repo);
 
         var context = CreateConsumeContext(new RunLeavePeriodGrant(2026, FiscalYearStartMonth: 1));

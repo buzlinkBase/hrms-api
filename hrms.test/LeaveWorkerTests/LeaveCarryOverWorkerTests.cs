@@ -146,25 +146,60 @@ public class LeaveCarryOverWorkerTests : LeaveWorkerTestBase
         addedLedgers.Should().BeEmpty();
     }
 
+    // Regression: when the next year's record already existed (e.g. opened by the accrual or the
+    // grant), the carried days used to be silently dropped.
     [Fact]
-    public async Task CarryOverButNextYearCreditAlreadyExists_SkipsCarryButStillExpiresTheRest()
+    public async Task NextYearRecordAlreadyExists_CarriedDaysAreAddedToIt()
     {
         var (worker, repo) = BuildWorker();
         var employeeId = NewId();
         var leave = BuildLeave(AccrualBasis.None, carryOverType: CarryOverType.Capped, carryOverMaxDays: 6);
         var credit = BuildCredits(leave, employeeId, FromYear, granted: 10, balance: 10);
-        SeedFind(repo, credit, BuildCredits(leave, employeeId, NextYear, granted: 6)); // next-year row pre-exists
+        var nextYear = BuildCredits(leave, employeeId, NextYear, granted: 2);
+        SeedFind(repo, credit, nextYear);
         SeedFind(repo, Array.Empty<LeaveLedger>());
         var addedCredits = CaptureAdds<LeaveCredits>(repo);
         var addedLedgers = CaptureAdds<LeaveLedger>(repo);
 
-        var context = CreateConsumeContext(new RunLeaveCarryOver(FromYear, FiscalYearStartMonth: 1));
-        await worker.Consume(context);
+        await worker.Consume(CreateConsumeContext(new RunLeaveCarryOver(FromYear, FiscalYearStartMonth: 1)));
 
-        credit.Balance.Should().Be(6m); // expiry portion still applied
-        addedCredits.Should().BeEmpty(); // no duplicate next-year credit created
-        addedLedgers.Should().ContainSingle();
-        addedLedgers[0].EntryType.Should().Be(LedgerEntryType.Expiry);
+        credit.Balance.Should().Be(6m); // expiry portion applied
+        addedCredits.Should().BeEmpty(); // no duplicate next-year record
+        nextYear.Granted.Should().Be(8m);
+        nextYear.Balance.Should().Be(8m);
+        addedLedgers.Select(x => x.EntryType).Should().BeEquivalentTo(new[] { LedgerEntryType.Expiry, LedgerEntryType.CarryOver });
+        addedLedgers.Single(x => x.EntryType == LedgerEntryType.CarryOver).LeaveCreditsId.Should().Be(nextYear.Id);
+    }
+
+    // The old "already processed" check looked for CarryOver entries on the closing day, but
+    // they're dated the next period's first day -- so a carry-only (Unlimited) leave was carried
+    // again on every re-run.
+    [Fact]
+    public async Task ReRun_AfterCarryAndExpiryWereWritten_DoesNothing()
+    {
+        var (worker, repo) = BuildWorker();
+        var employeeId = NewId();
+        var leave = BuildLeave(AccrualBasis.None, carryOverType: CarryOverType.Unlimited);
+        var credit = BuildCredits(leave, employeeId, FromYear, granted: 10, balance: 10);
+        var nextYear = BuildCredits(leave, employeeId, NextYear, granted: 10);
+        SeedFind(repo, credit, nextYear);
+        SeedFind(repo, new LeaveLedger
+        {
+            Id = NewId(),
+            EmployeeId = employeeId,
+            LeaveId = leave.Id,
+            LeaveCreditsId = nextYear.Id,
+            EntryType = LedgerEntryType.CarryOver,
+            EntryDate = new DateOnly(NextYear, 1, 1),
+            Amount = 10,
+            Balance = 10,
+        });
+        var addedLedgers = CaptureAdds<LeaveLedger>(repo);
+
+        await worker.Consume(CreateConsumeContext(new RunLeaveCarryOver(FromYear, FiscalYearStartMonth: 1)));
+
+        addedLedgers.Should().BeEmpty();
+        nextYear.Balance.Should().Be(10m);
     }
 
     [Fact]

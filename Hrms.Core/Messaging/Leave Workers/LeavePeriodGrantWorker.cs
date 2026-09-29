@@ -7,12 +7,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Hrms.Core.Messaging.LeaveWorkers;
 
-// Runs on the first day of the fiscal year. Creates LeaveCredits records for the new period
-// for all eligible employees on leave types with AccrualBasis.None (lump-sum) that don't
-// already have a current-year record.
+// Runs on the first day of the fiscal year, right after the carry-over (see DailyBenefitsWorker).
+// Grants the year's lump-sum credits for every eligible employee on leave types with
+// AccrualBasis.None.
 //
-// Idempotency: pre-checks the existing year set then catches any unique-constraint violation
-// from a concurrent run that slipped through the pre-check window.
+// A record that already exists for the year only gets the grant added when the system opened it
+// (e.g. carry-over put last year's unused days there) -- it had no Grant and no manual HR
+// Adjustment yet. A record that was already granted, or that HR set by hand, is left alone.
+//
+// Idempotency: that "already granted" check is the guard; a unique-constraint violation from a
+// concurrent run that slipped past it is the last resort.
 public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
 {
     private readonly IUnitOfWorkService _uow;
@@ -26,11 +30,13 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
         _dailyRecordService = dailyRecordService;
     }
 
-    public async Task Consume(ConsumeContext<RunLeavePeriodGrant> context)
+    public Task Consume(ConsumeContext<RunLeavePeriodGrant> context) =>
+        RunAsync(context.Message, context.CancellationToken);
+
+    public async Task RunAsync(RunLeavePeriodGrant message, CancellationToken token)
     {
-        var year             = context.Message.Year;
-        var fiscalStartMonth = context.Message.FiscalYearStartMonth;
-        var token            = context.CancellationToken;
+        var year             = message.Year;
+        var fiscalStartMonth = message.FiscalYearStartMonth;
         var periodStart      = FiscalYearHelper.PeriodStart(year, fiscalStartMonth);
         var periodEnd        = FiscalYearHelper.PeriodEnd(year, fiscalStartMonth);
         var entryDate        = DateOnly.FromDateTime(periodStart);
@@ -54,14 +60,20 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
             .Select(x => new { x.Id, x.HireDate })
             .ToListAsync(token);
 
-        // Load existing year keys in one query — the primary idempotency guard
-        var existingSet = (await _uow.Repository
+        // This year's existing records, and which of them are already granted or HR-managed.
+        var existingRows = (await _uow.Repository
             .Find<LeaveCredits>(x => x.PeriodYear == year)
-            .AsNoTracking()
-            .Select(x => new { x.EmployeeId, x.LeaveId })
             .ToListAsync(token))
-            .Select(k => (k.EmployeeId, k.LeaveId))
-            .ToHashSet();
+            .ToDictionary(x => (x.EmployeeId, x.LeaveId));
+        var existingRowIds = existingRows.Values.Select(x => x.Id).ToList();
+        var settledRowIds = existingRowIds.Count == 0
+            ? new HashSet<Guid>()
+            : await _uow.Repository
+                .Find<LeaveLedger>(x =>
+                    existingRowIds.Contains(x.LeaveCreditsId) &&
+                    (x.EntryType == LedgerEntryType.Grant || x.EntryType == LedgerEntryType.Adjustment))
+                .Select(x => x.LeaveCreditsId)
+                .ToHashSetAsync(token);
 
         // Only queried when at least one leave type actually uses the PresentDays basis — one
         // grouped query up front rather than one round-trip per employee inside the loop below.
@@ -81,22 +93,30 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
                 var presentDays = presentDaysByEmployee.GetValueOrDefault(emp.Id);
                 if (!LeaveEligibilityCalculator.IsServiceRequirementMet(leave, monthsServed, presentDays)) continue;
 
-                if (existingSet.Contains((emp.Id, leave.Id))) continue;
-
-                var credits = new LeaveCredits
+                var grant = (decimal)leave.Credits;
+                if (existingRows.TryGetValue((emp.Id, leave.Id), out var credits))
                 {
-                    Id         = Guid.NewGuid(),
-                    EmployeeId = emp.Id,
-                    LeaveId    = leave.Id,
-                    PeriodYear = year,
-                    FromDate   = periodStart,
-                    ToDate     = periodEnd,
-                    Granted    = (decimal)leave.Credits,
-                    Used       = 0m,
-                    Balance    = (decimal)leave.Credits,
-                };
+                    if (settledRowIds.Contains(credits.Id)) continue;
+                    credits.Granted += grant;
+                    credits.Balance += grant;
+                }
+                else
+                {
+                    credits = new LeaveCredits
+                    {
+                        Id         = Guid.NewGuid(),
+                        EmployeeId = emp.Id,
+                        LeaveId    = leave.Id,
+                        PeriodYear = year,
+                        FromDate   = periodStart,
+                        ToDate     = periodEnd,
+                        Granted    = grant,
+                        Used       = 0m,
+                        Balance    = grant,
+                    };
+                    newCredits.Add(credits);
+                }
 
-                newCredits.Add(credits);
                 newLedgers.Add(new LeaveLedger
                 {
                     Id             = Guid.NewGuid(),
@@ -105,7 +125,7 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
                     LeaveCreditsId = credits.Id,
                     EntryType      = LedgerEntryType.Grant,
                     EntryDate      = entryDate,
-                    Amount         = credits.Granted,
+                    Amount         = grant,
                     Balance        = credits.Balance,
                     Particulars    = $"Period grant — {leave.Description} {year}",
                 });
@@ -114,7 +134,7 @@ public class LeavePeriodGrantWorker : IConsumer<RunLeavePeriodGrant>
             }
         }
 
-        if (newCredits.Count == 0) return;
+        if (newLedgers.Count == 0) return;
 
         _uow.Repository.AddRange(newCredits);
         _uow.Repository.AddRange(newLedgers);

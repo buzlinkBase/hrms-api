@@ -16,6 +16,8 @@
 		<PackageReference Include="Grpc.AspNetCore" />
 		<PackageReference Include="Grpc.Tools" />
 		<PackageReference Include="MassTransit.RabbitMQ" />
+		<PackageReference Include="MassTransit.Quartz" />
+		<PackageReference Include="Quartz.Serialization.SystemTextJson" />
 		<PackageReference Include="MassTransit.EntityFrameworkCore" />
 		<PackageReference Include="RabbitMQ.Client" />
 		<PackageReference Include="ExcelToEnumerable" />

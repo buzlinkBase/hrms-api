@@ -6,10 +6,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Hrms.Core.Messaging.BenefitWorkers;
 
-// Runs on the 1st of each month (published by LeaveSchedulerService.PublishForTenant alongside
-// RunLeaveAccrual -- reuses that same daily-tick/tenant-loop infrastructure rather than a second
-// scheduler). Credits Client.UniformAllowance's flat monthly rate onto each eligible employee's
-// UniformAllowanceFund.Balance.
+// Runs on the 1st of each month as a step of DailyBenefitsWorker (the Quartz-scheduled daily
+// benefits run). Credits Client.UniformAllowance's flat monthly rate onto each eligible
+// employee's UniformAllowanceFund.Balance.
 //
 // Idempotency: before accruing each employee, checks whether an Accrual ledger entry already
 // exists for the same year+month (fast pre-check). UniformAllowanceLedger.AccrualDedupeKey (a
@@ -46,10 +45,24 @@ public class UniformAllowanceAccrualWorker : IConsumer<RunUniformAllowanceAccrua
         _logger = logger;
     }
 
-    public async Task Consume(ConsumeContext<RunUniformAllowanceAccrual> context)
+    public Task Consume(ConsumeContext<RunUniformAllowanceAccrual> context) =>
+        RunAsync(context.Message, context.CancellationToken);
+
+    /// <summary>
+    /// The attendance month a Present-Days accrual is judged on: the whole calendar month before
+    /// the process date. The run happens on the 1st, so the month that just ended is the only
+    /// complete one -- counting from the 1st of the current month up to the 1st (the old
+    /// behaviour) saw a single day and could never reach the threshold.
+    /// </summary>
+    internal static (DateOnly From, DateOnly To) AttendanceMonth(DateOnly processDate)
     {
-        var processDate = context.Message.ProcessDate;
-        var token = context.CancellationToken;
+        var thisMonthStart = new DateOnly(processDate.Year, processDate.Month, 1);
+        return (thisMonthStart.AddMonths(-1), thisMonthStart.AddDays(-1));
+    }
+
+    public async Task RunAsync(RunUniformAllowanceAccrual message, CancellationToken token)
+    {
+        var processDate = message.ProcessDate;
         var count = 0;
 
         var clients = await _uow.Repository
@@ -83,14 +96,14 @@ public class UniformAllowanceAccrualWorker : IConsumer<RunUniformAllowanceAccrua
             .Select(x => x.EmployeeId)
             .ToHashSetAsync(token);
 
-        var monthStart = new DateOnly(processDate.Year, processDate.Month, 1);
+        var (attendanceFrom, attendanceTo) = AttendanceMonth(processDate);
         var presentDaysBasisEmployeeIds = employees
             .Where(e => !alreadyAccruedIds.Contains(e.Id) &&
                         clientMap[e.ClientId!.Value].UniformAllowanceBasis == BenefitAccrualBasis.PresentDays)
             .Select(e => e.Id)
             .ToList();
         var presentDaysCounts = await _dailyRecordService
-            .CountPresentDaysInRangeBatchAsync(presentDaysBasisEmployeeIds, monthStart, processDate, token);
+            .CountPresentDaysInRangeBatchAsync(presentDaysBasisEmployeeIds, attendanceFrom, attendanceTo, token);
 
         foreach (var employee in employees)
         {

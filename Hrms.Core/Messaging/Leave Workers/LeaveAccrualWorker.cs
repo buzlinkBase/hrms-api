@@ -27,11 +27,13 @@ public class LeaveAccrualWorker : IConsumer<RunLeaveAccrual>
         _logger = logger;
     }
 
-    public async Task Consume(ConsumeContext<RunLeaveAccrual> context)
+    public Task Consume(ConsumeContext<RunLeaveAccrual> context) =>
+        RunAsync(context.Message, context.CancellationToken);
+
+    public async Task RunAsync(RunLeaveAccrual message, CancellationToken token)
     {
-        var processDate      = context.Message.ProcessDate;
-        var fiscalStartMonth = context.Message.FiscalYearStartMonth;
-        var token            = context.CancellationToken;
+        var processDate      = message.ProcessDate;
+        var fiscalStartMonth = message.FiscalYearStartMonth;
         var today            = processDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var count            = 0;
 

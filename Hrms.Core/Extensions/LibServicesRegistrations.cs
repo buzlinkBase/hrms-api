@@ -17,6 +17,8 @@ public static class LibServicesRegistrations
         services.AddScoped<EmployeePayrollInclusionResolver>();
         services.AddScoped<Messaging.InstanceProvisioner>();
         services.AddScoped<Messaging.DedicatedProvisioner>();
+        AddAnnouncementAudience(services);
+        Messaging.DailyBenefits.DailyBenefitsRegistration.AddDailyBenefits(services);
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.
         services.AddSingleton<ICalculator<DTRPayModel, PayrollContext>, BasicPayrollCalculator>();
@@ -69,6 +71,22 @@ public static class LibServicesRegistrations
         services.AddSingleton<LatesPipeLine>();
         services.AddSingleton<UnderTimePipeLine>();
         services.AddSingleton<LeavePipeline>();
+    }
+
+    // One IAudienceRuleStrategy per way of targeting employees; AudienceResolver composes them.
+    public static void AddAnnouncementAudience(IServiceCollection services)
+    {
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.AllEmployeesAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.DepartmentAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.PositionAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.BranchAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.ProjectSiteAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.ClientAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.SectionAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.EmploymentStatusAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.SpecificEmployeeAudienceRule>();
+        services.AddSingleton<Services.Announcements.Audience.AudienceResolver>();
+        services.AddScoped<Services.Announcements.Lifecycle.IAnnouncementJobScheduler, Services.Announcements.Lifecycle.QuartzAnnouncementJobScheduler>();
     }
 
     public static void AddLibraryAssemblyDependencies(IServiceCollection services, string assemblyName)
