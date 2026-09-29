@@ -14,7 +14,7 @@ using Serilog;
 using Serilog.Events;
 using DTR.Core.Extensions;
 
-internal class Program
+public class Program
 {
     private static void Main(string[] args)
     {

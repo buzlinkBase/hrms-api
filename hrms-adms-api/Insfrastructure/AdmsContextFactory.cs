@@ -18,40 +18,26 @@ public class AdmsContextFactory : IDesignTimeDbContextFactory<AdmsContext>
         {
             basePath = Path.GetFullPath(Path.Combine(currentDirectory, "hrms-adms-api"));
         }
-
         var configBuilder = new ConfigurationBuilder()
             .SetBasePath(basePath)
             //.AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile("appsettings.Development.json", optional: true)
             .AddEnvironmentVariables()
-            ;
-
-        // FIX: Extract assembly directly from a type inside the API project.
-        // Option A: Reference the Program class from your API namespace directly
-        var apiAssembly = typeof(Program).Assembly;
-
-        // Option B: If 'Program' is hidden (top-level statements), create a blank public 
-        // dummy class inside your API project named 'ApiMarker' and reference it:
-        // var apiAssembly = typeof(Hrms.adms.Api.ApiMarker).Assembly;
-
+            ; 
+        var apiAssembly = typeof(Program).Assembly; 
         if (apiAssembly != null)
         {
             configBuilder.AddUserSecrets(apiAssembly, optional: true);
         }
-
         var configuration = configBuilder.Build();
-
         var connectionString = configuration.GetConnectionString("AdmsConnection");
         if (string.IsNullOrEmpty(connectionString))
         {
             throw new InvalidOperationException("Could not find 'AdmsConnection'. Check your appsettings or secrets.json.");
         }
-
         var optionsBuilder = new DbContextOptionsBuilder<AdmsContext>();
-        // Explicit, deterministic, and fast
-        var sqlVersion = new MySqlServerVersion(new Version(8, 4, 8)); // or Version(9, 2, 0)
+        var sqlVersion = new MySqlServerVersion(new Version(8, 4, 8));
         optionsBuilder.UseMySql(connectionString, sqlVersion);
-
         return new AdmsContext(optionsBuilder.Options, new DesignTimeTenantProvider());
     }
 }
