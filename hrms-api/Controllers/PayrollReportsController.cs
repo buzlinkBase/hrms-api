@@ -40,6 +40,7 @@ namespace Hrms.Api.Controllers
             _environment = environment;
         }
 
+        [CompensationData]
         [HttpGet("sss-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> SssRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -48,6 +49,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("philhealth-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> PhilHealthRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -56,6 +58,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("pagibig-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> PagIbigRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -64,6 +67,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("wtax-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
         public async Task<IActionResult> WTaxRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -72,6 +76,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("bank-disbursement")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> BankDisbursement([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -80,6 +85,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [EntriesData]
         [HttpGet("deduction-ledger")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> DeductionLedger([FromQuery] DateTime? asOf, CancellationToken token)
@@ -89,6 +95,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [EntriesData]
         [HttpGet("cash-bond")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> CashBond([FromQuery] DateTime? asOf, CancellationToken token)
@@ -98,6 +105,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [EntriesData]
         [HttpGet("cash-bond/{employeeId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> CashBondEntries(Guid employeeId, [FromQuery] DateTime? asOf, CancellationToken token)
@@ -106,6 +114,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [OperationsData]
         [HttpGet("leave-ledger")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> LeaveLedger([FromQuery] int year, CancellationToken token)
@@ -114,6 +123,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [OperationsData]
         [HttpGet("leave-ledger/{employeeId:guid}/{leaveId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> LeaveEntries(Guid employeeId, Guid leaveId, [FromQuery] int year, CancellationToken token)
@@ -122,6 +132,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("retirement-ledger")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> RetirementLedger([FromQuery] DateTime? asOf, CancellationToken token)
@@ -130,6 +141,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("retirement-ledger/{employeeId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> RetirementEntries(Guid employeeId, [FromQuery] DateTime? asOf, CancellationToken token)
@@ -138,6 +150,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [EntriesData]
         [HttpGet("uniform-allowance-ledger")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> UniformAllowanceLedger([FromQuery] DateTime? asOf, CancellationToken token)
@@ -146,6 +159,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [EntriesData]
         [HttpGet("uniform-allowance-ledger/{employeeId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> UniformAllowanceEntries(Guid employeeId, [FromQuery] DateTime? asOf, CancellationToken token)
@@ -157,6 +171,7 @@ namespace Hrms.Api.Controllers
         private static DateOnly AsOfOrToday(DateTime? asOf) =>
             asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
 
+        [CompensationData]
         [HttpGet("reimbursement-list")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> ReimbursementList([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -165,6 +180,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("cost-summary")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> CostSummary(
@@ -177,6 +193,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("ytd-summary")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> YtdSummary([FromQuery] int year, [FromQuery] Guid? employeeId, CancellationToken token)
@@ -185,6 +202,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("13th-month-pay")]
         [RequirePermission("Payroll Reports:View")]
         public async Task<IActionResult> ThirteenthMonthPay([FromQuery] int year, CancellationToken token)
@@ -193,6 +211,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("13th-month-pay/print")]
         [RequirePermission("Payroll Reports:Export")]
         public async Task<IActionResult> ThirteenthMonthPayPrint([FromQuery] int year, CancellationToken token)
@@ -206,6 +225,7 @@ namespace Hrms.Api.Controllers
 
         // ── BIR 1601-C ────────────────────────────────────────────────────────────────
 
+        [CompensationData]
         [HttpGet("1601c")]
         [RequirePermission("BIR Reports:View")]
         public async Task<IActionResult> MonthlyRemittanceReturn(
@@ -217,6 +237,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data = employees, summary, total = employees.Count });
         }
 
+        [CompensationData]
         [HttpGet("1601c/print")]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> MonthlyRemittanceReturnPrint(
@@ -236,6 +257,7 @@ namespace Hrms.Api.Controllers
 
         // ── BIR Alphalist ─────────────────────────────────────────────────────────────
 
+        [CompensationData]
         [HttpGet("alphalist")]
         [RequirePermission("BIR Reports:View")]
         public async Task<IActionResult> Alphalist([FromQuery] int year, CancellationToken token)
@@ -244,6 +266,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [CompensationData]
         [HttpGet("alphalist/print")]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> AlphalistPrint([FromQuery] int year, CancellationToken token)
@@ -254,6 +277,7 @@ namespace Hrms.Api.Controllers
             return File(bytes, "application/pdf", $"bir-alphalist-{year}.pdf");
         }
 
+        [CompensationData]
         [HttpGet("alphalist/export")]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> AlphalistExport([FromQuery] int year, CancellationToken token)
@@ -275,6 +299,7 @@ namespace Hrms.Api.Controllers
 
         // ── BIR 2316 ──────────────────────────────────────────────────────────────────
 
+        [CompensationData]
         [HttpGet("2316")]
         [RequirePermission("BIR Reports:View")]
         public async Task<IActionResult> Bir2316([FromQuery] Guid employeeId, [FromQuery] int year, CancellationToken token)
@@ -288,6 +313,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data = results, total = results.Length });
         }
 
+        [CompensationData]
         [HttpGet("2316/print")]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> Bir2316Print(

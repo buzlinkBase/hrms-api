@@ -8,7 +8,7 @@ namespace Hrms.Domain.Entities;
 // PayrollService.ProcessRetirementFundActivityAsync) -- a regenerated or deleted payroll draft
 // never touches it. Payout at separation is wired through Last Pay (LastPayrollService
 // .GenerateAsync's IncludeRetirementPayout option, settled at Post via the same method above).
-public class RetirementFund : BaseEntity
+public class RetirementFund : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;
@@ -28,7 +28,7 @@ public enum RetirementLedgerEntryType
 
 // Append-only audit trail of every accrual/payout/adjustment against a RetirementFund, mirroring
 // LeaveLedger's signed-Amount shape.
-public class RetirementLedger : BaseEntity
+public class RetirementLedger : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;

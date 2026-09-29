@@ -2,7 +2,7 @@
 {
 
     //[DisableSoftDelete]
-    public class AssignAsset : BaseEntity
+    public class AssignAsset : BaseEntity, IOptionalEmployeeOwned
     {
         public Guid? EmployeeId { get; set; }
         public string AssetType { get; set; }

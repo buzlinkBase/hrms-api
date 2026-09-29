@@ -12,6 +12,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [EntriesData]
     public class CashBondController : ControllerBase
     {
         private readonly PayrollReportService _reportService;

@@ -1,6 +1,6 @@
 ﻿namespace Hrms.Domain.Entities;
 
-public class SalaryAdjustment : BaseEntity
+public class SalaryAdjustment : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public SalaryAdjustmentType AdjustmentType { get; set; }
     public Guid EmployeeId { get; set; }

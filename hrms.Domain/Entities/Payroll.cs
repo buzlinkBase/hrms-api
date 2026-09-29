@@ -3,7 +3,7 @@ using BuzlinkRepository;
 namespace Hrms.Domain.Entities;
 
 [DisableSoftDelete]
-public class Payroll : BaseEntity, IPostedFilter, IDateFilter
+public class Payroll : BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, ICompensationRecord
 {
     public string BatchCode { get; set; } = string.Empty;
     public DateOnly PayPeriodStart { get; set; }
@@ -343,7 +343,7 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter
 // as DeductionApplication/DeductionApplicationDetail, not a JSON column. See Payroll.
 // TimeHourPayResults and MappingProfile's DTRPayModel -> PayrollDtrDetail config.
 [DisableSoftDelete]
-public class PayrollDtrDetail : BaseEntity
+public class PayrollDtrDetail : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid PayrollId { get; set; }
     public Guid? DtrId { get; set; }

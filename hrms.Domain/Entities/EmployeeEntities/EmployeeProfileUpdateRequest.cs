@@ -9,7 +9,7 @@ namespace Hrms.Domain.Entities.EmployeeEntities;
 // matches Employee.UpdatedAt by the time an approver acts, and ApproveAsync surfaces that as a
 // conflict instead of silently overwriting the more recent edit.
 [Audited(EntityType = "ProfileUpdate")]
-public class EmployeeProfileUpdateRequest : BaseEntity
+public class EmployeeProfileUpdateRequest : BaseEntity, IEmployeeOwned, IApprovalSubject
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee? Employee { get; set; }

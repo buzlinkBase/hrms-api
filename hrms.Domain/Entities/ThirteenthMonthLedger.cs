@@ -2,7 +2,7 @@
 
 namespace Hrms.Domain.Entities;
 
-public class ThirteenthMonthLedger : BaseEntity
+public class ThirteenthMonthLedger : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }

@@ -1,7 +1,7 @@
 ﻿namespace Hrms.Domain.Entities;
 
 
-public class ProratedAllowanceForSSS : BaseEntity, IPostedFilter, IDateFilter
+public class ProratedAllowanceForSSS : BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, ICompensationRecord
 {
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }

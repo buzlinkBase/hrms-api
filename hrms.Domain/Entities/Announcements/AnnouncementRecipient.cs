@@ -7,7 +7,7 @@ namespace Hrms.Domain.Entities.Announcements;
 // are snapshots taken at publish time, so reports stay stable when people move or leave. No FK
 // to Employee on purpose: the receipt outlives the employee record.
 [DisableSoftDelete]
-public class AnnouncementRecipient : BaseEntity
+public class AnnouncementRecipient : BaseEntity, IEmployeeOwned
 {
     public Guid AnnouncementId { get; set; }
     public virtual Announcement? Announcement { get; set; }

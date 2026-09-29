@@ -5,7 +5,7 @@ namespace Hrms.Domain.Entities.EmployeeEntities;
 // One row per (EmployeeId, DayName) that has a shift assigned — sparse by design,
 // so a day with no row is simply unassigned. Deleting the row unassigns that day.
 [DisableSoftDelete]
-public class EmployeeFixedSchedule : BaseEntity
+public class EmployeeFixedSchedule : BaseEntity, IEmployeeOwned
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee? Employee { get; set; }

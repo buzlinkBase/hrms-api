@@ -18,6 +18,9 @@ public static class LibServicesRegistrations
         services.AddScoped<Messaging.InstanceProvisioner>();
         services.AddScoped<Messaging.DedicatedProvisioner>();
         AddAnnouncementAudience(services);
+        // One per request; HrmsContext's query filter reads it (see ConfidentialAccessScope).
+        services.AddScoped<Services.Security.ConfidentialAccessScope>();
+        services.AddScoped<IConfidentialAccess>(sp => sp.GetRequiredService<Services.Security.ConfidentialAccessScope>());
         Messaging.DailyBenefits.DailyBenefitsRegistration.AddDailyBenefits(services);
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.

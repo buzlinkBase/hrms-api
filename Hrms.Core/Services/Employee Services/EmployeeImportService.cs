@@ -77,7 +77,27 @@ public class EmployeeImportService
         TrimStrings(data);
 
         var allEmployees = await GetAllEmployees(token);
+        // Defense in depth, like the error-row skip above: never touch a record the caller can't see.
+        data = data.Where(item => FindRestrictedMatch(item, allEmployees) == null).ToList();
+        if (data.Count == 0) return;
         await PersistAsync(data, allEmployees, token);
+    }
+
+    /// <summary>
+    /// Shown instead of the usual conflict details, so the caller learns nothing about the
+    /// confidential employee a row collides with.
+    /// </summary>
+    public const string RestrictedMatchError =
+        "This row matches an employee record you don't have access to, so it can't be imported. " +
+        "Ask someone with access to confidential records to import it.";
+
+    // A row that would update (same name) or clash with (same Bio ID) a confidential employee the
+    // caller can't see. Without this check the row would silently create a duplicate.
+    private BasicEmployeeInfo? FindRestrictedMatch(EmployeeImportModel item, List<BasicEmployeeInfo> dbEmployees)
+    {
+        int.TryParse(item.BioId, out var bioIdNo);
+        return dbEmployees.FirstOrDefault(x => x.IsRestricted &&
+            (NamesMatch(item, x) || (bioIdNo > 0 && x.BioId == bioIdNo)));
     }
 
     private SalaryType ResolveSalaryType(EmployeeImportModel item)
@@ -174,7 +194,6 @@ public class EmployeeImportService
                 TIN = item.TIN ?? "",
                 Email = item.Email ?? "",
                 Contact = item.ContactNo ?? "",
-                JobLevel = JobLevels.Default,
                 CivilStatus = item.CivilStatus ?? "",
                 DOB = item.DateOfBirth.HasValue ? item.DateOfBirth.Value : null,
                 EmploymentStatus = EmploymentStatus.Regular,
@@ -210,6 +229,8 @@ public class EmployeeImportService
             if (existing != null)
             {
                 employee.Id = existing.Id;
+                // Import never sets the confidential tag -- a re-import keeps it as stored.
+                employee.IsConfidential = existing.IsConfidential;
                 // Re-key onto the row that already exists (one-to-one, unique-indexed on
                 // EmployeeId) -- otherwise EF's UpdateRange graph-walk sees this fresh
                 // `new EmployeeSetting` with a default Id, treats it as a NEW entity to insert,
@@ -421,7 +442,7 @@ public class EmployeeImportService
             var item = data[i];
             var row = item.Adapt<EmployeeImportPreviewRow>();
             row.RowNumber = i + 1;
-            row.Errors = BuildRowErrors(item, dbEmployeeMap, internalDuplicateBioIds);
+            row.Errors = BuildRowErrors(item, dbEmployeeMap, internalDuplicateBioIds, allEmployees);
             row.Errors.AddRange(parseErrorsByRowIndex[i].Select(FormatParseError));
             rows.Add(row);
         }
@@ -433,9 +454,14 @@ public class EmployeeImportService
     /// aggregate for the batch-throw path -- used only by <see cref="PreviewAsync"/>, so it can
     /// attribute an error to the specific row(s) it affects instead of one combined message.
     /// </summary>
-    private List<string> BuildRowErrors(EmployeeImportModel item, Dictionary<int, BasicEmployeeInfo> dbEmployeeMap, HashSet<string?> internalDuplicateBioIds)
+    private List<string> BuildRowErrors(EmployeeImportModel item, Dictionary<int, BasicEmployeeInfo> dbEmployeeMap, HashSet<string?> internalDuplicateBioIds, List<BasicEmployeeInfo> dbEmployees)
     {
         var errors = new List<string>();
+        if (FindRestrictedMatch(item, dbEmployees) != null)
+        {
+            errors.Add(RestrictedMatchError);
+            return errors;
+        }
         if (!string.IsNullOrWhiteSpace(item.BioId) && item.BioId != "0" && internalDuplicateBioIds.Contains(item.BioId))
         {
             errors.Add($"BioId {item.BioId} is used by more than one row in this file.");
@@ -449,9 +475,11 @@ public class EmployeeImportService
         return errors;
     }
 
+    // Every employee, confidential ones included, so a row is never matched against a partial
+    // list (which would duplicate a hidden employee). Hidden ones are marked IsRestricted.
     private async Task<List<BasicEmployeeInfo>> GetAllEmployees(CancellationToken token)
     {
-        return await _employeeService.GetQueryable()
+        var employees = await _employeeService.EmployeesForIntegrityChecks()
            .Select(x => new BasicEmployeeInfo
            {
                Id = x.Id,
@@ -461,7 +489,13 @@ public class EmployeeImportService
                LastName = x.LastName,
                Suffix = x.Suffix,
                SettingsId = x.Settings != null ? x.Settings.Id : (Guid?)null,
+               IsConfidential = x.IsConfidential,
            }).ToListAsync(token);
+        foreach (var employee in employees)
+        {
+            employee.IsRestricted = _employeeService.IsHiddenFromEmployeeScreens(employee.Id);
+        }
+        return employees;
     }
 
     private static readonly PropertyInfo[] ImportStringProperties = typeof(EmployeeImportModel)
@@ -604,6 +638,12 @@ public class EmployeeImportService
 
         foreach (var item in data)
         {
+            if (FindRestrictedMatch(item, dbEmployees) != null)
+            {
+                errors.Add($"'{item.FirstName} {item.LastName}': {RestrictedMatchError}");
+                continue;
+            }
+
             if (!int.TryParse(item.BioId, out var bioIdNo) || bioIdNo <= 0)
             {
                 continue;
@@ -1179,6 +1219,9 @@ public class BasicEmployeeInfo
     // onto the row that already exists instead of EF trying to INSERT a second one for the
     // same EmployeeId. See PersistAsync's existing-employee branch.
     public Guid? SettingsId { get; set; }
+    public bool IsConfidential { get; set; }
+    // The caller can't see this (confidential) employee -- rows matching it are rejected.
+    public bool IsRestricted { get; set; }
 }
 public class EmployeeImportModel
 {

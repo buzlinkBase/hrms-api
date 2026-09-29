@@ -3,7 +3,7 @@
 namespace Hrms.Domain.Entities.EmployeeEntities;
 
 [DisableSoftDelete]
-public class EmploymentHistory : BaseEntity
+public class EmploymentHistory : BaseEntity, IOptionalEmployeeOwned
 {
     public Guid? EmployeeId { get; set; }
     //public virtual Employee? Employee { get; set; }

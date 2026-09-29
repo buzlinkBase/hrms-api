@@ -4,7 +4,7 @@ using Hrms.Domain.Entities.EmployeeEntities;
 namespace Hrms.Domain.Entities;
 
 [Audited(EntityType = "Overtime")]
-public class OverTimeApplication : BaseEntity
+public class OverTimeApplication : BaseEntity, IEmployeeOwned, IApprovalSubject
 {
     public Guid EmployeeId { get; set; }
     public required virtual Employee Employee { get; set; }

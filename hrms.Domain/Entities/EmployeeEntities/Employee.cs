@@ -2,7 +2,7 @@ using Onepunch.AuditEngine;
 namespace Hrms.Domain.Entities.EmployeeEntities;
 
 [Audited]
-public class Employee : BaseEntity
+public class Employee : BaseEntity, Hrms.Domain.ValueObjects.IEmployeePayFields
 {
     public Guid? UserId { get; set; }
     public int? BioId { get; set; }
@@ -19,10 +19,8 @@ public class Employee : BaseEntity
 
     public Guid? SectionId { get; set; }
     public Guid? PositionId { get; set; }
-    // Free text -- JobLevels.Suggested lists the common values the UI suggests. Rows saved before
-    // this was text hold the old enum names (e.g. "RankandFile"); the frontend displays those
-    // readably (formatJobLevel).
-    public string JobLevel { get; set; } = JobLevels.Default;
+    // Plain free text, stored and shown exactly as entered.
+    public string JobLevel { get; set; } = string.Empty;
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
@@ -70,6 +68,12 @@ public class Employee : BaseEntity
     public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     //public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
+
+    // Confidential employee (e.g. executives, HR/payroll staff): hidden -- with every record they
+    // own -- from anyone without the "Confidential Records:Access" clearance. Enforced by the
+    // global query filter (hrms.Infrastructure ConfidentialityFilters); only cleared users can
+    // change it (EmployeeService).
+    public bool IsConfidential { get; set; }
 
     public string BankName { get; set; } = string.Empty;
     public string BankNo { get; set; } = string.Empty;
@@ -119,7 +123,7 @@ public class Employee : BaseEntity
         FixedSchedule = new List<EmployeeFixedSchedule>();
     }
 }
-public class SSSRate : BaseEntity
+public class SSSRate : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }
@@ -131,7 +135,7 @@ public class SSSRate : BaseEntity
     public decimal AddOns { get; set; }
 
 }
-public class PHICRate : BaseEntity
+public class PHICRate : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }
@@ -141,7 +145,7 @@ public class PHICRate : BaseEntity
     public decimal ER { get; set; }
     public decimal AddOns { get; set; }
 }
-public class HDMFRate : BaseEntity
+public class HDMFRate : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }
@@ -151,7 +155,7 @@ public class HDMFRate : BaseEntity
     public decimal ER { get; set; }
     public decimal AddOns { get; set; }
 }
-public class TaxRate : BaseEntity
+public class TaxRate : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }
@@ -162,7 +166,7 @@ public class TaxRate : BaseEntity
 }
 
 
-public class EmployeeSetting : BaseEntity
+public class EmployeeSetting : BaseEntity, IEmployeeOwned
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }

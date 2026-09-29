@@ -24,7 +24,7 @@ public static class TenantQueryFilters
     /// tenant restriction, exactly like the old filter built for <see cref="Guid.Empty"/>.
     /// </summary>
     public static void ApplyTenantAndDateFilters<TContext>(this ModelBuilder modelBuilder, TContext context)
-        where TContext : DbContext, ICurrentTenantContext
+        where TContext : DbContext, ICurrentTenantContext, IConfidentialityContext
     {
         var entityTypes = modelBuilder.Model
             .GetEntityTypes()
@@ -52,6 +52,10 @@ public static class TenantQueryFilters
                     currentTenant);
                 filter = Expression.AndAlso(filter, Expression.OrElse(noTenant, sameTenant));
             }
+
+            // EF allows one query filter per entity, so the confidential-employee rule joins here.
+            if (ConfidentialityFilters.For(entityType, parameter, context) is { } confidentiality)
+                filter = Expression.AndAlso(filter, confidentiality);
 
             modelBuilder.Entity(entityType).HasQueryFilter(Expression.Lambda(filter, parameter));
         }

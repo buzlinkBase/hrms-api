@@ -2,7 +2,7 @@
 
 namespace Hrms.Domain.Entities;
 
-public class ChangeRestDay : BaseEntity
+public class ChangeRestDay : BaseEntity, IEmployeeOwned
 {
     public DayName DayName { get; set; }
     public Guid EmployeeId { get; set; }

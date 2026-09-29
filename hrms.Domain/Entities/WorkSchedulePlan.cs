@@ -1,7 +1,7 @@
 ﻿using Hrms.Domain.Entities.EmployeeEntities;
 namespace Hrms.Domain.Entities;
 
-public class WorkSchedulePlan : BaseEntity
+public class WorkSchedulePlan : BaseEntity, IEmployeeOwned
 {
     public string BatchCode { get; set; }
     public DateOnly PayrollDate { get; set; }

@@ -8,6 +8,7 @@ using Hrms.Infrastructure;
 using hrms.test.TestSupport;
 using Mapster;
 using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 
 namespace hrms.test.ServiceTests;
@@ -118,8 +119,8 @@ public class EmployeeSearchTests
             .Should().Equal("Estrada");
     }
 
-    // Job Level is free text now -- a custom value (not one of JobLevels.Suggested) is stored and
-    // found by a partial search, and a row still holding a legacy enum name matches the same way.
+    // Job Level is plain text -- any value is stored and found by a partial search, including a
+    // row still holding an old enum name.
     [Fact]
     public async Task JobLevelFilter_MatchesFreeTextAndLegacyValues_ByPartialText()
     {
@@ -142,14 +143,57 @@ public class EmployeeSearchTests
             .Should().Equal("Garcia");
     }
 
-    [Theory]
-    [InlineData("RankandFile", "Rank and File")]
-    [InlineData("TechnicalSpecialist", "Technical Specialist")]
-    [InlineData("Project Lead", "Project Lead")]
-    [InlineData(null, "")]
-    public void JobLevelsDisplay_ShowsLegacyEnumNamesReadably(string? stored, string expected)
+    // Regression: EmployeeModel (GET employees/{id} and the table) had no JobLevel, so the edit
+    // form fell back to the default level and saving overwrote the one the user had chosen.
+    [Fact]
+    public async Task EmployeeModel_CarriesTheStoredJobLevel_InTheListAndSingleRecordMapping()
     {
-        JobLevels.Display(stored).Should().Be(expected);
+        using var db = await SeedAsync();
+        var projectLead = NewEmployee("Fajardo", "Eli", GroupSemi);
+        projectLead.JobLevel = "Project Lead";
+        await using (var seed = db.NewContext())
+        {
+            seed.Employees.Add(projectLead);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var list = await BuildService(new UnitOfWorkService(context))
+            .SearchAsync(new EmployeeListQuery { FullName = "Fajardo" }, CancellationToken.None);
+        list.Data!.Single().JobLevel.Should().Be("Project Lead");
+
+        projectLead.Adapt<EmployeeModel>(TestMapping.GlobalSettings).JobLevel.Should().Be("Project Lead");
+    }
+
+    [Fact]
+    public async Task Update_SavesTheJobLevelExactlyAsTyped()
+    {
+        using var db = await SeedAsync();
+        var employee = NewEmployee("Fajardo", "Eli", GroupSemi);
+        await using (var seed = db.NewContext())
+        {
+            seed.Employees.Add(employee);
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var context = db.NewContext())
+        {
+            await BuildService(new UnitOfWorkService(context)).UpdateAsync(new UpdateEmployee
+            {
+                Id = employee.Id, PayrollGroupId = GroupSemi, FirstName = "Eli", LastName = "Fajardo",
+                JobLevel = "Senior Site Engineer",
+            }, CancellationToken.None);
+        }
+
+        await using var check = db.NewContext();
+        (await check.Employees.SingleAsync(x => x.Id == employee.Id)).JobLevel.Should().Be("Senior Site Engineer");
+    }
+
+    [Fact]
+    public void NewEmployee_HasNoJobLevelUntilOneIsEntered()
+    {
+        new Employee().JobLevel.Should().BeEmpty();
+        new CreateEmployee().JobLevel.Should().BeEmpty();
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Cache;
@@ -19,18 +20,23 @@ namespace Hrms.Api.Controllers
         private readonly IMapper _mapper;
         private readonly ICacheService _cache;
         private readonly ITenantProvider _tenantProvider;
+        private readonly Hrms.Core.Services.Security.ConfidentialAccessScope _access;
 
         public EmployeeAssignAssetsController(EmployeeAssignAssetService service,
             IMapper mapper,
             ICacheService cache,
-            ITenantProvider tenantProvider)
+            ITenantProvider tenantProvider,
+            Hrms.Core.Services.Security.ConfidentialAccessScope access)
         {
             _service = service;
             _mapper = mapper;
             _cache = cache;
             _tenantProvider = tenantProvider;
+            _access = access;
         }
 
+        // The cache is read before the database, so it skips the confidentiality query filter --
+        // check it here instead. Keys stay per company and employee, not per caller.
         // Tenant-scoped keys: a bare id key let one company's cached row be served to another
         // (the cache read skips the tenant query filter).
         private string EmployeeKey(Guid employeeId) => $"assign-assets:{_tenantProvider.TenantId}:employee:{employeeId}";
@@ -40,6 +46,8 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<List<AssignAssetModel>>), 200)]
         public async Task<IActionResult> GetAll([FromQuery] Guid emp_id, CancellationToken token)
         {
+            if (!_access.CanSee(ConfidentialDataClass.Operations, emp_id)) return Ok(new List<AssignAssetModel>());
+
             var key = EmployeeKey(emp_id);
             var cache = await _cache.GetAsync<List<AssignAssetModel>>(key);
             if (cache != null) return Ok(cache);
@@ -57,7 +65,7 @@ namespace Hrms.Api.Controllers
         {
             var key = ItemKey(id);
             var cache = await _cache.GetAsync<AssignAssetModel>(key);
-            if (cache != null) return Ok(cache);
+            if (cache != null) return Ok(_access.CanSee(ConfidentialDataClass.Operations, cache.EmployeeId) ? cache : null);
 
             var model = _mapper.Map<AssignAssetModel>(await _service.FineOneAsync(id, token));
             if (model != null) await _cache.SetAsync(key, model, CacheTtl);

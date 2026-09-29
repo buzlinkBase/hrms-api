@@ -5,7 +5,7 @@ using NetTopologySuite.Geometries;
 namespace Hrms.Domain.Entities;
 
 [DisableSoftDelete]
-public class Attendance : BaseEntity, IUserField
+public class Attendance : BaseEntity, IUserField, IOptionalEmployeeOwned
 {
     public int? BioId { get; set; }
     public DateTime WorkDateTime { get; set; }

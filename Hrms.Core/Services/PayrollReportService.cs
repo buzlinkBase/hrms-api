@@ -10,11 +10,26 @@ public class PayrollReportService : BaseService<Payroll>
 {
     private readonly EmployeeService _employeeService;
     private readonly PayrollOpeningBalanceService _payrollOpeningBalanceService;
+    private readonly Security.ConfidentialAccessScope? _access;
 
-    public PayrollReportService(IUnitOfWorkService uow, EmployeeService employeeService, PayrollOpeningBalanceService payrollOpeningBalanceService) : base(uow)
+    // access is optional so direct constructions in tests stay valid; the container supplies it.
+    public PayrollReportService(IUnitOfWorkService uow, EmployeeService employeeService, PayrollOpeningBalanceService payrollOpeningBalanceService,
+        Security.ConfidentialAccessScope? access = null) : base(uow)
     {
         _employeeService = employeeService;
         _payrollOpeningBalanceService = payrollOpeningBalanceService;
+        _access = access;
+    }
+
+    // Payroll rows as a source of cash bond deductions. Payroll is a compensation record, hidden for
+    // confidential employees from partial clearances -- but the cash bond deducted on it is an
+    // Entries figure, so a caller cleared for Entries reads it for those employees too. Callers
+    // project the cash bond columns only.
+    private IQueryable<Payroll> CashBondPayrolls()
+    {
+        if (_access is not { Restricted: true }) return Context.Payrolls.AsNoTracking();
+        var hidden = _access.HiddenEmployeeIdsFor(ConfidentialDataClass.Entries);
+        return Context.IgnoringConfidentiality<Payroll>().AsNoTracking().Where(x => !hidden.Contains(x.EmployeeId));
     }
 
     public async Task<List<BankDisbursementModel>> GetBankDisbursementAsync(DateOnly from, DateOnly to, CancellationToken token)
@@ -115,7 +130,7 @@ public class PayrollReportService : BaseService<Payroll>
     // informational status line, which therefore counts the opening balance too).
     public async Task<List<CashBondReportModel>> GetCashBondReportAsync(DateOnly asOf, CancellationToken token, List<Guid>? employeeIds = null)
     {
-        var fromPayroll = await Context.Payrolls.AsNoTracking()
+        var fromPayroll = await CashBondPayrolls()
             .Where(x => x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf
                 && (employeeIds == null || employeeIds.Contains(x.EmployeeId)))
             .GroupBy(x => x.EmployeeId)
@@ -338,7 +353,7 @@ public class PayrollReportService : BaseService<Payroll>
     // manual entries), merged oldest first with a running collected total.
     public async Task<List<LedgerEntryModel>> GetCashBondEntriesAsync(Guid employeeId, DateOnly asOf, CancellationToken token)
     {
-        var fromPayroll = await Context.Payrolls.AsNoTracking()
+        var fromPayroll = await CashBondPayrolls()
             .Where(x => x.EmployeeId == employeeId && x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf)
             .Select(x => new { x.Id, x.PayPeriodStart, x.PayPeriodEnd, x.CashBondDeduction, x.CreatedAt })
             .ToListAsync(token);

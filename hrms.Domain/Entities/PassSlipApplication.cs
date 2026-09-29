@@ -4,7 +4,7 @@ using Hrms.Domain.Entities.EmployeeEntities;
 namespace Hrms.Domain.Entities;
 
 [Audited(EntityType = "PassSlip")]
-public class PassSlipApplication : BaseEntity
+public class PassSlipApplication : BaseEntity, IEmployeeOwned, IApprovalSubject
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee? Employee { get; set; }

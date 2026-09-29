@@ -2,7 +2,7 @@ using Onepunch.AuditEngine;
 namespace Hrms.Domain.Entities;
 
 [Audited(EntityType = "Loan")]
-public class DeductionApplication : BaseEntity
+public class DeductionApplication : BaseEntity, IEmployeeOwned, IEntryRecord, IApprovalSubject
 {
     public Guid EmployeeId { get; set; }
     public Guid DeductionId { get; set; }
@@ -36,7 +36,7 @@ public class DeductionApplication : BaseEntity
     }
 }
 
-public class DeductionApplicationDetail : BaseEntity
+public class DeductionApplicationDetail : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public Guid DeductionId { get; set; }
@@ -55,7 +55,7 @@ public class DeductionApplicationDetail : BaseEntity
 }
 
 
-public class DeductionPayment : BaseEntity
+public class DeductionPayment : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public Guid DeductionId { get; set; }

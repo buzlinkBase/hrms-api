@@ -4,7 +4,7 @@ using Hrms.Domain.Entities.EmployeeEntities;
 namespace Hrms.Domain.Entities;
  
 [Audited(EntityType = "OfficialBusiness")]
-public class TravelOrderApplication : BaseEntity
+public class TravelOrderApplication : BaseEntity, IEmployeeOwned, IApprovalSubject
 {
     public Guid EmployeeId { get; set; }
     public string Reference { get; set; } = string.Empty;

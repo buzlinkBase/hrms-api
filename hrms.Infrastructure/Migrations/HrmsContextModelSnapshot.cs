@@ -2267,6 +2267,9 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<bool>("IsConfidential")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsRegularHolidayIncluded")
                         .HasColumnType("tinyint(1)");
 
@@ -2385,6 +2388,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TimeShiftId");
 
                     b.HasIndex("TenantId", "DeletedAt");
+
+                    b.HasIndex("TenantId", "IsConfidential");
 
                     b.ToTable("Employees");
                 });

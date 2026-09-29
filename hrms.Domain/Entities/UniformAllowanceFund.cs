@@ -6,7 +6,7 @@ namespace Hrms.Domain.Entities;
 // single-lifetime-balance shape as RetirementFund -- no PeriodYear/FromDate/ToDate, unlike
 // LeaveCredits). Grows monthly via UniformAllowanceAccrualWorker, and can also be adjusted or
 // released (disbursed) manually by HR -- see UniformAllowanceFundService.
-public class UniformAllowanceFund : BaseEntity
+public class UniformAllowanceFund : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;
@@ -26,7 +26,7 @@ public enum UniformAllowanceEntryType
 
 // Append-only audit trail of every accrual/adjustment/release against a UniformAllowanceFund,
 // mirroring LeaveLedger/RetirementLedger's signed Amount/Balance shape.
-public class UniformAllowanceLedger : BaseEntity
+public class UniformAllowanceLedger : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;

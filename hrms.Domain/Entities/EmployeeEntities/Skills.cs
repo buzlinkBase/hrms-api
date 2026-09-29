@@ -3,7 +3,7 @@
 namespace Hrms.Domain.Entities.EmployeeEntities
 {
     [DisableSoftDelete]
-    public class Skill : BaseEntity
+    public class Skill : BaseEntity, IOptionalEmployeeOwned
     {
         public Guid? EmployeeId { get; set; }
         public string Name { get; set; }

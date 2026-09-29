@@ -9,7 +9,7 @@ namespace Hrms.Domain.Entities;
 // otherwise derived from payroll runs (Payroll.CashBondDeduction, see CashBondDeductionPolicy);
 // these entries are added on top. Append-only, same signed-Amount shape as the other ledgers.
 [Audited]
-public class CashBondAdjustment : BaseEntity
+public class CashBondAdjustment : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;

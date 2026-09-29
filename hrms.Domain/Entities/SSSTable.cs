@@ -20,7 +20,7 @@ public class SSSTable : BaseEntity
 }
 
 [DisableSoftDelete]
-public class SSSContribution : BaseEntity, IDateFilter
+public class SSSContribution : BaseEntity, IDateFilter, IEmployeeOwned, ICompensationRecord
 {
     // Real FK to PayrollBatch.Id, mirroring Payroll.PayrollBatchId — lets a whole run's
     // contribution rows be deleted in one statement instead of looping per employee, and

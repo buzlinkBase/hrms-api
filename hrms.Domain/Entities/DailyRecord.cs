@@ -5,7 +5,7 @@ using Hrms.Domain.Entities.EmployeeEntities;
 namespace Hrms.Domain.Entities;
 
 [DisableSoftDelete]
-public class DailyRecord : BaseEntity, IUserField
+public class DailyRecord : BaseEntity, IUserField, IEmployeeOwned
 {
     public string? BatchCode { get; set; }
     public string WorkType { get; set; } = string.Empty;

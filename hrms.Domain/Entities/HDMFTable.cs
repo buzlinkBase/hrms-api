@@ -33,7 +33,7 @@ public class HDMFTable : BaseEntity
 }
 
 [DisableSoftDelete]
-public class HDMFContribution : BaseEntity, IDateFilter
+public class HDMFContribution : BaseEntity, IDateFilter, IEmployeeOwned, ICompensationRecord
 {
     public Guid PayrollBatchId { get; set; }
     public Guid EmployeeId { get; set; }

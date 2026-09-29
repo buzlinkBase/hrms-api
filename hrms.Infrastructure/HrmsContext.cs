@@ -10,25 +10,39 @@ namespace Hrms.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
 
-public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext
+public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfidentialityContext
 {
     private readonly TenantConnectionStringInfo _tenantConnectionInfo;
     private readonly ITenantProvider _tenantProvider;
     private readonly IConfiguration _configuration;
+    private readonly IConfidentialAccess? _confidentialAccess;
 
     public HrmsContext(
          DbContextOptions<HrmsContext> options,
          TenantConnectionStringInfo tenantConnectionInfo,
          ITenantProvider tenantProvider,
-         IConfiguration configuration) : base(options)
+         IConfiguration configuration,
+         IConfidentialAccess? confidentialAccess = null) : base(options)
     {
         _tenantConnectionInfo = tenantConnectionInfo;
         _tenantProvider = tenantProvider;
         _configuration = configuration;
+        _confidentialAccess = confidentialAccess;
     }
 
     /// <summary>Read by the global query filters on every query -- see <see cref="TenantQueryFilters"/>.</summary>
     public Guid CurrentTenantId => _tenantProvider?.TenantId ?? Guid.Empty;
+
+    // Read by the confidential-employee rules of the same filters (ConfidentialityFilters). No
+    // access object = unrestricted (background jobs, message consumers, design time).
+    public bool RestrictConfidential => _confidentialAccess?.Restricted ?? false;
+    public Guid[] ConfidentialHiddenProfileIds => HiddenFor(ConfidentialDataClass.Profile);
+    public Guid[] ConfidentialHiddenOperationsIds => HiddenFor(ConfidentialDataClass.Operations);
+    public Guid[] ConfidentialHiddenEntriesIds => HiddenFor(ConfidentialDataClass.Entries);
+    public Guid[] ConfidentialHiddenCompensationIds => HiddenFor(ConfidentialDataClass.Compensation);
+    private Guid[] HiddenFor(ConfidentialDataClass dataClass) => _confidentialAccess?.HiddenEmployeeIdsFor(dataClass) ?? [];
+    public Guid[] ConfidentialApprovalRecordIds => _confidentialAccess?.ApprovalVisibleRecordIds ?? [];
+    public Guid[] ConfidentialApprovalEmployeeIds => _confidentialAccess?.ApprovalVisibleEmployeeIds ?? [];
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     { 

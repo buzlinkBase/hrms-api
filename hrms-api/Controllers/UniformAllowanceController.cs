@@ -11,6 +11,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [EntriesData]
     public class UniformAllowanceController : ControllerBase
     {
         private readonly UniformAllowanceFundService _service;

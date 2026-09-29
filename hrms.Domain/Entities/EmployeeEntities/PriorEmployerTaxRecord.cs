@@ -7,7 +7,7 @@ namespace Hrms.Domain.Entities.EmployeeEntities;
 // into that year's Year-End Tax Annualization alongside this employer's own posted payroll. See
 // TaxAnnualizationService.ComputeAsync.
 [DisableSoftDelete]
-public class PriorEmployerTaxRecord : BaseEntity
+public class PriorEmployerTaxRecord : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;

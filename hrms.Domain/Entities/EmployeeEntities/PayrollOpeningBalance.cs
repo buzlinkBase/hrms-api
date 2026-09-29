@@ -9,7 +9,7 @@ namespace Hrms.Domain.Entities.EmployeeEntities;
 // aggregations (GetYtdSummaryAsync/GetThirteenthMonthAsync/GetAnnualTaxAnnualizationInputsAsync/
 // GetAlphalistAsync/Get2316DataAsync) can fold a row in with a plain field-add.
 [DisableSoftDelete]
-public class PayrollOpeningBalance : BaseEntity
+public class PayrollOpeningBalance : BaseEntity, IEmployeeOwned, ICompensationRecord
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;

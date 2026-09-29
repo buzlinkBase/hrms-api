@@ -17,6 +17,7 @@ namespace Hrms.Api.Controllers;
 // Master/DTR Summary), Timekeeping (Raw Logs/Incomplete Punches), and Reports (Attendance
 // Reports) -- so every action below is gated individually with whichever module actually owns
 // it. Never add a class-level [RequirePermission] here.
+[OperationsData]
 public class DailyRecordsController : ControllerBase
 {
     private readonly DailyRecordService _service;

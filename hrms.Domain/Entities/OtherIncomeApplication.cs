@@ -1,7 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 namespace Hrms.Domain.Entities;
 
-public class OtherIncomeApplication : BaseEntity
+public class OtherIncomeApplication : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public DateOnly EncodeDate { get; set; }
@@ -28,7 +28,7 @@ public class OtherIncomeApplication : BaseEntity
         Schedule = new Collection<OtherIncomeSchedules>();
     }
 }
-public class OtherIncomeSchedules : BaseEntity
+public class OtherIncomeSchedules : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public Guid ApplicationId { get; set; }
@@ -47,7 +47,7 @@ public class OtherIncomeSchedules : BaseEntity
     public Guid? ConsumedByPayrollId { get; set; }
 }
 
-public class IncomePayment : BaseEntity
+public class IncomePayment : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public Guid IncomeId { get; set; }

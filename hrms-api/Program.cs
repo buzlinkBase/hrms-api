@@ -97,6 +97,8 @@ internal class Program
         app.UseAuthorization();
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
+        // Hides confidential employees from callers without clearance (query-filter input).
+        app.UseMiddleware<ConfidentialAccessMiddleware>();
         app.MapControllers();
         app.MapHub<NotificationHub>(NotificationHub.Route);
         app.Run();

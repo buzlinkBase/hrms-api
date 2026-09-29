@@ -3,7 +3,7 @@
 namespace Hrms.Domain.Entities.EmployeeEntities;
 
 [DisableSoftDelete]
-public class RestDay : BaseEntity
+public class RestDay : BaseEntity, IEmployeeOwned
 {
     public DayName DayName { get; set; }
     public Guid EmployeeId { get; set; }
@@ -11,7 +11,7 @@ public class RestDay : BaseEntity
 }
 
 [DisableSoftDelete]
-public class RestDayDate : BaseEntity
+public class RestDayDate : BaseEntity, IEmployeeOwned
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee? Employee { get; set; }

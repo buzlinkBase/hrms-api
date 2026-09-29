@@ -79,6 +79,23 @@ public static class HttpRequestExtensions
     // step regardless of assignment (Person/Department/Position/Applicant's Manager/Applicant's
     // Department), since they already hold every {Row}:Approve permission broadly today. See
     // ApprovalEngineService.RecordActionAsync's callerHasOverrideAccess parameter.
+    // Clearance to see confidential employees. Unlike HasPermission, the Admin role alone is NOT
+    // enough -- the Owner decides which roles are cleared -- so only the Owner role or an explicit
+    // grant of the permission counts.
+    public static bool HasConfidentialClearance(this ClaimsPrincipal user) =>
+        user.FindAll(ClaimTypes.Role).Any(c => c.Value == "Owner") ||
+        user.FindAll("permission").Any(c => c.Value == Hrms.Core.Services.Security.ConfidentialAccessScope.ClearancePermission);
+
+    // Partial clearances (explicit grants only, no role shortcut): Operations for day-to-day records,
+    // Entries for cash bond / allowances / loans. Neither ever covers pay figures.
+    public static Hrms.Core.Services.Security.ConfidentialGrants GetConfidentialGrants(this ClaimsPrincipal user)
+    {
+        var granted = user.FindAll("permission").Select(c => c.Value).ToHashSet();
+        return new(
+            granted.Contains(Hrms.Core.Services.Security.ConfidentialAccessScope.OperationsPermission),
+            granted.Contains(Hrms.Core.Services.Security.ConfidentialAccessScope.EntriesPermission));
+    }
+
     public static bool IsOwnerOrAdmin(this ClaimsPrincipal user) =>
         user.FindAll(ClaimTypes.Role).Any(c => c.Value is "Owner" or "Admin");
 }

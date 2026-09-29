@@ -1,3 +1,4 @@
+using Hrms.Api.Filters;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [OperationsData]
     public class RestDayDatesController : ControllerBase
     {
         private readonly RestDayDateService _service;

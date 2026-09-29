@@ -54,7 +54,9 @@ public class AttEmployeeSetter
 
         // Untracked projection of just the fields stamped onto the logs -- not tracked lazy-loading
         // Employee proxies, which the change tracker would otherwise hold for the whole batch.
-        var employees = (await _service.Context.Employees
+        // Matched against every employee, confidential ones included: device punches must attach
+        // to their owner whoever uploads them (nothing about the employee is returned to the caller).
+        var employees = (await _service.Context.EmployeesForIntegrityChecks()
             .AsNoTracking()
             .Where(x => x.BioId.HasValue && bioIds.Contains(x.BioId.Value))
             .Select(x => new EmployeeRef(x.BioId!.Value, x.Id, x.BranchId, x.DepartmentId, x.ClientId, x.AreaId))

@@ -1,3 +1,4 @@
+using Hrms.Api.Filters;
 using Asp.Versioning;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -11,6 +12,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [OperationsData]
     public class EmployeeFixedSchedulesController : ControllerBase
     {
         private readonly EmployeeFixedScheduleService _service;

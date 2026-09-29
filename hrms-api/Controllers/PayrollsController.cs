@@ -18,6 +18,9 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    // Payroll runs, summaries and payslips are pay figures end to end -- partial confidential
+    // clearances never apply here (a run reads DTR rows an Operations user could otherwise see).
+    [CompensationData]
     public class PayrollsController : ControllerBase
     {
         // Maps a batch's actual run type to its Payroll Generation catalog row -- needed by

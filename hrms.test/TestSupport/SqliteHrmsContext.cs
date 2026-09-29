@@ -51,12 +51,18 @@ public sealed class SqliteHrmsContext : IDisposable
     public HrmsContext NewContext(Guid? tenantId = null) =>
         NewContext(new FakeTenantProvider(tenantId ?? Guid.Empty));
 
-    public HrmsContext NewContext(ITenantProvider tenantProvider)
+    public HrmsContext NewContext(ITenantProvider tenantProvider) => NewContext(tenantProvider, null);
+
+    /// <summary>A context whose query filter reads the given confidential-access scope.</summary>
+    public HrmsContext NewContext(IConfidentialAccess? confidentialAccess, Guid? tenantId = null) =>
+        NewContext(new FakeTenantProvider(tenantId ?? Guid.Empty), confidentialAccess);
+
+    private HrmsContext NewContext(ITenantProvider tenantProvider, IConfidentialAccess? confidentialAccess)
     {
         var options = new DbContextOptionsBuilder<HrmsContext>()
             .UseSqlite(_connectionString, x => x.UseNetTopologySuite())
             .Options;
-        return new HrmsContext(options, null!, tenantProvider, null!);
+        return new HrmsContext(options, null!, tenantProvider, null!, confidentialAccess);
     }
 
     public void Dispose() => _keepAlive.Dispose();

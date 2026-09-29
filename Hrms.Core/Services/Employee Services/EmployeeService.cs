@@ -14,9 +14,10 @@ public class EmployeeService : BaseService<Employee>
     private readonly BranchService _branchService;
     private readonly SectionService _sectionService;
     private readonly EmployeeAccountLinkService? _accountLinks;
+    private readonly Security.ConfidentialAccessScope? _access;
 
-    // accountLinks is optional so the many direct constructions in tests stay valid; the
-    // container always supplies it.
+    // accountLinks and access are optional so the many direct constructions in tests stay valid;
+    // the container always supplies them.
     public EmployeeService(IUnitOfWorkService uow,
         IMapper mapper,
         TypeAdapterConfig config,
@@ -26,7 +27,8 @@ public class EmployeeService : BaseService<Employee>
         CostCenterService areaService,
         PositionService positionService,
         SectionService sectionService,
-        EmployeeAccountLinkService? accountLinks = null
+        EmployeeAccountLinkService? accountLinks = null,
+        Security.ConfidentialAccessScope? access = null
         ) : base(uow)
     {
         _mapper = mapper;
@@ -36,13 +38,59 @@ public class EmployeeService : BaseService<Employee>
         _branchService = branchService;
         _sectionService = sectionService;
         _accountLinks = accountLinks;
+        _access = access;
+    }
+
+    /// <summary>
+    /// True when the caller can't open this employee's record: hidden as confidential, or visible
+    /// only through a request they're approving (they see that request, never the profile).
+    /// </summary>
+    public bool IsHiddenFromEmployeeScreens(Guid employeeId) =>
+        _access != null && (!_access.CanSeeEmployee(employeeId) || _access.IsApprovalOnlyEmployee(employeeId));
+
+    private bool CanSeePayOf(Guid employeeId) =>
+        _access?.CanSee(ConfidentialDataClass.Compensation, employeeId) ?? true;
+
+    /// <summary>
+    /// Blanks the pay fields of a confidential employee seen through a partial clearance
+    /// (Operations / Entries) -- only full clearance sees a confidential employee's pay.
+    /// </summary>
+    public T HidePayIfNotCleared<T>(T view) where T : IEmployeePayView
+    {
+        if (!CanSeePayOf(view.Id)) view.HidePay();
+        return view;
+    }
+
+    private List<T> HidePayIfNotCleared<T>(List<T> views) where T : IEmployeePayView
+    {
+        views.ForEach(v => HidePayIfNotCleared(v));
+        return views;
+    }
+
+    /// <summary>
+    /// Every employee, confidential ones included -- for uniqueness and matching checks (Bio ID,
+    /// email, import), which must never pass just because the clashing employee is hidden. Same as
+    /// GetQueryable when the caller isn't restricted.
+    /// </summary>
+    public IQueryable<Employee> EmployeesForIntegrityChecks() =>
+        _access is { Restricted: true } ? Context.EmployeesForIntegrityChecks() : GetQueryable();
+
+    // Employee screens (list, search, 201 file): the query filter already hides confidential
+    // employees; this also leaves out the ones visible only via an approval.
+    private IQueryable<Employee> EmployeeScreenQuery(Expression<Func<Employee, bool>>? exp = null)
+    {
+        var query = exp == null ? GetQueryable() : GetQueryable(exp);
+        var approvalOnly = _access is { Restricted: true } ? _access.ApprovalVisibleEmployeeIds : [];
+        return approvalOnly.Length == 0 ? query : query.Where(x => !approvalOnly.Contains(x.Id));
     }
 
     protected override async Task<EvaluationResult> CreateValidatorAsync(Employee model, CancellationToken token)
     {
         if (model.BioId.HasValue || model.BioId > 0)
         {
-            var emp = GetQueryable(x => x.Id != model.Id && x.BioId == model.BioId.Value).FirstOrDefault();
+            // Checked against every employee, confidential ones included -- the message names no one.
+            var emp = EmployeesForIntegrityChecks()
+                .FirstOrDefault(x => x.Id != model.Id && x.BioId == model.BioId.Value);
             if (emp != null)
             {
                 return new EvaluationResult("Bio ID conflicts with another employee");
@@ -57,9 +105,8 @@ public class EmployeeService : BaseService<Employee>
         if (!string.IsNullOrWhiteSpace(model.Email))
         {
             var normalizedEmail = model.Email.Trim().ToLower();
-            var duplicate = GetQueryable(x =>
-                x.Id != model.Id && x.Email != null && x.Email.ToLower() == normalizedEmail)
-                .FirstOrDefault();
+            var duplicate = EmployeesForIntegrityChecks()
+                .FirstOrDefault(x => x.Id != model.Id && x.Email != null && x.Email.ToLower() == normalizedEmail);
             if (duplicate != null)
             {
                 return new EvaluationResult("Email is already used by another employee");
@@ -97,8 +144,9 @@ public class EmployeeService : BaseService<Employee>
             {
                 return new EvaluationResult("An employee cannot be their own manager");
             }
-            var manager = await FineOneAsync(model.ManagerId.Value, token);
-            if (manager == null)
+            var managerExists = await EmployeesForIntegrityChecks()
+                .AnyAsync(x => x.Id == model.ManagerId.Value, token);
+            if (!managerExists)
             {
                 return new EvaluationResult("Invalid Manager");
             }
@@ -156,8 +204,15 @@ public class EmployeeService : BaseService<Employee>
         //}
     }
 
-    public async Task UpdateAsync(UpdateEmployee payload, CancellationToken token)
+    // canChangeConfidentiality: only a caller with confidential clearance may set or clear the
+    // tag; everyone else (and internal callers) keeps the stored value.
+    public async Task UpdateAsync(UpdateEmployee payload, CancellationToken token, bool canChangeConfidentiality = false)
     {
+        if (IsHiddenFromEmployeeScreens(payload.Id))
+        {
+            throw new NotFoundException("Record not found");
+        }
+
         await _uow.Context.RestDays
         .Where(x => x.EmployeeId == payload.Id)
         .ExecuteDeleteAsync(token);
@@ -188,7 +243,19 @@ public class EmployeeService : BaseService<Employee>
         payload.RestDays = new List<RestDayModel>();
         payload.FixedSchedule = new List<EmployeeFixedScheduleDayModel>();
 
+        var wasConfidential = existing.IsConfidential;
+        // The caller got this employee with pay blanked (partial clearance): save the stored pay,
+        // never the blanks. The statutory rate rows are hidden from them too, so leave them alone.
+        if (!CanSeePayOf(existing.Id))
+        {
+            existing.CopyPayTo(payload);
+            payload.SSSRate = null;
+            payload.PHICRate = null;
+            payload.HDMFRate = null;
+            payload.TaxRate = null;
+        }
         payload.Adapt(existing);
+        if (!canChangeConfidentiality) existing.IsConfidential = wasConfidential;
         CalculateAge(existing);
 
         if (existing.HireDate == DateOnly.MinValue || payload.HireDate == null)
@@ -297,11 +364,11 @@ public class EmployeeService : BaseService<Employee>
             || (x.Email != null && x.Email.Contains(keyword));
         ;
 
-        var query = GetQueryable(exp);
+        var query = EmployeeScreenQuery(exp);
         var employees = await query
             .ProjectToType<EmployeeModel>(_config)
             .ToListAsync(token);
-        return employees;
+        return HidePayIfNotCleared(employees);
     }
 
 
@@ -314,7 +381,7 @@ public class EmployeeService : BaseService<Employee>
             || x.EmployeeNo.Contains(payload.Keyword)
             || (x.Email != null && x.Email.Contains(payload.Keyword));;
 
-        var query = GetQueryable(exp);
+        var query = EmployeeScreenQuery(exp);
         var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit)
             .OrderBy(x => x.LastName)
             .ThenBy(x => x.FirstName)
@@ -324,7 +391,7 @@ public class EmployeeService : BaseService<Employee>
             .ToListAsync();
         return new PaginatedResult<List<EmployeeModel>>()
         {
-            Data = employees,
+            Data = HidePayIfNotCleared(employees),
             MetaData = new PaginationMetaData(await query.CountAsync(), payload.Page, payload.Limit)
         };
     }
@@ -336,7 +403,7 @@ public class EmployeeService : BaseService<Employee>
         var page = query.NormalizedPage;
         var limit = query.NormalizedLimit;
 
-        var filtered = GetQueryable().ApplyFilters(query);
+        var filtered = EmployeeScreenQuery().ApplyFilters(query);
         var total = await filtered.CountAsync(token);
 
         var employees = await filtered
@@ -348,7 +415,7 @@ public class EmployeeService : BaseService<Employee>
 
         return new PaginatedResult<List<EmployeeModel>>
         {
-            Data = employees,
+            Data = HidePayIfNotCleared(employees),
             MetaData = new PaginationMetaData(total, page, limit),
         };
     }
@@ -361,7 +428,7 @@ public class EmployeeService : BaseService<Employee>
             || x.MiddleName.Contains(payload.Keyword)
             || x.Suffix.Contains(payload.Keyword);
 
-        var query = GetQueryable(exp);
+        var query = EmployeeScreenQuery(exp);
         var dataQuery = PaginatedQuerable(query, payload.Page, payload.Limit)
             .OrderBy(x => x.LastName)
             .ThenBy(x => x.FirstName)
@@ -377,20 +444,21 @@ public class EmployeeService : BaseService<Employee>
 
         return new PaginatedResult<List<EmployeeFullModel>>()
         {
-            Data = employees,
+            Data = HidePayIfNotCleared(employees),
             MetaData = new PaginationMetaData(await query.CountAsync(), payload.Page, payload.Limit)
         };
     }
 
     public async Task<EmployeeFullModel?> GetFullByIdAsync(Guid id, CancellationToken token)
     {
-        return await GetQueryable(x => x.Id == id)
+        var employee = await EmployeeScreenQuery(x => x.Id == id)
             // One SQL per collection instead of a single JOIN across all six (Skills x Dependents x
             // Educations x Assets x Records x Employments rows). The old Include()s were no-ops --
             // EF ignores Include once ProjectToType shapes the result.
             .AsSplitQuery()
             .ProjectToType<EmployeeFullModel>(_config)
             .FirstOrDefaultAsync(token);
+        return employee == null ? null : HidePayIfNotCleared(employee);
     }
     // Resolves the calling user's own Employee record for the self-service portal. UserId is
     // the primary match (backfilled by UserOnboardedWorker when an invitation names an
@@ -460,7 +528,7 @@ public class EmployeeService : BaseService<Employee>
 
     public async Task<List<EmployeeFilterResponseModel>> Filter(EmployeeFilter filter, CancellationToken token)
     {
-        var result = await GetQueryable(x =>
+        var result = await EmployeeScreenQuery(x =>
             !SeparatedStatuses.Contains(x.EmploymentStatus) &&
             (filter.DayName == null || x.RestDays.Any(xx => xx.DayName == filter.DayName)) &&
             (filter.BranchId == null || x.BranchId == filter.BranchId.Value) &&
@@ -518,6 +586,10 @@ public class EmployeeService : BaseService<Employee>
 
     public async Task Delete(Guid Id, CancellationToken token)
     {
+        if (IsHiddenFromEmployeeScreens(Id))
+        {
+            throw new NotFoundException("Record not found");
+        }
         await RemoveAsync(Id, token);
         await CommitChangesAsync(token);
     }

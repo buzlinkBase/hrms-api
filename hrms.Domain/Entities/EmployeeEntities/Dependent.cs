@@ -4,7 +4,7 @@ using BuzlinkRepository;
 namespace Hrms.Domain.Entities.EmployeeEntities;
 
 [DisableSoftDelete]
-public class Dependent : BaseEntity
+public class Dependent : BaseEntity, IOptionalEmployeeOwned
 {
     public Guid? EmployeeId { get; set; }
     public string FullName { get; set; }

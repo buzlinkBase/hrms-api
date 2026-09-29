@@ -13,6 +13,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [OperationsData]
     public class PassSlipApplicationsController : ControllerBase
     {
         private readonly PassSlipApplicationService _service;

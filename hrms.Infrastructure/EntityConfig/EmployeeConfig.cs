@@ -9,6 +9,8 @@ public class EmployeeConfig : IEntityTypeConfiguration<Employee>
 {
     public void Configure(EntityTypeBuilder<Employee> builder)
     {
+        // Loaded once per request for users without confidential clearance (ConfidentialAccessScope).
+        builder.HasIndex(x => new { x.TenantId, x.IsConfidential });
 
         // builder.HasIndex(x => x.BioId)
         //.IsUnique()

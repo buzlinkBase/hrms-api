@@ -2,7 +2,7 @@
 
 namespace Hrms.Domain.Entities;
 
-public class UnderTimeApplication : BaseEntity
+public class UnderTimeApplication : BaseEntity, IEmployeeOwned
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; }

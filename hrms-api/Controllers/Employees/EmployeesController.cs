@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Hrms.Api.Documents;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Authorization;
@@ -100,9 +101,10 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
-            var employee = await _service.FineOneAsync(id, token);
+            // An approver sees a confidential applicant's request, never the profile itself.
+            var employee = _service.IsHiddenFromEmployeeScreens(id) ? null : await _service.FineOneAsync(id, token);
             var model = _mapper.Map<EmployeeModel>(employee);
-            return Ok(model == null ? new EmployeeModel() : model);
+            return Ok(model == null ? new EmployeeModel() : _service.HidePayIfNotCleared(model));
         }
 
         [HttpPost]
@@ -111,6 +113,8 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Post([FromBody] CreateEmployee payload, CancellationToken token)
         {
             var employee = _mapper.Map<Employee>(payload);
+            // Only a caller with confidential clearance may tag an employee as confidential.
+            if (!User.HasConfidentialClearance()) employee.IsConfidential = false;
             await _service.AddAsync(employee, token);
             await _service.CommitChangesAsync(token);
             return Ok(_mapper.Map<EmployeeModel>(employee));
@@ -122,7 +126,7 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmployee payload, CancellationToken token)
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
-            await _service.UpdateAsync(payload, token);
+            await _service.UpdateAsync(payload, token, canChangeConfidentiality: User.HasConfidentialClearance());
             return Ok(_mapper.Map<EmployeeModel>(payload));
         }
 

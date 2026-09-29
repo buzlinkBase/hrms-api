@@ -15,7 +15,7 @@ public class TaxTable : BaseEntity
 
 }
 [DisableSoftDelete]
-public class WTaxContribution : BaseEntity, IDateFilter
+public class WTaxContribution : BaseEntity, IDateFilter, IEmployeeOwned, ICompensationRecord
 {
     public Guid PayrollBatchId { get; set; }
     public Guid EmployeeId { get; set; }

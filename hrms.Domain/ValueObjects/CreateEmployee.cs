@@ -18,7 +18,7 @@ public record EmployeeFilter
     public Guid? ManagerId { get; set; }
 
 }
-public class CreateEmployee
+public class CreateEmployee : IEmployeePayFields
 {
     public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;
@@ -32,7 +32,7 @@ public class CreateEmployee
     public string? Email { get; set; }
     public Guid? SectionId { get; set; }
     public Guid? PositionId { get; set; }
-    public string JobLevel { get; set; } = JobLevels.Default;
+    public string JobLevel { get; set; } = string.Empty;
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; }
@@ -72,6 +72,8 @@ public class CreateEmployee
     public string BloodType { get; set; } = string.Empty;
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
+    // Applied only when the caller has confidential clearance; otherwise the stored value is kept.
+    public bool IsConfidential { get; set; }
 
     public string BankName { get; set; } = string.Empty;
     public string BankNo { get; set; } = string.Empty;
@@ -116,9 +118,12 @@ public class UpdateEmployee : CreateEmployee
 }
 
 [MessagePackObject]
-public partial class EmployeeModel : EmployeePackModel
+public partial class EmployeeModel : EmployeePackModel, IEmployeePayView
 {
     [IgnoreMember] public string EmployeeNo { get; set; } = string.Empty;
+    // Without this the edit form never received the stored level, fell back to the default, and
+    // saving overwrote the level the user had chosen.
+    [IgnoreMember] public string JobLevel { get; set; } = string.Empty;
     [IgnoreMember] public DateTime DateRegistered { get; set; }
     [IgnoreMember] public DateOnly HireDate { get; set; }
     [IgnoreMember] public DateTime? ContractStart { get; set; }
@@ -145,6 +150,9 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     [IgnoreMember] public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     [IgnoreMember] public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
+    [IgnoreMember] public bool IsConfidential { get; set; }
+    // Pay fields blanked: a confidential employee seen through a partial clearance.
+    [IgnoreMember] public bool FiguresHidden { get; set; }
     [IgnoreMember] public string BankName { get; set; } = string.Empty;
     [IgnoreMember] public string BankNo { get; set; } = string.Empty;
     [IgnoreMember] public CreateSSSRate? SSSRate { get; set; }
@@ -170,7 +178,7 @@ public partial class EmployeeModel : EmployeePackModel
     [IgnoreMember] public string? AreaName { get; set; }
     [IgnoreMember] public string Status { get; set; }
 }
-public class EmployeeFullModel
+public class EmployeeFullModel : IEmployeePayView
 {
     public Guid Id { get; set; }
     public int? BioId { get; set; }
@@ -184,7 +192,7 @@ public class EmployeeFullModel
 
     public Guid? SectionId { get; set; }
     public Guid? PositionId { get; set; }
-    public string JobLevel { get; set; } = JobLevels.Default;
+    public string JobLevel { get; set; } = string.Empty;
     public Guid? TimeShiftId { get; set; }
 
     public DateTime DateRegistered { get; set; }
@@ -224,6 +232,10 @@ public class EmployeeFullModel
     public SalaryType SalaryType { get; set; } = SalaryType.VARIABLE;
     public PayrollFrequency PayrollFrequency { get; set; } = PayrollFrequency.SEMI_MONTHLY;
     public EmploymentStatus EmploymentStatus { get; set; } = EmploymentStatus.Probationary;
+    // Applied only when the caller has confidential clearance; otherwise the stored value is kept.
+    public bool IsConfidential { get; set; }
+    // Pay fields blanked: a confidential employee seen through a partial clearance.
+    public bool FiguresHidden { get; set; }
 
     public string BankName { get; set; } = string.Empty;
     public string BankNo { get; set; } = string.Empty;
@@ -280,7 +292,7 @@ public class EmployeeModelPayrollRun
     public Guid? AreaId { get; set; }
     public PayrollGroupModel? PayrollGroup { get; set; }
     //public Guid? BranchId { get; set; }
-    public string JobLevel { get; set; } = JobLevels.Default;
+    public string JobLevel { get; set; } = string.Empty;
     public DateOnly HireDate { get; set; }
     public DateTime? DateResigned { get; set; }
     public string FirstName { get; set; } = string.Empty;

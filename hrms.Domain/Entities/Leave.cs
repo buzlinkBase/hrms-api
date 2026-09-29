@@ -56,7 +56,7 @@ public class Leave : BaseEntity
 }
 
 [Audited(EntityType = "Leave")]
-public class LeaveApplication : BaseEntity
+public class LeaveApplication : BaseEntity, IEmployeeOwned, IApprovalSubject
 {
     public Guid LeaveId { get; set; }
     public required virtual Leave Leave { get; set; }
@@ -103,7 +103,7 @@ public class LeaveApplication : BaseEntity
     public int? AuditTrailId { get; set; }
 }
 
-public class LeaveCredits : BaseEntity
+public class LeaveCredits : BaseEntity, IEmployeeOwned
 {
     // ── Period ────────────────────────────────────────────────────────────────
     public int PeriodYear { get; set; }         // e.g. 2025
@@ -124,7 +124,7 @@ public class LeaveCredits : BaseEntity
     public decimal AvailableToFile => Balance - Reserved; // what the employee can actually file against
 }
 
-public class LeaveLedger : BaseEntity
+public class LeaveLedger : BaseEntity, IEmployeeOwned
 {
     // ── Ownership ─────────────────────────────────────────────────────────────
     public Guid EmployeeId { get; set; }

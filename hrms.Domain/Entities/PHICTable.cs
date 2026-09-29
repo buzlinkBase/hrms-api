@@ -17,7 +17,7 @@ public class PHICTable : BaseEntity
 
 
 [DisableSoftDelete]
-public class PHICContribution : BaseEntity, IDateFilter
+public class PHICContribution : BaseEntity, IDateFilter, IEmployeeOwned, ICompensationRecord
 {
     public Guid PayrollBatchId { get; set; }
     public Guid EmployeeId { get; set; }

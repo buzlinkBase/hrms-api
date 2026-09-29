@@ -8,7 +8,7 @@ namespace Hrms.Domain.Entities;
 // of a row for a given (EmployeeId, ApplicationType) means both channels stay on (opt-out
 // model), so introducing this table needs no backfill for existing employees -- see
 // NotificationPreferenceService.ResolveDeliveryFlags.
-public class NotificationPreference : BaseEntity
+public class NotificationPreference : BaseEntity, IEmployeeOwned
 {
     public Guid EmployeeId { get; set; }
     public virtual Employee? Employee { get; set; }

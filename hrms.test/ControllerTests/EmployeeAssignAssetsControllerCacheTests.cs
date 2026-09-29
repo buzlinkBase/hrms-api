@@ -23,7 +23,8 @@ public class EmployeeAssignAssetsControllerCacheTests
         var tenant = Substitute.For<ITenantProvider>();
         tenant.TenantId.Returns(Tenant);
         var controller = new EmployeeAssignAssetsController(
-            new EmployeeAssignAssetService(new UnitOfWorkService(context)), new Mapper(), cache, tenant);
+            new EmployeeAssignAssetService(new UnitOfWorkService(context)), new Mapper(), cache, tenant,
+            new Hrms.Core.Services.Security.ConfidentialAccessScope());
         return (controller, cache, db);
     }
 
