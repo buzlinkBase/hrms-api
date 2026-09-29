@@ -218,7 +218,7 @@ public class TemplateDownloaderServiceTests
                 LastName = "DelaCruz",
                 Cutoff1 = 15,
                 Cutoff4 = 30,
-                EOM4 = true,
+                Eom4 = true,
                 DateOfBirth = new DateTime(1990, 5, 20),
                 CivilStatus = "Single",
                 BloodType = "O+",
@@ -247,5 +247,57 @@ public class TemplateDownloaderServiceTests
         worksheet.Cell(3, headerByText["Address 2"]).GetString().Should().Be("Brgy. Sample");
         worksheet.Cell(3, headerByText["SalaryType"]).GetString().Should().Be("Fixed");
         worksheet.Cell(3, headerByText["Monthly Rate"]).GetValue<decimal>().Should().Be(25000);
+    }
+
+    /// <summary>
+    /// Every column header of the real employee_template.xlsx must be one EmployeeImportService
+    /// maps on upload (EmployeeTemplateHeaders) -- a header edited in the file but not in code
+    /// (e.g. "PaidLunchBreak" -> "Paid Lunch Break") is otherwise silently never read.
+    /// </summary>
+    [Fact]
+    public void EmployeeTemplateFile_EveryHeader_IsAMappedImportColumn()
+    {
+        var mappedHeaders = typeof(EmployeeTemplateHeaders)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Select(f => (string)f.GetRawConstantValue()!)
+            .ToHashSet();
+
+        using var workbook = new XLWorkbook(Path.Combine(FindApiProjectDirectory(), "wwwroot", "Templates", "employee_template.xlsx"));
+        var templateHeaders = workbook.Worksheet(1).Row(2).CellsUsed()
+            .Select(c => c.GetString().Trim())
+            .Where(h => h.Length > 0)
+            .ToList();
+
+        templateHeaders.Should().NotBeEmpty();
+        templateHeaders.Should().OnlyContain(h => mappedHeaders.Contains(h));
+    }
+
+    /// <summary>
+    /// The import preview table reads these exact JSON keys (employee-import-preview-modal.tsx
+    /// dataIndex). The API serializes with Newtonsoft's CamelCasePropertyNamesContractResolver,
+    /// which turns an all-caps prefix into odd keys -- EOM1 came out as "eoM1", so the EOM
+    /// columns always showed "No". Guards against a property rename silently blanking a column.
+    /// </summary>
+    [Fact]
+    public void EmployeeImportPreviewRow_SerializesToTheKeysThePreviewTableReads()
+    {
+        var json = Newtonsoft.Json.JsonConvert.SerializeObject(new EmployeeImportPreviewRow(),
+            new Newtonsoft.Json.JsonSerializerSettings
+            {
+                ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver(),
+            });
+        var keys = Newtonsoft.Json.Linq.JObject.Parse(json).Properties().Select(p => p.Name).ToList();
+
+        keys.Should().BeEquivalentTo(
+        [
+            "rowNumber", "errors",
+            "bioId", "branchCode", "firstName", "middleName", "lastName", "email", "suffix", "gender",
+            "restDay1", "restDay2", "departmentName", "projectSiteName", "clientName", "payrollGroup",
+            "shiftName", "shiftType", "amIn", "pmOut", "amOut", "pmIn", "paidLunchBreak",
+            "breakDuration", "maxWorkingMinutes", "salaryType", "contactNo", "civilStatus", "bloodType",
+            "sss", "phic", "hdmf", "tin", "dailyRate", "monthlyRate", "cashBond", "hireDate", "dateOfBirth",
+            "cutoff1", "cutoff2", "cutoff3", "cutoff4", "eom1", "eom2", "eom3", "eom4",
+            "address1", "address2", "bankNo", "bankName",
+        ]);
     }
 }

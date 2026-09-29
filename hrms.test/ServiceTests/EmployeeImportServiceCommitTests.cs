@@ -225,6 +225,223 @@ public class EmployeeImportServiceCommitTests
         (await verify.Employees.SingleAsync(x => x.FirstName == "Tess")).ClientId.Should().BeNull();
     }
 
+    private static MemoryStream BuildWorkbookWithShiftTimes(params (string BioId, string FirstName, object? AmIn, object? PmOut)[] rows)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(2, 1).Value = EmployeeTemplateHeaders.BioId;
+        sheet.Cell(2, 2).Value = EmployeeTemplateHeaders.FirstName;
+        sheet.Cell(2, 3).Value = EmployeeTemplateHeaders.LastName;
+        sheet.Cell(2, 4).Value = EmployeeTemplateHeaders.ShiftName;
+        sheet.Cell(2, 5).Value = EmployeeTemplateHeaders.AmIn;
+        sheet.Cell(2, 6).Value = EmployeeTemplateHeaders.PmOut;
+
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var row = i + 3;
+            sheet.Cell(row, 1).Value = rows[i].BioId;
+            sheet.Cell(row, 2).Value = rows[i].FirstName;
+            sheet.Cell(row, 3).Value = "Tester";
+            sheet.Cell(row, 4).Value = "Day Shift";
+            if (rows[i].AmIn != null) sheet.Cell(row, 5).Value = XLCellValue.FromObject(rows[i].AmIn);
+            if (rows[i].PmOut != null) sheet.Cell(row, 6).Value = XLCellValue.FromObject(rows[i].PmOut);
+        }
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+    // TimeShiftId is nullable: a row with no time, or a time that isn't one, used to be handed
+    // a conjured "Day Shift-8:00:00-17:00:00" shift instead of being left without a shift.
+    [Fact]
+    public async Task Upload_BlankOrInvalidShiftTimes_LeaveTimeShiftNull_AndCreateNoShift()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+        var sut = BuildService(new UnitOfWorkService(context));
+
+        using var file = BuildWorkbookWithShiftTimes(
+            ("3001", "Blank", null, null),
+            ("3002", "Garbage", "not a time", "17:00:00"),
+            ("3003", "HalfDone", 8.0 / 24, null));
+        await sut.Upload(file, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.Employees.CountAsync()).Should().Be(3);
+        (await verify.Employees.AllAsync(x => x.TimeShiftId == null)).Should().BeTrue();
+        (await verify.TimeShifts.AnyAsync()).Should().BeFalse("no row carried a usable AMIN + PM OUT pair");
+    }
+
+    [Fact]
+    public async Task Upload_ValidShiftTimes_AssignTheImportedShift()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+        var sut = BuildService(new UnitOfWorkService(context));
+
+        using var file = BuildWorkbookWithShiftTimes(
+            ("3004", "Numeric", 7.0 / 24, 16.0 / 24),
+            ("3005", "Typed", "7:00 AM", "4:00 PM"),
+            ("3006", "NoShift", null, null));
+        await sut.Upload(file, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        var numeric = await verify.Employees.SingleAsync(x => x.FirstName == "Numeric");
+        var typed = await verify.Employees.SingleAsync(x => x.FirstName == "Typed");
+        numeric.TimeShiftId.Should().NotBeNull();
+        typed.TimeShiftId.Should().NotBeNull();
+        var shift = await verify.TimeShifts.SingleAsync(x => x.Id == numeric.TimeShiftId);
+        shift.StartTime.Should().Be(new TimeSpan(7, 0, 0));
+        shift.EndTime.Should().Be(new TimeSpan(16, 0, 0));
+        (await verify.Employees.SingleAsync(x => x.FirstName == "NoShift")).TimeShiftId.Should().BeNull();
+    }
+
+    private static MemoryStream BuildWorkbookWithBranchAndSite(params (string FirstName, string LastName, string Branch, string Site)[] rows)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(2, 1).Value = EmployeeTemplateHeaders.FirstName;
+        sheet.Cell(2, 2).Value = EmployeeTemplateHeaders.LastName;
+        sheet.Cell(2, 3).Value = EmployeeTemplateHeaders.BranchCode;
+        sheet.Cell(2, 4).Value = EmployeeTemplateHeaders.ProjectSite;
+
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var row = i + 3;
+            sheet.Cell(row, 1).Value = rows[i].FirstName;
+            sheet.Cell(row, 2).Value = rows[i].LastName;
+            sheet.Cell(row, 3).Value = rows[i].Branch;
+            sheet.Cell(row, 4).Value = rows[i].Site;
+        }
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+    // Every Branch -> Project Site cascade in the app lists only sites whose BranchId matches,
+    // so an imported site saved without a Branch looked untagged on every employee using it.
+    [Fact]
+    public async Task Upload_NewProjectSite_TakesTheBranchOfItsRows()
+    {
+        using var db = new SqliteHrmsContext();
+        var branchId = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            seed.Branches.Add(new Branch { Id = branchId, Code = "Main", Name = "Main" });
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var context = db.NewContext())
+        {
+            var sut = BuildService(new UnitOfWorkService(context));
+            using var file = BuildWorkbookWithBranchAndSite(("Hazel", "Ando", "Main", " Royal Gem "));
+            await sut.Upload(file, CancellationToken.None);
+        }
+
+        await using var verify = db.NewContext();
+        var site = await verify.Areas.SingleAsync();
+        site.Name.Should().Be("Royal Gem");
+        site.BranchId.Should().Be(branchId);
+        var employee = await verify.Employees.SingleAsync();
+        employee.AreaId.Should().Be(site.Id);
+        employee.BranchId.Should().Be(branchId);
+    }
+
+    [Fact]
+    public async Task Upload_ExistingProjectSiteWithoutBranch_IsGivenTheImportedBranch()
+    {
+        using var db = new SqliteHrmsContext();
+        var branchId = Guid.NewGuid();
+        var siteId = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            seed.Branches.Add(new Branch { Id = branchId, Code = "Main", Name = "Main" });
+            seed.Areas.Add(new CostCenters { Id = siteId, Code = "0001", Name = "Royal Gem" });
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var context = db.NewContext())
+        {
+            var sut = BuildService(new UnitOfWorkService(context));
+            using var file = BuildWorkbookWithBranchAndSite(("Hazel", "Ando", "Main", "royal gem"));
+            await sut.Upload(file, CancellationToken.None);
+        }
+
+        await using var verify = db.NewContext();
+        var site = await verify.Areas.SingleAsync();
+        site.Id.Should().Be(siteId, "the existing site is reused, not duplicated");
+        site.BranchId.Should().Be(branchId);
+        (await verify.Employees.SingleAsync()).AreaId.Should().Be(siteId);
+    }
+
+    // Headers on row 1 (no Instructions banner), stray spaces everywhere, and the real UI path:
+    // preview -> JSON round-trip through the browser -> commit.
+    [Fact]
+    public async Task PreviewThenCommit_TrimsEveryTextCell_AndTagsTheProjectSite()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var seed = db.NewContext())
+        {
+            seed.Branches.Add(new Branch { Id = Guid.NewGuid(), Code = "Main", Name = "Main" });
+            await seed.SaveChangesAsync();
+        }
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(1, 1).Value = EmployeeTemplateHeaders.LastName;
+        sheet.Cell(1, 2).Value = EmployeeTemplateHeaders.FirstName;
+        sheet.Cell(1, 3).Value = EmployeeTemplateHeaders.BranchCode;
+        sheet.Cell(1, 4).Value = EmployeeTemplateHeaders.ClientName;
+        sheet.Cell(1, 5).Value = EmployeeTemplateHeaders.ProjectSite;
+        sheet.Cell(1, 6).Value = EmployeeTemplateHeaders.Email;
+        sheet.Cell(1, 7).Value = EmployeeTemplateHeaders.MiddleName;
+        sheet.Cell(2, 1).Value = "Alba ";
+        sheet.Cell(2, 2).Value = " Dexter";
+        sheet.Cell(2, 3).Value = " Main ";
+        sheet.Cell(2, 4).Value = "Metro Retails  Store Group Inc. ";
+        sheet.Cell(2, 5).Value = " Royal Gem";
+        sheet.Cell(2, 6).Value = " dexter@example.com ";
+        sheet.Cell(2, 7).Value = "   ";
+        var file = new MemoryStream();
+        workbook.SaveAs(file);
+        file.Position = 0;
+
+        List<EmployeeImportPreviewRow> fromBrowser;
+        await using (var context = db.NewContext())
+        {
+            var preview = await BuildService(new UnitOfWorkService(context)).PreviewAsync(file, CancellationToken.None);
+            var web = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+            fromBrowser = System.Text.Json.JsonSerializer.Deserialize<List<EmployeeImportPreviewRow>>(
+                System.Text.Json.JsonSerializer.Serialize(preview, web), web)!;
+        }
+
+        fromBrowser.Should().ContainSingle();
+        fromBrowser[0].LastName.Should().Be("Alba");
+        fromBrowser[0].FirstName.Should().Be("Dexter");
+        fromBrowser[0].ProjectSiteName.Should().Be("Royal Gem");
+        fromBrowser[0].MiddleName.Should().BeNull("a whitespace-only cell is blank");
+
+        await using (var context = db.NewContext())
+        {
+            await BuildService(new UnitOfWorkService(context)).CommitPreviewAsync(fromBrowser, CancellationToken.None);
+        }
+
+        await using var verify = db.NewContext();
+        var employee = await verify.Employees.SingleAsync();
+        employee.LastName.Should().Be("Alba");
+        employee.FirstName.Should().Be("Dexter");
+        employee.Email.Should().Be("dexter@example.com");
+        (await verify.Clients.SingleAsync()).Name.Should().Be("Metro Retails  Store Group Inc.");
+        var site = await verify.Areas.SingleAsync();
+        site.Name.Should().Be("Royal Gem");
+        site.BranchId.Should().Be(employee.BranchId);
+        employee.AreaId.Should().Be(site.Id);
+    }
+
     [Fact]
     public async Task Upload_MixOfBlankAndPopulatedProjectSite_PersistsBothRows()
     {

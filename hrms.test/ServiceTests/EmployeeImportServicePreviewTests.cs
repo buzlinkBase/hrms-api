@@ -111,6 +111,46 @@ public class EmployeeImportServicePreviewTests
         result.SelectMany(r => r.Errors).Should().BeEmpty();
     }
 
+    /// <summary>
+    /// Regression guard: a hand-made file without the template's "Instructions" banner puts its
+    /// headers on row 1 and data from row 2. The fixed header row index used to read the FIRST
+    /// EMPLOYEE as the header row, so no FirstName/LastName header matched and every row
+    /// imported with blank names (and the first employee was lost entirely).
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_DetectsHeadersOnTheFirstRow_WhenThereIsNoInstructionsBanner()
+    {
+        var repo = Substitute.For<IRepository>();
+        var sut = BuildService(repo, Substitute.For<IUnitOfWorkService>());
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(1, 1).Value = "BioId";
+        sheet.Cell(1, 2).Value = "LastName";
+        sheet.Cell(1, 3).Value = "FirstName";
+        sheet.Cell(1, 4).Value = "MiddleName";
+
+        sheet.Cell(2, 2).Value = "Alba";
+        sheet.Cell(2, 3).Value = "Dexter";
+
+        sheet.Cell(3, 2).Value = "Amores";
+        sheet.Cell(3, 3).Value = "Kyzer";
+        sheet.Cell(3, 4).Value = "Abing";
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var result = await sut.PreviewAsync(stream, CancellationToken.None);
+
+        result.Should().HaveCount(2);
+        result[0].FirstName.Should().Be("Dexter");
+        result[0].LastName.Should().Be("Alba");
+        result[1].FirstName.Should().Be("Kyzer");
+        result[1].MiddleName.Should().Be("Abing");
+        result[1].LastName.Should().Be("Amores");
+    }
+
     [Fact]
     public async Task PreviewAsync_FlagsDuplicateBioIdsWithinTheFile_OnBothRows()
     {

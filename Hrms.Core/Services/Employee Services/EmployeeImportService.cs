@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using NPOI.SS.UserModel;
 using System.Globalization;
+using System.Reflection;
 
 namespace Hrms.Core.Services;
 
@@ -24,10 +25,13 @@ public class EmployeeImportService
 
     public event Action<string> OnMessage;
 
-    // ExcelMapper's own MinRowNumber (0-based NPOI row index of the first real data row) --
-    // shared with PreviewAsync so a parse error's Line can be matched back to the right data
-    // row, since ExcelMapper.MinRowNumber itself is only set locally in ParseAndDefaultAsync.
-    private const int ExcelMinDataRowNumber = 2;
+    // 0-based NPOI row index of the header row in the official template (row 1 is a merged
+    // "Instructions" banner, headers on row 2). Only the fallback -- FindHeaderRowIndex detects
+    // the real header row, since hand-made files routinely drop the banner and put headers on
+    // row 1, which used to make the first EMPLOYEE row get read as the header row (so no
+    // FirstName/LastName/... header was ever found and every mapped field imported blank).
+    private const int TemplateHeaderRowIndex = 1;
+    private const int HeaderScanRowLimit = 10;
 
     public EmployeeImportService(
         IUnitOfWorkService uow,
@@ -51,7 +55,7 @@ public class EmployeeImportService
 
     public async Task Upload(Stream fileStream, CancellationToken token)
     {
-        var (data, allEmployees, _) = await ParseAndDefaultAsync(fileStream, token);
+        var (data, allEmployees, _, _) = await ParseAndDefaultAsync(fileStream, token);
         ValidateImportData(data, allEmployees);
         await PersistAsync(data, allEmployees, token);
     }
@@ -70,6 +74,7 @@ public class EmployeeImportService
             .Select(r => r.Adapt<EmployeeImportModel>())
             .ToList();
         if (data.Count == 0) return;
+        TrimStrings(data);
 
         var allEmployees = await GetAllEmployees(token);
         await PersistAsync(data, allEmployees, token);
@@ -92,7 +97,7 @@ public class EmployeeImportService
         var clients = ExtractClients(data);
         var pyGroups = ExtractPayrollGroups(data);
         var departments = ExtractDepartments(data);
-        var projectSites = ExtractProjectSites(data);
+        var projectSites = ExtractProjectSites(data, branches);
         var restDays = ExtractRestDay(data);
 
         await StoreShiftAsync(shifts, token);
@@ -114,14 +119,15 @@ public class EmployeeImportService
         foreach (var item in data)
         {
             if (item == null) continue;
-            var startTime = GetStartTime(item);
-            var endTime = GetEndTime(item);
-            var lunchOut = GetLunchOut(item);
-            var lunchIn = GetLunchIn(item);
-
-            var sanitizedShiftName = item.ShiftName?.Trim() ?? string.Empty;
-            var shiftKey = new ShiftKey(sanitizedShiftName, startTime, endTime, lunchOut, lunchIn);
-            shifts.TryGetValue(shiftKey, out TimeShift? timeShift);
+            // TimeShiftId is nullable: a row with no (or an unparseable) AMIN / PM OUT gets no
+            // shift at all rather than a made-up 8:00-17:00 one.
+            TimeShift? timeShift = null;
+            if (TryGetShiftTimes(item, out var startTime, out var endTime))
+            {
+                var sanitizedShiftName = item.ShiftName?.Trim() ?? string.Empty;
+                var shiftKey = new ShiftKey(sanitizedShiftName, startTime, endTime, GetLunchOut(item), GetLunchIn(item));
+                shifts.TryGetValue(shiftKey, out timeShift);
+            }
 
             Client? client = null;
             if (!string.IsNullOrWhiteSpace(item.ClientName))
@@ -142,8 +148,7 @@ public class EmployeeImportService
             {
                 projectSites.TryGetValue(item.ProjectSiteName.Trim(), out area);
             }
-            var branch = branches.FirstOrDefault(x => x.Code == item.BranchCode);
-            Guid? BranchId = !branches.Any() ? null : branch.Equals(default) ? branches.FirstOrDefault().Id : branch.Id;
+            var BranchId = ResolveBranchId(item, branches);
             if (pg == null) pg = pyGroups.Values.FirstOrDefault();
 
             int.TryParse(item.BioId, out var bioIdNo);
@@ -197,11 +202,10 @@ public class EmployeeImportService
                 HireDate = item.HireDate == null ? DateOnly.FromDateTime(DateTime.UtcNow) : item.HireDate.Value,
             };
 
-            var existing = allEmployees
-                .FirstOrDefault(x => x.FirstName == employee.FirstName &&
-                x.MiddleName == employee.MiddleName &&
-                x.LastName == employee.LastName &&
-                x.Suffix == employee.Suffix);
+            // Same trimmed, case-insensitive comparison as NamesMatch -- the file is trimmed now,
+            // but employees saved by earlier imports can still carry stray spaces ("Alba "), and
+            // an exact match would duplicate them instead of updating them.
+            var existing = allEmployees.FirstOrDefault(x => NamesMatch(item, x));
 
             if (existing != null)
             {
@@ -246,12 +250,15 @@ public class EmployeeImportService
         await _uow.CommitChangesAsync("", token);
     }
 
-    private async Task<(List<EmployeeImportModel> Data, List<BasicEmployeeInfo> DbEmployees, List<ExcelMapperConvertException> ParseErrors)> ParseAndDefaultAsync(Stream fileStream, CancellationToken token)
+    private async Task<(List<EmployeeImportModel> Data, List<BasicEmployeeInfo> DbEmployees, List<ExcelMapperConvertException> ParseErrors, int FirstDataRowIndex)> ParseAndDefaultAsync(Stream fileStream, CancellationToken token)
     {
-        var mapper = new ExcelMapper(fileStream)
+        var workbook = WorkbookFactory.Create(fileStream);
+        var headerRowIndex = FindHeaderRowIndex(workbook.GetSheetAt(0));
+        var firstDataRowIndex = headerRowIndex + 1;
+        var mapper = new ExcelMapper(workbook)
         {
-            HeaderRowNumber = 1,
-            MinRowNumber = ExcelMinDataRowNumber,
+            HeaderRowNumber = headerRowIndex,
+            MinRowNumber = firstDataRowIndex,
             // Own factory per import: ExcelMapper's default is one process-wide static cache, and
             // MapFields' AddMapping calls mutate it -- two imports at once raced on it ("An item
             // with the same key has already been added").
@@ -272,8 +279,35 @@ public class EmployeeImportService
 
         var data = mapper.Fetch<EmployeeImportModel>(0, ConvertCellValue).ToList();
         var allEmployees = await GetAllEmployees(token);
+        TrimStrings(data);
         SetDefaults(data);
-        return (data, allEmployees, parseErrors);
+        return (data, allEmployees, parseErrors, firstDataRowIndex);
+    }
+
+    /// <summary>
+    /// 0-based index of the first row (within the first few) that carries the FirstName or
+    /// LastName header, so a file with headers on row 1 (no "Instructions" banner) imports the
+    /// same as the official template. Falls back to the template's row when neither is found.
+    /// </summary>
+    private static int FindHeaderRowIndex(ISheet sheet)
+    {
+        var lastRowToScan = Math.Min(sheet.LastRowNum, HeaderScanRowLimit - 1);
+        for (var r = sheet.FirstRowNum; r <= lastRowToScan; r++)
+        {
+            var row = sheet.GetRow(r);
+            if (row == null) continue;
+            foreach (var cell in row.Cells)
+            {
+                if (cell.CellType != CellType.String) continue;
+                var text = cell.StringCellValue.Trim();
+                if (string.Equals(text, EmployeeTemplateHeaders.FirstName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text, EmployeeTemplateHeaders.LastName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return r;
+                }
+            }
+        }
+        return TemplateHeaderRowIndex;
     }
 
     // ValueConverterArgs.ColumnName is the mapped C# PROPERTY name (per AddMapping in MapFields),
@@ -300,7 +334,7 @@ public class EmployeeImportService
     ///   literal "reserved-0x.." placeholder instead of an actual time, corrupting the value
     ///   regardless of what the cell displays in Excel. Uses TimeSpan's own ToString() (hh:mm:ss,
     ///   or d.hh:mm:ss past 24h -- e.g. an overnight shift's PM OUT) since that's exactly what
-    ///   TimeSpan.TryParse (GetStartTime/GetEndTime/GetLunchOut/GetLunchIn below) already expects.
+    ///   TimeSpan.TryParse (ParseTime below) already expects.
     /// - HireDate is DateOnly (unlike DateOfBirth, which is DateTime) -- ExcelMapper has NO
     ///   built-in conversion to DateOnly at all, from either a numeric Excel date serial or a
     ///   typed date string, so every row with a real date in that column throws
@@ -360,7 +394,7 @@ public class EmployeeImportService
     /// </summary>
     public async Task<List<EmployeeImportPreviewRow>> PreviewAsync(Stream fileStream, CancellationToken token)
     {
-        var (data, allEmployees, parseErrors) = await ParseAndDefaultAsync(fileStream, token);
+        var (data, allEmployees, parseErrors, firstDataRowIndex) = await ParseAndDefaultAsync(fileStream, token);
 
         var internalDuplicateBioIds = data
             .Where(x => !string.IsNullOrWhiteSpace(x.BioId) && x.BioId != "0")
@@ -379,7 +413,7 @@ public class EmployeeImportService
         // exact as long as no fully blank row was skipped in between. Grouped (not a dictionary)
         // since one bad row can have more than one bad cell.
         var parseErrorsByRowIndex = parseErrors
-            .ToLookup(e => e.Line - ExcelMinDataRowNumber);
+            .ToLookup(e => e.Line - firstDataRowIndex);
 
         var rows = new List<EmployeeImportPreviewRow>();
         for (var i = 0; i < data.Count; i++)
@@ -430,6 +464,29 @@ public class EmployeeImportService
            }).ToListAsync(token);
     }
 
+    private static readonly PropertyInfo[] ImportStringProperties = typeof(EmployeeImportModel)
+        .GetProperties()
+        .Where(p => p.PropertyType == typeof(string) && p.CanRead && p.CanWrite)
+        .ToArray();
+
+    // Every text cell is trimmed at both ends before anything is matched or saved -- stray
+    // spaces (" Royal Gem", "Alba ") otherwise end up in names and break lookups. A cell that
+    // is only whitespace becomes null, i.e. blank.
+    private static void TrimStrings(IEnumerable<EmployeeImportModel> data)
+    {
+        foreach (var item in data)
+        {
+            foreach (var property in ImportStringProperties)
+            {
+                if (property.GetValue(item) is string value)
+                {
+                    var trimmed = value.Trim();
+                    property.SetValue(item, trimmed.Length == 0 ? null : trimmed);
+                }
+            }
+        }
+    }
+
     private void SetDefaults(List<EmployeeImportModel> data)
     {
         foreach (var item in data)
@@ -441,11 +498,6 @@ public class EmployeeImportService
             if (string.IsNullOrWhiteSpace(item.ShiftType))
             {
                 item.ShiftType = "Fix";
-            }
-            if (string.IsNullOrWhiteSpace(item.AMIn))
-            {
-                item.AMIn = "8:00:00";
-                item.PMOut = "17:00:00";
             }
             if (string.IsNullOrWhiteSpace(item.DepartmentName))
             {
@@ -517,10 +569,10 @@ public class EmployeeImportService
         mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Cutoff2, p => p.Cutoff2);
         mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Cutoff3, p => p.Cutoff3);
         mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Cutoff4, p => p.Cutoff4);
-        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom1, p => p.EOM1);
-        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom2, p => p.EOM2);
-        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom3, p => p.EOM3);
-        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom4, p => p.EOM4);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom1, p => p.Eom1);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom2, p => p.Eom2);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom3, p => p.Eom3);
+        mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Eom4, p => p.Eom4);
         mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Address1, p => p.Address1);
         mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.Address2, p => p.Address2);
         mapper.AddMapping<EmployeeImportModel>(EmployeeTemplateHeaders.BloodType, p => p.BloodType);
@@ -745,19 +797,40 @@ public class EmployeeImportService
             item.Code = codeCount.FormatCode();
             codeCount += 1;
         }
-        var existing = await _costCenterService.GetQueryable()
-         .GroupBy(x => x.Name)
-         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
+        var existing = (await _costCenterService.GetQueryable()
+                .Select(x => new { x.Id, x.Name, x.BranchId })
+                .ToListAsync(token))
+            .GroupBy(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var newRecords = models
-            .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
-            .ToList();
-
+        var newRecords = new List<CostCenters>();
+        var branchBackfill = new Dictionary<Guid, Guid>();
         foreach (var item in models)
         {
-            if (existing.TryGetValue(item.Name.Trim().ToLowerInvariant(), out Guid curId))
+            if (existing.TryGetValue(item.Name.Trim(), out var match))
             {
-                item.Id = curId;
+                item.Id = match.Id;
+                // A site saved by an earlier import has no Branch -- give it this file's, so it
+                // shows up under that Branch. A site that already has one keeps it.
+                if (match.BranchId == null && item.BranchId != null)
+                {
+                    branchBackfill[match.Id] = item.BranchId.Value;
+                }
+            }
+            else
+            {
+                newRecords.Add(item);
+            }
+        }
+
+        if (branchBackfill.Count > 0)
+        {
+            var ids = branchBackfill.Keys.ToList();
+            var sitesToFix = await _costCenterService.GetQueryable(x => ids.Contains(x.Id), noTracking: false)
+                .ToListAsync(token);
+            foreach (var site in sitesToFix)
+            {
+                site.BranchId = branchBackfill[site.Id];
             }
         }
         if (newRecords.Count > 0)
@@ -781,6 +854,7 @@ public class EmployeeImportService
     private Dictionary<ShiftKey, TimeShift> ExtractShifts(List<EmployeeImportModel> data)
     {
         return data
+            .Where(x => TryGetShiftTimes(x, out _, out _))
             .GroupBy(x => new
             {
                 ShiftName = x.ShiftName?.Trim(),
@@ -792,8 +866,7 @@ public class EmployeeImportService
             .Select(group =>
             {
                 var x = group.First();
-                var startTime = GetStartTime(x);
-                var endTime = GetEndTime(x);
+                TryGetShiftTimes(x, out var startTime, out var endTime);
 
                 var lunchOut = GetLunchOut(x);
                 var lunchIn = GetLunchIn(x);
@@ -842,26 +915,31 @@ public class EmployeeImportService
     }
 
     // UTILITY
-    private TimeSpan GetStartTime(EmployeeImportModel x)
+    // A row only gets a shift when both AMIN and PM OUT hold a real time -- blank or
+    // unparseable means "no shift" (TimeShiftId stays null), never a default 8:00-17:00.
+    private static bool TryGetShiftTimes(EmployeeImportModel x, out TimeSpan start, out TimeSpan end)
     {
-        return TimeSpan.TryParse(x.AMIn?.Trim(), out var amIn) ? amIn : new TimeSpan(8, 0, 0);
+        var amIn = ParseTime(x.AMIn);
+        var pmOut = ParseTime(x.PMOut);
+        start = amIn ?? default;
+        end = pmOut ?? default;
+        return amIn.HasValue && pmOut.HasValue;
     }
 
-    private TimeSpan GetEndTime(EmployeeImportModel x)
-    {
-        return TimeSpan.TryParse(x.PMOut?.Trim(), out var pmOut) ? pmOut : new TimeSpan(17, 0, 0);
-    }
+    private static TimeSpan? GetLunchOut(EmployeeImportModel x) => ParseTime(x.AmOut);
 
-    private TimeSpan? GetLunchOut(EmployeeImportModel x)
-    {
-        if (string.IsNullOrWhiteSpace(x.AmOut)) return null;
-        return TimeSpan.TryParse(x.AmOut.Trim(), out var lunchOut) ? lunchOut : null;
-    }
+    private static TimeSpan? GetLunchIn(EmployeeImportModel x) => ParseTime(x.PMIn);
 
-    private TimeSpan? GetLunchIn(EmployeeImportModel x)
+    // "08:00:00" (what ConvertCellValue produces from a real Excel time) or, for a time typed as
+    // text, a clock time such as "8:00 AM".
+    private static TimeSpan? ParseTime(string? value)
     {
-        if (string.IsNullOrWhiteSpace(x.PMIn)) return null;
-        return TimeSpan.TryParse(x.PMIn.Trim(), out var lunchIn) ? lunchIn : null;
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var text = value.Trim();
+        if (TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out var span)) return span;
+        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var clock))
+            return clock.TimeOfDay;
+        return null;
     }
 
     // Client is optional: a blank Client Name means "no client", never a placeholder client.
@@ -885,20 +963,20 @@ public class EmployeeImportService
                 x.Cutoff2,
                 x.Cutoff3,
                 x.Cutoff4,
-                x.EOM1,
-                x.EOM2,
-                x.EOM3,
-                x.EOM4
+                x.Eom1,
+                x.Eom2,
+                x.Eom3,
+                x.Eom4
             })
             .Select(g =>
             {
                 var sample = g.First();
                 var formattedName = BuildPayrollGroupName(
                     sample.PayrollGroup,
-                    (sample.Cutoff1, sample.EOM1),
-                    (sample.Cutoff2, sample.EOM2),
-                    (sample.Cutoff3, sample.EOM3),
-                    (sample.Cutoff4, sample.EOM4));
+                    (sample.Cutoff1, sample.Eom1),
+                    (sample.Cutoff2, sample.Eom2),
+                    (sample.Cutoff3, sample.Eom3),
+                    (sample.Cutoff4, sample.Eom4));
                 var cutoffDays = ResolveCutoff(sample);
                 var frequency = ResolveFrequency(sample);
 
@@ -926,10 +1004,10 @@ public class EmployeeImportService
     {
         return BuildPayrollGroupName(
             item.PayrollGroup,
-            (item.Cutoff1, item.EOM1),
-            (item.Cutoff2, item.EOM2),
-            (item.Cutoff3, item.EOM3),
-            (item.Cutoff4, item.EOM4)).ToLowerInvariant();
+            (item.Cutoff1, item.Eom1),
+            (item.Cutoff2, item.Eom2),
+            (item.Cutoff3, item.Eom3),
+            (item.Cutoff4, item.Eom4)).ToLowerInvariant();
     }
 
     /// <summary>
@@ -974,26 +1052,26 @@ public class EmployeeImportService
             case PayrollFrequency.DAILY:
                 return new List<CutoffDay>()
                 {
-                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 }
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.Eom1 }
                 };
             case PayrollFrequency.WEEKLY:
                 return new List<CutoffDay>()
                 {
-                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 },
-                    new CutoffDay(){ Day = item.Cutoff2, IsEndOfMonth = item.EOM2 },
-                    new CutoffDay(){ Day = item.Cutoff3, IsEndOfMonth = item.EOM3 },
-                    new CutoffDay(){ Day = item.Cutoff4, IsEndOfMonth = item.EOM4 },
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.Eom1 },
+                    new CutoffDay(){ Day = item.Cutoff2, IsEndOfMonth = item.Eom2 },
+                    new CutoffDay(){ Day = item.Cutoff3, IsEndOfMonth = item.Eom3 },
+                    new CutoffDay(){ Day = item.Cutoff4, IsEndOfMonth = item.Eom4 },
                 };
             case PayrollFrequency.SEMI_MONTHLY:
                 return new List<CutoffDay>()
                 {
-                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 },
-                    new CutoffDay(){ Day = item.Cutoff2, IsEndOfMonth = item.EOM2 },
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.Eom1 },
+                    new CutoffDay(){ Day = item.Cutoff2, IsEndOfMonth = item.Eom2 },
                 };
             case PayrollFrequency.MONTHLY:
                 return new List<CutoffDay>()
                 {
-                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.EOM1 },
+                    new CutoffDay(){ Day = item.Cutoff1, IsEndOfMonth = item.Eom1 },
                 };
             default:
                 return new List<CutoffDay>()
@@ -1017,16 +1095,29 @@ public class EmployeeImportService
 
     // Unlike Department, a blank Project Site cell means "no Project Site" -- AreaId is already
     // nullable and there's no reason to conjure a placeholder CostCenters row for it.
-    private Dictionary<string, CostCenters> ExtractProjectSites(List<EmployeeImportModel> data)
+    // Each site takes the Branch of the first row that uses it: every Branch -> Project Site
+    // cascade in the app (employee form, DTR, attendance, devices) only lists sites whose
+    // BranchId matches, so a site saved without one looked untagged on every employee.
+    private Dictionary<string, CostCenters> ExtractProjectSites(List<EmployeeImportModel> data, List<(Guid Id, string Code)> branches)
     {
         return data
             .Where(x => !string.IsNullOrWhiteSpace(x.ProjectSiteName))
-            .GroupBy(x => x.ProjectSiteName!.Trim())
+            .GroupBy(x => x.ProjectSiteName!.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(g => new CostCenters
             {
                 Name = g.Key,
+                BranchId = ResolveBranchId(g.First(), branches),
             })
-            .ToDictionary(x => x.Name, x => x);
+            .ToDictionary(x => x.Name, x => x, StringComparer.OrdinalIgnoreCase);
+    }
+
+    // The row's Branch Code when it matches a branch, else the first branch found in the file,
+    // else none.
+    private static Guid? ResolveBranchId(EmployeeImportModel item, List<(Guid Id, string Code)> branches)
+    {
+        if (branches.Count == 0) return null;
+        var match = branches.FirstOrDefault(x => x.Code == item.BranchCode);
+        return match.Equals(default) ? branches[0].Id : match.Id;
     }
 
     private Guid? GetBranch(EmployeeImportModel item, Dictionary<string, Guid> branchLookup)
@@ -1142,10 +1233,10 @@ public class EmployeeImportModel
     public int Cutoff3 { get; set; }
     public int Cutoff4 { get; set; }
 
-    public bool EOM1 { get; set; }
-    public bool EOM2 { get; set; }
-    public bool EOM3 { get; set; }
-    public bool EOM4 { get; set; }
+    public bool Eom1 { get; set; }
+    public bool Eom2 { get; set; }
+    public bool Eom3 { get; set; }
+    public bool Eom4 { get; set; }
     public string? Address1 { get; set; }
     public string? Address2 { get; set; }
     public string? BankNo { get; set; }
@@ -1222,13 +1313,13 @@ public class TemplateDownloaderService
             (EmployeeTemplateHeaders.ClientName, (c, r) => c.Value = r.ClientName),
             (EmployeeTemplateHeaders.PayrollGroup, (c, r) => c.Value = r.PayrollGroup),
             (EmployeeTemplateHeaders.Cutoff1, (c, r) => c.Value = r.Cutoff1),
-            (EmployeeTemplateHeaders.Eom1, (c, r) => c.Value = r.EOM1),
+            (EmployeeTemplateHeaders.Eom1, (c, r) => c.Value = r.Eom1),
             (EmployeeTemplateHeaders.Cutoff2, (c, r) => c.Value = r.Cutoff2),
-            (EmployeeTemplateHeaders.Eom2, (c, r) => c.Value = r.EOM2),
+            (EmployeeTemplateHeaders.Eom2, (c, r) => c.Value = r.Eom2),
             (EmployeeTemplateHeaders.Cutoff3, (c, r) => c.Value = r.Cutoff3),
-            (EmployeeTemplateHeaders.Eom3, (c, r) => c.Value = r.EOM3),
+            (EmployeeTemplateHeaders.Eom3, (c, r) => c.Value = r.Eom3),
             (EmployeeTemplateHeaders.Cutoff4, (c, r) => c.Value = r.Cutoff4),
-            (EmployeeTemplateHeaders.Eom4, (c, r) => c.Value = r.EOM4),
+            (EmployeeTemplateHeaders.Eom4, (c, r) => c.Value = r.Eom4),
             (EmployeeTemplateHeaders.ShiftName, (c, r) => c.Value = r.ShiftName),
             (EmployeeTemplateHeaders.ShiftType, (c, r) => c.Value = r.ShiftType),
             (EmployeeTemplateHeaders.AmIn, (c, r) => c.Value = r.AMIn),
@@ -1451,7 +1542,7 @@ public static class EmployeeTemplateHeaders
     public const string PmOut = "PM OUT";
     public const string BreakDuration = "Break Duration";
     public const string MaxWorkingMinutes = "Max Working Minutes";
-    public const string PaidLunchBreak = "PaidLunchBreak";
+    public const string PaidLunchBreak = "Paid Lunch Break";
     public const string SalaryType = "SalaryType";
     public const string MonthlyRate = "Monthly Rate";
     public const string DailyRate = "Daily Rate";
