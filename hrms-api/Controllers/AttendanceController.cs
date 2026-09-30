@@ -1,3 +1,5 @@
+using Hrms.Api.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
 using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
@@ -37,6 +39,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPost("upload-att-log")]
+    [EnableRateLimiting(RateLimitPolicies.FileUpload)]
     [RequirePermission("Upload Attendance:Edit")]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]

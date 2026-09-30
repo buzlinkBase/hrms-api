@@ -1,3 +1,5 @@
+using Hrms.Api.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using Asp.Versioning;
 using Hrms.Api.Documents;
@@ -86,6 +88,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("generate")]
+        [EnableRateLimiting(RateLimitPolicies.HeavyGenerate)]
         [RequirePermission("Payroll Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Generate([FromBody] PayrollRunPayload payload, CancellationToken token)
@@ -103,6 +106,7 @@ namespace Hrms.Api.Controllers
         // Approve/Decline/Delete reuse the same batch/{id}/approve, batch/{id}/decline and
         // batch/{id} endpoints below.
         [HttpPost("generate-13th-month")]
+        [EnableRateLimiting(RateLimitPolicies.HeavyGenerate)]
         [RequirePermission("13th Month Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GenerateThirteenthMonth([FromBody] ThirteenthMonthRunPayload payload, CancellationToken token)
@@ -116,6 +120,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("generate-last-pay")]
+        [EnableRateLimiting(RateLimitPolicies.HeavyGenerate)]
         [RequirePermission("Last Pay Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GenerateLastPay([FromBody] LastPayRunPayload payload, CancellationToken token)
@@ -143,6 +148,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("generate-year-end-adjustment")]
+        [EnableRateLimiting(RateLimitPolicies.HeavyGenerate)]
         [RequirePermission("Year-End Adjustment Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> GenerateYearEndAdjustment([FromBody] TaxAnnualizationRunPayload payload, CancellationToken token)
@@ -251,6 +257,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("print-summary")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Payroll Summary:Export")]
         public async Task<IActionResult> PrintSummary(
             [FromQuery] DateTime from,
@@ -272,6 +279,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id:guid}/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Payroll Summary:Export")]
         public async Task<IActionResult> PrintPayslip(Guid id, CancellationToken token)
         {

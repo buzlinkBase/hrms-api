@@ -1,3 +1,5 @@
+using Hrms.Api.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Extensions;
@@ -104,6 +106,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("payrolls/{id:guid}/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         public async Task<IActionResult> PrintMyPayslip(Guid id, CancellationToken token)
         {
             var employeeId = await ResolveMyEmployeeIdAsync(token);

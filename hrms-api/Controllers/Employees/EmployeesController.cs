@@ -1,3 +1,5 @@
+using Hrms.Api.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Extensions;
@@ -140,6 +142,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("upload-employees")]
+        [EnableRateLimiting(RateLimitPolicies.FileUpload)]
         [RequirePermission("Workforce Setup:Create")]
         [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
@@ -156,6 +159,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("upload-employees-preview")]
+        [EnableRateLimiting(RateLimitPolicies.FileUpload)]
         [RequirePermission("Workforce Setup:Create")]
         [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeImportPreviewRow>>), 200)]
@@ -170,6 +174,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("upload-employees-commit")]
+        [EnableRateLimiting(RateLimitPolicies.FileUpload)]
         [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CommitPreviewUpload([FromBody] List<EmployeeImportPreviewRow> rows, CancellationToken token)
@@ -179,6 +184,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("upload-employees-errors-export")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(200)]
         public async Task<IActionResult> ExportErrorRows([FromBody] List<EmployeeImportPreviewRow> rows, CancellationToken token)
@@ -192,6 +198,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("export-template")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [ProducesResponseType(200)]
         public async Task<IActionResult> DownloadTemplate(CancellationToken token)
         {
@@ -212,6 +219,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("{id}/print-201")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         public async Task<IActionResult> Print201(Guid id, CancellationToken token)
         {
             var employee = await _service.GetFullByIdAsync(id, token);

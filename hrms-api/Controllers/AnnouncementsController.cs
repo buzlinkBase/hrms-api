@@ -1,3 +1,5 @@
+using Hrms.Api.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
@@ -146,6 +148,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("{id:guid}/remind")]
+        [EnableRateLimiting(RateLimitPolicies.NotifySend)]
         [RequirePermission(Publish)]
         [ProducesResponseType(typeof(ResponseModel<int>), 200)]
         public async Task<IActionResult> Remind(Guid id, [FromBody] RemindAnnouncementRequest request, CancellationToken token) =>

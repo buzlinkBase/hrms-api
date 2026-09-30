@@ -1,3 +1,5 @@
+using Hrms.Api.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Filters;
@@ -213,6 +215,7 @@ namespace Hrms.Api.Controllers
 
         [CompensationData]
         [HttpGet("13th-month-pay/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Payroll Reports:Export")]
         public async Task<IActionResult> ThirteenthMonthPayPrint([FromQuery] int year, CancellationToken token)
         {
@@ -239,6 +242,7 @@ namespace Hrms.Api.Controllers
 
         [CompensationData]
         [HttpGet("1601c/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> MonthlyRemittanceReturnPrint(
             [FromQuery] DateTime from, [FromQuery] DateTime to,
@@ -268,6 +272,7 @@ namespace Hrms.Api.Controllers
 
         [CompensationData]
         [HttpGet("alphalist/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> AlphalistPrint([FromQuery] int year, CancellationToken token)
         {
@@ -279,6 +284,7 @@ namespace Hrms.Api.Controllers
 
         [CompensationData]
         [HttpGet("alphalist/export")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> AlphalistExport([FromQuery] int year, CancellationToken token)
         {
@@ -315,6 +321,7 @@ namespace Hrms.Api.Controllers
 
         [CompensationData]
         [HttpGet("2316/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> Bir2316Print(
             [FromQuery] Guid employeeId, [FromQuery] int year, [FromQuery] bool debug, CancellationToken token)
@@ -330,6 +337,7 @@ namespace Hrms.Api.Controllers
         // ── SSS R3 ────────────────────────────────────────────────────────────────────
 
         [HttpGet("sss-r3/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> SssR3Print([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
@@ -342,6 +350,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("sss-r3/export")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> SssR3Export([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
@@ -354,6 +363,7 @@ namespace Hrms.Api.Controllers
         // ── PhilHealth EPRS ───────────────────────────────────────────────────────────
 
         [HttpGet("philhealth-eprs/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PhilHealthEprsPrint([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
@@ -366,6 +376,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("philhealth-eprs/export")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PhilHealthEprsExport([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
@@ -378,6 +389,7 @@ namespace Hrms.Api.Controllers
         // ── Pag-IBIG MCRF ─────────────────────────────────────────────────────────────
 
         [HttpGet("pagibig-mcrf/print")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PagIbigMcrfPrint([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {
@@ -390,6 +402,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpGet("pagibig-mcrf/export")]
+        [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
         public async Task<IActionResult> PagIbigMcrfExport([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
         {

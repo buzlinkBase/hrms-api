@@ -3,6 +3,7 @@ using Hrms.Api.Documents.Bir;
 using Hrms.Api.Middlewares;
 using Hrms.Api.Exceptions;
 using Hrms.Api.Extensions;
+using Hrms.Api.RateLimiting;
 using Hrms.Core.Extensions;
 using Hrms.Core.Hubs;
 using Mapster;
@@ -55,6 +56,9 @@ public class Program
         builder.Services.RegisterDTRCoreServices();
         builder.Services.AddGeminiAiExtraction(builder.Configuration);
         builder.Services.AddApiResponseCompression();
+        // Per-endpoint limits on payroll generation, uploads, prints/exports and reminders -- see
+        // RateLimitPolicies for which and why.
+        builder.Services.AddAppRateLimiting(builder.Configuration);
         builder.Services.AddDataProtection()
         .PersistKeysToFileSystem(new DirectoryInfo(@"/app/dp-keys"));
 
@@ -95,6 +99,8 @@ public class Program
         //app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
+        // After authentication, so the rate-limit partitions can key on the signed-in user.
+        app.UseRateLimiter();
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
         // Hides confidential employees from callers without clearance (query-filter input).
