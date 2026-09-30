@@ -13,11 +13,16 @@ public class ApprovalPushNotificationWorker : IConsumer<ApprovalNotificationRequ
 {
     private readonly ApprovalPushNotificationService _pushService;
     private readonly ITenantProvider _tenantProvider;
+    private readonly Services.Notifications.UserNotificationService _notifications;
 
-    public ApprovalPushNotificationWorker(ApprovalPushNotificationService pushService, ITenantProvider tenantProvider)
+    public ApprovalPushNotificationWorker(
+        ApprovalPushNotificationService pushService,
+        ITenantProvider tenantProvider,
+        Services.Notifications.UserNotificationService notifications)
     {
         _pushService = pushService;
         _tenantProvider = tenantProvider;
+        _notifications = notifications;
     }
 
     public async Task Consume(ConsumeContext<ApprovalNotificationRequested> context)
@@ -37,6 +42,17 @@ public class ApprovalPushNotificationWorker : IConsumer<ApprovalNotificationRequ
             TotalSteps = message.TotalSteps,
             Note = message.Note,
         };
+
+        // Saved first, so the bell still has it after a refresh or for someone offline right now;
+        // the push then carries the saved id. Keyed by the message id, so a retry after a failed
+        // push reuses the entry instead of adding a second.
+        if (!string.IsNullOrWhiteSpace(message.RecipientEmail) || message.RecipientUserId != null)
+        {
+            var saved = await _notifications.SaveApprovalAsync(
+                context.MessageId ?? NewId.NextGuid(), message.RecipientUserId, message.RecipientEmail, notification, context.CancellationToken);
+            notification.Id = saved.Id;
+            notification.TimestampUtc = saved.CreatedAt;
+        }
 
         // By company + login email first: reaches accounts matched to their employee record by
         // email as well as by UserId (see ApprovalRecipientGroups). One target per message, so a

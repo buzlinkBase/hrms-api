@@ -170,6 +170,7 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     public DbSet<Announcement> Announcements { get; set; }
     public DbSet<AnnouncementAudienceRule> AnnouncementAudienceRules { get; set; }
     public DbSet<AnnouncementRecipient> AnnouncementRecipients { get; set; }
+    public DbSet<UserNotification> UserNotifications { get; set; }
 
     #endregion
 } 

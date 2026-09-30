@@ -7,6 +7,8 @@ namespace Hrms.Core.Services.Approvals;
 // already read (src/shared/hooks/use-approval-queries.ts), rather than a broad refetch-everything.
 public sealed class ApprovalPushNotification
 {
+    /// <summary>The saved bell entry (UserNotification) this push delivers; null for pool pushes, which aren't saved.</summary>
+    public Guid? Id { get; set; }
     public ApprovalApplicationType ApplicationType { get; set; }
     public Guid ApplicationId { get; set; }
     public Guid ApprovalInstanceId { get; set; }

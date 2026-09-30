@@ -4,6 +4,7 @@ using Hrms.Core.Messaging.DailyBenefits;
 using Hrms.Core.Messaging.BenefitWorkers;
 using Hrms.Core.Messaging.Filter;
 using Hrms.Core.Messaging.LeaveWorkers;
+using Hrms.Core.Messaging.Notifications;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -118,6 +119,15 @@ public static class QuartzConfiguration
                 .ForJob(DailyBenefitsJob.Key)
                 .WithIdentity(DailyBenefitsJob.TriggerKey)
                 .WithCronSchedule($"0 0 {runAtHour} * * ?", cron => cron
+                    .InTimeZone(TimeZoneInfo.Utc)
+                    .WithMisfireHandlingInstructionFireAndProceed()));
+
+            // Old notification-bell entries (Notifications:RetentionDays), daily at 02:00 UTC.
+            q.AddJob<NotificationRetentionJob>(NotificationRetentionJob.Key, job => job.StoreDurably());
+            q.AddTrigger(trigger => trigger
+                .ForJob(NotificationRetentionJob.Key)
+                .WithIdentity(NotificationRetentionJob.TriggerKey)
+                .WithCronSchedule("0 0 2 * * ?", cron => cron
                     .InTimeZone(TimeZoneInfo.Utc)
                     .WithMisfireHandlingInstructionFireAndProceed()));
         });

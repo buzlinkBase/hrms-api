@@ -2,7 +2,11 @@ using System.Security.Claims;
 using Hrms.Core.Hubs;
 using Hrms.Core.Messaging;
 using Hrms.Core.Services.Approvals;
+using Hrms.Core.Services.Notifications;
+using Hrms.Domain.Entities;
+using hrms.test.TestSupport;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using NSubstitute;
 using Onepunch.Common.Lib.DTO;
@@ -66,17 +70,26 @@ public class ApprovalRecipientPushTests
 
     // ---- worker ----
 
-    private static (ApprovalPushNotificationWorker Worker, IHubClients Clients) BuildWorker(Guid tenantId)
+    private static (ApprovalPushNotificationWorker Worker, IHubClients Clients) BuildWorker(Guid tenantId, SqliteHrmsContext db)
     {
         var hubContext = Substitute.For<IHubContext<NotificationHub>>();
         var tenantProvider = Substitute.For<ITenantProvider>();
         tenantProvider.TenantId.Returns(tenantId);
-        return (new ApprovalPushNotificationWorker(new ApprovalPushNotificationService(hubContext), tenantProvider), hubContext.Clients);
+        var notifications = new UserNotificationService(new UnitOfWorkService(db.NewContext(tenantId)));
+        return (new ApprovalPushNotificationWorker(new ApprovalPushNotificationService(hubContext), tenantProvider, notifications), hubContext.Clients);
     }
 
-    private static ConsumeContext<ApprovalNotificationRequested> Message(string email, Guid? userId, bool deliverPush = true)
+    // No company filter: the SQLite test context doesn't stamp TenantId the way production does.
+    private static async Task<List<UserNotification>> SavedAsync(SqliteHrmsContext db)
+    {
+        await using var context = db.NewContext();
+        return await context.UserNotifications.AsNoTracking().ToListAsync();
+    }
+
+    private static ConsumeContext<ApprovalNotificationRequested> Message(string email, Guid? userId, bool deliverPush = true, Guid? messageId = null)
     {
         var context = Substitute.For<ConsumeContext<ApprovalNotificationRequested>>();
+        context.MessageId.Returns(messageId ?? Guid.NewGuid());
         context.Message.Returns(new ApprovalNotificationRequested
         {
             RecipientEmail = email,
@@ -95,7 +108,8 @@ public class ApprovalRecipientPushTests
     [Fact]
     public async Task Worker_TargetsTheRecipientGroup_EvenWithoutALinkedUserId()
     {
-        var (worker, clients) = BuildWorker(TenantId);
+        using var db = new SqliteHrmsContext();
+        var (worker, clients) = BuildWorker(TenantId, db);
         var group = Substitute.For<IClientProxy>();
         clients.Group(ApprovalRecipientGroups.For(TenantId, "ana@company.com")).Returns(group);
 
@@ -111,7 +125,8 @@ public class ApprovalRecipientPushTests
     [Fact]
     public async Task Worker_WithoutEmail_FallsBackToTheUserId()
     {
-        var (worker, clients) = BuildWorker(TenantId);
+        using var db = new SqliteHrmsContext();
+        var (worker, clients) = BuildWorker(TenantId, db);
         var userId = Guid.NewGuid();
         var user = Substitute.For<IClientProxy>();
         clients.User(userId.ToString()).Returns(user);
@@ -122,12 +137,52 @@ public class ApprovalRecipientPushTests
     }
 
     [Fact]
-    public async Task Worker_PushDisabled_SendsNothing()
+    public async Task Worker_PushDisabled_SendsNothing_AndSavesNothing()
     {
-        var (worker, clients) = BuildWorker(TenantId);
+        using var db = new SqliteHrmsContext();
+        var (worker, clients) = BuildWorker(TenantId, db);
 
         await worker.Consume(Message("ana@company.com", Guid.NewGuid(), deliverPush: false));
 
         clients.ReceivedCalls().Should().BeEmpty();
+        (await SavedAsync(db)).Should().BeEmpty();
+    }
+
+    // ---- saved bell entries ----
+
+    [Fact]
+    public async Task Worker_SavesTheEntry_ThenPushesItWithTheSavedId()
+    {
+        using var db = new SqliteHrmsContext();
+        var (worker, clients) = BuildWorker(TenantId, db);
+        var group = Substitute.For<IClientProxy>();
+        clients.Group(Arg.Any<string>()).Returns(group);
+        var userId = Guid.NewGuid();
+
+        await worker.Consume(Message(" Ana@Company.com ", userId));
+
+        var saved = (await SavedAsync(db)).Should().ContainSingle().Subject;
+        saved.RecipientEmail.Should().Be("ana@company.com");
+        saved.RecipientUserId.Should().Be(userId);
+        saved.StatusLabel.Should().Be("Approved");
+        saved.ReadAt.Should().BeNull();
+        await group.Received(1).SendCoreAsync(
+            ApprovalPushNotificationService.EventName,
+            Arg.Is<object?[]>(args => ((ApprovalPushNotification)args[0]!).Id == saved.Id),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Worker_ARedeliveredMessage_DoesNotSaveASecondEntry()
+    {
+        using var db = new SqliteHrmsContext();
+        var messageId = Guid.NewGuid();
+        var (first, _) = BuildWorker(TenantId, db);
+        await first.Consume(Message("ana@company.com", null, messageId: messageId));
+        var (retry, _) = BuildWorker(TenantId, db);
+
+        await retry.Consume(Message("ana@company.com", null, messageId: messageId));
+
+        (await SavedAsync(db)).Should().ContainSingle().Which.Id.Should().Be(messageId);
     }
 }
