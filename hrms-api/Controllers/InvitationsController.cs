@@ -20,8 +20,13 @@ namespace Hrms.Api.Controllers;
 public class InvitationsController : ControllerBase
 {
     private readonly InviteMatchService _service;
+    private readonly UserLinkService _userLinks;
 
-    public InvitationsController(InviteMatchService service) => _service = service;
+    public InvitationsController(InviteMatchService service, UserLinkService userLinks)
+    {
+        _service = service;
+        _userLinks = userLinks;
+    }
 
     /// <summary>Employee mode: the employee each email belongs to, or why it can't be invited as one.</summary>
     [HttpPost("employee-match")]
@@ -36,4 +41,11 @@ public class InvitationsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<List<InviteMatchResult>>), 200)]
     public async Task<IActionResult> MatchClientLogins(Guid clientId, [FromBody] InviteMatchRequest payload, CancellationToken token) =>
         Ok(await _service.MatchClientLoginsAsync(clientId, payload.Emails, token));
+
+    /// <summary>Users page: the employee or client each member (by account id or invited email) belongs to.</summary>
+    [HttpPost("user-links")]
+    [RequirePermission("Users:View")]
+    [ProducesResponseType(typeof(ResponseModel<List<UserLinkResult>>), 200)]
+    public async Task<IActionResult> GetUserLinks([FromBody] UserLinkRequest payload, CancellationToken token) =>
+        Ok(await _userLinks.GetLinksAsync(payload, token));
 }
