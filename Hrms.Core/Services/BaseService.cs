@@ -125,6 +125,34 @@ public abstract class BaseService<T> where T : class, IEntity
         var query = _uow.Repository.FindAll<T>().Where(expression);
         await query.ExecuteDeleteAsync(token);
     }
+    /// <summary>
+    /// Master data (clients, departments, branches, ...) is identified by its name, not its code:
+    /// true when another live record of this company already has <paramref name="value"/> as its
+    /// name, compared trimmed and case-insensitively. <paramref name="scope"/> narrows where names
+    /// must be unique (e.g. sections within one department).
+    /// </summary>
+    protected Task<bool> NameIsTakenAsync(Expression<Func<T, string>> name, string? value, Guid id,
+        CancellationToken token, Expression<Func<T, bool>>? scope = null)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return Task.FromResult(false);
+
+        var x = name.Parameters[0];
+        var normalizedName = Expression.Call(Expression.Call(name.Body, nameof(string.Trim), Type.EmptyTypes),
+            nameof(string.ToLower), Type.EmptyTypes);
+        var wanted = new NameLookup(value.Trim().ToLowerInvariant());
+        var sameName = Expression.Equal(normalizedName,
+            Expression.Property(Expression.Constant(wanted), nameof(NameLookup.Value)));
+        var otherRecord = Expression.NotEqual(Expression.Property(x, nameof(IEntity.Id)), Expression.Constant(id));
+        var predicate = Expression.Lambda<Func<T, bool>>(Expression.AndAlso(sameName, otherRecord), x);
+
+        var query = GetQueryable(predicate);
+        if (scope != null) query = query.Where(scope);
+        return query.AnyAsync(token);
+    }
+
+    // Holds the compared name so EF sends it as a SQL parameter rather than baking it into the query.
+    private sealed record NameLookup(string Value);
+
     protected IQueryable<T> PaginatedQuerable(IQueryable<T> query, int Page, int? Limit)
     {
         var limit = Limit.GetValueOrDefault();

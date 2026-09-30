@@ -27,6 +27,10 @@ public class BranchService : BaseService<Branch>
         {
             return EvaluationResult.Fail("Branch code already exists.");
         }
+        if (await NameIsTakenAsync(x => x.Name, model.Name, model.Id, token))
+        {
+            return EvaluationResult.Fail($"A branch named '{model.Name.Trim()}' already exists.");
+        }
 
         return await base.CreateValidatorAsync(model, token);
     }

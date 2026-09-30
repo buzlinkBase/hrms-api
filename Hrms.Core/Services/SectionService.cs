@@ -9,6 +9,17 @@ public class SectionService : BaseService<Section>
     public SectionService(IUnitOfWorkService service) : base(service)
     {
     }
+
+    // Sections belong to a department, so a name only has to be unique within that department.
+    protected override async Task<EvaluationResult> CreateValidatorAsync(Section model, CancellationToken token)
+    {
+        var departmentId = model.DepartmentId;
+        if (await NameIsTakenAsync(x => x.Name, model.Name, model.Id, token, x => x.DepartmentId == departmentId))
+        {
+            return EvaluationResult.Fail($"This department already has a section named '{model.Name.Trim()}'.");
+        }
+        return await base.CreateValidatorAsync(model, token);
+    }
     public async Task AddAsync(Section model, CancellationToken token)
     {
         await CreateAsync(model, token);

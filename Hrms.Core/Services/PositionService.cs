@@ -9,6 +9,15 @@ public class PositionService : BaseService<Position>
     {
     }
 
+    protected override async Task<EvaluationResult> CreateValidatorAsync(Position model, CancellationToken token)
+    {
+        if (await NameIsTakenAsync(x => x.Name, model.Name, model.Id, token))
+        {
+            return EvaluationResult.Fail($"A position named '{model.Name.Trim()}' already exists.");
+        }
+        return await base.CreateValidatorAsync(model, token);
+    }
+
     public async Task AddAsync(Position model, CancellationToken token)
     {
         await CreateAsync(model, token);

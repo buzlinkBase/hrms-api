@@ -69,6 +69,16 @@ public class EmployeeImportService
     /// </summary>
     public async Task CommitPreviewAsync(List<EmployeeImportPreviewRow> rows, CancellationToken token)
     {
+        // Checked here too, not trusted to the client's Errors list: nothing is imported if any
+        // row is missing a name. Numbered by the preview's own row numbers.
+        var missingNames = rows
+            .SelectMany(r => MissingNameErrors(r).Select(e => $"Row {r.RowNumber}: {e}"))
+            .ToList();
+        if (missingNames.Count > 0)
+        {
+            throw new ValidationException($"Import Validation Failed:\n{string.Join("\n", missingNames)}");
+        }
+
         var data = rows
             .Where(r => r.Errors is not { Count: > 0 })
             .Select(r => r.Adapt<EmployeeImportModel>())
@@ -456,7 +466,8 @@ public class EmployeeImportService
     /// </summary>
     private List<string> BuildRowErrors(EmployeeImportModel item, Dictionary<int, BasicEmployeeInfo> dbEmployeeMap, HashSet<string?> internalDuplicateBioIds, List<BasicEmployeeInfo> dbEmployees)
     {
-        var errors = new List<string>();
+        var errors = MissingNameErrors(item);
+        if (errors.Count > 0) return errors;
         if (FindRestrictedMatch(item, dbEmployees) != null)
         {
             errors.Add(RestrictedMatchError);
@@ -636,8 +647,11 @@ public class EmployeeImportService
                 g => g.OrderByDescending(x => x.Id).First()
             );
 
+        errors.AddRange(MissingNameErrorsByRow(data));
+
         foreach (var item in data)
         {
+            if (MissingNameErrors(item).Count > 0) continue; // already reported above
             if (FindRestrictedMatch(item, dbEmployees) != null)
             {
                 errors.Add($"'{item.FirstName} {item.LastName}': {RestrictedMatchError}");
@@ -664,6 +678,20 @@ public class EmployeeImportService
         }
     }
 
+    // Every imported employee needs a first and a last name -- a row missing either is an error on
+    // every import path (preview, upload, commit), never saved as a nameless employee.
+    private static List<string> MissingNameErrors(EmployeeImportModel item)
+    {
+        var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(item.FirstName)) errors.Add("First name is required.");
+        if (string.IsNullOrWhiteSpace(item.LastName)) errors.Add("Last name is required.");
+        return errors;
+    }
+
+    // "Row 3: Last name is required." -- numbered like the preview (1 = first data row).
+    private static IEnumerable<string> MissingNameErrorsByRow(List<EmployeeImportModel> data) =>
+        data.SelectMany((item, i) => MissingNameErrors(item).Select(e => $"Row {i + 1}: {e}"));
+
     // Normalizes null to "" before comparing -- a DB employee's MiddleName/Suffix default to ""
     // (see Employee.cs), but a blank Excel cell parses to null, so a plain string.Equals(null,
     // "") would otherwise false-flag re-importing the SAME employee (with, say, a blank Suffix
@@ -682,62 +710,81 @@ public class EmployeeImportService
     {
         if (shifts == null || !shifts.Any()) return;
 
-        var existing = await _timeShiftService.GetQueryable()
-            .Select(x => new { x.ShiftName, x.Id })
-            .ToDictionaryAsync(
-                x => x.ShiftName.Trim().ToLowerInvariant(),
-                x => x.Id,
-                token
-            );
+        var existing = ByName(await _timeShiftService.GetQueryable()
+            .Select(x => new { x.Id, x.ShiftName })
+            .ToListAsync(token), x => x.ShiftName, x => x.Id);
 
-        var newRecords = new List<TimeShift>();
+        // The shift name is its identity: every row naming the same shift -- even with other
+        // times -- gets the existing shift, or the one new shift created for that name (other
+        // rows used to keep ids of shifts that were never saved).
+        var newRecords = new Dictionary<string, TimeShift>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in shifts.Values.ToList())
         {
-            var standardizedName = item.ShiftName?.Trim().ToLowerInvariant();
-            if (string.IsNullOrEmpty(standardizedName)) continue;
+            var name = item.ShiftName?.Trim();
+            if (string.IsNullOrEmpty(name)) continue;
 
-            if (existing.TryGetValue(standardizedName, out Guid curId))
+            if (existing.TryGetValue(name, out Guid curId))
+            {
+                item.Id = curId;
+            }
+            else if (newRecords.TryGetValue(name, out var created))
+            {
+                item.Id = created.Id;
+            }
+            else
+            {
+                if (item.Id == Guid.Empty) item.Id = Guid.CreateVersion7();
+                newRecords[name] = item;
+            }
+        }
+        if (newRecords.Count > 0)
+        {
+            await _timeShiftService.AddRangeAsync(newRecords.Values.ToList(), token);
+        }
+    }
+
+    // Existing master records keyed by name -- their identity -- trimmed and case-insensitive. If
+    // the company already holds records whose names differ only by case or spacing, the first
+    // one is used instead of failing on a duplicate key.
+    private static Dictionary<string, TValue> ByName<TRow, TValue>(
+        IEnumerable<TRow> rows, Func<TRow, string> name, Func<TRow, TValue> value) =>
+        rows.Where(x => !string.IsNullOrWhiteSpace(name(x)))
+            .GroupBy(x => name(x).Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => value(g.First()), StringComparer.OrdinalIgnoreCase);
+
+    // Codes for records this import creates continue after the company's highest numeric code,
+    // instead of restarting at 000001 and repeating codes that already exist.
+    private static Func<string> CodeSequence(IEnumerable<string?> existingCodes)
+    {
+        var next = existingCodes
+            .Select(c => int.TryParse(c, out var n) ? n : 0)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+        return () => (next++).FormatCode();
+    }
+
+    private async Task StoreClientsAsync(Dictionary<string, Client> clients, CancellationToken token)
+    {
+        var models = clients.Values.ToList();
+        if (models.Count == 0) return;
+
+        var stored = await _clientService.GetQueryable()
+            .Select(x => new { x.Id, x.Name, x.Code })
+            .ToListAsync(token);
+        var existing = ByName(stored, x => x.Name, x => x.Id);
+        var nextCode = CodeSequence(stored.Select(x => x.Code));
+
+        var newRecords = new List<Client>();
+        foreach (var item in models)
+        {
+            if (existing.TryGetValue(item.Name.Trim(), out Guid curId))
             {
                 item.Id = curId;
             }
             else
             {
-                if (!newRecords.Any(x => x.ShiftName.Trim().ToLowerInvariant() == standardizedName))
-                {
-                    newRecords.Add(item);
-                }
-            }
-        }
-        if (newRecords.Any())
-        {
-            await _timeShiftService.AddRangeAsync(newRecords, token);
-        }
-    }
-
-    private async Task StoreClientsAsync(Dictionary<string, Client> clients, CancellationToken token)
-    {
-        var codeCount = 1;
-        foreach (var item in clients.Values)
-        {
-            item.Code = codeCount.FormatCode();
-            codeCount += 1;
-        }
-        var models = clients.Values.ToList();
-        if (models == null || models.Count == 0) return;
-
-        var existing = await _clientService.GetQueryable()
-         .GroupBy(x => x.Name)
-         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
-
-        var newRecords = models
-            .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
-            .ToList();
-
-        foreach (var item in models)
-        {
-            if (existing.TryGetValue(item.Name.Trim().ToLowerInvariant(), out Guid curId))
-            {
-                item.Id = curId;
+                item.Code = nextCode();
+                newRecords.Add(item);
             }
         }
 
@@ -749,41 +796,31 @@ public class EmployeeImportService
 
     private async Task StorePayrollGroupsAsync(Dictionary<string, PayrollGroup> pr, CancellationToken token)
     {
-        var codeCount = 1;
-        foreach (var item in pr.Values)
-        {
-            item.Code = codeCount.FormatCode();
-            codeCount += 1;
-        }
-
         var models = pr.Values.ToList();
-        if (models == null || models.Count == 0)
+        if (models.Count == 0)
         {
             throw new Exception("Payroll group is required");
         }
 
-        var existingGroups = await _payrollGroupService.GetQueryable()
-            .Include(x => x.CutoffDays)
+        var stored = await _payrollGroupService.GetQueryable()
+            .Select(x => new { x.Id, x.Name, x.Code })
             .ToListAsync(token);
+        var existing = ByName(stored, x => x.Name, x => x.Id);
+        var nextCode = CodeSequence(stored.Select(x => x.Code));
 
+        // Matched by name alone (the imported name already carries its cutoff days, e.g.
+        // "Weekly-7-14-21-28EOM"). Also requiring the stored cutoff rows to match exactly made any
+        // group edited after its first import come back as a second group with the same name.
         var newRecords = new List<PayrollGroup>();
-
-        foreach (var kvp in pr)
+        foreach (var item in models)
         {
-            var item = kvp.Value;
-
-            var match = existingGroups.FirstOrDefault(x =>
-                string.Equals(x.Name.Trim(), item.Name.Trim(), StringComparison.OrdinalIgnoreCase) &&
-                x.PayrollFrequency == item.PayrollFrequency &&
-                x.CutoffDays.Count == item.CutoffDays.Count &&
-                !x.CutoffDays.ExceptBy(item.CutoffDays.Select(c => (c.Day, c.IsEndOfMonth)), c => (c.Day, c.IsEndOfMonth)).Any());
-
-            if (match != null)
+            if (existing.TryGetValue(item.Name.Trim(), out Guid curId))
             {
-                item.Id = match.Id;
+                item.Id = curId;
             }
             else
             {
+                item.Code = nextCode();
                 newRecords.Add(item);
             }
         }
@@ -797,27 +834,25 @@ public class EmployeeImportService
     private async Task StoreDepartmentsAsync(Dictionary<string, Department> depts, CancellationToken token)
     {
         var models = depts.Values.ToList();
-        if (models == null || models.Count == 0) return;
+        if (models.Count == 0) return;
 
-        var codeCount = 1;
-        foreach (var item in depts.Values)
-        {
-            item.Code = codeCount.FormatCode();
-            codeCount += 1;
-        }
-        var existing = await _departmentService.GetQueryable()
-         .GroupBy(x => x.Name)
-         .ToDictionaryAsync(x => x.Key.ToLowerInvariant(), x => x.First().Id, token);
+        var stored = await _departmentService.GetQueryable()
+            .Select(x => new { x.Id, x.Name, x.Code })
+            .ToListAsync(token);
+        var existing = ByName(stored, x => x.Name, x => x.Id);
+        var nextCode = CodeSequence(stored.Select(x => x.Code));
 
-        var newRecords = models
-            .Where(x => !existing.ContainsKey(x.Name.Trim().ToLowerInvariant()))
-            .ToList();
-
+        var newRecords = new List<Department>();
         foreach (var item in models)
         {
-            if (existing.TryGetValue(item.Name.Trim().ToLowerInvariant(), out Guid curId))
+            if (existing.TryGetValue(item.Name.Trim(), out Guid curId))
             {
                 item.Id = curId;
+            }
+            else
+            {
+                item.Code = nextCode();
+                newRecords.Add(item);
             }
         }
         if (newRecords.Count > 0)
@@ -829,19 +864,13 @@ public class EmployeeImportService
     private async Task StoreProjectSitesAsync(Dictionary<string, CostCenters> sites, CancellationToken token)
     {
         var models = sites.Values.ToList();
-        if (models == null || models.Count == 0) return;
+        if (models.Count == 0) return;
 
-        var codeCount = 1;
-        foreach (var item in sites.Values)
-        {
-            item.Code = codeCount.FormatCode();
-            codeCount += 1;
-        }
-        var existing = (await _costCenterService.GetQueryable()
-                .Select(x => new { x.Id, x.Name, x.BranchId })
-                .ToListAsync(token))
-            .GroupBy(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var stored = await _costCenterService.GetQueryable()
+            .Select(x => new { x.Id, x.Name, x.BranchId, x.Code })
+            .ToListAsync(token);
+        var existing = ByName(stored, x => x.Name, x => x);
+        var nextCode = CodeSequence(stored.Select(x => x.Code));
 
         var newRecords = new List<CostCenters>();
         var branchBackfill = new Dictionary<Guid, Guid>();
@@ -859,6 +888,7 @@ public class EmployeeImportService
             }
             else
             {
+                item.Code = nextCode();
                 newRecords.Add(item);
             }
         }
@@ -1124,13 +1154,15 @@ public class EmployeeImportService
 
     private Dictionary<string, Department> ExtractDepartments(List<EmployeeImportModel> data)
     {
+        // Case-insensitive like every other master record: "HR" and "hr" in one file are one
+        // department, not two.
         return data
-            .GroupBy(x => string.IsNullOrWhiteSpace(x.DepartmentName) ? "--" : x.DepartmentName.Trim())
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.DepartmentName) ? "--" : x.DepartmentName.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(g => new Department
             {
                 Name = g.Key,
             })
-            .ToDictionary(x => x.Name, x => x);
+            .ToDictionary(x => x.Name, x => x, StringComparer.OrdinalIgnoreCase);
     }
 
     // Unlike Department, a blank Project Site cell means "no Project Site" -- AreaId is already

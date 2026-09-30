@@ -20,6 +20,10 @@ public class TimeShiftService : BaseService<TimeShift>
     {
         await base.CreateValidatorAsync(model, token);
         Guard.ThrowIfEmpty(model.ShiftName, nameof(model.ShiftName));
+        if (await NameIsTakenAsync(x => x.ShiftName, model.ShiftName, model.Id, token))
+        {
+            return EvaluationResult.Fail($"A time shift named '{model.ShiftName.Trim()}' already exists.");
+        }
         return EvaluationResult.OK;
     }
     public async Task<TimeShiftModel> AddAsync(CreateTimeShift payload, CancellationToken token)

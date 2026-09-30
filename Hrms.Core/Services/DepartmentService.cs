@@ -19,13 +19,9 @@ public class DepartmentService : BaseService<Department>
             return EvaluationResult.Fail(result.Errors);
         }
 
-        var existing = await _uow.Repository
-        .Find<Department>(x => x.Code == model.Code && x.Id != model.Id)
-        .FirstOrDefaultAsync(token);
-
-        if (existing != null)
+        if (await NameIsTakenAsync(x => x.Name, model.Name, model.Id, token))
         {
-            return EvaluationResult.Fail("Department code already exists.");
+            return EvaluationResult.Fail($"A department named '{model.Name.Trim()}' already exists.");
         }
         return await base.CreateValidatorAsync(model, token);
     }

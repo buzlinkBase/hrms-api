@@ -17,6 +17,10 @@ public class ClientService : BaseService<Client>
         {
             return EvaluationResult.Fail(validator.Errors);
         }
+        if (await NameIsTakenAsync(x => x.Name, model.Name, model.Id, token))
+        {
+            return EvaluationResult.Fail($"A client named '{model.Name.Trim()}' already exists.");
+        }
         return await base.CreateValidatorAsync(model, token);
     }
     public async Task AddAsync(Client model, CancellationToken token)

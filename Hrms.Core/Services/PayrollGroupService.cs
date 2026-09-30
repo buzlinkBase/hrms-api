@@ -70,6 +70,11 @@ public class PayrollGroupService : BaseService<PayrollGroup>
             return new EvaluationResult($"{frequencyName} payroll requires at least two cutoff days.");
         }
 
+        if (await NameIsTakenAsync(x => x.Name, model.Name, model.Id, token))
+        {
+            return new EvaluationResult($"A payroll group named '{model.Name.Trim()}' already exists.");
+        }
+
         return await base.CreateValidatorAsync(model, token);
     }
 

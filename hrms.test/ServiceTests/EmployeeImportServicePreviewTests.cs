@@ -165,6 +165,27 @@ public class EmployeeImportServicePreviewTests
         result[1].Errors.Should().ContainSingle(e => e.Contains("more than one row"));
     }
 
+    // Every imported employee needs a first and a last name; a whitespace-only cell is blank.
+    [Fact]
+    public async Task PreviewAsync_FlagsRowsMissingAFirstOrLastName()
+    {
+        var repo = Substitute.For<IRepository>();
+        var sut = BuildService(repo, Substitute.For<IUnitOfWorkService>());
+        using var file = BuildWorkbook(
+            ("1001", "Juan", "DelaCruz"),
+            ("1002", "", "Reyes"),
+            ("1003", "Pedro", "   "),
+            ("1004", "", ""));
+
+        var result = await sut.PreviewAsync(file, CancellationToken.None);
+
+        result.Should().HaveCount(4);
+        result[0].Errors.Should().BeEmpty();
+        result[1].Errors.Should().Equal("First name is required.");
+        result[2].Errors.Should().Equal("Last name is required.");
+        result[3].Errors.Should().Equal("First name is required.", "Last name is required.");
+    }
+
     [Fact]
     public async Task PreviewAsync_FlagsBioIdAlreadyRegisteredToADifferentName()
     {

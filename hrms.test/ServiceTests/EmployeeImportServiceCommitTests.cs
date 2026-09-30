@@ -442,6 +442,134 @@ public class EmployeeImportServiceCommitTests
         employee.AreaId.Should().Be(site.Id);
     }
 
+    // ── Master data is matched by name, never duplicated ───────────────────
+
+    private static MemoryStream BuildWorkbookWithMasters(params (string FirstName, string? Client, string? Department)[] rows)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Sheet1");
+        sheet.Cell(1, 1).Value = EmployeeTemplateHeaders.FirstName;
+        sheet.Cell(1, 2).Value = EmployeeTemplateHeaders.LastName;
+        sheet.Cell(1, 3).Value = EmployeeTemplateHeaders.ClientName;
+        sheet.Cell(1, 4).Value = EmployeeTemplateHeaders.DepartmentName;
+        for (var i = 0; i < rows.Length; i++)
+        {
+            sheet.Cell(i + 2, 1).Value = rows[i].FirstName;
+            sheet.Cell(i + 2, 2).Value = "Tester";
+            if (rows[i].Client != null) sheet.Cell(i + 2, 3).Value = rows[i].Client;
+            if (rows[i].Department != null) sheet.Cell(i + 2, 4).Value = rows[i].Department;
+        }
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+    [Fact]
+    public async Task Upload_ReusesExistingMasters_ByNameIgnoringCaseAndSpacing()
+    {
+        using var db = new SqliteHrmsContext();
+        var clientId = Guid.NewGuid();
+        var departmentId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            // Saved with stray spaces / other case, and a payroll group whose cutoff rows differ
+            // from what the file would create -- all used to come back as duplicates.
+            seed.Clients.Add(new Client { Id = clientId, Code = "000007", Name = "Acme Corp " });
+            seed.Departments.Add(new Department { Id = departmentId, Code = "000004", Name = "Human Resources" });
+            seed.PayrollGroups.Add(new PayrollGroup { Id = groupId, Code = "000002", Name = "-", PayrollFrequency = PayrollFrequency.MONTHLY });
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var context = db.NewContext())
+        {
+            using var file = BuildWorkbookWithMasters(("Rosa", "acme corp", "HUMAN RESOURCES"), ("Lito", "ACME CORP", " human resources "));
+            await BuildService(new UnitOfWorkService(context)).Upload(file, CancellationToken.None);
+        }
+
+        await using var verify = db.NewContext();
+        (await verify.Clients.CountAsync()).Should().Be(1);
+        (await verify.Departments.CountAsync()).Should().Be(1);
+        (await verify.PayrollGroups.CountAsync()).Should().Be(1);
+        (await verify.Employees.ToListAsync()).Should().AllSatisfy(e =>
+        {
+            e.ClientId.Should().Be(clientId);
+            e.DepartmentId.Should().Be(departmentId);
+            e.PayrollGroupId.Should().Be(groupId);
+        });
+    }
+
+    [Fact]
+    public async Task Upload_NewMasters_AreCreatedOncePerName_WithCodesAfterTheExistingOnes()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var seed = db.NewContext())
+        {
+            seed.Clients.Add(new Client { Id = Guid.NewGuid(), Code = "000007", Name = "Old Client" });
+            seed.Departments.Add(new Department { Id = Guid.NewGuid(), Code = "000004", Name = "Old Department" });
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var context = db.NewContext())
+        {
+            using var file = BuildWorkbookWithMasters(("Rosa", "New Client", "Sales"), ("Lito", "new client", "SALES"));
+            await BuildService(new UnitOfWorkService(context)).Upload(file, CancellationToken.None);
+        }
+
+        await using var verify = db.NewContext();
+        (await verify.Clients.SingleAsync(x => x.Name == "New Client")).Code.Should().Be("000008");
+        (await verify.Departments.SingleAsync(x => x.Name == "Sales")).Code.Should().Be("000005");
+        (await verify.Clients.CountAsync()).Should().Be(2);
+        (await verify.Departments.CountAsync()).Should().Be(2);
+    }
+
+    // Every imported employee needs a first and a last name: a nameless row refuses the whole
+    // upload instead of saving an employee with a blank name.
+    [Fact]
+    public async Task Upload_RowMissingAName_IsRefused_AndNothingIsSaved()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var context = db.NewContext())
+        {
+            var sut = BuildService(new UnitOfWorkService(context));
+            using var file = BuildWorkbook(("4001", "Complete", "Row", null), ("4002", "NoLastName", "  ", null));
+
+            var act = () => sut.Upload(file, CancellationToken.None);
+
+            (await act.Should().ThrowAsync<ValidationException>())
+                .Which.Message.Should().Contain("Row 2: Last name is required.");
+        }
+
+        await using var verify = db.NewContext();
+        (await verify.Employees.AnyAsync()).Should().BeFalse();
+    }
+
+    // The client's Errors list isn't trusted for names: a stale or tampered preview payload with a
+    // nameless row (and no errors on it) still imports nothing.
+    [Fact]
+    public async Task CommitPreview_RowMissingAName_IsRefused_EvenWithoutErrorsOnIt()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var context = db.NewContext())
+        {
+            var sut = BuildService(new UnitOfWorkService(context));
+            var rows = new List<EmployeeImportPreviewRow>
+            {
+                new() { RowNumber = 1, FirstName = "Complete", LastName = "Row", Errors = [] },
+                new() { RowNumber = 2, FirstName = null, LastName = "NoFirstName", Errors = [] },
+            };
+
+            var act = () => sut.CommitPreviewAsync(rows, CancellationToken.None);
+
+            (await act.Should().ThrowAsync<ValidationException>())
+                .Which.Message.Should().Contain("Row 2: First name is required.");
+        }
+
+        await using var verify = db.NewContext();
+        (await verify.Employees.AnyAsync()).Should().BeFalse();
+    }
+
     [Fact]
     public async Task Upload_MixOfBlankAndPopulatedProjectSite_PersistsBothRows()
     {

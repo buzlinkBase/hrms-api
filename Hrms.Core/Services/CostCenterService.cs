@@ -8,6 +8,16 @@ public class CostCenterService : BaseService<CostCenters>
     public CostCenterService(IUnitOfWorkService uow) : base(uow)
     {
     }
+
+    // Unique company-wide, the same way employee import matches project sites by name.
+    protected override async Task<EvaluationResult> CreateValidatorAsync(CostCenters model, CancellationToken token)
+    {
+        if (await NameIsTakenAsync(x => x.Name, model.Name, model.Id, token))
+        {
+            return EvaluationResult.Fail($"A project site named '{model.Name.Trim()}' already exists.");
+        }
+        return await base.CreateValidatorAsync(model, token);
+    }
     public async Task AddAsync(CostCenters model, CancellationToken token)
     {
         await CreateAsync(model, token);
