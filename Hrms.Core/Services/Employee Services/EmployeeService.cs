@@ -463,10 +463,17 @@ public class EmployeeService : BaseService<Employee>
     // Resolves the calling user's own Employee record for the self-service portal. UserId is
     // the primary match (backfilled by UserOnboardedWorker when an invitation names an
     // EmployeeId); email is a fallback for employees whose UserId link hasn't been made yet.
+    //
+    // Resolved through ResolveEmployeeIdAsync so an email-only match gets linked here too: the app
+    // shell loads this for every signed-in user, and it used to never link -- which left accounts
+    // that never came through an invitation (e.g. the Owner's own employee record) unlinked forever
+    // and out of Department/Position approval notifications.
     public async Task<EmployeeFullModel?> GetFullByUserOrEmailAsync(Guid userId, string? email, CancellationToken token)
     {
-        return await GetQueryable(x => x.UserId == userId || (email != null && x.Email == email))
-            .OrderByDescending(x => x.UserId == userId)
+        var employeeId = await ResolveEmployeeIdAsync(userId, email, token);
+        if (employeeId == null) return null;
+
+        return await GetQueryable(x => x.Id == employeeId.Value)
             // One SQL per collection instead of a single JOIN across all six (Skills x Dependents x
             // Educations x Assets x Records x Employments rows). The old Include()s were no-ops --
             // EF ignores Include once ProjectToType shapes the result.

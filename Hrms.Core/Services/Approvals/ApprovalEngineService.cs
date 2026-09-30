@@ -446,6 +446,10 @@ public class ApprovalEngineService
     private async Task<List<Employee>> ResolveNotificationRecipientsAsync(
         ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
     {
+        // Pool types (Department/Position/Applicant's Department) include anyone reachable -- a
+        // linked account OR an email. They used to require a linked UserId, which silently left out
+        // every account matched to its employee by email (e.g. an Owner who never came through an
+        // invitation), even though those people can approve the step.
         List<Employee> candidates;
         switch (step.ApproverType)
         {
@@ -456,12 +460,12 @@ public class ApprovalEngineService
                 break;
             case ApproverType.Department:
                 candidates = step.ApproverDepartmentId is { } deptId
-                    ? await _uow.Repository.Find<Employee>(e => e.DepartmentId == deptId && e.UserId != null).AsNoTracking().ToListAsync(token)
+                    ? await _uow.Repository.Find<Employee>(e => e.DepartmentId == deptId && (e.UserId != null || (e.Email != null && e.Email != ""))).AsNoTracking().ToListAsync(token)
                     : [];
                 break;
             case ApproverType.Position:
                 candidates = step.ApproverPositionId is { } posId
-                    ? await _uow.Repository.Find<Employee>(e => e.PositionId == posId && e.UserId != null).AsNoTracking().ToListAsync(token)
+                    ? await _uow.Repository.Find<Employee>(e => e.PositionId == posId && (e.UserId != null || (e.Email != null && e.Email != ""))).AsNoTracking().ToListAsync(token)
                     : [];
                 break;
             case ApproverType.ApplicantManager:
@@ -471,7 +475,7 @@ public class ApprovalEngineService
                 break;
             case ApproverType.ApplicantDepartment:
                 candidates = applicant.DepartmentId is { } applicantDeptId
-                    ? await _uow.Repository.Find<Employee>(e => e.DepartmentId == applicantDeptId && e.UserId != null).AsNoTracking().ToListAsync(token)
+                    ? await _uow.Repository.Find<Employee>(e => e.DepartmentId == applicantDeptId && (e.UserId != null || (e.Email != null && e.Email != ""))).AsNoTracking().ToListAsync(token)
                     : [];
                 break;
             default:

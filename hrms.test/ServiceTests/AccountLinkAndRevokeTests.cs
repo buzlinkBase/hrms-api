@@ -167,6 +167,47 @@ public class AccountLinkAndRevokeTests
         host.GetRequiredService<EmployeeAccountLinkQueue>().Reader.TryRead(out _).Should().BeFalse();
     }
 
+    // The app shell loads GET me/employee for everyone on every visit -- it used to never link,
+    // so an Owner who created the company (no invitation) stayed unlinked forever and was left out
+    // of Department/Position approval notifications.
+    [Fact]
+    public async Task LoadingMyEmployee_LinksAnAccountMatchedByEmail()
+    {
+        using var db = new SqliteHrmsContext();
+        var employee = await SeedEmployeeAsync(db, "owner@acme.com");
+        using var host = BuildHost(db);
+        var userId = Guid.NewGuid();
+
+        using (var scope = host.CreateScope())
+        {
+            var service = new EmployeeService(
+                scope.ServiceProvider.GetRequiredService<IUnitOfWorkService>(), Substitute.For<IMapper>(), TestMapping.GlobalSettings,
+                null!, null!, null!, null!, null!, null!, scope.ServiceProvider.GetRequiredService<EmployeeAccountLinkService>());
+            (await service.GetFullByUserOrEmailAsync(userId, "owner@acme.com", CancellationToken.None))!
+                .Id.Should().Be(employee.Id);
+        }
+        var queue = host.GetRequiredService<EmployeeAccountLinkQueue>();
+        var worker = host.GetRequiredService<EmployeeAccountLinkWorker>();
+        while (queue.Reader.TryRead(out var link))
+            await worker.LinkAsync(link, CancellationToken.None);
+
+        (await UserIdOfAsync(db, employee.Id)).Should().Be(userId);
+    }
+
+    [Fact]
+    public async Task LoadingMyEmployee_WithNoMatch_ReturnsNothing()
+    {
+        using var db = new SqliteHrmsContext();
+        await SeedEmployeeAsync(db, "ana@acme.com");
+        using var host = BuildHost(db);
+        using var scope = host.CreateScope();
+        var service = new EmployeeService(
+            scope.ServiceProvider.GetRequiredService<IUnitOfWorkService>(), Substitute.For<IMapper>(), TestMapping.GlobalSettings,
+            null!, null!, null!, null!, null!, null!, scope.ServiceProvider.GetRequiredService<EmployeeAccountLinkService>());
+
+        (await service.GetFullByUserOrEmailAsync(Guid.NewGuid(), "stranger@acme.com", CancellationToken.None)).Should().BeNull();
+    }
+
     [Fact]
     public async Task TheAccountsOwnLinkedEmployee_WinsOverAnEmailMatch()
     {

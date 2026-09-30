@@ -172,6 +172,27 @@ public class ApprovalRecipientPushTests
             Arg.Any<CancellationToken>());
     }
 
+    // Regression: saving the bell entry used to run before the push with nothing catching it, so a
+    // missing UserNotifications table (migration not yet applied) faulted the message and nobody
+    // was notified at all. Delivery never waits on storage now.
+    [Fact]
+    public async Task Worker_WhenSavingFails_StillPushes_WithoutAnId()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var drop = db.NewContext())
+            await drop.Database.ExecuteSqlRawAsync("DROP TABLE UserNotifications");
+        var (worker, clients) = BuildWorker(TenantId, db);
+        var group = Substitute.For<IClientProxy>();
+        clients.Group(ApprovalRecipientGroups.For(TenantId, "owner@company.com")).Returns(group);
+
+        await worker.Consume(Message("owner@company.com", userId: null));
+
+        await group.Received(1).SendCoreAsync(
+            ApprovalPushNotificationService.EventName,
+            Arg.Is<object?[]>(args => ((ApprovalPushNotification)args[0]!).Id == null),
+            Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task Worker_ARedeliveredMessage_DoesNotSaveASecondEntry()
     {

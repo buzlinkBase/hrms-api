@@ -46,12 +46,25 @@ public class ApprovalPushNotificationWorker : IConsumer<ApprovalNotificationRequ
         // Saved first, so the bell still has it after a refresh or for someone offline right now;
         // the push then carries the saved id. Keyed by the message id, so a retry after a failed
         // push reuses the entry instead of adding a second.
+        //
+        // Saving must never stop delivery: when it fails (e.g. the table isn't migrated yet, or a
+        // transient database error) the push still goes out, just without an id -- the bell then
+        // shows it for the session only. Letting the exception through used to fault the message
+        // and nobody was notified at all.
         if (!string.IsNullOrWhiteSpace(message.RecipientEmail) || message.RecipientUserId != null)
         {
-            var saved = await _notifications.SaveApprovalAsync(
-                context.MessageId ?? NewId.NextGuid(), message.RecipientUserId, message.RecipientEmail, notification, context.CancellationToken);
-            notification.Id = saved.Id;
-            notification.TimestampUtc = saved.CreatedAt;
+            try
+            {
+                var saved = await _notifications.SaveApprovalAsync(
+                    context.MessageId ?? NewId.NextGuid(), message.RecipientUserId, message.RecipientEmail, notification, context.CancellationToken);
+                notification.Id = saved.Id;
+                notification.TimestampUtc = saved.CreatedAt;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log.Warning(ex, "ApprovalPushNotificationWorker: couldn't save the bell entry for {Email}/{UserId} ({Status} {Type} {ApplicationId}); pushing without it",
+                    message.RecipientEmail, message.RecipientUserId, message.StatusLabel, message.ApplicationType, message.ApplicationId);
+            }
         }
 
         // By company + login email first: reaches accounts matched to their employee record by

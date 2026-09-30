@@ -916,26 +916,75 @@ public class ApprovalEngineServiceTests
         await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task StartAsync_DepartmentStep_NotifiesEveryMemberWithLogin()
+    // A member matched to their login only by email (never linked -- e.g. an Owner who created
+    // the company rather than accepting an invite) can approve the step, so they're notified too.
+    // Only someone with neither a linked login nor an email is unreachable and skipped.
+    [Theory]
+    [InlineData(ApproverType.Department)]
+    [InlineData(ApproverType.Position)]
+    [InlineData(ApproverType.ApplicantDepartment)]
+    public async Task StartAsync_PoolStep_NotifiesLinkedAndEmailMatchedMembers(ApproverType approverType)
     {
-        var applicant = BuildEmployee();
         var departmentId = Guid.NewGuid();
-        var memberWithLogin = BuildEmployee(userId: Guid.NewGuid(), departmentId: departmentId, email: "member@test.com");
-        var memberNoLogin = BuildEmployee(userId: null, departmentId: departmentId, email: "nologin@test.com");
+        var positionId = Guid.NewGuid();
+        Employee Member(Guid? userId, string? email)
+        {
+            var member = BuildEmployee(userId: userId, departmentId: departmentId, email: email);
+            member.PositionId = positionId;
+            return member;
+        }
+        var applicant = BuildEmployee(departmentId: departmentId);
+        var linked = Member(Guid.NewGuid(), "member@test.com");
+        var emailMatched = Member(null, "owner@test.com");
+        var unreachable = Member(null, null);
         var workflow = new ApprovalWorkflow
         {
             Id = Guid.NewGuid(),
             ApplicationType = ApprovalApplicationType.Leave,
             IsActive = true,
-            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Department, ApproverDepartmentId = departmentId, MinApprovals = 1, NamedApprovers = [] }],
+            Steps =
+            [
+                new ApprovalWorkflowStep
+                {
+                    StepNumber = 1, ApproverType = approverType, MinApprovals = 1, NamedApprovers = [],
+                    ApproverDepartmentId = departmentId, ApproverPositionId = positionId,
+                },
+            ],
         };
-        var (service, _, _, publisher) = BuildService([applicant, memberWithLogin, memberNoLogin], [workflow]);
+        var (service, _, _, publisher) = BuildService([applicant, linked, emailMatched, unreachable], [workflow]);
 
         await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None);
 
         await publisher.Received(1).Publish(Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "member@test.com"), Arg.Any<CancellationToken>());
-        await publisher.DidNotReceive().Publish(Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "nologin@test.com"), Arg.Any<CancellationToken>());
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "owner@test.com" && m.RecipientUserId == null && m.DeliverPush),
+            Arg.Any<CancellationToken>());
+        await publisher.DidNotReceive().Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "" && m.RecipientUserId == null),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StartAsync_PersonStep_NotifiesAnEmailMatchedOwner()
+    {
+        var applicant = BuildEmployee();
+        var owner = BuildEmployee(userId: null, email: "owner@test.com");
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = owner.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, _, _, publisher) = BuildService([applicant, owner], [workflow]);
+
+        await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m =>
+                m.RecipientEmail == "owner@test.com" && m.DeliverPush &&
+                m.StatusLabel == ApprovalEngineService.PendingApprovalStatusLabel),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
