@@ -73,6 +73,7 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     //public DbSet<PayrollInclusionDefaults> PayrollInclusionDefaults { get; set; }
     public DbSet<Branch> Branches { get; set; }
     public DbSet<Client> Clients { get; set; }
+    public DbSet<ClientUserAccount> ClientUserAccounts { get; set; }
     public DbSet<CostCenters> Areas { get; set; }
     public DbSet<Department> Departments { get; set; }
     public DbSet<Payroll> Payrolls { get; set; }

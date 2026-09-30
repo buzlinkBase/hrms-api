@@ -6,15 +6,26 @@ namespace Hrms.Core.Messaging;
 public class UserOnboardedWorker : IConsumer<UserOnboarded>
 {
     private readonly EmployeeService _employeeService;
+    private readonly Services.Invitations.InviteMatchService _inviteMatch;
 
-    public UserOnboardedWorker(EmployeeService employeeService)
+    public UserOnboardedWorker(EmployeeService employeeService, Services.Invitations.InviteMatchService inviteMatch)
     {
         _employeeService = employeeService;
+        _inviteMatch = inviteMatch;
     }
 
     public async Task Consume(ConsumeContext<UserOnboarded> context)
     {
         var msg = context.Message;
+
+        // A client invite links the account to its client, never to an employee who happens to
+        // share the email.
+        if (msg.ClientId is { } clientId && clientId != Guid.Empty)
+        {
+            await _inviteMatch.LinkClientLoginAsync(clientId, msg.UserId, msg.Email, context.CancellationToken);
+            return;
+        }
+
         Employee? employee = null;
 
         if (msg.EmployeeId.HasValue)

@@ -1160,6 +1160,52 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("ClientRateTables");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.ClientUserAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.HasIndex("TenantId", "Email");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("ClientUserAccounts");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.Company", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6886,6 +6932,17 @@ namespace Hrms.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ClientHoliday", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.ClientUserAccount", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.Client", "Client")
                         .WithMany()

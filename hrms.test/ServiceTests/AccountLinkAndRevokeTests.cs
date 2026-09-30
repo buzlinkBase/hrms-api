@@ -55,7 +55,8 @@ public class AccountLinkAndRevokeTests
     private static async Task OnboardAsync(SqliteHrmsContext db, Guid userId, string email, Guid? employeeId = null)
     {
         await using var context = db.NewContext(CompanyId);
-        var worker = new UserOnboardedWorker(EmployeeServiceFor(new UnitOfWorkService(context)));
+        var uow = new UnitOfWorkService(context);
+        var worker = new UserOnboardedWorker(EmployeeServiceFor(uow), new Hrms.Core.Services.Invitations.InviteMatchService(uow));
         var consume = Substitute.For<ConsumeContext<UserOnboarded>>();
         consume.Message.Returns(new UserOnboarded { UserId = userId, TenantId = CompanyId, Email = email, EmployeeId = employeeId });
         await worker.Consume(consume);
