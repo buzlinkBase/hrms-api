@@ -1,4 +1,5 @@
 ﻿
+using Microsoft.Extensions.Configuration;
 using Onepunch.Common.Lib;
 using Onepunch.Common.Lib.Entities;
 
@@ -67,13 +68,56 @@ public class DTRDbContext : DbContext
 
 }
 
+/// <summary>
+/// Used only by the EF tools (migrations / database update). Reads the connection string the
+/// same places the API does -- never from source or the committed appsettings.json:
+///   1. DTR.API/appsettings.Development.json (local database)
+///   2. the API project's user secrets (dotnet user-secrets --project DTR.API/DTR.API ...)
+///   3. environment variables (ConnectionStrings__dtr)
+/// Later sources win.
+/// </summary>
 public class AppDbContextFactory : IDesignTimeDbContextFactory<DTRDbContext>
 {
+    // DTR.API.csproj's <UserSecretsId>. Infrastructure can't reference the API project (the API
+    // references Infrastructure), so its secrets are loaded by id.
+    private const string ApiUserSecretsId = "b8e3d5f1-2a64-4c9b-8e17-6d0f4a2c9b53";
+
     public DTRDbContext CreateDbContext(string[] args)
     {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(ApiProjectDirectory())
+            .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddUserSecrets(ApiUserSecretsId)
+            .AddEnvironmentVariables()
+            .Build();
+
+        var constr = configuration.GetConnectionString("dtr");
+        if (string.IsNullOrEmpty(constr))
+        {
+            throw new InvalidOperationException(
+                "Could not find the 'dtr' connection string. Set it in DTR.API/appsettings.Development.json, the API's " +
+                "user secrets (ConnectionStrings:dtr) or the ConnectionStrings__dtr env var.");
+        }
+
         var optionsBuilder = new DbContextOptionsBuilder<DTRDbContext>();
-        var constr = "server=127.0.0.1;port=3316;database=dtrapi;user=oneuser;password=Pokemon67584321";
         optionsBuilder.UseMySql(constr, ServerVersion.AutoDetect(constr));
         return new DTRDbContext(optionsBuilder.Options);
+    }
+
+    // The EF tools run from this project's or the API project's directory; the API's settings
+    // live in dtr-api/DTR.API/DTR.API.
+    private static string ApiProjectDirectory()
+    {
+        var currentDirectory = Directory.GetCurrentDirectory();
+        foreach (var candidate in new[]
+                 {
+                     Path.Combine(currentDirectory, "..", "DTR.API", "DTR.API"),
+                     Path.Combine(currentDirectory, "DTR.API", "DTR.API"),
+                 })
+        {
+            var full = Path.GetFullPath(candidate);
+            if (Directory.Exists(full)) return full;
+        }
+        return currentDirectory;
     }
 }

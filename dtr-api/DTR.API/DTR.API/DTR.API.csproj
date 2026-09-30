@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	  <RootNamespace>DTR.Api</RootNamespace>
+	  <UserSecretsId>b8e3d5f1-2a64-4c9b-8e17-6d0f4a2c9b53</UserSecretsId>
   </PropertyGroup>
 	
 	<ItemGroup>
