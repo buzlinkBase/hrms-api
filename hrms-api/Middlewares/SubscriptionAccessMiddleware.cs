@@ -4,12 +4,16 @@ using Onepunch.Common.Lib.Subscriptions;
 namespace Hrms.Api.Middlewares;
 
 /// <summary>
-/// Read-only subscriptions (trial ended, suspended for non-payment, canceled) can sign in, view
-/// and export, but not change anything: every POST/PUT/PATCH/DELETE from a signed-in company user
-/// is refused with 403 ProblemDetails type "subscription-read-only", unless the endpoint is
-/// marked <see cref="AllowWhenReadOnlyAttribute"/>. Enforced here on the backend -- hiding
-/// buttons in the UI isn't enforcement. Runs after TenantDatabaseMiddleware (the company is known).
-/// Anonymous and service-to-service calls aren't company users and pass; so do the SignalR hubs.
+/// A lapsed subscription (trial ended, suspended for non-payment, canceled) -- the rule every
+/// service applies (<see cref="SubscriptionAccessPolicy"/>):
+/// - the owner and billing admins keep read-only access: they can look, export and pay, but every
+///   POST/PUT/PATCH/DELETE is refused with 403 "subscription-read-only", unless the endpoint is
+///   marked <see cref="AllowWhenReadOnlyAttribute"/> (a POST that only reads);
+/// - every other member is locked out of the company: every request, reads included, is refused
+///   with 403 "subscription-locked".
+/// Enforced here on the backend -- hiding the UI isn't enforcement. Runs after
+/// TenantDatabaseMiddleware (the company is known). Anonymous and service-to-service calls aren't
+/// company users and pass; so do the SignalR hubs.
 /// </summary>
 public class SubscriptionAccessMiddleware
 {
@@ -18,23 +22,24 @@ public class SubscriptionAccessMiddleware
 
     public async Task InvokeAsync(HttpContext context, ITenantProvider tenantProvider, IEntitlementProvider entitlements)
     {
-        if (IsWrite(context.Request.Method)
-            && context.User.Identity?.IsAuthenticated == true
+        if (context.User.Identity?.IsAuthenticated == true
             && !context.Request.Path.StartsWithSegments("/hubs")
-            && tenantProvider.TenantId != Guid.Empty
-            && context.GetEndpoint()?.Metadata.GetMetadata<AllowWhenReadOnlyAttribute>() == null)
+            && tenantProvider.TenantId != Guid.Empty)
         {
             var snapshot = await entitlements.GetAsync(tenantProvider.TenantId, context.RequestAborted);
-            if (snapshot.IsReadOnly)
+            var decision = SubscriptionAccessPolicy.Decide(
+                snapshot, context.Request.Method, BillingAccess.IsBillingUser(context.User));
+
+            // A POST that only reads stays open to those who can read at all.
+            if (decision == SubscriptionAccessDecision.ReadOnly
+                && context.GetEndpoint()?.Metadata.GetMetadata<AllowWhenReadOnlyAttribute>() != null)
             {
-                throw PlanRestrictionException.ReadOnly(
-                    "Your subscription is read-only, so changes can't be saved. Choose a plan in Billing to continue.");
+                decision = SubscriptionAccessDecision.Allow;
             }
+
+            if (SubscriptionAccessPolicy.Refusal(decision) is { } refusal) throw refusal;
         }
 
         await _next(context);
     }
-
-    private static bool IsWrite(string method) =>
-        HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method);
 }

@@ -84,6 +84,8 @@ public class Program
         app.UseAuthorization();
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
+        // A lapsed subscription: owner/billing read-only, every other member locked out.
+        app.UseMiddleware<Hrms.adms.Middlewares.SubscriptionAccessMiddleware>();
         app.MapControllers();
         app.Run();
     }

@@ -277,6 +277,7 @@ public static class ServiceRegistrations
         // Subscription entitlements (biometric devices: feature + device limit), resolved by Tenant
         // Service and cached in the Redis connection AddJwksKeyCache registered above.
         builder.Services.AddScoped<ICacheService, RedisCacheService>();
+        builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddTenantEntitlements(
             builder.Configuration["ApiServices:TenantService"]!,
             builder.Configuration["ApiServices:TenantServiceApiKey"]);

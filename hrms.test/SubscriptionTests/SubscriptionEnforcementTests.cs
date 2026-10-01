@@ -114,15 +114,30 @@ public class RequireFeatureAttributeTests
     }
 }
 
-/// <summary>A read-only subscription can look but not change -- enforced on the server.</summary>
+/// <summary>
+/// A lapsed subscription: the owner and billing admins can look but not change; every other
+/// member is locked out entirely. Enforced on the server.
+/// </summary>
 public class SubscriptionAccessMiddlewareTests
 {
-    private static async Task<bool> RunAsync(string method, SubscriptionAccessMode access, bool authenticated = true, bool allowWhenReadOnly = false)
+    private static Claim Role(string role) => new(System.Security.Claims.ClaimTypes.Role, role);
+    private static Claim Permission(string code) => new("permission", code);
+
+    private static async Task<bool> RunAsync(
+        string method,
+        SubscriptionAccessMode access,
+        Claim[]? claims = null,
+        bool authenticated = true,
+        bool allowWhenReadOnly = false)
     {
         var context = new DefaultHttpContext();
         context.Request.Method = method;
         context.Request.Path = "/api/v1/employees";
-        if (authenticated) context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", Guid.NewGuid().ToString())], "Bearer"));
+        if (authenticated)
+        {
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim("sub", Guid.NewGuid().ToString()), .. claims ?? [Role("Owner")]], "Bearer"));
+        }
         if (allowWhenReadOnly)
             context.SetEndpoint(new Endpoint(_ => Task.CompletedTask, new EndpointMetadataCollection(new AllowWhenReadOnlyAttribute()), "export"));
 
@@ -132,12 +147,14 @@ public class SubscriptionAccessMiddlewareTests
         return reached;
     }
 
+    // ── Owner / billing admin: read-only ─────────────────────────────────────────────────────
+
     [Theory]
     [InlineData("POST")]
     [InlineData("PUT")]
     [InlineData("PATCH")]
     [InlineData("DELETE")]
-    public async Task ReadOnly_RefusesWrites(string method)
+    public async Task Owner_ReadOnly_RefusesWrites(string method)
     {
         var act = () => RunAsync(method, SubscriptionAccessMode.ReadOnly);
 
@@ -145,22 +162,51 @@ public class SubscriptionAccessMiddlewareTests
     }
 
     [Fact]
-    public async Task ReadOnly_StillAllowsReads() =>
+    public async Task Owner_ReadOnly_StillAllowsReads() =>
         (await RunAsync("GET", SubscriptionAccessMode.ReadOnly)).Should().BeTrue();
 
     [Fact]
-    public async Task ReadOnly_AllowsEndpointsMarkedAsReadOnlySafe() =>
+    public async Task Owner_ReadOnly_AllowsEndpointsMarkedAsReadOnlySafe() =>
         (await RunAsync("POST", SubscriptionAccessMode.ReadOnly, allowWhenReadOnly: true)).Should().BeTrue();
+
+    [Fact]
+    public async Task BillingAdmin_GetsTheOwnersTreatment() =>
+        (await RunAsync("GET", SubscriptionAccessMode.ReadOnly, [Role("Member"), Permission("Billing:View")])).Should().BeTrue();
+
+    // ── Everyone else: locked out ────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("GET", "Employee")]
+    [InlineData("GET", "Member")]
+    [InlineData("GET", "Admin")]
+    [InlineData("POST", "Admin")]
+    public async Task Member_ReadOnly_IsLockedOut_ReadsIncluded(string method, string role)
+    {
+        var act = () => RunAsync(method, SubscriptionAccessMode.ReadOnly, [Role(role), Permission("Payroll Run:View")]);
+
+        (await act.Should().ThrowAsync<PlanRestrictionException>()).Which.ProblemType.Should().Be(SubscriptionProblemTypes.Locked);
+    }
+
+    [Fact]
+    public async Task Member_ReadOnlySafePost_IsStillLocked()
+    {
+        var act = () => RunAsync("POST", SubscriptionAccessMode.ReadOnly, [Role("Member")], allowWhenReadOnly: true);
+
+        (await act.Should().ThrowAsync<PlanRestrictionException>()).Which.ProblemType.Should().Be(SubscriptionProblemTypes.Locked);
+    }
+
+    // ── Unaffected ───────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task AnonymousCalls_AreNotCompanyUsers_AndPass() =>
         (await RunAsync("POST", SubscriptionAccessMode.ReadOnly, authenticated: false)).Should().BeTrue();
 
-    [Fact]
-    public async Task FullAccess_AllowsWrites() =>
-        (await RunAsync("POST", SubscriptionAccessMode.Full)).Should().BeTrue();
+    [Theory]
+    [InlineData("Owner")]
+    [InlineData("Employee")]
+    public async Task FullAccess_AllowsEveryone(string role) =>
+        (await RunAsync("POST", SubscriptionAccessMode.Full, [Role(role)])).Should().BeTrue();
 }
-
 public class PlanLimitGuardTests
 {
     private static PlanLimitGuard Guard(EntitlementSnapshot snapshot, int used)

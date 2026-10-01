@@ -1,6 +1,7 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Hrms.adms.Services;
 using Hrms.adms.Services.Processors;
+using Hrms.adms.Services.Subscriptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
@@ -18,18 +19,21 @@ public class AdmsController : ControllerBase
     private readonly ITenantProvider _tenantProvider;
     private readonly DeviceService _biometricDevice;
     private readonly CommandService _commandService;
+    private readonly PunchAcceptanceService _punches;
 
     public AdmsController(
         IServiceProvider serviceProvider,
         ITenantProvider tenantProvider,
         DeviceService biometricDevice,
         CommandService commandService,
+        PunchAcceptanceService punches,
         ILogger<AdmsController> logger)
     {
         _serviceProvider = serviceProvider;
         _tenantProvider = tenantProvider;
         _biometricDevice = biometricDevice;
         _commandService = commandService;
+        _punches = punches;
     }
 
     // 1. REGISTRY
@@ -158,6 +162,15 @@ public class AdmsController : ControllerBase
         }
 
         _tenantProvider.SetTenantId(deviceInfo.TenantId);
+
+        // Punches for a company whose subscription lapsed long enough ago (or whose account is no
+        // longer valid) are refused, not dropped: anything but "OK" makes the device keep them and
+        // send them again later.
+        if (string.Equals(table, "ATTLOG", StringComparison.OrdinalIgnoreCase)
+            && !await _punches.AcceptsPunchesAsync(deviceInfo.TenantId, sn, token))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "Subscription inactive");
+        }
 
         using var reader = new StreamReader(Request.Body);
         string rawBody = await reader.ReadToEndAsync();
