@@ -17,39 +17,65 @@ jobs:
           # Pulls the content of your tenantstore submodule
           submodules: recursive
 
+      # Detect changes in service paths
+      # Note: Update paths under filters to match your actual folder structure
+      - name: Check path changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            hrms:
+              - 'src/hrms/**'
+              - 'apps/hrms/**'
+              - 'Dockerfile'
+              - '.gitmodules'
+            adms:
+              - 'src/adms/**'
+              - 'apps/adms/**'
+              - 'Dockerfile'
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Build and Push hrms-api (only when HRMS files change)
       - name: Build and push hrms-api
-        uses: docker/build-push-action@v4
+        if: steps.changes.outputs.hrms == 'true'
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           target: hrms-service
           push: true
-          tags: jhoncee2018/hrms-api:latest
+          tags: |
+            jhoncee2018/hrms-api:latest
+            jhoncee2018/hrms-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build and Push adms-api (only when ADMS files change)
       - name: Build and push adms-api
-        uses: docker/build-push-action@v4
+        if: steps.changes.outputs.adms == 'true'
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           target: adms-service
           push: true
-          tags: jhoncee2018/hrms-adms-api:latest
+          tags: |
+            jhoncee2018/hrms-adms-api:latest
+            jhoncee2018/hrms-adms-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # SSH into Droplet and deploy
       - name: SSH into Droplet and deploy
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DIGITALOCEAN_DROPLET_IP }}
           username: ${{ secrets.DIGITALOCEAN_DROPLET_USERNAME }}
@@ -60,9 +86,9 @@ jobs:
             echo "Updating images..."
             docker compose pull
 
-            echo "Restarting services..."
-            # --force-recreate ensures it uses the newly pulled image
-            docker compose up -d --force-recreate
+            echo "Restarting updated services only..."
+            # Removed --force-recreate so unchanged containers stay running
+            docker compose up -d
 
             echo "Cleaning up old images..."
             docker image prune -f
