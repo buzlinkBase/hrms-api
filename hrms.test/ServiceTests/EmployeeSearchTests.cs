@@ -338,6 +338,30 @@ public class EmployeeSearchTests
             new KeyValuePair<Guid, string>(abella, "Jerome Abella"));
     }
 
+    // Regression: a confidential approver the caller may not see was missing from the result, so
+    // the approval timeline and workflow setup showed their raw employee id instead of a name.
+    [Fact]
+    public async Task GetDisplayNamesAsync_NamesAHiddenConfidentialEmployee_Confidential()
+    {
+        using var db = await SeedAsync();
+        Guid abella, cruz;
+        await using (var seed = db.NewContext())
+        {
+            abella = seed.Employees.Single(x => x.LastName == "Abella").Id;
+            cruz = seed.Employees.Single(x => x.LastName == "Cruz").Id;
+        }
+        await using var context = db.NewContext(new AnalyticsSeed.Uncleared(cruz));
+        var service = BuildService(new UnitOfWorkService(context));
+
+        var names = await service.GetDisplayNamesAsync([abella, cruz, Guid.NewGuid()], CancellationToken.None);
+
+        names.Should().BeEquivalentTo(new Dictionary<Guid, string>
+        {
+            [abella] = "Jerome Abella",
+            [cruz] = EmployeeService.ConfidentialName,
+        }, "an unknown id is still left out");
+    }
+
     [Fact]
     public void Limit_IsCapped()
     {

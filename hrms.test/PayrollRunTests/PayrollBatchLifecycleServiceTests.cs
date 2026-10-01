@@ -547,6 +547,111 @@ public class PayrollBatchLifecycleServiceTests
             "a fully-approved deletion request actually deletes the Payroll rows too");
     }
 
+    // Regression: deleting a posted run failed with FK_RetirementLedgers_Payrolls_PayrollId --
+    // posting had written retirement ledger entries pointing at its Payroll rows -- and it never
+    // gave back the loan installments posting had paid.
+    [Fact]
+    public async Task ApproveDeletionAsync_ReversesWhatPostingDid_RetirementAndLoanBalances()
+    {
+        using var db = new SqliteHrmsContext();
+        var (batchId, generator, approver) = await SeedPostedBatchAsync(db);
+        var fundId = Guid.NewGuid();
+        var installmentId = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            var payrollId = (await seed.Payrolls.SingleAsync(p => p.PayrollBatchId == batchId)).Id;
+            var deductionId = Guid.NewGuid();
+            var applicationId = Guid.NewGuid();
+            // Posting accrued 500 into a fund that already held 1,000...
+            seed.RetirementFunds.Add(new RetirementFund { Id = fundId, EmployeeId = generator.Id, Balance = 1500 });
+            seed.RetirementLedgers.Add(new RetirementLedger
+            {
+                Id = Guid.NewGuid(), EmployeeId = generator.Id, RetirementFundId = fundId, PayrollId = payrollId,
+                EntryType = RetirementLedgerEntryType.Accrual, EntryDate = new DateOnly(2026, 1, 15),
+                Amount = 500, Balance = 1500, Particulars = "Retirement accrual for payroll Jan 1-15",
+            });
+            // ...and paid off a 1,000 loan installment.
+            seed.Add(new Deduction { Id = deductionId, Code = "COLOAN", Name = "Company Loan" });
+            seed.Add(new DeductionApplication
+            {
+                Id = applicationId, EmployeeId = generator.Id, DeductionId = deductionId, Note = "", Remarks = "", Breakdown = [],
+            });
+            seed.Add(new DeductionApplicationDetail
+            {
+                Id = installmentId, EmployeeId = generator.Id, DeductionId = deductionId, ApplicationId = applicationId,
+                Amount = 1000, Balance = 0, Status = "Paid",
+            });
+            seed.Add(new PayrollDeductionDetail
+            {
+                Id = Guid.NewGuid(), PayrollId = payrollId, DeductionApplicationDetailId = installmentId, DeductionId = deductionId, Amount = 1000,
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var context1 = db.NewContext())
+            await BuildService(new UnitOfWorkService(context1)).RequestDeletionAsync(batchId, generator.Id, CancellationToken.None);
+        await using (var context = db.NewContext())
+            await BuildService(new UnitOfWorkService(context))
+                .ApproveDeletionAsync(batchId, approver.Id, approverHasOverride: false, note: null, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().BeNull();
+        (await verify.RetirementFunds.SingleAsync(f => f.Id == fundId)).Balance.Should().Be(1000, "the run's accrual is taken back out");
+        var ledger = (await verify.RetirementLedgers.Where(l => l.RetirementFundId == fundId).ToListAsync())
+            .OrderBy(l => l.Amount).ToList(); // SQLite can't ORDER BY decimal
+        ledger.Should().HaveCount(2, "the ledger is an audit trail: the original entry stays, plus a reversal");
+        ledger[0].Should().Match<RetirementLedger>(l => l.Amount == -500 && l.Balance == 1000 && l.PayrollId == null);
+        ledger[1].Should().Match<RetirementLedger>(l => l.Amount == 500 && l.PayrollId == null && l.Particulars.EndsWith("(payroll run deleted)"));
+        var installment = await verify.Set<DeductionApplicationDetail>().SingleAsync(d => d.Id == installmentId);
+        installment.Balance.Should().Be(1000, "the installment the run paid is owed again");
+        installment.Status.Should().Be("Unpaid");
+    }
+
+    // An approver without confidential clearance: the employee's pay records are hidden from
+    // them; the profile stays visible so the request can name its filer.
+    private sealed class CantSeePayOf(Guid employeeId) : Hrms.Infrastructure.IConfidentialAccess
+    {
+        public bool Restricted => true;
+        public Guid[] HiddenEmployeeIdsFor(ConfidentialDataClass dataClass) =>
+            dataClass == ConfidentialDataClass.Profile ? [] : [employeeId];
+        public Guid[] ApprovalVisibleRecordIds => [];
+        public Guid[] ApprovalVisibleEmployeeIds => [];
+    }
+
+    // Regression: deleting a run only removed the rows the approver could see -- a confidential
+    // employee's payroll row survived the deletion of its own run (and, with the posting reversal,
+    // would have had its balances given back while the row stayed).
+    [Fact]
+    public async Task ApproveDeletionAsync_RemovesAndReversesEmployeesTheApproverCantSee()
+    {
+        using var db = new SqliteHrmsContext();
+        var (batchId, generator, approver) = await SeedPostedBatchAsync(db);
+        var fundId = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            var payrollId = (await seed.Payrolls.SingleAsync(p => p.PayrollBatchId == batchId)).Id;
+            seed.RetirementFunds.Add(new RetirementFund { Id = fundId, EmployeeId = generator.Id, Balance = 500 });
+            seed.RetirementLedgers.Add(new RetirementLedger
+            {
+                Id = Guid.NewGuid(), EmployeeId = generator.Id, RetirementFundId = fundId, PayrollId = payrollId,
+                EntryType = RetirementLedgerEntryType.Accrual, EntryDate = new DateOnly(2026, 1, 15), Amount = 500, Balance = 500,
+            });
+            await seed.SaveChangesAsync();
+        }
+        var uncleared = new CantSeePayOf(generator.Id);
+
+        await using (var context1 = db.NewContext(uncleared))
+            await BuildService(new UnitOfWorkService(context1)).RequestDeletionAsync(batchId, generator.Id, CancellationToken.None);
+        await using (var context = db.NewContext(uncleared))
+            await BuildService(new UnitOfWorkService(context))
+                .ApproveDeletionAsync(batchId, approver.Id, approverHasOverride: false, note: null, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().BeNull();
+        (await verify.Payrolls.AnyAsync(p => p.PayrollBatchId == batchId)).Should().BeFalse("the hidden employee's row goes with its run");
+        (await verify.RetirementFunds.SingleAsync(f => f.Id == fundId)).Balance.Should().Be(0);
+    }
+
     [Fact]
     public async Task DeclineDeletionAsync_RevertsPendingDeletion_WithoutDeletingTheBatch()
     {

@@ -77,9 +77,19 @@ public class PayrollService : BaseService<Payroll>
         return await GetQueryable(x => x.PayrollBatchId == payrollBatchId).ToListAsync(token);
     }
 
+    // Posting and deleting a run act on the whole run, whoever runs them: a confidential employee
+    // the approver can't see is still in it, and must be posted/reversed/removed with everyone
+    // else. So these skip the query filters (company scoping and soft-delete still apply).
+    private IQueryable<Payroll> WholeBatch(Guid payrollBatchId) =>
+        Context.IgnoringConfidentiality<Payroll>().Where(x => x.PayrollBatchId == payrollBatchId);
+
+    /// <summary>Every row of the run, confidential employees included -- for deleting it.</summary>
+    public Task<List<Payroll>> GetWholeBatchAsync(Guid payrollBatchId, CancellationToken token) =>
+        WholeBatch(payrollBatchId).AsNoTracking().ToListAsync(token);
+
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token)
     {
-        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
+        await WholeBatch(payrollBatchId).ExecuteDeleteAsync(token);
     }
 
     // A draft that's deleted before posting never had its DeductionApplicationDetail.Balance
@@ -100,7 +110,7 @@ public class PayrollService : BaseService<Payroll>
     public async Task DeleteDtrDetailsByPayrollIdsAsync(List<Guid> payrollIds, CancellationToken token)
     {
         if (payrollIds.Count == 0) return;
-        await Context.PayrollDtrDetails.Where(x => payrollIds.Contains(x.PayrollId)).ExecuteDeleteAsync(token);
+        await Context.IgnoringConfidentiality<PayrollDtrDetail>().Where(x => payrollIds.Contains(x.PayrollId)).ExecuteDeleteAsync(token);
     }
 
     // Mirrors PayrollBatch.IsPosted onto every child row of the batch — PayrollBatch is the
@@ -120,7 +130,8 @@ public class PayrollService : BaseService<Payroll>
         // is kept as a belt-and-suspenders explicit mark, but the real fix is tracking the
         // query in the first place — same reasoning as DailyRecordService.PostAsync/UnpostAsync,
         // which mutate tracked entities directly with no explicit Update() call at all.
-        var payrolls = await GetQueryable(x => x.PayrollBatchId == payrollBatchId, noTracking: false).ToListAsync(token);
+        // Tracked, and the whole run (see WholeBatch).
+        var payrolls = await WholeBatch(payrollBatchId).ToListAsync(token);
         if (payrolls.Count == 0) throw new ValidationException("Payroll batch not found.");
         foreach (var payroll in payrolls)
         {
@@ -157,7 +168,7 @@ public class PayrollService : BaseService<Payroll>
         if (applied.Count == 0) return;
 
         var detailIds = applied.Select(x => x.DetailId).ToList();
-        var details = await Context.DeductionApplicationDetails
+        var details = await Context.IgnoringConfidentiality<DeductionApplicationDetail>()
             .Where(x => detailIds.Contains(x.Id))
             .ToListAsync(token);
 
@@ -190,7 +201,8 @@ public class PayrollService : BaseService<Payroll>
         if (relevant.Count == 0) return;
 
         var employeeIds = relevant.Select(x => x.EmployeeId).Distinct().ToList();
-        var funds = await Context.RetirementFunds
+        // Unfiltered: a hidden employee's existing fund must be found, not duplicated.
+        var funds = await Context.IgnoringConfidentiality<RetirementFund>()
             .Where(x => employeeIds.Contains(x.EmployeeId))
             .ToDictionaryAsync(x => x.EmployeeId, token);
 
@@ -235,6 +247,87 @@ public class PayrollService : BaseService<Payroll>
                     Particulars = $"Retirement fund payout — {payroll.PayrollPeriod}",
                 });
             }
+        }
+    }
+
+    /// <summary>
+    /// Undoes what posting did, for a posted run being deleted (its deletion request was
+    /// approved): puts paid loan installments back, and reverses the run's retirement accruals and
+    /// payouts. Call before the run's Payroll rows and deduction details are deleted -- both are
+    /// read here. Reads past the confidential-employee filter: whoever approves the deletion must
+    /// not leave a hidden employee's balances half-reversed. Doesn't commit.
+    /// </summary>
+    public async Task ReversePostingAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        var payrollIds = await WholeBatch(payrollBatchId).Select(x => x.Id).ToListAsync(token);
+        if (payrollIds.Count == 0) return;
+
+        await RestoreDeductionBalancesAsync(payrollIds, token);
+        await ReverseRetirementFundActivityAsync(payrollIds, token);
+        // Flush inside the caller's transaction: the Payroll rows are removed next by a direct
+        // DELETE, which the detached ledger entries must already be clear of.
+        await Context.SaveChangesAsync(token);
+    }
+
+    // The inverse of ReduceDeductionBalancesAsync: each installment this run paid gets its amount
+    // back, and one that posting marked Paid is open again.
+    private async Task RestoreDeductionBalancesAsync(List<Guid> payrollIds, CancellationToken token)
+    {
+        var applied = await Context.IgnoringConfidentiality<PayrollDeductionDetail>()
+            .Where(x => payrollIds.Contains(x.PayrollId))
+            .GroupBy(x => x.DeductionApplicationDetailId)
+            .Select(g => new { DetailId = g.Key, Amount = g.Sum(x => x.Amount) })
+            .ToListAsync(token);
+        if (applied.Count == 0) return;
+
+        var detailIds = applied.Select(x => x.DetailId).ToList();
+        var details = await Context.IgnoringConfidentiality<DeductionApplicationDetail>()
+            .Where(x => detailIds.Contains(x.Id))
+            .ToListAsync(token);
+        foreach (var detail in details)
+        {
+            detail.Balance += applied.First(x => x.DetailId == detail.Id).Amount;
+            if (detail.Balance > 0 && detail.Status == "Paid") detail.Status = "Unpaid";
+        }
+    }
+
+    // The inverse of ProcessRetirementFundActivityAsync. The ledger is an audit trail, so nothing
+    // is erased: each fund gets one reversing entry, and the run's original entries stay --
+    // detached from the deleted Payroll rows (PayrollId is what blocked the delete) and marked.
+    private async Task ReverseRetirementFundActivityAsync(List<Guid> payrollIds, CancellationToken token)
+    {
+        var entries = await Context.IgnoringConfidentiality<RetirementLedger>()
+            .Where(x => x.PayrollId != null && payrollIds.Contains(x.PayrollId.Value))
+            .ToListAsync(token);
+        if (entries.Count == 0) return;
+
+        var fundIds = entries.Select(x => x.RetirementFundId).Distinct().ToList();
+        var funds = await Context.IgnoringConfidentiality<RetirementFund>()
+            .Where(x => fundIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, token);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        foreach (var group in entries.GroupBy(x => x.RetirementFundId))
+        {
+            if (!funds.TryGetValue(group.Key, out var fund)) continue;
+            var net = group.Sum(x => x.Amount); // accruals positive, payouts negative
+            fund.Balance -= net;
+            Context.RetirementLedgers.Add(new RetirementLedger
+            {
+                EmployeeId = fund.EmployeeId,
+                RetirementFund = fund,
+                EntryType = RetirementLedgerEntryType.Adjustment,
+                EntryDate = today,
+                Amount = -net,
+                Balance = fund.Balance,
+                Particulars = "Reversed: posted payroll run deleted",
+            });
+        }
+
+        foreach (var entry in entries)
+        {
+            entry.PayrollId = null;
+            entry.Particulars = $"{entry.Particulars} (payroll run deleted)";
         }
     }
 

@@ -221,7 +221,9 @@ public class DailyRecordsController : ControllerBase
         var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
             ProcessorType.RawColumnarLog,
             token,
-            IncludeNullResponse.Include);
+            IncludeNullResponse.Include,
+            processOnlyPairedAtt: false,
+            removedoublePunch: false);
         return Ok(result);
     }
 
@@ -233,7 +235,8 @@ public class DailyRecordsController : ControllerBase
         var result = await _dTRCalcService.GetDTRInfoAsync<List<RowLogModel>>(payload,
             ProcessorType.RawRowLog,
             token,
-            IncludeNullResponse.Include);
+            IncludeNullResponse.Include,
+            processOnlyPairedAtt: false);
         return Ok(result);
     }
 
@@ -242,10 +245,12 @@ public class DailyRecordsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
     public async Task<IActionResult> CleanColumnarView([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
+        // "Clean" drops double punches only; an unpaired punch stays so incomplete days show.
         var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
             ProcessorType.CleanColumnarLog,
             token,
-            IncludeNullResponse.Include);
+            IncludeNullResponse.Include,
+            processOnlyPairedAtt: false);
         return Ok(result);
     }
 
@@ -267,9 +272,10 @@ public class DailyRecordsController : ControllerBase
     public async Task<IActionResult> IncompleteColumnarLog([FromQuery] DTRRequestPayload payload, CancellationToken token)
     {
         var result = await _dTRCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload,
-            ProcessorType.CleanColumnarLog,
+            ProcessorType.Incomplete,
             token,
-            IncludeNullResponse.Include, false);
+            IncludeNullResponse.Include,
+            processOnlyPairedAtt: false);
         return Ok(result);
     }
 

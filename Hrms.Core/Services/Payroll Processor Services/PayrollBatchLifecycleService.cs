@@ -238,7 +238,9 @@ public class PayrollBatchLifecycleService
         // locked -- including its own, for an already-posted YearEndAdjustment batch reaching
         // here via ApproveDeletionAsync; Reopen Year is the existing escape hatch for that case,
         // unchanged by this feature.
-        var payrollRows = await _payrollService.GetByBatchIdAsync(payrollBatchId, token);
+        // The whole run, confidential employees included -- whoever deletes it, nothing of a
+        // hidden employee's may be left behind or skipped by the year-lock check.
+        var payrollRows = await _payrollService.GetWholeBatchAsync(payrollBatchId, token);
         var touchedYears = payrollRows.Select(x => x.PostingPeriod.Year).Distinct().ToList();
         foreach (var year in touchedYears)
         {
@@ -251,12 +253,19 @@ public class PayrollBatchLifecycleService
         }
         var payrollIds = payrollRows.Select(x => x.Id).ToList();
 
+        // A posted run moved loan balances and retirement funds when it was posted -- undo that
+        // first (it reads the deduction details and retirement ledger the deletes below remove or
+        // detach). A draft never touched them.
+        if (batch.IsPosted)
+            await _payrollService.ReversePostingAsync(payrollBatchId, token);
+
         await _sssContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _phicContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _hdmfContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _taxContributionService.DeleteByBatchIdAsync(payrollBatchId, token);
-        // Never touched a loan's Balance (only PostBatchAsync does) — just cleanup of the
-        // now-orphaned per-installment breakdown/DTR-detail rows this run wrote at Generate time.
+        // For a draft these never touched a loan's Balance (only posting does; a posted run's was
+        // restored just above) — just cleanup of the per-installment breakdown/DTR-detail rows
+        // this run wrote at Generate time.
         await _payrollService.DeleteDeductionDetailsByPayrollIdsAsync(payrollIds, token);
         await _payrollService.DeleteDtrDetailsByPayrollIdsAsync(payrollIds, token);
         await _payrollService.DeleteByBatchIdAsync(payrollBatchId, token);

@@ -39,6 +39,14 @@ public class LeaveDtrReconciliationService
         _logger = logger;
     }
 
+    // Posting, unposting and deleting a DTR batch act on the whole batch, whoever runs them: a
+    // confidential employee the approver can't see still has leave days consumed or given back.
+    // So the leave records read here skip the confidential-employee filter (company scoping and
+    // soft-delete still apply).
+    private IQueryable<T> Everyone<T>(System.Linq.Expressions.Expression<Func<T, bool>> predicate)
+        where T : class, IEntityTenant, ITimeStamp =>
+        _uow.Context.IgnoringConfidentiality<T>().Where(predicate);
+
     public async Task ConsumeReservationsAsync(
         string batchCode,
         List<DailyRecord> records,
@@ -100,8 +108,8 @@ public class LeaveDtrReconciliationService
     // Unpost or deletion of a DTR batch: gives back exactly what this batch still consumes.
     public async Task ReverseConsumptionAsync(string batchCode, CancellationToken token)
     {
-        var entries = await _uow.Repository
-            .Find<LeaveLedger>(x => x.DtrBatchCode == batchCode && x.ReferenceApplicationId != null)
+        var entries = await Everyone<LeaveLedger>(
+            x => x.DtrBatchCode == batchCode && x.ReferenceApplicationId != null)
             .AsNoTracking()
             .ToListAsync(token);
         if (entries.Count == 0) return;
@@ -113,13 +121,13 @@ public class LeaveDtrReconciliationService
             var net = NetConsumed(group);
             if (net <= 0) continue;
 
-            var credits = await _uow.Repository
-                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
+            var credits = await Everyone<LeaveCredits>(
+                x => x.Id == group.Key.LeaveCreditsId)
                 .FirstOrDefaultAsync(token);
             if (credits == null) continue;
 
-            var app = await _uow.Repository
-                .Find<LeaveApplication>(x => x.Id == group.Key.AppId)
+            var app = await Everyone<LeaveApplication>(
+                x => x.Id == group.Key.AppId)
                 .FirstOrDefaultAsync(token);
             var first = group.First();
 
@@ -153,8 +161,8 @@ public class LeaveDtrReconciliationService
     // consumes it, one Reversal per batch (so a later unpost of any of those batches is a no-op).
     public async Task ReverseApplicationDeductionsAsync(LeaveApplication app, string reason, CancellationToken token)
     {
-        var entries = await _uow.Repository
-            .Find<LeaveLedger>(x => x.ReferenceApplicationId == app.Id && x.DtrBatchCode != null)
+        var entries = await Everyone<LeaveLedger>(
+            x => x.ReferenceApplicationId == app.Id && x.DtrBatchCode != null)
             .AsNoTracking()
             .ToListAsync(token);
         if (entries.Count == 0) return;
@@ -166,8 +174,8 @@ public class LeaveDtrReconciliationService
             var net = NetConsumed(group);
             if (net <= 0) continue;
 
-            var credits = await _uow.Repository
-                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
+            var credits = await Everyone<LeaveCredits>(
+                x => x.Id == group.Key.LeaveCreditsId)
                 .FirstOrDefaultAsync(token);
             if (credits == null) continue;
 
@@ -209,8 +217,8 @@ public class LeaveDtrReconciliationService
     // other than an approved, not-deleted application is released here, per credits row.
     private async Task<List<LeaveDtrRepairLine>> ReleaseStaleReservationsAsync(int year, bool dryRun, CancellationToken token)
     {
-        var entries = await _uow.Repository
-            .Find<LeaveLedger>(x =>
+        var entries = await Everyone<LeaveLedger>(
+            x =>
                 x.LeaveCredits.PeriodYear == year &&
                 (x.EntryType == LedgerEntryType.Reserved || x.EntryType == LedgerEntryType.Released))
             .AsNoTracking()
@@ -222,8 +230,8 @@ public class LeaveDtrReconciliationService
             .Select(x => x.ReferenceApplicationId!.Value)
             .ToHashSet();
         // The global soft-delete filter leaves deleted applications out.
-        var liveIds = (await _uow.Repository
-            .Find<LeaveApplication>(x => referencedIds.Contains(x.Id) && x.ApprovalStatus == ApprovalStatus.Approved)
+        var liveIds = (await Everyone<LeaveApplication>(
+            x => referencedIds.Contains(x.Id) && x.ApprovalStatus == ApprovalStatus.Approved)
             .AsNoTracking()
             .Select(x => x.Id)
             .ToListAsync(token))
@@ -246,8 +254,8 @@ public class LeaveDtrReconciliationService
                 group.Key.ReferenceApplicationId ?? Guid.Empty, held, 0m, -held));
             if (dryRun) continue;
 
-            var credits = await _uow.Repository
-                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
+            var credits = await Everyone<LeaveCredits>(
+                x => x.Id == group.Key.LeaveCreditsId)
                 .FirstOrDefaultAsync(token);
             if (credits == null) continue;
 
@@ -272,8 +280,8 @@ public class LeaveDtrReconciliationService
 
     private async Task<List<LeaveDtrRepairLine>> RepairBatchDeductionsAsync(int year, bool dryRun, CancellationToken token)
     {
-        var entries = await _uow.Repository
-            .Find<LeaveLedger>(x =>
+        var entries = await Everyone<LeaveLedger>(
+            x =>
                 x.DtrBatchCode != null &&
                 x.ReferenceApplicationId != null &&
                 x.LeaveCredits.PeriodYear == year &&
@@ -292,8 +300,8 @@ public class LeaveDtrReconciliationService
         var targets = new Dictionary<(string Batch, Guid AppId), decimal>();
         foreach (var batchCode in groups.Select(g => g.Key.Batch).Distinct())
         {
-            var records = await _uow.Repository
-                .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
+            var records = await Everyone<DailyRecord>(
+                x => x.BatchCode == batchCode && x.Posted)
                 .Include(x => x.LeavesInfo)
                 .AsNoTracking()
                 .ToListAsync(token);
@@ -322,8 +330,8 @@ public class LeaveDtrReconciliationService
             lines.Add(new LeaveDtrRepairLine(first.EmployeeId, first.LeaveId, group.Key.Batch, group.Key.AppId, current, correct, delta));
             if (dryRun || Math.Abs(delta) < 0.01m) continue;
 
-            var credits = await _uow.Repository
-                .Find<LeaveCredits>(x => x.Id == group.Key.LeaveCreditsId)
+            var credits = await Everyone<LeaveCredits>(
+                x => x.Id == group.Key.LeaveCreditsId)
                 .FirstOrDefaultAsync(token);
             if (credits == null) continue;
 
@@ -392,8 +400,8 @@ public class LeaveDtrReconciliationService
         var minDate     = leaveRecords.Min(r => r.WorkDate);
         var maxDate     = leaveRecords.Max(r => r.WorkDate);
 
-        return await _uow.Repository
-            .Find<LeaveApplication>(x =>
+        return await Everyone<LeaveApplication>(
+            x =>
                 employeeIds.Contains(x.EmployeeId) &&
                 x.LeaveDateFrom  <= maxDate &&
                 x.LeaveDateTo    >= minDate &&
@@ -403,8 +411,8 @@ public class LeaveDtrReconciliationService
     }
 
     private Task<List<LeaveLedger>> BatchEntriesAsync(Guid appId, string batchCode, CancellationToken token) =>
-        _uow.Repository
-            .Find<LeaveLedger>(x => x.ReferenceApplicationId == appId && x.DtrBatchCode == batchCode)
+        Everyone<LeaveLedger>(
+            x => x.ReferenceApplicationId == appId && x.DtrBatchCode == batchCode)
             .AsNoTracking()
             .ToListAsync(token);
 
@@ -417,8 +425,8 @@ public class LeaveDtrReconciliationService
 
     private async Task<decimal> NetReservedAsync(Guid appId, CancellationToken token)
     {
-        var entries = await _uow.Repository
-            .Find<LeaveLedger>(x =>
+        var entries = await Everyone<LeaveLedger>(
+            x =>
                 x.ReferenceApplicationId == appId &&
                 (x.EntryType == LedgerEntryType.Reserved || x.EntryType == LedgerEntryType.Released))
             .AsNoTracking()
@@ -428,8 +436,8 @@ public class LeaveDtrReconciliationService
     }
 
     private Task<LeaveCredits?> FindCreditsAsync(LeaveApplication app, CancellationToken token) =>
-        _uow.Repository
-            .Find<LeaveCredits>(x =>
+        Everyone<LeaveCredits>(
+            x =>
                 x.EmployeeId == app.EmployeeId &&
                 x.LeaveId    == app.LeaveId    &&
                 x.PeriodYear == app.LeaveDateFrom.Year)

@@ -68,11 +68,12 @@ public class PayrollInputConsumptionService : BaseService<SalaryAdjustment>
     {
         if (payrollIds.Count == 0) return;
 
-        await Context.SalaryAdjustments
+        // Every employee's, confidential ones included -- the whole run is being removed.
+        await Context.IgnoringConfidentiality<SalaryAdjustment>()
             .Where(x => x.ConsumedByPayrollId != null && payrollIds.Contains(x.ConsumedByPayrollId.Value))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ConsumedByPayrollId, (Guid?)null), token);
 
-        await Context.OtherIncomeApplicationDetails
+        await Context.IgnoringConfidentiality<OtherIncomeSchedules>()
             .Where(x => x.ConsumedByPayrollId != null && payrollIds.Contains(x.ConsumedByPayrollId.Value))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ConsumedByPayrollId, (Guid?)null), token);
     }

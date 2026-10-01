@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Hrms.Core.Extensions;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -81,7 +81,8 @@ public class HDMFContributionService : BaseService<HDMFContribution>
     // Cascade cleanup for PayrollProcessorService.DeleteBatchAsync — see
     // SSSContributionService.DeleteByBatchIdAsync for why this must mirror it.
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
-        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
+        // Every employee's rows, confidential ones included -- the whole run is being removed.
+        await ExecuteDeleteForEveryoneAsync<HDMFContribution>(x => x.PayrollBatchId == payrollBatchId, token);
 
     // Pag-IBIG Virtual Pag-IBIG MCRF (Member's Contribution Remittance Form) upload file.
     // Column layout implemented from general knowledge of the MCRF template, NOT against a

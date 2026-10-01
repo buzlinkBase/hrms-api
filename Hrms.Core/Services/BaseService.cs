@@ -125,6 +125,15 @@ public abstract class BaseService<T> where T : class, IEntity
         var query = _uow.Repository.FindAll<T>().Where(expression);
         await query.ExecuteDeleteAsync(token);
     }
+
+    /// <summary>
+    /// Deletes matching rows of every employee, including confidential ones the caller can't see
+    /// (company scoping and soft-delete still apply) -- for removing a whole payroll/DTR run,
+    /// which must never leave a hidden employee's rows behind.
+    /// </summary>
+    protected Task ExecuteDeleteForEveryoneAsync<TEntity>(Expression<Func<TEntity, bool>> expression, CancellationToken token = default)
+        where TEntity : class, IEntityTenant, ITimeStamp =>
+        Context.IgnoringConfidentiality<TEntity>().Where(expression).ExecuteDeleteAsync(token);
     /// <summary>
     /// Master data (clients, departments, branches, ...) is identified by its name, not its code:
     /// true when another live record of this company already has <paramref name="value"/> as its

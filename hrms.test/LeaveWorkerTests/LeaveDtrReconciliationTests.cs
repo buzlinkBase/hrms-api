@@ -242,6 +242,57 @@ public class LeaveDtrReconciliationTests
         await AssertLedgerMatchesCreditsAsync(db, s);
     }
 
+    // An approver without confidential clearance: the employee's records (DTR, leave credits and
+    // ledger) are hidden from them; the profile stays visible so the request can name its filer.
+    private sealed class CantSeeRecordsOf(Guid employeeId) : IConfidentialAccess
+    {
+        public bool Restricted => true;
+        public Guid[] HiddenEmployeeIdsFor(ConfidentialDataClass dataClass) =>
+            dataClass == ConfidentialDataClass.Profile ? [] : [employeeId];
+        public Guid[] ApprovalVisibleRecordIds => [];
+        public Guid[] ApprovalVisibleEmployeeIds => [];
+    }
+
+    private static async Task RunAsAsync(SqliteHrmsContext db, IConfidentialAccess access, Func<IUnitOfWorkService, Task> action)
+    {
+        await using var context = db.NewContext(access);
+        await action(new UnitOfWorkService(context));
+    }
+
+    // Regression: posting and deleting a batch acted only on the rows the approver could see, so
+    // a confidential employee's days were never posted (or their leave charged), and on deletion
+    // their leave stayed charged and their DTR rows were orphaned while the batch header went.
+    [Fact]
+    public async Task PostingAndDeletingABatch_IncludeEmployeesTheApproverCantSee()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedAsync(db, (BatchA, Jan5), (BatchA, Jan6));
+        var batchId = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            seed.DTRBatches.Add(new DTRBatch
+            {
+                Id = batchId, BatchCode = BatchA, PayPeriodStart = Jan5, PayPeriodEnd = Jan6,
+                GeneratedByEmployeeId = s.EmployeeId, ApprovalStatus = ApprovalStatus.Approved, IsPosted = true,
+            });
+            await seed.SaveChangesAsync();
+        }
+        var uncleared = new CantSeeRecordsOf(s.EmployeeId);
+
+        await RunAsAsync(db, uncleared, uow => DtrService(uow).PostAsync(BatchA, CancellationToken.None));
+        (await CreditsAsync(db, s)).Used.Should().Be(2m, "the hidden employee's leave days are charged like anyone's");
+
+        await RunAsAsync(db, uncleared, uow => DtrService(uow).RequestDeletionAsync(batchId, s.EmployeeId, CancellationToken.None));
+        await RunAsAsync(db, uncleared, uow => DtrService(uow).ApproveDeletionAsync(batchId, s.ApproverId, approverHasOverride: false, note: null, CancellationToken.None));
+
+        await using (var verify = db.NewContext())
+            (await verify.DailyTimeRecords.AnyAsync(x => x.BatchCode == BatchA)).Should().BeFalse("no hidden rows are left behind");
+        var credits = await CreditsAsync(db, s);
+        credits.Used.Should().Be(0m);
+        credits.Reserved.Should().Be(2m);
+        await AssertLedgerMatchesCreditsAsync(db, s);
+    }
+
     private static LeaveApplicationService LeaveService(IUnitOfWorkService uow) => new(
         uow, new TypeAdapterConfig(), Substitute.For<IMapper>(), Substitute.For<IPublishEndpoint>(),
         Substitute.For<ILogger<LeaveApplicationService>>(), DtrService(uow),

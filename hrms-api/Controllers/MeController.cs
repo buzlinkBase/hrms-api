@@ -163,7 +163,7 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             var payload = new DTRRequestPayload { FromDate = DateOnly.FromDateTime(from), ToDate = DateOnly.FromDateTime(to), EmployeeId = employeeId };
-            var result = await _dtrCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload, ProcessorType.CleanColumnarLog, token, IncludeNullResponse.Include, false);
+            var result = await _dtrCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload, ProcessorType.Incomplete, token, IncludeNullResponse.Include, processOnlyPairedAtt: false);
             return Ok(result);
         }
 
@@ -177,7 +177,8 @@ namespace Hrms.Api.Controllers
             if (employeeId == null) return NotFound();
 
             var payload = new DTRRequestPayload { FromDate = DateOnly.FromDateTime(from), ToDate = DateOnly.FromDateTime(to), EmployeeId = employeeId };
-            var result = await _dtrCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload, ProcessorType.RawColumnarLog, token, IncludeNullResponse.Include);
+            var result = await _dtrCalcService.GetDTRInfoAsync<ColumnarLogModel>(payload, ProcessorType.RawColumnarLog, token, IncludeNullResponse.Include,
+                processOnlyPairedAtt: false, removedoublePunch: false);
             return Ok(result);
         }
 

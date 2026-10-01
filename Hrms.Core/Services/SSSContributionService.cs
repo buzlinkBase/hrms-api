@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Hrms.Core.Extensions;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -96,7 +96,8 @@ public class SSSContributionService : BaseService<SSSContribution>
     // exists. Matches on PayrollBatchId rather than EmployeeId+period so it can't collide with
     // a different batch that happens to cover the same employee/period.
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
-        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
+        // Every employee's rows, confidential ones included -- the whole run is being removed.
+        await ExecuteDeleteForEveryoneAsync<SSSContribution>(x => x.PayrollBatchId == payrollBatchId, token);
 
     // SSS R3 (Contribution Collection List) electronic file for upload via the My.SSS
     // employer portal. Column layout implemented from general knowledge of the My.SSS R3

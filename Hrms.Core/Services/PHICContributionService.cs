@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Hrms.Core.Extensions;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -87,7 +87,8 @@ public class PHICContributionService : BaseService<PHICContribution>
     // Cascade cleanup for PayrollProcessorService.DeleteBatchAsync — see
     // SSSContributionService.DeleteByBatchIdAsync for why this must mirror it.
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
-        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
+        // Every employee's rows, confidential ones included -- the whole run is being removed.
+        await ExecuteDeleteForEveryoneAsync<PHICContribution>(x => x.PayrollBatchId == payrollBatchId, token);
 
     // PhilHealth EPRS (Electronic Premium Remittance System) upload file. Column layout
     // implemented from general knowledge of the EPRS CSV template, NOT against a live

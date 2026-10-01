@@ -130,13 +130,14 @@ public class AttendanceService : BaseService<Attendance>
     }
     public async Task Tag(Attendance attendance, Employee employee, CancellationToken token)
     {
+        // Only the unregistered logs (no employee yet) -- logs already tagged stay with whoever
+        // they belong to, e.g. a former employee who held this Bio ID before it was reassigned.
         await Context.Attendances
-         .Where(x => x.BioId.HasValue && x.BioId == employee.BioId)
+         .Where(x => x.BioId.HasValue && x.BioId == employee.BioId && x.EmployeeId == null)
          .ExecuteUpdateAsync(s => s
              .SetProperty(e => e.EmployeeId, employee.Id)
              .SetProperty(e => e.ClientId, e => e.ClientId ?? employee.ClientId)
              .SetProperty(e => e.BranchId, e => e.BranchId ?? employee.BranchId)
-             .SetProperty(e => e.ClientId, e => e.ClientId ?? employee.ClientId)
              .SetProperty(e => e.OperationAreaId, e => e.OperationAreaId ?? employee.AreaId)
              .SetProperty(e => e.DepartmentId, e => e.DepartmentId ?? employee.DepartmentId),
              cancellationToken: token);
@@ -280,10 +281,12 @@ public class AttendanceService : BaseService<Attendance>
         await RemoveAsync(Id, token);
 
     }
+    // Manual entries only (pass-slip logs are manual too) -- uploaded, biometric and synced logs
+    // in a batch with the same code are never deleted this way, same rule as Remove(Guid) above.
     public async Task RemoveBatch(string batch, CancellationToken token)
     {
         await Context.Attendances
-             .Where(x => x.BatchCode == batch && x.BatchCode != "")
+             .Where(x => x.BatchCode == batch && x.BatchCode != "" && x.LogSource == LOGSOURCE.MANUAL)
              .ExecuteDeleteAsync(token);
     }
     public async Task Remove(List<Guid> Ids)

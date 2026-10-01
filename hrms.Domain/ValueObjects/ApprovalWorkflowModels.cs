@@ -61,6 +61,11 @@ public class ApprovalWorkflowResponse
     /// <summary>Set on the active workflow when another version is waiting to take over from it.</summary>
     public string? ReplacedByWorkflowName { get; set; }
     public List<ApprovalWorkflowStepResponse> Steps { get; set; } = [];
+    /// <summary>
+    /// Names of the employees the steps reference (approver + named approvers), keyed by id --
+    /// "Confidential" for one the caller may not see, who is missing from their employee list.
+    /// </summary>
+    public Dictionary<Guid, string> ApproverNames { get; set; } = [];
 }
 
 /// <summary>Whether a scheduled version took over right away (nothing was pending on the current one).</summary>

@@ -528,15 +528,28 @@ public class EmployeeService : BaseService<Employee>
         return match.Id;
     }
 
-    /// <summary>"First Last" display names for the given employee ids, in one query -- ids with no
-    /// matching employee are simply absent from the result.</summary>
+    /// <summary>Shown in place of a confidential employee's name to a caller not cleared to see it.</summary>
+    public const string ConfidentialName = "Confidential";
+
+    /// <summary>"First Last" display names for the given employee ids -- a confidential employee
+    /// the caller may not see is named <see cref="ConfidentialName"/>, and ids with no matching
+    /// employee are simply absent from the result.</summary>
     public async Task<Dictionary<Guid, string>> GetDisplayNamesAsync(IEnumerable<Guid> ids, CancellationToken token)
     {
         var idList = ids.Distinct().ToList();
         if (idList.Count == 0) return [];
-        return await GetQueryable(x => idList.Contains(x.Id))
+        var names = await GetQueryable(x => idList.Contains(x.Id))
             .Select(x => new { x.Id, x.FirstName, x.LastName })
             .ToDictionaryAsync(x => x.Id, x => $"{x.FirstName} {x.LastName}".Trim(), token);
+
+        var unresolved = idList.Where(id => !names.ContainsKey(id)).ToList();
+        if (unresolved.Count == 0) return names;
+        var hidden = await Context.IgnoringConfidentiality<Employee>()
+            .Where(x => unresolved.Contains(x.Id))
+            .Select(x => x.Id)
+            .ToListAsync(token);
+        foreach (var id in hidden) names[id] = ConfidentialName;
+        return names;
     }
 
     public async Task<Employee?> FineOneAsync(Guid Id, CancellationToken token)

@@ -2,31 +2,68 @@ using Hrms.Domain.Entities;
 
 namespace DTR.Core;
 
+/// <summary>
+/// One row per employee-day whose attendance needs fixing; null for every other day. A day
+/// qualifies when any <see cref="IIncompleteDayRule"/> says so -- an unpaired punch, or a
+/// workday that already ended with no punch at all. Needs the unpaired attendance
+/// (processOnlyPairedAtt: false), otherwise a lone punch is dropped before it gets here.
+/// </summary>
 public class CleanIncompleteLogsProcessor : IDTRProcessor<ColumnarLogModel>
 {
+    private readonly IReadOnlyList<IIncompleteDayRule> _rules;
+
+    public CleanIncompleteLogsProcessor(DateOnly today)
+        : this([new UnpairedPunchRule(), new MissingAttendanceRule(today, new WorkTypeResolver())])
+    {
+    }
+
+    public CleanIncompleteLogsProcessor(IReadOnlyList<IIncompleteDayRule> rules)
+    {
+        _rules = rules;
+    }
+
     public ColumnarLogModel? Process(DTRProcessorPayload payload)
     {
-        var logs = new LogsWithNoPairIdentifier(payload).GetIncompleteAtt();
-        if (!logs.Any()) return null;
+        if (!_rules.Any(rule => rule.IsIncomplete(payload))) return null;
         var mapper = IncompleteLogMapperFactory.Create(payload);
-        return mapper.MapData(payload, logs, payload.Data.CurrentDate);
+        return mapper.MapData(payload, payload.Data.CurrentAttendance, payload.Data.CurrentDate);
     }
 }
 
-internal class LogsWithNoPairIdentifier
+public interface IIncompleteDayRule
 {
-    private readonly DTRProcessorPayload _payload;
-    public LogsWithNoPairIdentifier(DTRProcessorPayload payload)
+    bool IsIncomplete(DTRProcessorPayload payload);
+}
+
+/// <summary>A time-in without its time-out, or the other way round.</summary>
+public class UnpairedPunchRule : IIncompleteDayRule
+{
+    public bool IsIncomplete(DTRProcessorPayload payload) =>
+        payload.Data.CurrentAttendance.Count % 2 != 0;
+}
+
+/// <summary>
+/// A scheduled workday that has passed with no punch at all -- what the DTR would count as
+/// Absent. Rest days, holidays, leave and travel are not missing attendance, and neither is
+/// today (the shift may still be ahead) or any later day.
+/// </summary>
+public class MissingAttendanceRule : IIncompleteDayRule
+{
+    private readonly DateOnly _today;
+    private readonly IWorkTypeResolver _workTypeResolver;
+
+    public MissingAttendanceRule(DateOnly today, IWorkTypeResolver workTypeResolver)
     {
-        _payload = payload;
+        _today = today;
+        _workTypeResolver = workTypeResolver;
     }
-    public List<Attendance> GetIncompleteAtt()
+
+    public bool IsIncomplete(DTRProcessorPayload payload)
     {
-        if (_payload.Data.CurrentAttendance.Count % 2 == 0)
-        {
-            return [];
-        }
-        return _payload.Data.CurrentAttendance;
+        if (payload.Data.CurrentAttendance.Count > 0) return false;
+        if (payload.Data.CurrentDate >= _today) return false;
+        var context = new TimeContext { Payload = payload, CanonicalTimeRange = TimeRange.Empty };
+        return _workTypeResolver.Resolve(context) == WorkType.Absent;
     }
 }
 

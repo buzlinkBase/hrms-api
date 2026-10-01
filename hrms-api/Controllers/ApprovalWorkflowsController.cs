@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Hrms.Api.Filters;
+using Hrms.Core.Services;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain;
 using Hrms.Domain.Entities.Approvals;
@@ -20,10 +21,12 @@ namespace Hrms.Api.Controllers
     public class ApprovalWorkflowsController : ControllerBase
     {
         private readonly ApprovalWorkflowService _service;
+        private readonly EmployeeService _employeeService;
 
-        public ApprovalWorkflowsController(ApprovalWorkflowService service)
+        public ApprovalWorkflowsController(ApprovalWorkflowService service, EmployeeService employeeService)
         {
             _service = service;
+            _employeeService = employeeService;
         }
 
         [HttpGet]
@@ -48,8 +51,17 @@ namespace Hrms.Api.Controllers
             if (workflow == null) return NotFound();
             var usage = await _service.GetUsageAsync([id], token);
             var siblings = await _service.ListAsync(workflow.ApplicationType, token);
-            return Ok(ToResponse(workflow, usage[id], siblings));
+            var response = ToResponse(workflow, usage[id], siblings);
+            response.ApproverNames = await ApproverNamesAsync(workflow, token);
+            return Ok(response);
         }
+
+        private Task<Dictionary<Guid, string>> ApproverNamesAsync(ApprovalWorkflow workflow, CancellationToken token) =>
+            _employeeService.GetDisplayNamesAsync(
+                workflow.Steps
+                    .Where(s => s.ApproverEmployeeId != null).Select(s => s.ApproverEmployeeId!.Value)
+                    .Concat(workflow.Steps.SelectMany(s => s.NamedApprovers.Select(a => a.EmployeeId))),
+                token);
 
         [HttpPost]
         [RequirePermission("Approval Workflows:Edit")]
@@ -74,7 +86,9 @@ namespace Hrms.Api.Controllers
             var workflow = FromRequest(payload);
             var updated = await _service.UpdateWorkflowAsync(id, workflow, token);
             var usage = await _service.GetUsageAsync([id], token);
-            return Ok(ToResponse(updated, usage[id], []));
+            var response = ToResponse(updated, usage[id], []);
+            response.ApproverNames = await ApproverNamesAsync(updated, token);
+            return Ok(response);
         }
 
         /// <summary>

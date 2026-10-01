@@ -26,7 +26,7 @@ public class DTRProcessorFactory
             case ProcessorType.DTRDetail:
                 return (IDTRProcessor<T>)serviceProvider.GetRequiredService<CleanDTRDetailProcessor>();
             case ProcessorType.Incomplete:
-                return (IDTRProcessor<T>)new CleanIncompleteLogsProcessor();
+                return (IDTRProcessor<T>)new CleanIncompleteLogsProcessor(ManilaToday());
             case ProcessorType.RawColumnarLog:
                 return (IDTRProcessor<T>)new RawColumnarLogProcessor();
             case ProcessorType.CleanColumnarLog:
@@ -39,4 +39,9 @@ public class DTRProcessorFactory
                 throw new NotImplementedException("DTRProcessorFactory");
         }
     }
+
+    // The companies' attendance runs on Philippine time, whatever the server clock's zone.
+    private static DateOnly ManilaToday() =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila")));
 }

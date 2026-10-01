@@ -1,4 +1,4 @@
-﻿using Hrms.Core.Extensions;
+using Hrms.Core.Extensions;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using Mapster;
@@ -95,6 +95,7 @@ public class TaxContributionService : BaseService<WTaxContribution>
     // Cascade cleanup for PayrollProcessorService.DeleteBatchAsync — see
     // SSSContributionService.DeleteByBatchIdAsync for why this must mirror it.
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
-        await ExecuteDeleteAsync(x => x.PayrollBatchId == payrollBatchId, token);
+        // Every employee's rows, confidential ones included -- the whole run is being removed.
+        await ExecuteDeleteForEveryoneAsync<WTaxContribution>(x => x.PayrollBatchId == payrollBatchId, token);
 }
 

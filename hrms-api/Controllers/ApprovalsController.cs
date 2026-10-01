@@ -87,8 +87,14 @@ namespace Hrms.Api.Controllers
             var currentStep = instance.Status == ApprovalInstanceStatus.InProgress
                 ? instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == instance.CurrentStepNumber)
                 : null;
-            var actorNames = await _employeeService.GetDisplayNamesAsync(
-                instance.Actions.Select(a => a.ActorEmployeeId), token);
+            var steps = instance.Workflow?.Steps ?? [];
+            // Actors, Person-step approvers and a reassigned approver, in one lookup -- a
+            // confidential one the caller can't see comes back as "Confidential", not an id.
+            var names = await _employeeService.GetDisplayNamesAsync(
+                instance.Actions.Select(a => a.ActorEmployeeId)
+                    .Concat(steps.Where(s => s.ApproverEmployeeId != null).Select(s => s.ApproverEmployeeId!.Value))
+                    .Concat(instance.ReassignedApproverEmployeeId is { } reassigned ? [reassigned] : []),
+                token);
 
             return Ok(new ApprovalInstanceResponse
             {
@@ -101,15 +107,15 @@ namespace Hrms.Api.Controllers
                 CurrentStepNoteRequirement = currentStep?.NoteRequirement ?? NoteRequirement.None,
                 CurrentStepApproverType = currentStep?.ApproverType,
                 CurrentStepApproverLabel = instance.ReassignedApproverEmployeeId is { } reassignedId
-                    ? await ResolveEmployeeLabelAsync(reassignedId, token)
-                    : ResolveApproverLabel(currentStep),
+                    ? names.GetValueOrDefault(reassignedId)
+                    : ResolveApproverLabel(currentStep, names),
                 Actions = instance.Actions
                     .OrderBy(a => a.CreatedAt)
                     .Select(a => new ApprovalActionResponse
                     {
                         StepNumber = a.StepNumber,
                         ActorEmployeeId = a.ActorEmployeeId,
-                        ActorName = actorNames.GetValueOrDefault(a.ActorEmployeeId),
+                        ActorName = names.GetValueOrDefault(a.ActorEmployeeId),
                         Action = a.Action,
                         Note = a.Note,
                         CreatedAt = a.CreatedAt,
@@ -117,29 +123,23 @@ namespace Hrms.Api.Controllers
                     .ToList(),
                 // Every step of the workflow, not just the current one -- lets the Approval
                 // Progress timeline show who (or which department) handles each upcoming step.
-                Steps = (instance.Workflow?.Steps ?? [])
+                Steps = steps
                     .OrderBy(s => s.StepNumber)
                     .Select(s => new ApprovalStepSummaryResponse
                     {
                         StepNumber = s.StepNumber,
                         ApproverType = s.ApproverType,
-                        ApproverLabel = ResolveApproverLabel(s),
+                        ApproverLabel = ResolveApproverLabel(s, names),
                         NoteRequirement = s.NoteRequirement,
                     })
                     .ToList(),
             });
         }
 
-        private async Task<string?> ResolveEmployeeLabelAsync(Guid employeeId, CancellationToken token)
+        private static string? ResolveApproverLabel(ApprovalWorkflowStep? step, IReadOnlyDictionary<Guid, string> names) => step?.ApproverType switch
         {
-            var employee = await _employeeService.FineOneAsync(employeeId, token);
-            return employee == null ? null : $"{employee.FirstName} {employee.LastName}".Trim();
-        }
-
-        private static string? ResolveApproverLabel(ApprovalWorkflowStep? step) => step?.ApproverType switch
-        {
-            ApproverType.Person => step.ApproverEmployee != null
-                ? $"{step.ApproverEmployee.FirstName} {step.ApproverEmployee.LastName}".Trim()
+            ApproverType.Person => step.ApproverEmployeeId is { } approverId
+                ? names.GetValueOrDefault(approverId)
                 : null,
             ApproverType.Department => step.ApproverDepartment?.Name,
             ApproverType.Position => step.ApproverPosition?.Name,

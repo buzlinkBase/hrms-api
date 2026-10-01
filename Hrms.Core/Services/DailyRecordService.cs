@@ -257,9 +257,8 @@ public class DailyRecordService : BaseService<DailyRecord>
     // RequestDeletionAsync/ApproveDeletionAsync instead -- see below.
     public async Task DeleteAsync(string batchCode, CancellationToken token)
     {
-        var hasPosted = await _uow.Repository
-            .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
-            .AnyAsync(token);
+        // Across the whole batch -- posted days of an employee the caller can't see count too.
+        var hasPosted = await BatchRecords(batchCode).AnyAsync(x => x.Posted, token);
         if (hasPosted)
             throw new ValidationException("This DTR batch has already been posted — request its deletion for approval instead.");
 
@@ -288,7 +287,9 @@ public class DailyRecordService : BaseService<DailyRecord>
         // transaction as the delete; a no-op for an unposted draft (nothing was consumed).
         await _reconciliation.ReverseConsumptionAsync(batchCode, token);
         await SaveChangesAsync(token);
-        await ExecuteDeleteAsync(x => x.BatchCode == batchCode, token);
+        // Every row of the batch, including confidential employees the caller can't see -- the
+        // batch header goes too, so none may be left behind (see BatchRecords).
+        await BatchRecords(batchCode).ExecuteDeleteAsync(token);
         // Cleans up the now-orphaned DTRBatch header row alongside its DailyRecord rows -- a
         // no-op for a legacy batch that predates this entity.
         await _dtrBatchService.DeleteByCodeAsync(batchCode, token, commit: false);
@@ -506,10 +507,17 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     // commit=false lets ApproveBatchAsync compose this with the DTRBatch status/posted-flag
     // write as ONE atomic unit -- same reasoning as UnpostAsync's commit parameter below.
+    // Posting, unposting and deleting act on a whole batch, whoever runs them: a confidential
+    // employee the approver can't see is still in the batch, so these skip the confidential-
+    // employee filter (company scoping and soft-delete still apply). Same for the leave
+    // reconciliation they drive -- see LeaveDtrReconciliationService.Everyone.
+    private IQueryable<DailyRecord> BatchRecords(string batchCode) =>
+        Context.IgnoringConfidentiality<DailyRecord>().Where(x => x.BatchCode == batchCode);
+
     public async Task PostAsync(string batchCode, CancellationToken token, bool commit = true)
     {
-        var records = await _uow.Repository
-            .Find<DailyRecord>(x => x.BatchCode == batchCode && !x.Posted)
+        var records = await BatchRecords(batchCode)
+            .Where(x => !x.Posted)
             .Include(x => x.LeavesInfo)
             .ToListAsync(token);
 
@@ -530,8 +538,8 @@ public class DailyRecordService : BaseService<DailyRecord>
     // PayrollBatchService.PostAsync's commit parameter.
     public async Task UnpostAsync(string batchCode, CancellationToken token, bool commit = true)
     {
-        var records = await _uow.Repository
-            .Find<DailyRecord>(x => x.BatchCode == batchCode && x.Posted)
+        var records = await BatchRecords(batchCode)
+            .Where(x => x.Posted)
             .ToListAsync(token);
 
         foreach (var r in records)
