@@ -143,6 +143,29 @@ public class EmployeeSearchTests
             .Should().Equal("Garcia");
     }
 
+    // The Job Level suggestions: each level the company uses once, however it was spelled or spaced.
+    [Fact]
+    public async Task JobLevels_AreTheCompanysOwn_OncePerSpelling_Sorted()
+    {
+        using var db = await SeedAsync();
+        await using (var seed = db.NewContext())
+        {
+            string[] levels = ["Supervisory", "  Managerial ", "managerial", "Project Lead", "", "Supervisory"];
+            seed.Employees.AddRange(levels.Select((level, i) =>
+            {
+                var employee = NewEmployee($"Level{i}", "X", GroupSemi);
+                employee.JobLevel = level;
+                return employee;
+            }));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var result = await BuildService(new UnitOfWorkService(context)).GetJobLevelsAsync(CancellationToken.None);
+
+        result.Should().Equal("Managerial", "Project Lead", "Supervisory");
+    }
+
     // Regression: EmployeeModel (GET employees/{id} and the table) had no JobLevel, so the edit
     // form fell back to the default level and saving overwrote the one the user had chosen.
     [Fact]

@@ -490,6 +490,9 @@ namespace Hrms.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<Guid?>("ReplacesWorkflowId")
+                        .HasColumnType("char(36)");
+
                     b.Property<Guid?>("ScopeDepartmentId")
                         .HasColumnType("char(36)");
 

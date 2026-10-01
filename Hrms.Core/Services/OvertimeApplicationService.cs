@@ -112,6 +112,8 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
 
         existing.ApprovalStatus = ApprovalStatus.Withdrawn;
         await ModifyAsync(existing, token);
+        // Its approval request stops too -- see ApprovalEngineService.CancelAsync.
+        await _approvalEngine.CancelAsync(ApprovalApplicationType.Overtime, existing.Id, token);
         await CommitChangesAsync(token);
     }
     public async Task Delete(Guid Id, CancellationToken token)

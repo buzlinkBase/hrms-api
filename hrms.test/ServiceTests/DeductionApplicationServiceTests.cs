@@ -1,6 +1,7 @@
 using hrms.test.TestSupport;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MapsterMapper;
@@ -74,6 +75,9 @@ public class DeductionApplicationServiceTests
         repo.FindAll<Employee>().Returns(_ => new List<Employee> { employee }.BuildMockDbSet());
         repo.FindOneAsync<Deduction>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<Guid>() == deduction.Id ? deduction : null);
+        // Withdrawing also closes the application's approval request (none exists here).
+        repo.Find<ApprovalInstance>(Arg.Any<System.Linq.Expressions.Expression<Func<ApprovalInstance, bool>>>())
+            .Returns(_ => new List<ApprovalInstance>().BuildMockDbSet());
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);

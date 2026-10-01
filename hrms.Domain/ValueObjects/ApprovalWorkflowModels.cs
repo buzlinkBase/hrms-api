@@ -47,9 +47,24 @@ public class ApprovalWorkflowResponse
     public bool IsActive { get; set; }
     public Guid? ScopeDepartmentId { get; set; }
     public string? ScopeDepartmentName { get; set; }
+    /// <summary>Same as CanEdit; kept for older screens.</summary>
     public bool IsEditable { get; set; }
+    /// <summary>Requests still going through this workflow -- it can't change until they finish.</summary>
+    public int InProgressCount { get; set; }
+    public bool HasBeenUsed { get; set; }
+    public bool CanEdit { get; set; }
+    /// <summary>Only a never-used workflow can be deleted (past requests reference it).</summary>
+    public bool CanDelete { get; set; }
+    /// <summary>Set when this version is scheduled to take over from that active workflow once it drains.</summary>
+    public Guid? ReplacesWorkflowId { get; set; }
+    public string? ReplacesWorkflowName { get; set; }
+    /// <summary>Set on the active workflow when another version is waiting to take over from it.</summary>
+    public string? ReplacedByWorkflowName { get; set; }
     public List<ApprovalWorkflowStepResponse> Steps { get; set; } = [];
 }
+
+/// <summary>Whether a scheduled version took over right away (nothing was pending on the current one).</summary>
+public sealed record ScheduleActivationResult(bool Activated);
 
 public class ApprovalActionResponse
 {

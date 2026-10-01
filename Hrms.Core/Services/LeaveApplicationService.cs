@@ -82,6 +82,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
         existing.ApprovalStatus = ApprovalStatus.Withdrawn;
         await ModifyAsync(existing, token);
+        // Its approval request stops too -- see ApprovalEngineService.CancelAsync.
+        await _approvalEngine.CancelAsync(ApprovalApplicationType.Leave, existing.Id, token);
         await CommitChangesAsync(token);
     }
 

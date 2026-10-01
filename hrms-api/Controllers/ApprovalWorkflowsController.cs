@@ -31,10 +31,12 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<List<ApprovalWorkflowResponse>>), 200)]
         public async Task<IActionResult> Get([FromQuery] ApprovalApplicationType applicationType, CancellationToken token)
         {
+            // Close requests whose application was withdrawn/removed, and let any scheduled
+            // version take over whose current workflow has drained -- so what's shown is current.
+            await _service.ReconcileAsync(applicationType, token);
             var workflows = await _service.ListAsync(applicationType, token);
-            var hasInstances = await Task.WhenAll(workflows.Select(w => _service.HasInstancesAsync(w.Id, token)));
-            var result = workflows.Zip(hasInstances, (w, used) => ToResponse(w, !used));
-            return Ok(result);
+            var usage = await _service.GetUsageAsync(workflows.Select(w => w.Id).ToList(), token);
+            return Ok(workflows.Select(w => ToResponse(w, usage[w.Id], workflows)));
         }
 
         [HttpGet("{id}")]
@@ -44,8 +46,9 @@ namespace Hrms.Api.Controllers
         {
             var workflow = await _service.GetAsync(id, token);
             if (workflow == null) return NotFound();
-            var isEditable = !await _service.HasInstancesAsync(id, token);
-            return Ok(ToResponse(workflow, isEditable));
+            var usage = await _service.GetUsageAsync([id], token);
+            var siblings = await _service.ListAsync(workflow.ApplicationType, token);
+            return Ok(ToResponse(workflow, usage[id], siblings));
         }
 
         [HttpPost]
@@ -60,7 +63,7 @@ namespace Hrms.Api.Controllers
             workflow.IsActive = false;
 
             var created = await _service.CreateWorkflowAsync(workflow, token);
-            return Ok(ToResponse(created, isEditable: true));
+            return Ok(ToResponse(created, WorkflowUsage.None, []));
         }
 
         [HttpPut("{id}")]
@@ -70,7 +73,30 @@ namespace Hrms.Api.Controllers
         {
             var workflow = FromRequest(payload);
             var updated = await _service.UpdateWorkflowAsync(id, workflow, token);
-            return Ok(ToResponse(updated, isEditable: true));
+            var usage = await _service.GetUsageAsync([id], token);
+            return Ok(ToResponse(updated, usage[id], []));
+        }
+
+        /// <summary>
+        /// Activate when the current one drains: this version takes over from the workflow now
+        /// active for its type/scope once that one has no requests in progress.
+        /// </summary>
+        [HttpPost("{id}/schedule-activation")]
+        [RequirePermission("Approval Workflows:Edit")]
+        [ProducesResponseType(typeof(ResponseModel<ScheduleActivationResult>), 200)]
+        public async Task<IActionResult> ScheduleActivation(Guid id, CancellationToken token)
+        {
+            var activated = await _service.ScheduleActivationAsync(id, token);
+            return Ok(new ScheduleActivationResult(activated));
+        }
+
+        [HttpDelete("{id}/schedule-activation")]
+        [RequirePermission("Approval Workflows:Edit")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> CancelScheduledActivation(Guid id, CancellationToken token)
+        {
+            await _service.CancelScheduledActivationAsync(id, token);
+            return Ok();
         }
 
         [HttpPost("{id}/activate")]
@@ -120,7 +146,9 @@ namespace Hrms.Api.Controllers
             }).ToList(),
         };
 
-        private static ApprovalWorkflowResponse ToResponse(ApprovalWorkflow workflow, bool isEditable) => new()
+        // siblings: the other workflows of the same type, to name the one this replaces / is replaced by.
+        private static ApprovalWorkflowResponse ToResponse(
+            ApprovalWorkflow workflow, WorkflowUsage usage, IReadOnlyCollection<ApprovalWorkflow> siblings) => new()
         {
             Id = workflow.Id,
             ApplicationType = workflow.ApplicationType,
@@ -128,7 +156,14 @@ namespace Hrms.Api.Controllers
             IsActive = workflow.IsActive,
             ScopeDepartmentId = workflow.ScopeDepartmentId,
             ScopeDepartmentName = workflow.ScopeDepartment?.Name,
-            IsEditable = isEditable,
+            IsEditable = usage.CanEdit,
+            InProgressCount = usage.InProgress,
+            HasBeenUsed = usage.HasBeenUsed,
+            CanEdit = usage.CanEdit,
+            CanDelete = usage.CanDelete,
+            ReplacesWorkflowId = workflow.ReplacesWorkflowId,
+            ReplacesWorkflowName = siblings.FirstOrDefault(s => s.Id == workflow.ReplacesWorkflowId)?.Name,
+            ReplacedByWorkflowName = siblings.FirstOrDefault(s => s.ReplacesWorkflowId == workflow.Id && !s.IsActive)?.Name,
             Steps = workflow.Steps.OrderBy(s => s.StepNumber).Select(s => new ApprovalWorkflowStepResponse
             {
                 Id = s.Id,

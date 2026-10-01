@@ -174,6 +174,8 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
 
         passSlip.ApprovalStatus = ApprovalStatus.Withdrawn;
         await ModifyAsync(passSlip, token);
+        // Its approval request stops too -- see ApprovalEngineService.CancelAsync.
+        await _approvalEngine.CancelAsync(ApprovalApplicationType.PassSlip, passSlip.Id, token);
         await CommitChangesAsync(token);
     }
 

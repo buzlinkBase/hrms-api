@@ -80,6 +80,12 @@ namespace Hrms.Api.Controllers
             return Ok(data);
         }
 
+        /// <summary>The job levels already used in this company, for the Job Level suggestions.</summary>
+        [HttpGet("job-levels")]
+        [ProducesResponseType(typeof(ResponseModel<List<string>>), 200)]
+        public async Task<IActionResult> GetJobLevels(CancellationToken token) =>
+            Ok(await _service.GetJobLevelsAsync(token));
+
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeModel>>), 200)]
         public async Task<IActionResult> Get([FromQuery] PaginationPayload payload, CancellationToken token)

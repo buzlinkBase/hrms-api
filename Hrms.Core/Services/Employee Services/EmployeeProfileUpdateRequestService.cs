@@ -111,6 +111,8 @@ public class EmployeeProfileUpdateRequestService : BaseService<EmployeeProfileUp
 
         request.ApprovalStatus = ApprovalStatus.Withdrawn;
         await ModifyAsync(request, token);
+        // Its approval request stops too -- see ApprovalEngineService.CancelAsync.
+        await _approvalEngine.CancelAsync(ApprovalApplicationType.ProfileUpdate, request.Id, token);
         await CommitChangesAsync(token);
     }
 

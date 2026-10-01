@@ -21,6 +21,11 @@ public class ApprovalWorkflow : BaseEntity
     public virtual Department? ScopeDepartment { get; set; }
 
     public virtual ICollection<ApprovalWorkflowStep> Steps { get; set; } = new List<ApprovalWorkflowStep>();
+
+    // A scheduled switch: this (inactive) version takes over from that active workflow as soon
+    // as the active one has no requests in progress -- see ApprovalWorkflowSwitch. Null = not
+    // scheduled.
+    public Guid? ReplacesWorkflowId { get; set; }
 }
 
 // One ordered step within a workflow. See Enums.ApproverType for what each ApproverType

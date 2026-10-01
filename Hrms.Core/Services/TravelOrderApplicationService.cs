@@ -128,6 +128,8 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
 
         existing.ApprovalStatus = ApprovalStatus.Withdrawn;
         await ModifyAsync(existing, token);
+        // Its approval request stops too -- see ApprovalEngineService.CancelAsync.
+        await _approvalEngine.CancelAsync(ApprovalApplicationType.OfficialBusiness, existing.Id, token);
         await CommitChangesAsync(token);
     }
 

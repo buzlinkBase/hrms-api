@@ -48,6 +48,30 @@ public class EmployeeService : BaseService<Employee>
     public bool IsHiddenFromEmployeeScreens(Guid employeeId) =>
         _access != null && (!_access.CanSeeEmployee(employeeId) || _access.IsApprovalOnlyEmployee(employeeId));
 
+    /// <summary>
+    /// The job levels this company already uses, for the Job Level suggestions: trimmed, one per
+    /// spelling regardless of case (a capitalized spelling is preferred), sorted. Job Level stays
+    /// free text -- this only offers what's been typed before.
+    /// </summary>
+    public async Task<List<string>> GetJobLevelsAsync(CancellationToken token)
+    {
+        var stored = await GetQueryable()
+            .Where(e => e.JobLevel != null && e.JobLevel != "")
+            .Select(e => e.JobLevel)
+            .Distinct()
+            .ToListAsync(token);
+        return stored
+            .Select(level => level.Trim())
+            .Where(level => level.Length > 0)
+            .GroupBy(level => level, StringComparer.OrdinalIgnoreCase)
+            .Select(spellings => spellings
+                .OrderByDescending(level => char.IsUpper(level[0]))
+                .ThenBy(level => level, StringComparer.Ordinal)
+                .First())
+            .OrderBy(level => level, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private bool CanSeePayOf(Guid employeeId) =>
         _access?.CanSee(ConfidentialDataClass.Compensation, employeeId) ?? true;
 

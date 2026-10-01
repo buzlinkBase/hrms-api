@@ -234,6 +234,8 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
 
         existing.ApprovalStatus = ApprovalStatus.Withdrawn;
         await ModifyAsync(existing, token);
+        // Its approval request stops too -- see ApprovalEngineService.CancelAsync.
+        await _approvalEngine.CancelAsync(ApprovalApplicationType.Loan, existing.Id, token);
         await CommitChangesAsync(token);
     }
 

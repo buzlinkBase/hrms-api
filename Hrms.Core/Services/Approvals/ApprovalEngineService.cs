@@ -112,6 +112,41 @@ public class ApprovalEngineService
         return instance;
     }
 
+    /// <summary>
+    /// The application was withdrawn while pending: its approval request stops, so nobody is
+    /// asked to act on it any more and its workflow is free to change. Doesn't commit -- the
+    /// caller saves it together with the application's own Withdrawn status.
+    /// </summary>
+    public async Task CancelAsync(ApprovalApplicationType applicationType, Guid applicationId, CancellationToken token = default)
+    {
+        var instance = await GetInstanceAsync(applicationType, applicationId, token);
+        if (instance is null || instance.Status != ApprovalInstanceStatus.InProgress) return;
+
+        instance.Status = ApprovalInstanceStatus.Cancelled;
+        instance.ReassignedApproverEmployeeId = null;
+        _uow.Repository.Update(instance);
+        await OnInstanceClosedAsync(instance, token);
+    }
+
+    // A request just stopped running on its workflow: if a new version is scheduled to take over
+    // once this one drains, and this was the last one, switch now -- in the caller's same save.
+    // Best-effort: the Approval Workflows list re-checks (ApprovalWorkflowService.ReconcileAsync),
+    // so a hiccup here only delays the switch, never blocks the approval itself.
+    private async Task OnInstanceClosedAsync(ApprovalInstance instance, CancellationToken token)
+    {
+        if (instance.ApprovalWorkflowId is not { } workflowId) return;
+        var context = _uow.Context;
+        if (context == null) return; // a mocked unit of work in unit tests
+        try
+        {
+            await ApprovalWorkflowSwitch.TryActivateReplacementAsync(context, workflowId, instance.Id, token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Warning(ex, "Couldn't check for a scheduled workflow switch after request {InstanceId} closed", instance.Id);
+        }
+    }
+
     // An application edited while still pending must be re-reviewed from the top if anyone has
     // already approved it -- otherwise an approver's sign-off would silently carry over to content
     // they never saw. Starts a new cycle at step 1 (prior cycles' actions stay as audit history,
@@ -298,6 +333,7 @@ public class ApprovalEngineService
             instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, note, token);
+            await OnInstanceClosedAsync(instance, token);
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
         }
 
@@ -324,6 +360,7 @@ public class ApprovalEngineService
             instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, note, token);
+            await OnInstanceClosedAsync(instance, token);
         }
         else
         {
