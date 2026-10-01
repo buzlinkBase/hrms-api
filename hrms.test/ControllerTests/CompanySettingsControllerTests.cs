@@ -38,7 +38,8 @@ public class CompanySettingsControllerTests
     {
         await using var context = db.NewContext();
         var controller = new CompanySettingsController(
-            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient);
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!); // Put never touches the logo
         await controller.Put(new CreateCompany { Description = name }, CancellationToken.None);
     }
 

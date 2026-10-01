@@ -6,6 +6,7 @@
 		<RootNamespace>Hrms.Core</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="AWSSDK.S3" />
 		<PackageReference Include="BuzlinkRepository" />
 		<PackageReference Include="Google.GenAI" />
 		<PackageReference Include="Bogus" />

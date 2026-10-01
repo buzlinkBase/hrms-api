@@ -156,6 +156,8 @@ public class EmployeeService : BaseService<Employee>
 
     public async Task AddAsync(Employee model, CancellationToken token)
     {
+        // A photo is uploaded once the employee exists (OrganizationImageService).
+        model.ProfileImg = string.Empty;
         CalculateAge(model);
         if (model.HireDate == DateOnly.MinValue)
         {
@@ -254,7 +256,11 @@ public class EmployeeService : BaseService<Employee>
             payload.HDMFRate = null;
             payload.TaxRate = null;
         }
+        // The photo has its own upload (OrganizationImageService); whatever the form sends back
+        // -- a display link, an old inline image -- must never replace the stored one.
+        var photo = existing.ProfileImg;
         payload.Adapt(existing);
+        existing.ProfileImg = photo;
         if (!canChangeConfidentiality) existing.IsConfidential = wasConfidential;
         CalculateAge(existing);
 

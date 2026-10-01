@@ -1,5 +1,9 @@
 using Asp.Versioning;
+using Hrms.Api.Filters;
+using Hrms.Api.RateLimiting;
 using Hrms.Core.Services;
+using Hrms.Core.Services.Storage;
+using Microsoft.AspNetCore.RateLimiting;
 using Hrms.Domain.ValueObjects;
 using Hrms.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -18,12 +22,17 @@ public class CompanySettingsController : ControllerBase
     private readonly CompanyService _service;
     private readonly IMapper _mapper;
     private readonly ITenantClient _tenantClient;
+    private readonly OrganizationImageService _images;
+    private readonly ImageUrlResolver _imageUrls;
 
-    public CompanySettingsController(CompanyService service, IMapper mapper, ITenantClient tenantClient)
+    public CompanySettingsController(CompanyService service, IMapper mapper, ITenantClient tenantClient,
+        OrganizationImageService images, ImageUrlResolver imageUrls)
     {
         _service = service;
         _mapper = mapper;
         _tenantClient = tenantClient;
+        _images = images;
+        _imageUrls = imageUrls;
     }
 
     [HttpGet]
@@ -34,7 +43,30 @@ public class CompanySettingsController : ControllerBase
         var model = data != null
             ? _mapper.Map<CompanyModel>(data)
             : new CompanyModel();
+        model.LogoUrl = await _imageUrls.DisplayUrlAsync(data?.LogoKey, token);
         return Ok(model);
+    }
+
+    /// <summary>Uploads (or replaces) the company logo: PNG, JPG or WebP up to 2 MB.</summary>
+    [HttpPost("logo")]
+    [RequirePermission("Organization Setup:Edit")]
+    [EnableRateLimiting(RateLimitPolicies.FileUpload)]
+    [RequestSizeLimit(4 * 1024 * 1024)]
+    [ProducesResponseType(typeof(ResponseModel<ImageUploadResult>), 200)]
+    public async Task<IActionResult> UploadLogo(IFormFile file, CancellationToken token)
+    {
+        await using var upload = file.OpenReadStream();
+        var url = await _images.SetCompanyLogoAsync(upload, file.Length, file.FileName, token);
+        return Ok(new ImageUploadResult(url));
+    }
+
+    [HttpDelete("logo")]
+    [RequirePermission("Organization Setup:Edit")]
+    [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+    public async Task<IActionResult> RemoveLogo(CancellationToken token)
+    {
+        await _images.RemoveCompanyLogoAsync(token);
+        return Ok();
     }
 
     [HttpPut]

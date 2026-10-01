@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local file storage (Storage:Provider=Local) -- uploaded files, never commit
+/hrms-api/storage/

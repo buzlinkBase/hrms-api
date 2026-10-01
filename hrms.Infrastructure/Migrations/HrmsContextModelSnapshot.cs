@@ -1249,6 +1249,9 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("LogoKey")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("PagIbigNumber")
                         .IsRequired()
                         .HasColumnType("longtext");

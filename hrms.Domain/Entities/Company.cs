@@ -1,4 +1,4 @@
-﻿namespace Hrms.Domain.Entities;
+namespace Hrms.Domain.Entities;
 
 public class Company : BaseEntity
 {
@@ -20,5 +20,11 @@ public class Company : BaseEntity
     public string PagIbigNumber { get; set; } = string.Empty;
     public string AuthorizedSignatoryName { get; set; } = string.Empty;
     public string AuthorizedSignatoryTitle { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Where the company logo is stored (an IFileStorage key), or null for none. Changed only by
+    /// OrganizationImageService -- never through the Company Info save, so that can't wipe it.
+    /// </summary>
+    public string? LogoKey { get; set; }
 }
 

@@ -4,6 +4,7 @@ using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.Storage;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,8 @@ namespace Hrms.Api.Controllers
         private readonly CompanyService _companyService;
         private readonly IWebHostEnvironment _hostEnvironment;
         private readonly IMapper _mapper;
+        private readonly OrganizationImageService _images;
+        private readonly ImageUrlResolver _imageUrls;
 
         public EmployeesController(EmployeeService service,
             EmployeeImportService employeeImportService,
@@ -34,7 +37,9 @@ namespace Hrms.Api.Controllers
             TemplateDownloaderService templateService,
             CompanyService companyService,
             IWebHostEnvironment hostEnvironment,
-            IMapper mapper)
+            IMapper mapper,
+            OrganizationImageService images,
+            ImageUrlResolver imageUrls)
         {
             _service = service;
             _employeeImportService = employeeImportService;
@@ -43,6 +48,8 @@ namespace Hrms.Api.Controllers
             _companyService = companyService;
             _hostEnvironment = hostEnvironment;
             _mapper = mapper;
+            _images = images;
+            _imageUrls = imageUrls;
         }
 
         // Dev/test-only bulk fake-data seeding -- gated like any other Create/Delete action
@@ -106,7 +113,35 @@ namespace Hrms.Api.Controllers
             // An approver sees a confidential applicant's request, never the profile itself.
             var employee = _service.IsHiddenFromEmployeeScreens(id) ? null : await _service.FineOneAsync(id, token);
             var model = _mapper.Map<EmployeeModel>(employee);
-            return Ok(model == null ? new EmployeeModel() : _service.HidePayIfNotCleared(model));
+            if (model == null) return Ok(new EmployeeModel());
+            // The stored photo is a storage key; the form needs something it can show.
+            model.ProfileImg = await _imageUrls.DisplayUrlAsync(model.ProfileImg, token);
+            return Ok(_service.HidePayIfNotCleared(model));
+        }
+
+        /// <summary>Uploads (or replaces) the employee's profile photo: PNG, JPG or WebP up to 2 MB.</summary>
+        [HttpPost("{id}/photo")]
+        // Create too: the New Employee form uploads the photo right after creating the record.
+        [RequirePermission("Workforce Setup:Edit", "Workforce Setup:Create")]
+        [EnableRateLimiting(RateLimitPolicies.FileUpload)]
+        [RequestSizeLimit(4 * 1024 * 1024)]
+        [ProducesResponseType(typeof(ResponseModel<ImageUploadResult>), 200)]
+        public async Task<IActionResult> UploadPhoto(Guid id, IFormFile file, CancellationToken token)
+        {
+            if (_service.IsHiddenFromEmployeeScreens(id)) return NotFound();
+            await using var upload = file.OpenReadStream();
+            var url = await _images.SetEmployeePhotoAsync(id, upload, file.Length, file.FileName, token);
+            return Ok(new ImageUploadResult(url));
+        }
+
+        [HttpDelete("{id}/photo")]
+        [RequirePermission("Workforce Setup:Edit")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> RemovePhoto(Guid id, CancellationToken token)
+        {
+            if (_service.IsHiddenFromEmployeeScreens(id)) return NotFound();
+            await _images.RemoveEmployeePhotoAsync(id, token);
+            return Ok();
         }
 
         [HttpPost]

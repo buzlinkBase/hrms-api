@@ -6,6 +6,7 @@ using Hrms.Api.Extensions;
 using Hrms.Api.RateLimiting;
 using Hrms.Core.Extensions;
 using Hrms.Core.Hubs;
+using Hrms.Core.Services.Storage;
 using Mapster;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -55,6 +56,9 @@ public class Program
         builder.Services.RegisterHRCoreServices();
         builder.Services.RegisterDTRCoreServices();
         builder.Services.AddGeminiAiExtraction(builder.Configuration);
+        // Files (documents, photos, exports): DigitalOcean Spaces in production, a local folder in
+        // development -- see StorageOptions.
+        builder.Services.AddFileStorage(builder.Configuration);
         builder.Services.AddApiResponseCompression();
         // Per-endpoint limits on payroll generation, uploads, prints/exports and reminders -- see
         // RateLimitPolicies for which and why.

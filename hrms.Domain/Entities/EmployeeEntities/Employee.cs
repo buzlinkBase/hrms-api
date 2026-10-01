@@ -100,6 +100,11 @@ public class Employee : BaseEntity, Hrms.Domain.ValueObjects.IEmployeePayFields
     public virtual ICollection<EmployeeRecord> EmployeeRecords { get; set; }
     public virtual ICollection<EmploymentHistory> Employments { get; set; }
     public virtual ICollection<AssignAsset> Assets { get; set; }
+    /// <summary>
+    /// The profile photo: an IFileStorage key (or, for photos saved before storage existed, the
+    /// image itself as a data: URL). Changed only by OrganizationImageService -- the employee
+    /// create/update saves leave it alone.
+    /// </summary>
     public string ProfileImg { get; set; } = string.Empty;
     public virtual PayrollGroup? PayrollGroup { get; set; }
     public virtual EmployeeSetting? Settings { get; set; }

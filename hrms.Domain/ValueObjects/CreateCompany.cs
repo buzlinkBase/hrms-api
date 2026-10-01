@@ -21,4 +21,8 @@ public class UpdateCompany : CreateCompany
 {
     public Guid Id { get; set; }
 }
-public class CompanyModel : UpdateCompany;
+public class CompanyModel : UpdateCompany
+{
+    /// <summary>A short-lived link to show the logo; empty when there's none.</summary>
+    public string LogoUrl { get; set; } = string.Empty;
+}
