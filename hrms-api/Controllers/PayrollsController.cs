@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Hrms.Api.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
@@ -23,6 +24,7 @@ namespace Hrms.Api.Controllers
     // Payroll runs, summaries and payslips are pay figures end to end -- partial confidential
     // clearances never apply here (a run reads DTR rows an Operations user could otherwise see).
     [CompensationData]
+    [RequireFeature(EntitlementKeys.PayrollCore)]
     public class PayrollsController : ControllerBase
     {
         // Maps a batch's actual run type to its Payroll Generation catalog row -- needed by

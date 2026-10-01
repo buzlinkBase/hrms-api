@@ -107,6 +107,8 @@ public class Program
         app.UseRateLimiter();
         app.UseHeaderPropagation();
         app.UseMiddleware<TenantDatabaseMiddleware>();
+        // Read-only subscriptions (trial ended, suspended, canceled) can view but not change.
+        app.UseMiddleware<SubscriptionAccessMiddleware>();
         // Hides confidential employees from callers without clearance (query-filter input).
         app.UseMiddleware<ConfidentialAccessMiddleware>();
         app.MapControllers();

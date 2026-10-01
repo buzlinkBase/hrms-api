@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Hrms.Api.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
@@ -16,6 +17,7 @@ namespace Hrms.Api.Controllers;
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
 [OperationsData]
+[RequireFeature(EntitlementKeys.TimekeepingCore)]
 public class AttendanceController : ControllerBase
 {
     private readonly AttendanceService _attendanceService;

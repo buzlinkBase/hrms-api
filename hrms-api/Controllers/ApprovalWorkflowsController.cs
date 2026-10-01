@@ -6,6 +6,7 @@ using Hrms.Domain;
 using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
+using Onepunch.Common.Lib.Subscriptions;
 
 namespace Hrms.Api.Controllers
 {
@@ -22,11 +23,34 @@ namespace Hrms.Api.Controllers
     {
         private readonly ApprovalWorkflowService _service;
         private readonly EmployeeService _employeeService;
+        private readonly IEntitlementProvider _entitlements;
+        private readonly ITenantProvider _tenantProvider;
 
-        public ApprovalWorkflowsController(ApprovalWorkflowService service, EmployeeService employeeService)
+        public ApprovalWorkflowsController(ApprovalWorkflowService service, EmployeeService employeeService,
+            IEntitlementProvider entitlements, ITenantProvider tenantProvider)
         {
             _service = service;
             _employeeService = employeeService;
+            _entitlements = entitlements;
+            _tenantProvider = tenantProvider;
+        }
+
+        // Single-step workflows come with every plan; more than one step is approvals.multilevel.
+        // Checked on save and on activation, so a workflow saved under Premium can't be switched
+        // back on after a downgrade.
+        private async Task EnsureStepsAllowedAsync(int stepCount, CancellationToken token)
+        {
+            if (stepCount <= 1) return;
+            var snapshot = await _entitlements.GetAsync(_tenantProvider.TenantId, token);
+            if (!snapshot.HasFeature(EntitlementKeys.ApprovalsMultilevel))
+                throw PlanRestrictionException.FeatureRequired(EntitlementKeys.ApprovalsMultilevel,
+                    "Approval workflows with more than one step need a plan with multi-level approvals.");
+        }
+
+        private async Task EnsureStepsAllowedAsync(Guid workflowId, CancellationToken token)
+        {
+            var workflow = await _service.GetAsync(workflowId, token);
+            if (workflow != null) await EnsureStepsAllowedAsync(workflow.Steps.Count, token);
         }
 
         [HttpGet]
@@ -68,6 +92,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<ApprovalWorkflowResponse>), 200)]
         public async Task<IActionResult> Post([FromBody] ApprovalWorkflowRequest payload, CancellationToken token)
         {
+            await EnsureStepsAllowedAsync(payload.Steps.Count, token);
             var workflow = FromRequest(payload);
             // New workflows start inactive (draft) -- Activate is the only path to IsActive =
             // true, so the "only one active per (ApplicationType, ScopeDepartmentId)" rule (see
@@ -83,6 +108,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<ApprovalWorkflowResponse>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] ApprovalWorkflowRequest payload, CancellationToken token)
         {
+            await EnsureStepsAllowedAsync(payload.Steps.Count, token);
             var workflow = FromRequest(payload);
             var updated = await _service.UpdateWorkflowAsync(id, workflow, token);
             var usage = await _service.GetUsageAsync([id], token);
@@ -100,6 +126,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<ScheduleActivationResult>), 200)]
         public async Task<IActionResult> ScheduleActivation(Guid id, CancellationToken token)
         {
+            await EnsureStepsAllowedAsync(id, token);
             var activated = await _service.ScheduleActivationAsync(id, token);
             return Ok(new ScheduleActivationResult(activated));
         }
@@ -118,6 +145,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Activate(Guid id, CancellationToken token)
         {
+            await EnsureStepsAllowedAsync(id, token);
             await _service.ActivateAsync(id, token);
             return Ok();
         }

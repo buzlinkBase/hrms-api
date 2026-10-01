@@ -50,6 +50,8 @@ public static class RabbitMqConfiguration
             x.AddConsumer<AnnouncementLifecycleWorker, AnnouncementLifecycleWorkerDefinition>();
             // One company's daily benefits steps, in order -- queued by the Quartz DailyBenefitsJob.
             x.AddConsumer<DailyBenefitsWorker, DailyBenefitsWorkerDefinition>();
+            // Evicts cached entitlements when an account's subscription changes.
+            x.AddConsumer<Messaging.Subscriptions.SubscriptionChangedWorker, Messaging.Subscriptions.SubscriptionChangedWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>
             {
                 o.UseMySql();

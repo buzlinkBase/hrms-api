@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Hrms.Api.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
@@ -42,6 +43,7 @@ namespace Hrms.Api.Controllers
             _environment = environment;
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("sss-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
@@ -51,6 +53,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("philhealth-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
@@ -60,6 +63,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("pagibig-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
@@ -69,6 +73,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("wtax-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
@@ -78,6 +83,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [CompensationData]
         [HttpGet("bank-disbursement")]
         [RequirePermission("Payroll Reports:View")]
@@ -87,6 +93,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [EntriesData]
         [HttpGet("deduction-ledger")]
         [RequirePermission("Payroll Reports:View")]
@@ -97,6 +104,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [EntriesData]
         [HttpGet("cash-bond")]
         [RequirePermission("Payroll Reports:View")]
@@ -107,6 +115,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [EntriesData]
         [HttpGet("cash-bond/{employeeId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
@@ -116,6 +125,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [OperationsData]
         [HttpGet("leave-ledger")]
         [RequirePermission("Payroll Reports:View")]
@@ -125,6 +135,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [OperationsData]
         [HttpGet("leave-ledger/{employeeId:guid}/{leaveId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
@@ -134,6 +145,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [CompensationData]
         [HttpGet("retirement-ledger")]
         [RequirePermission("Payroll Reports:View")]
@@ -143,6 +155,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [CompensationData]
         [HttpGet("retirement-ledger/{employeeId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
@@ -152,6 +165,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [EntriesData]
         [HttpGet("uniform-allowance-ledger")]
         [RequirePermission("Payroll Reports:View")]
@@ -161,6 +175,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [EntriesData]
         [HttpGet("uniform-allowance-ledger/{employeeId:guid}/entries")]
         [RequirePermission("Payroll Reports:View")]
@@ -173,6 +188,7 @@ namespace Hrms.Api.Controllers
         private static DateOnly AsOfOrToday(DateTime? asOf) =>
             asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [CompensationData]
         [HttpGet("reimbursement-list")]
         [RequirePermission("Payroll Reports:View")]
@@ -182,6 +198,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ClientsAgency)]
         [CompensationData]
         [HttpGet("cost-summary")]
         [RequirePermission("Payroll Reports:View")]
@@ -195,6 +212,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [CompensationData]
         [HttpGet("ytd-summary")]
         [RequirePermission("Payroll Reports:View")]
@@ -204,6 +222,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [CompensationData]
         [HttpGet("13th-month-pay")]
         [RequirePermission("Payroll Reports:View")]
@@ -213,6 +232,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [CompensationData]
         [HttpGet("13th-month-pay/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
@@ -228,6 +248,7 @@ namespace Hrms.Api.Controllers
 
         // ── BIR 1601-C ────────────────────────────────────────────────────────────────
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("1601c")]
         [RequirePermission("BIR Reports:View")]
@@ -240,6 +261,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data = employees, summary, total = employees.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("1601c/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
@@ -261,6 +283,7 @@ namespace Hrms.Api.Controllers
 
         // ── BIR Alphalist ─────────────────────────────────────────────────────────────
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("alphalist")]
         [RequirePermission("BIR Reports:View")]
@@ -270,6 +293,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("alphalist/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
@@ -282,6 +306,7 @@ namespace Hrms.Api.Controllers
             return File(bytes, "application/pdf", $"bir-alphalist-{year}.pdf");
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("alphalist/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
@@ -305,6 +330,7 @@ namespace Hrms.Api.Controllers
 
         // ── BIR 2316 ──────────────────────────────────────────────────────────────────
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("2316")]
         [RequirePermission("BIR Reports:View")]
@@ -319,6 +345,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data = results, total = results.Length });
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [CompensationData]
         [HttpGet("2316/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
@@ -336,6 +363,7 @@ namespace Hrms.Api.Controllers
 
         // ── SSS R3 ────────────────────────────────────────────────────────────────────
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [HttpGet("sss-r3/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
@@ -349,6 +377,7 @@ namespace Hrms.Api.Controllers
             return File(bytes, "application/pdf", $"sss-r3-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [HttpGet("sss-r3/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
@@ -362,6 +391,7 @@ namespace Hrms.Api.Controllers
 
         // ── PhilHealth EPRS ───────────────────────────────────────────────────────────
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [HttpGet("philhealth-eprs/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
@@ -375,6 +405,7 @@ namespace Hrms.Api.Controllers
             return File(bytes, "application/pdf", $"philhealth-eprs-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [HttpGet("philhealth-eprs/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
@@ -388,6 +419,7 @@ namespace Hrms.Api.Controllers
 
         // ── Pag-IBIG MCRF ─────────────────────────────────────────────────────────────
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [HttpGet("pagibig-mcrf/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
@@ -401,6 +433,7 @@ namespace Hrms.Api.Controllers
             return File(bytes, "application/pdf", $"pagibig-mcrf-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
         }
 
+        [RequireFeature(EntitlementKeys.ReportsStatutory)]
         [HttpGet("pagibig-mcrf/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]

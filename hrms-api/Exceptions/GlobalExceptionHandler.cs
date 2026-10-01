@@ -3,6 +3,7 @@ using MessagePack;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Exceptions;
+using Onepunch.Common.Lib.Subscriptions;
 
 namespace Hrms.Api.Exceptions;
 
@@ -21,6 +22,7 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
             UnauthorizedException => StatusCodes.Status401Unauthorized,
             NotFoundException => StatusCodes.Status404NotFound,
+            ForbiddenException => StatusCodes.Status403Forbidden,
             _ => StatusCodes.Status500InternalServerError,
         };
 
@@ -40,6 +42,17 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}"
         };
 
+        // A subscription refusal: the frontend switches on Type to show an upgrade prompt
+        // instead of a generic error, and needs no stack trace.
+        if (exception is PlanRestrictionException restriction)
+        {
+            errorDetail.Type = restriction.ProblemType;
+            errorDetail.Title = "Not included in your plan";
+            foreach (var (key, value) in restriction.Extensions) errorDetail.Extensions[key] = value;
+            await WriteAsync(httpContext, new ResponseModel<ProblemDetails> { Status = statusCode, Message = "Error", Data = errorDetail }, cancellationToken);
+            return true;
+        }
+
         //if (env.IsDevelopment())
         //{
         errorDetail.Extensions.Add("stackTrace", exception.StackTrace);
@@ -56,7 +69,13 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             Data = errorDetail
         };
 
-        // 3. Determine Content-Type (Negotiate between MsgPack and JSON)
+        await WriteAsync(httpContext, response, cancellationToken);
+        return true; // Mark as handled
+    }
+
+    // 3. Determine Content-Type (Negotiate between MsgPack and JSON)
+    private static async Task WriteAsync(HttpContext httpContext, ResponseModel<ProblemDetails> response, CancellationToken cancellationToken)
+    {
         var acceptHeader = httpContext.Request.Headers.Accept.ToString();
 
         if (acceptHeader.Contains("application/x-msgpack"))
@@ -70,8 +89,6 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             httpContext.Response.ContentType = "application/json";
             await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
         }
-
-        return true; // Mark as handled
     }
 
     private static string GetTitleForStatus(int statusCode) => statusCode switch

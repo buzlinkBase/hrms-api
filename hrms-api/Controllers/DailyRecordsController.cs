@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
@@ -18,6 +19,7 @@ namespace Hrms.Api.Controllers;
 // Reports) -- so every action below is gated individually with whichever module actually owns
 // it. Never add a class-level [RequirePermission] here.
 [OperationsData]
+[RequireFeature(EntitlementKeys.TimekeepingCore)]
 public class DailyRecordsController : ControllerBase
 {
     private readonly DailyRecordService _service;
@@ -140,6 +142,7 @@ public class DailyRecordsController : ControllerBase
 
     // POST verb, but a pure query (DTRSummaryQuery persists nothing) -- same pattern as
     // Payroll's Calculate, gated as :View not :Manage.
+    [AllowWhenReadOnly]
     [HttpPost("load-summary")]
     [RequirePermission("DTR Summary:View")]
     [ProducesResponseType(typeof(ResponseModel<List<DTRSummaryModel>>), 200)]
@@ -150,6 +153,7 @@ public class DailyRecordsController : ControllerBase
     }
 
     // Same POST-but-query exception as Summary above.
+    [AllowWhenReadOnly]
     [HttpPost("load-detail")]
     [RequirePermission("DTR Master:View")]
     [ProducesResponseType(typeof(ResponseModel<List<DTRDetailModel>>), 200)]

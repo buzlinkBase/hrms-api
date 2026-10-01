@@ -1,3 +1,5 @@
+using Onepunch.Common.Lib.Subscriptions;
+using Hrms.Api.Filters;
 using Hrms.Api.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
@@ -23,6 +25,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [RequireFeature(EntitlementKeys.PortalSelfService)]
     public class MeController : ControllerBase
     {
         private readonly EmployeeService _employeeService;
@@ -92,6 +95,7 @@ namespace Hrms.Api.Controllers
             return Ok(employee);
         }
 
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [HttpGet("payrolls")]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> GetMyPayrolls([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -105,6 +109,7 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [HttpGet("payrolls/{id:guid}/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         public async Task<IActionResult> PrintMyPayslip(Guid id, CancellationToken token)
@@ -131,6 +136,7 @@ namespace Hrms.Api.Controllers
         // records that the employee has received/viewed this document; nothing else in the
         // system reads or gates on it. Covers all three document types uniformly since
         // Payslip/13th Month/Last Pay are all just Payroll rows differentiated by PayrollType.
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [HttpPost("payrolls/{id:guid}/acknowledge")]
         [ProducesResponseType(typeof(ResponseModel<DateTime?>), 200)]
         public async Task<IActionResult> AcknowledgeMyPayslip(Guid id, CancellationToken token)
@@ -192,6 +198,7 @@ namespace Hrms.Api.Controllers
             return Ok(await _fixedScheduleService.GetByEmployeeAsync(employeeId.Value, token));
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpGet("leave-credits")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveCreditsBalanceModel>>), 200)]
         public async Task<IActionResult> GetMyLeaveCredits([FromQuery] int? year, CancellationToken token)
@@ -202,6 +209,7 @@ namespace Hrms.Api.Controllers
             return Ok(await _leaveLedgerService.GetBalancesForEmployeeAsync(employeeId.Value, year ?? DateTime.UtcNow.Year, token));
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpGet("leave-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyLeaveApplications(CancellationToken token)
@@ -215,6 +223,7 @@ namespace Hrms.Api.Controllers
         // EmployeeId and ApprovalStatus are forced here, never trusted from the client — the
         // same guard rail as every other write in this controller. Without it, a self-service
         // caller could file leave under a coworker's EmployeeId or self-approve it outright.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPost("leave-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyLeaveApplication([FromBody] CreateLeaveApplication payload, CancellationToken token)
@@ -233,6 +242,7 @@ namespace Hrms.Api.Controllers
         // throws NotFoundException (also for "belongs to someone else", so a caller can't probe
         // whether another employee's application id exists) or InvalidOperationException (not
         // ForApproval anymore), both handled by the standard exception pipeline.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPatch("leave-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyLeaveApplication(Guid id, CancellationToken token)
@@ -247,6 +257,7 @@ namespace Hrms.Api.Controllers
         // Self-service edit of the caller's own still-pending application. Ownership, the
         // pending-only rule, the portal filing policy, and the "back to the first approver if
         // anyone already approved" restart all live in LeaveApplicationService.UpdateOwnAsync.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPut("leave-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyLeaveApplication(Guid id, [FromBody] UpdateLeaveApplication payload, CancellationToken token)
@@ -260,6 +271,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpGet("overtime-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<OvertimeApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyOvertimeApplications(CancellationToken token)
@@ -279,6 +291,7 @@ namespace Hrms.Api.Controllers
         // CreateOverTimeApplication at all (only the admin Update DTO carries it), so the
         // entity default (ForApproval) already applies — set explicitly on the entity anyway
         // for clarity, since nothing on the wire could override it either way.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPost("overtime-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyOvertimeApplication([FromBody] CreateOverTimeApplication payload, CancellationToken token)
@@ -293,6 +306,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPatch("overtime-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyOvertimeApplication(Guid id, CancellationToken token)
@@ -305,6 +319,7 @@ namespace Hrms.Api.Controllers
         }
 
         // See UpdateMyLeaveApplication -- same rules, enforced in OvertimeApplicationService.UpdateOwnAsync.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPut("overtime-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyOvertimeApplication(Guid id, [FromBody] UpdateOvertimeApplication payload, CancellationToken token)
@@ -318,6 +333,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpGet("travel-order-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<TravelOrderApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyTravelOrderApplications(CancellationToken token)
@@ -335,6 +351,7 @@ namespace Hrms.Api.Controllers
         // set explicitly for clarity. Cost is zeroed on the payload too — the admin form already
         // treats it as finance-only and always sends 0 regardless of input, so self-service
         // filing follows the same convention rather than inventing a new one.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPost("travel-order-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyTravelOrderApplication([FromBody] CreateTravelOrderApplication payload, CancellationToken token)
@@ -350,6 +367,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPatch("travel-order-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyTravelOrderApplication(Guid id, CancellationToken token)
@@ -362,6 +380,7 @@ namespace Hrms.Api.Controllers
         }
 
         // See UpdateMyLeaveApplication. Cost stays zeroed, same convention as filing.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPut("travel-order-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyTravelOrderApplication(Guid id, [FromBody] UpdateTravelOrderApplication payload, CancellationToken token)
@@ -376,6 +395,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpGet("pass-slip-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyPassSlipApplications(CancellationToken token)
@@ -391,6 +411,7 @@ namespace Hrms.Api.Controllers
 
         // EmployeeId forced as above — PassSlipApplicationService.AddAsync already forces
         // ApprovalStatus.ForApproval itself, so this endpoint doesn't need to duplicate that.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPost("pass-slip-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyPassSlipApplication([FromBody] CreatePassSlipApplication payload, CancellationToken token)
@@ -404,6 +425,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPatch("pass-slip-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyPassSlipApplication(Guid id, CancellationToken token)
@@ -416,6 +438,7 @@ namespace Hrms.Api.Controllers
         }
 
         // See UpdateMyLeaveApplication -- enforced in PassSlipApplicationService.UpdateOwnAsync.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPut("pass-slip-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyPassSlipApplication(Guid id, [FromBody] UpdatePassSlipApplication payload, CancellationToken token)
@@ -429,6 +452,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpGet("profile-update-requests")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeProfileUpdateRequestModel>>), 200)]
         public async Task<IActionResult> GetMyProfileUpdateRequests(CancellationToken token)
@@ -441,6 +465,7 @@ namespace Hrms.Api.Controllers
 
         // EmployeeId forced as above — EmployeeProfileUpdateRequestService.AddAsync already forces
         // ApprovalStatus.ForApproval and snapshots Employee.UpdatedAt itself.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPost("profile-update-requests")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyProfileUpdateRequest([FromBody] CreateEmployeeProfileUpdateRequest payload, CancellationToken token)
@@ -454,6 +479,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPatch("profile-update-requests/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyProfileUpdateRequest(Guid id, CancellationToken token)
@@ -465,6 +491,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpGet("change-rest-day")]
         [ProducesResponseType(typeof(ResponseModel<List<RestDayRecordResponse>>), 200)]
         public async Task<IActionResult> GetMyChangeRestDayRequests(CancellationToken token)
@@ -478,6 +505,7 @@ namespace Hrms.Api.Controllers
         // EmployeeId is resolved server-side and never trusted from the client, same guard rail
         // as every other create action here. RequestChangeOffAsync always files ForApproval —
         // see ChangeRestDayService for why that's safe against the DTR calculation path.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPost("change-rest-day")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyChangeRestDayRequest([FromBody] RequestChangeRestDay payload, CancellationToken token)
@@ -493,6 +521,7 @@ namespace Hrms.Api.Controllers
         // Change Rest Day is batch-shaped (batchCode+employeeId, not a single id) -- see
         // ChangeRestDayService.WithdrawChangeOffAsync. employeeId is resolved server-side same as
         // everywhere else, so a caller can only ever match rows under their own batches.
+        [RequireFeature(EntitlementKeys.ApplicationsCore)]
         [HttpPatch("change-rest-day/{batchCode}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 404)]
@@ -506,6 +535,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpGet("loan-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<DeductionApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyLoanApplications(CancellationToken token)
@@ -520,6 +550,7 @@ namespace Hrms.Api.Controllers
         // EmployeeId is resolved server-side and never trusted from the client, same guard rail
         // as every other create action here. Always files ForApproval — an untrusted amortization
         // schedule must not reach payroll until HR approves it. See DeductionAplDtlService.LoadAsync.
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpPost("loan-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyLoanApplication([FromBody] CreateDeductionApplication payload, CancellationToken token)
@@ -532,6 +563,7 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpPatch("loan-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyLoanApplication(Guid id, CancellationToken token)
@@ -545,6 +577,7 @@ namespace Hrms.Api.Controllers
 
         // See UpdateMyLeaveApplication -- enforced in DeductionApplicationService.UpdateOwnAsync
         // (which also re-checks the deduction type is still employee-fileable).
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpPut("loan-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyLoanApplication(Guid id, [FromBody] UpdateDeductionApplication payload, CancellationToken token)
@@ -562,6 +595,7 @@ namespace Hrms.Api.Controllers
         // Employee.CashBond (see CashBondDeductionPolicy), not debt the employee owes -- shows
         // the current per-run rate plus every payroll run that's actually collected it so far.
         // See PayrollReportService.GetMyCashBondAsync.
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpGet("cash-bond")]
         [ProducesResponseType(typeof(ResponseModel<MyCashBondModel>), 200)]
         public async Task<IActionResult> GetMyCashBond(CancellationToken token)
@@ -575,6 +609,7 @@ namespace Hrms.Api.Controllers
 
         // Scoped server-side to the caller's own EmployeeId via GetThirteenthMonthAsync's
         // employeeId filter — never computes or returns another employee's figures.
+        [RequireFeature(EntitlementKeys.PayrollCore)]
         [HttpGet("13th-month")]
         [ProducesResponseType(typeof(ResponseModel<ThirteenthMonthModel>), 200)]
         public async Task<IActionResult> GetMy13thMonth([FromQuery] int? year, CancellationToken token)

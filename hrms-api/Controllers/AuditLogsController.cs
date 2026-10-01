@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Filters;
 using Hrms.Core.Services.Auditing;
@@ -14,6 +15,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [RequireFeature(EntitlementKeys.AuditTrail)]
     public class AuditLogsController : ControllerBase
     {
         private readonly IAuditQueryService _audits;

@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using System.Security.Claims;
 using Asp.Versioning;
 using Hrms.Api.Extensions;
@@ -16,6 +17,7 @@ namespace Hrms.Api.Controllers;
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
 [OperationsData]
+[RequireFeature(EntitlementKeys.TimekeepingCore)]
 public class WorkSchedulePlansController : ControllerBase
 {
     private readonly WorkSchedulePlanService _service;

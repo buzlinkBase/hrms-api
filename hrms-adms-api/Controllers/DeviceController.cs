@@ -3,6 +3,7 @@ using Hrms.adms.Extensions;
 using Hrms.adms.Filters;
 using Hrms.adms.Models.DTO;
 using Hrms.adms.Services;
+using Hrms.adms.Services.Subscriptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,9 +19,11 @@ namespace Hrms.adms.Controllers
     public class DeviceController : ControllerBase
     {
         private readonly DeviceService _service;
-        public DeviceController(DeviceService service)
+        private readonly DeviceAllowanceService _allowance;
+        public DeviceController(DeviceService service, DeviceAllowanceService allowance)
         {
             _service = service;
+            _allowance = allowance;
         }
 
         [HttpPost]
@@ -30,6 +33,7 @@ namespace Hrms.adms.Controllers
         {
             var tenantId = HttpContext.ParseTenant();
             if (tenantId == Guid.Empty) return Forbid("cannot parse account");
+            await _allowance.EnsureCanActivateAsync(tenantId, null, payload.Status, token);
             var data = await _service.AddAsync(payload, tenantId, token);
             return Ok(data);
         }
@@ -41,6 +45,7 @@ namespace Hrms.adms.Controllers
         {
             var tenantId = HttpContext.ParseTenant();
             if (tenantId == Guid.Empty) return Forbid("cannot parse account");
+            await _allowance.EnsureCanActivateAsync(tenantId, payload.Id, payload.Status, token);
             var data = await _service.UpdateStatusAsync(payload, tenantId, token);
             return Ok(data);
         }

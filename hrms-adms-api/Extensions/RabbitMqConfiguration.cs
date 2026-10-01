@@ -1,4 +1,4 @@
-﻿using Hrms.adms.Messages;
+using Hrms.adms.Messages;
 
 namespace Hrms.adms.Extensions;
 
@@ -15,6 +15,8 @@ public static class RabbitMqConfiguration
             x.AddConsumer<DbMigrationActionWorker, DbMigrationActionWorkerDefinition>();
             x.AddConsumer<AttSyncResponseWorker, AttSyncWorkerDefinition>();
             x.AddConsumer<SetEmployeeWorker, DeviceCommandWorkerDefination>();
+            // Evicts cached entitlements when an account's subscription changes.
+            x.AddConsumer<SubscriptionChangedWorker, SubscriptionChangedWorkerDefinition>();
             x.AddEntityFrameworkOutbox<AdmsContext>(o =>
             {
                 o.UseMySql();

@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
@@ -12,6 +13,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     [OperationsData]
+    [RequireFeature(EntitlementKeys.ApplicationsCore)]
     public class UnderTimeApplicationsController : ControllerBase
     {
         private readonly UnderTimeApplicationService _service;

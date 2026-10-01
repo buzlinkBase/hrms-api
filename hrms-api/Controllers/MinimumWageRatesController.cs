@@ -1,3 +1,5 @@
+using Onepunch.Common.Lib.Subscriptions;
+using Hrms.Api.Filters;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +11,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [RequireFeature(EntitlementKeys.PayrollCore, WritesOnly = true)]
     public class MinimumWageRatesController : ControllerBase
     {
         private readonly MinimumWageRateService _service;

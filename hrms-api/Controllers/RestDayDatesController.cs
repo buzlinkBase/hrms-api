@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Hrms.Api.Filters;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     [OperationsData]
+    [RequireFeature(EntitlementKeys.TimekeepingCore)]
     public class RestDayDatesController : ControllerBase
     {
         private readonly RestDayDateService _service;

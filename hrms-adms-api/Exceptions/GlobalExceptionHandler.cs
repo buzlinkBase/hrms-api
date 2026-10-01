@@ -1,7 +1,8 @@
-﻿using MessagePack;
+using MessagePack;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Exceptions;
+using Onepunch.Common.Lib.Subscriptions;
 
 namespace Hrms.adms.Exceptions;
 
@@ -18,6 +19,7 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) // Use Primary 
             GuardException => StatusCodes.Status400BadRequest,
             UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
             UnauthorizedException => StatusCodes.Status401Unauthorized,
+            ForbiddenException => StatusCodes.Status403Forbidden,
             _ => StatusCodes.Status500InternalServerError,
         };
 
@@ -31,6 +33,14 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) // Use Primary 
             Detail = exception.Message,
             Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}"
         };
+
+        // A subscription refusal: the frontend switches on Type to show an upgrade prompt.
+        if (exception is PlanRestrictionException restriction)
+        {
+            problemDetails.Type = restriction.ProblemType;
+            problemDetails.Title = "Not included in your plan";
+            foreach (var (key, value) in restriction.Extensions) problemDetails.Extensions[key] = value;
+        }
 
         // ONLY show sensitive details if we are debugging
         if (env.IsDevelopment())
@@ -69,6 +79,7 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) // Use Primary 
     {
         400 => "Bad Request",
         401 => "Unauthorized",
+        403 => "Forbidden",
         _ => "An internal server error occurred"
     };
 }

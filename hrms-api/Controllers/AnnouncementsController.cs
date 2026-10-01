@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Hrms.Api.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
@@ -17,6 +18,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+    [RequireFeature(EntitlementKeys.Announcements)]
     public class AnnouncementsController : ControllerBase
     {
         public const string View = "Announcements:View";

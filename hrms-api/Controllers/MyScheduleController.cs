@@ -1,3 +1,5 @@
+using Onepunch.Common.Lib.Subscriptions;
+using Hrms.Api.Filters;
 using Asp.Versioning;
 using DTR.Core;
 using Hrms.Api.Extensions;
@@ -16,6 +18,7 @@ namespace Hrms.Api.Controllers;
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
+[RequireFeature(EntitlementKeys.PortalSelfService)]
 public class MyScheduleController : ControllerBase
 {
     private readonly EmployeeService _employeeService;

@@ -22,6 +22,9 @@ public static class LibServicesRegistrations
         services.AddScoped<Services.Security.ConfidentialAccessScope>();
         services.AddScoped<IConfidentialAccess>(sp => sp.GetRequiredService<Services.Security.ConfidentialAccessScope>());
         Messaging.DailyBenefits.DailyBenefitsRegistration.AddDailyBenefits(services);
+        // Subscription plan limits -- one counter per limit this service owns (see PlanLimitGuard).
+        services.AddScoped<Services.Subscriptions.ILimitUsageCounter, Services.Subscriptions.ActiveEmployeeCounter>();
+        services.AddScoped<Services.Subscriptions.IPlanLimitGuard, Services.Subscriptions.PlanLimitGuard>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.
         services.AddSingleton<ICalculator<DTRPayModel, PayrollContext>, BasicPayrollCalculator>();

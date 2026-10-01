@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Filters;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     [EntriesData]
+    [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
     public class OtherIncomeApplicationApplicationsController : ControllerBase
     {
         private readonly IncomeAplMainService _service;

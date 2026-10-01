@@ -1,4 +1,4 @@
-﻿
+
 using Asp.Versioning;
 using Hrms.adms.Filters;
 using Hrms.adms.Models.DTO;
@@ -13,7 +13,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.IdentityModel.Tokens;
 using Onepunch.Common.Lib.DbServices;
+using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.Security;
+using Onepunch.Common.Lib.Subscriptions;
 using Polly;
 using Refit;
 using StackExchange.Redis;
@@ -271,6 +273,13 @@ public static class ServiceRegistrations
         builder.Services.AddJwksKeyCache(
             builder.Configuration["ApiServices:AuthService"] ?? "",
             builder.Configuration.GetConnectionString("Redis"));
+
+        // Subscription entitlements (biometric devices: feature + device limit), resolved by Tenant
+        // Service and cached in the Redis connection AddJwksKeyCache registered above.
+        builder.Services.AddScoped<ICacheService, RedisCacheService>();
+        builder.Services.AddTenantEntitlements(
+            builder.Configuration["ApiServices:TenantService"]!,
+            builder.Configuration["ApiServices:TenantServiceApiKey"]);
 
         builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<JwksKeyCache>((options, jwksKeyCache) =>

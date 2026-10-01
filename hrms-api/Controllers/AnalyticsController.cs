@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Filters;
 using Hrms.Core.Services.Analytics;
@@ -16,6 +17,7 @@ namespace Hrms.Api.Controllers;
 [ProducesResponseType(typeof(ResponseModel<AnalyticsResult>), 200)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 400)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
+[RequireFeature(EntitlementKeys.Analytics)]
 public class AnalyticsController : ControllerBase
 {
     private readonly WorkforceAnalyticsService _workforce;

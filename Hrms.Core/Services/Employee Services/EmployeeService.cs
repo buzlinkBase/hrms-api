@@ -15,9 +15,10 @@ public class EmployeeService : BaseService<Employee>
     private readonly SectionService _sectionService;
     private readonly EmployeeAccountLinkService? _accountLinks;
     private readonly Security.ConfidentialAccessScope? _access;
+    private readonly Subscriptions.IPlanLimitGuard? _limits;
 
-    // accountLinks and access are optional so the many direct constructions in tests stay valid;
-    // the container always supplies them.
+    // accountLinks, access and limits are optional so the many direct constructions in tests stay
+    // valid; the container always supplies them.
     public EmployeeService(IUnitOfWorkService uow,
         IMapper mapper,
         TypeAdapterConfig config,
@@ -28,7 +29,8 @@ public class EmployeeService : BaseService<Employee>
         PositionService positionService,
         SectionService sectionService,
         EmployeeAccountLinkService? accountLinks = null,
-        Security.ConfidentialAccessScope? access = null
+        Security.ConfidentialAccessScope? access = null,
+        Subscriptions.IPlanLimitGuard? limits = null
         ) : base(uow)
     {
         _mapper = mapper;
@@ -39,6 +41,7 @@ public class EmployeeService : BaseService<Employee>
         _sectionService = sectionService;
         _accountLinks = accountLinks;
         _access = access;
+        _limits = limits;
     }
 
     /// <summary>
@@ -189,9 +192,14 @@ public class EmployeeService : BaseService<Employee>
         }
         var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
         model.BranchId = branch?.Id;
+        await EnsureWithinEmployeeLimitAsync(EmployeeService.SeparatedStatuses.Contains(model.EmploymentStatus) ? 0 : 1, token);
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
+
+    // The plan's employees.max (Strategy: PlanLimitGuard) -- separated employees don't count.
+    private Task EnsureWithinEmployeeLimitAsync(int adding, CancellationToken token) =>
+        _limits?.EnsureCanAddAsync(Onepunch.Common.Lib.Subscriptions.EntitlementKeys.EmployeesMax, adding, token) ?? Task.CompletedTask;
 
     private void CalculateAge(Employee? model)
     {
@@ -210,6 +218,8 @@ public class EmployeeService : BaseService<Employee>
         if (models == null || models.Count == 0) return;
         var newemps = models.Where(x => x.Id == Guid.Empty).ToList();
         var old = models.Where(x => x.Id != Guid.Empty).ToList();
+        // Import and the seeder both land here: the whole batch fits the plan or none of it is saved.
+        await EnsureWithinEmployeeLimitAsync(newemps.Count(x => !SeparatedStatuses.Contains(x.EmploymentStatus)), token);
         await ModifyRangeAsync(old, token);
         await CreateRangeAsync(newemps, token);
         //var empBios = GetQueryable().Select(x => x.BioId).ToList();
@@ -237,6 +247,17 @@ public class EmployeeService : BaseService<Employee>
         if (IsHiddenFromEmployeeScreens(payload.Id))
         {
             throw new NotFoundException("Record not found");
+        }
+
+        // Re-hiring a separated employee takes a place under the plan's employee limit again --
+        // checked before anything below is deleted or saved.
+        var currentStatus = await EmployeesForIntegrityChecks()
+            .Where(x => x.Id == payload.Id)
+            .Select(x => (EmploymentStatus?)x.EmploymentStatus)
+            .FirstOrDefaultAsync(token);
+        if (currentStatus is { } status && SeparatedStatuses.Contains(status) && !SeparatedStatuses.Contains(payload.EmploymentStatus))
+        {
+            await EnsureWithinEmployeeLimitAsync(1, token);
         }
 
         await _uow.Context.RestDays
@@ -568,7 +589,8 @@ public class EmployeeService : BaseService<Employee>
         return result;
     }
 
-    private static readonly EmploymentStatus[] SeparatedStatuses =
+    // Public: the subscription's employee limit counts everyone NOT separated (ActiveEmployeeCounter).
+    public static readonly EmploymentStatus[] SeparatedStatuses =
     [
         EmploymentStatus.Terminated,
         EmploymentStatus.Resigned,

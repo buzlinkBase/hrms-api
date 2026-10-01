@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Filters;
 using Hrms.Domain.ValueObjects;
@@ -12,6 +13,7 @@ namespace Hrms.Api.Controllers
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
     [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
     [EntriesData]
+    [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
     public class UniformAllowanceController : ControllerBase
     {
         private readonly UniformAllowanceFundService _service;

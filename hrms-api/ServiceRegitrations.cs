@@ -19,6 +19,7 @@ using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.DbServices;
 using Onepunch.Common.Lib.Interfaces;
 using Onepunch.Common.Lib.Security;
+using Onepunch.Common.Lib.Subscriptions;
 using Polly;
 using Refit;
 using StackExchange.Redis;
@@ -140,6 +141,12 @@ public static class ServiceRegistrationsExt
         })
         .ConfigureHttpClient(c => c.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!))
         .AddHeaderPropagation();
+
+        // Subscription entitlements, resolved by Tenant Service and cached here -- read by
+        // RequireFeatureAttribute, SubscriptionAccessMiddleware and the plan limit guards.
+        builder.Services.AddTenantEntitlements(
+            builder.Configuration["ApiServices:TenantService"]!,
+            builder.Configuration["ApiServices:TenantServiceApiKey"]);
 
         builder.Services.AddRefitClient<IConnectionClient>(new RefitSettings
         {
