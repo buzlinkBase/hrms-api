@@ -20,6 +20,12 @@ public record CreateAttendance
     // Required — why this punch is being manually entered instead of coming from a device.
     // See AttendanceController.ManualEntry.
     public string Remarks { get; set; } = string.Empty;
+    // Where the punch happened, when not the employee's own assignment (e.g. relieving at
+    // another site that day). Null = the employee's own branch/client/area/department.
+    public Guid? BranchId { get; set; }
+    public Guid? ClientId { get; set; }
+    public Guid? OperationAreaId { get; set; }
+    public Guid? DepartmentId { get; set; }
 }
 
 public record UpdateAttendance

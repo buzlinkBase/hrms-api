@@ -89,33 +89,34 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         passSlip.ApprovalStatus = ApprovalStatus.Approved;
         passSlip.BatchCode = batchCode;
 
-        var records = new List<Attendance>
+        // The pass slip's punches are stamped with the employee's Bio ID and own branch/client/
+        // project site/department, like any other log (they used to carry none of them). Read
+        // past the confidentiality filter: only these fields, and nothing is returned to the caller.
+        var employee = await Context.EmployeesForIntegrityChecks().AsNoTracking()
+            .Where(x => x.Id == passSlip.EmployeeId)
+            .Select(x => new { x.BioId, Location = new AttendanceLocation(x.BranchId, x.ClientId, x.AreaId, x.DepartmentId) })
+            .FirstOrDefaultAsync(token);
+        var location = AttendanceLocationResolver.Resolve(AttendanceLocation.None, employee?.Location, _ => null);
+
+        Attendance PassSlipLog(DateTime time, int workstate, string remarks) => new()
         {
-            new Attendance
-            {
-                EmployeeId = passSlip.EmployeeId,
-                WorkDateTime = passSlip.DepartureTime,
-                Workstate = 1,
-                LogSource = LOGSOURCE.MANUAL,
-                LogRemarks = $"Pass Slip - {passSlip.Purpose}",
-                BatchCode = batchCode,
-                UserName = string.Empty,
-            }
+            EmployeeId = passSlip.EmployeeId,
+            BioId = employee?.BioId,
+            WorkDateTime = time,
+            Workstate = workstate,
+            LogSource = LOGSOURCE.MANUAL,
+            LogRemarks = remarks,
+            BatchCode = batchCode,
+            UserName = string.Empty,
+            BranchId = location.BranchId,
+            ClientId = location.ClientId,
+            OperationAreaId = location.OperationAreaId,
+            DepartmentId = location.DepartmentId,
         };
 
+        var records = new List<Attendance> { PassSlipLog(passSlip.DepartureTime, 1, $"Pass Slip - {passSlip.Purpose}") };
         if (passSlip.ReturnTime.HasValue)
-        {
-            records.Add(new Attendance
-            {
-                EmployeeId = passSlip.EmployeeId,
-                WorkDateTime = passSlip.ReturnTime.Value,
-                Workstate = 0,
-                LogSource = LOGSOURCE.MANUAL,
-                LogRemarks = $"Pass Slip Return - {passSlip.Purpose}",
-                BatchCode = batchCode,
-                UserName = string.Empty,
-            });
-        }
+            records.Add(PassSlipLog(passSlip.ReturnTime.Value, 0, $"Pass Slip Return - {passSlip.Purpose}"));
 
         await _attendanceService.AddRangeAsync(records, token);
         await ModifyAsync(passSlip, token);

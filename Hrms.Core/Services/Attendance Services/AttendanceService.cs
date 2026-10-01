@@ -50,6 +50,56 @@ public class AttendanceService : BaseService<Attendance>
         }
         await CreateRangeAsync(attendances, token);
     }
+    /// <summary>
+    /// Attendance Manual Entry (and a time log added from the DTR). Every entry must be for an
+    /// employee the caller may see -- a hidden confidential employee, or one of another company,
+    /// is refused rather than silently skipped -- and any branch/client/project site/department
+    /// chosen for it must be one of this company's. Flushes; the caller commits.
+    /// </summary>
+    public async Task<string> AddManualEntriesAsync(List<CreateAttendance> entries, CancellationToken token)
+    {
+        if (entries.Count == 0)
+            throw new ValidationException("Add at least one attendance entry.");
+        if (entries.Any(x => string.IsNullOrWhiteSpace(x.Remarks)))
+            throw new ValidationException("Remarks is required for every manual attendance entry.");
+
+        var employeeIds = entries.Select(x => x.EmployeeId).ToHashSet();
+        var employees = await Context.Employees
+            .Where(x => employeeIds.Contains(x.Id))
+            .Select(x => new ManualAttendanceEmployee(x.Id, x.BioId, x.BranchId, x.DepartmentId, x.ClientId, x.AreaId))
+            .ToDictionaryAsync(x => x.Id, token);
+        if (employeeIds.Any(id => !employees.ContainsKey(id)))
+            throw new ValidationException("You don't have access to one or more of the selected employees.");
+
+        await EnsureAllExistAsync(Context.Branches, entries.Select(x => x.BranchId), "branch", token);
+        await EnsureAllExistAsync(Context.Clients, entries.Select(x => x.ClientId), "client", token);
+        await EnsureAllExistAsync(Context.Areas, entries.Select(x => x.OperationAreaId), "project site", token);
+        await EnsureAllExistAsync(Context.Departments, entries.Select(x => x.DepartmentId), "department", token);
+
+        var batchCount = await Context.Attendances
+            .Where(x => x.LogSource == LOGSOURCE.MANUAL)
+            .Select(x => x.BatchCode)
+            .Distinct()
+            .CountAsync(token);
+        var batch = string.Concat("BATCH", "-", DateTime.UtcNow.Date.ToString("yyyMMdd"), "-", (batchCount + 1).ToString().PadLeft(3, '0'));
+
+        var branchOfArea = await AttendanceLocationResolver.LoadBranchOfAreaAsync(Context,
+            entries.Select(x => x.OperationAreaId).Concat(employees.Values.Select(x => x.AreaId)), token);
+        await AddRangeAsync(entries.Select(x => ManualAttendanceFactory.Create(x, employees[x.EmployeeId], batch, branchOfArea)).ToList(), token);
+        return batch;
+    }
+
+    // Each chosen id must be a live record of this company (the query filters scope it).
+    private static async Task EnsureAllExistAsync<TEntity>(IQueryable<TEntity> set, IEnumerable<Guid?> chosen, string what, CancellationToken token)
+        where TEntity : class, IEntity
+    {
+        var ids = chosen.Where(x => x.HasValue).Select(x => x!.Value).ToHashSet();
+        if (ids.Count == 0) return;
+        var found = await set.CountAsync(x => ids.Contains(x.Id), token);
+        if (found != ids.Count)
+            throw new ValidationException($"The selected {what} was not found.");
+    }
+
     public async Task AddRange(List<Attendance> models, CancellationToken token)
     {
         await CreateRangeAsync(models, token);
@@ -132,15 +182,25 @@ public class AttendanceService : BaseService<Attendance>
     {
         // Only the unregistered logs (no employee yet) -- logs already tagged stay with whoever
         // they belong to, e.g. a former employee who held this Bio ID before it was reassigned.
-        await Context.Attendances
-         .Where(x => x.BioId.HasValue && x.BioId == employee.BioId && x.EmployeeId == null)
-         .ExecuteUpdateAsync(s => s
-             .SetProperty(e => e.EmployeeId, employee.Id)
-             .SetProperty(e => e.ClientId, e => e.ClientId ?? employee.ClientId)
-             .SetProperty(e => e.BranchId, e => e.BranchId ?? employee.BranchId)
-             .SetProperty(e => e.OperationAreaId, e => e.OperationAreaId ?? employee.AreaId)
-             .SetProperty(e => e.DepartmentId, e => e.DepartmentId ?? employee.DepartmentId),
-             cancellationToken: token);
+        var logs = await Context.Attendances
+            .Where(x => x.BioId.HasValue && x.BioId == employee.BioId && x.EmployeeId == null)
+            .ToListAsync(token);
+        if (logs.Count == 0) return;
+
+        // Each log keeps the device's location; its blanks are filled from the employee's own.
+        var own = new AttendanceLocation(employee.BranchId, employee.ClientId, employee.AreaId, employee.DepartmentId);
+        var branchOfArea = await AttendanceLocationResolver.LoadBranchOfAreaAsync(Context,
+            logs.Select(x => x.OperationAreaId).Append(employee.AreaId), token);
+        foreach (var log in logs)
+        {
+            var location = AttendanceLocationResolver.Resolve(
+                new AttendanceLocation(log.BranchId, log.ClientId, log.OperationAreaId, log.DepartmentId), own, branchOfArea);
+            log.EmployeeId = employee.Id;
+            log.BranchId = location.BranchId;
+            log.ClientId = location.ClientId;
+            log.OperationAreaId = location.OperationAreaId;
+            log.DepartmentId = location.DepartmentId;
+        }
 
         await CommitChangesAsync(token);
 

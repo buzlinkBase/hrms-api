@@ -61,4 +61,37 @@ public class CreateAttendanceWorkerTests
 
         context.ChangeTracker.Entries<Employee>().Should().BeEmpty("the lookup must not track employees");
     }
+
+    // A device registered with a branch only: the punch takes the employee's client, but not the
+    // employee's project site when that site is in another branch.
+    [Fact]
+    public async Task ParseAttLogs_DeviceWithABranchOnly_FillsTheRestWithoutMixingBranches()
+    {
+        using var db = new SqliteHrmsContext();
+        Guid manila = Guid.NewGuid(), cebu = Guid.NewGuid(), manilaSite = Guid.NewGuid(), client = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            var payrollGroupId = Guid.NewGuid();
+            seed.PayrollGroups.Add(new PayrollGroup { Id = payrollGroupId });
+            seed.Branches.AddRange(new Branch { Id = manila, Name = "Manila" }, new Branch { Id = cebu, Name = "Cebu" });
+            seed.Clients.Add(new Client { Id = client, Name = "Client" });
+            seed.Areas.Add(new CostCenters { Id = manilaSite, Name = "Manila Site", BranchId = manila });
+            seed.Employees.Add(new Employee
+            {
+                Id = Guid.NewGuid(), PayrollGroupId = payrollGroupId, BioId = 101,
+                BranchId = manila, ClientId = client, AreaId = manilaSite,
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var atts = await new AttEmployeeSetter(new UnitOfWorkService(context)).ParseAttLogs(
+            [new CreateAttendancePayload { BatchId = "b1", BioId = 101, WorkDateTime = new DateTime(2026, 9, 28, 8, 0, 0), BranchId = cebu }],
+            LOGSOURCE.SYNC);
+
+        var log = atts.Should().ContainSingle().Subject;
+        log.BranchId.Should().Be(cebu);
+        log.ClientId.Should().Be(client);
+        log.OperationAreaId.Should().BeNull("the employee's site is in Manila, not Cebu");
+    }
 }

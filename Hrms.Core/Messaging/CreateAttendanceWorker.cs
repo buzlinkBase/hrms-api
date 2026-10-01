@@ -64,20 +64,29 @@ public class AttEmployeeSetter
             .GroupBy(x => x.BioId)
             .ToDictionary(g => g.Key, g => g.First());
 
+        var branchOfArea = await AttendanceLocationResolver.LoadBranchOfAreaAsync(_service.Context,
+            messages.Select(x => x.OperationAreaId).Concat(employees.Values.Select(x => x.AreaId)), default);
+
         var atts = new List<Attendance>();
         foreach (var att in messages)
         {
             employees.TryGetValue(att.BioId, out EmployeeRef? employee);
+            // The device's (or upload's) branch/client/site/department, blanks filled from the
+            // employee's own -- an unregistered Bio ID keeps just the device's.
+            var location = AttendanceLocationResolver.Resolve(
+                new AttendanceLocation(att.BranchId, att.ClientId, att.OperationAreaId, att.DepartmentId),
+                employee == null ? null : new AttendanceLocation(employee.BranchId, employee.ClientId, employee.AreaId, employee.DepartmentId),
+                branchOfArea);
             var attendance = new Attendance
             {
                 BatchCode = att.BatchId,
                 BioId = att.BioId,
                 WorkDateTime = att.WorkDateTime,
                 EmployeeId = employee?.Id,
-                BranchId = att.BranchId ?? employee?.BranchId,
-                DepartmentId = att.DepartmentId ?? employee?.DepartmentId,
-                ClientId = att.ClientId ?? employee?.ClientId,
-                OperationAreaId = att.OperationAreaId ?? employee?.AreaId,
+                BranchId = location.BranchId,
+                DepartmentId = location.DepartmentId,
+                ClientId = location.ClientId,
+                OperationAreaId = location.OperationAreaId,
                 DeviceName = att.DeviceName,
                 IP = att.IPAddress,
                 Boundary = att.Coordinates,

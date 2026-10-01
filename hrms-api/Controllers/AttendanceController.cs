@@ -99,67 +99,8 @@ public class AttendanceController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ManualEntry([FromBody] List<CreateAttendance> payload, CancellationToken ct)
     {
-        if (payload == null || !payload.Any())
-        {
-            return BadRequest("Payload cannot be empty.");
-        }
-        if (payload.Any(x => string.IsNullOrWhiteSpace(x.Remarks)))
-        {
-            return BadRequest("Remarks is required for every manual attendance entry.");
-        }
-        var employeeIds = payload.Select(x => x.EmployeeId).ToHashSet();
-        var employees = await _service.Context.Employees
-            .Where(x => employeeIds.Contains(x.Id))
-            .Select(x => new
-            {
-                x.Id,
-                x.BioId,
-                x.DepartmentId,
-                x.AreaId,
-                x.ClientId,
-                x.PayrollGroupId,
-                x.BranchId
-            })
-            .ToDictionaryAsync(x => x.Id, x => x, ct);
-
-        var batchCount = await _attendanceService.Context.Attendances
-            .Where(x => x.LogSource == LOGSOURCE.MANUAL)
-            .Select(x => x.BatchCode)
-            .Distinct()
-            .CountAsync(ct);
-
-        var batch = string.Concat("BATCH", "-", DateTime.UtcNow.Date.ToString("yyyMMdd"), "-", (batchCount + 1).ToString().PadLeft(3, '0'));
-
-        var attendances = new List<Attendance>(payload.Count);
-        foreach (var att in payload)
-        {
-            var key = att.EmployeeId;
-            if (!employees.TryGetValue(key, out var employee))
-            {
-                continue;
-            }
-            attendances.Add(new Attendance
-            {
-                BatchCode = batch,
-                EmployeeId = employee.Id,
-                BioId = employee.BioId,
-                WorkDateTime = att.WorkTime,
-                BranchId = employee.BranchId,
-                DepartmentId = employee.DepartmentId,
-                ClientId = employee.ClientId,
-                OperationAreaId = employee.AreaId,
-                DeviceName = "Manual",
-                IP = string.Empty,
-                Boundary = null,
-                LogSource = LOGSOURCE.MANUAL,
-                EditRemarks = att.Remarks,
-            });
-        }
-        if (attendances.Any())
-        {
-            await _attendanceService.AddRangeAsync(attendances, ct);
-            await _attendanceService.CommitChangesAsync(ct);
-        }
+        await _attendanceService.AddManualEntriesAsync(payload ?? [], ct);
+        await _attendanceService.CommitChangesAsync(ct);
         return Ok("success");
     }
 
