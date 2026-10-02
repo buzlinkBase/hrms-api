@@ -675,4 +675,52 @@ public class DailyRecordServiceApprovalTests
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    // -- Batch codes: unique even within the same minute ------------------------------
+
+    [Fact]
+    public async Task MakeUniqueBatchCode_SuffixesACodeAlreadyTaken_ByAHeaderOrByDtrRows()
+    {
+        using var db = new SqliteHrmsContext();
+        const string code = "DTRSep112026-Sep252026 PG:SM TS:10.02.2026.18:52";
+        await using (var seed = db.NewContext())
+        {
+            var (payrollGroupId, generator, _) = SeedEmployees(seed);
+            seed.DTRBatches.Add(new DTRBatch { Id = Guid.NewGuid(), BatchCode = code, GeneratedByEmployeeId = generator.Id, PayrollGroupId = payrollGroupId });
+            // A legacy batch with rows only, no header.
+            seed.DailyTimeRecords.Add(new DailyRecord { Id = Guid.NewGuid(), EmployeeId = generator.Id, WorkDate = new DateOnly(2026, 9, 11), BatchCode = $"{code}-2" });
+            await seed.SaveChangesAsync();
+        }
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+
+        (await service.MakeUniqueBatchCodeAsync(code, CancellationToken.None)).Should().Be($"{code}-3");
+        (await service.MakeUniqueBatchCodeAsync("DTR-unused TS:1", CancellationToken.None)).Should().Be("DTR-unused TS:1");
+    }
+
+    // Regression: two headers already sharing a code (saved before codes were unique) used to
+    // make the Saved DTR list fail with "An item with the same key has already been added".
+    [Fact]
+    public async Task GetBatches_ListsBatchesThatShareACode_InsteadOfFailing()
+    {
+        using var db = new SqliteHrmsContext();
+        const string code = "DTRSep112026-Sep252026 PG:SM TS:10.02.2026.18:52";
+        await using (var seed = db.NewContext())
+        {
+            var (payrollGroupId, generator, approver) = SeedEmployees(seed);
+            seed.DTRBatches.AddRange(
+                new DTRBatch { Id = Guid.NewGuid(), BatchCode = code, GeneratedByEmployeeId = generator.Id, PayrollGroupId = payrollGroupId },
+                new DTRBatch { Id = Guid.NewGuid(), BatchCode = code, GeneratedByEmployeeId = generator.Id, PayrollGroupId = payrollGroupId });
+            seed.DailyTimeRecords.AddRange(
+                new DailyRecord { Id = Guid.NewGuid(), EmployeeId = generator.Id, WorkDate = new DateOnly(2026, 9, 16), BatchCode = code },
+                new DailyRecord { Id = Guid.NewGuid(), EmployeeId = approver.Id, WorkDate = new DateOnly(2026, 9, 16), BatchCode = code });
+            await seed.SaveChangesAsync();
+        }
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+
+        var batches = await service.GetBatches(new DateOnly(2026, 9, 16), new DateOnly(2026, 9, 30), CancellationToken.None);
+
+        batches.Should().ContainSingle(b => b.Code == code).Which.EmployeeCount.Should().Be(2);
+    }
 }

@@ -250,7 +250,34 @@ public class DailyRecordService : BaseService<DailyRecord>
             : null;
 
         var pgSegment = string.IsNullOrWhiteSpace(payrollGroupCode) ? "" : $" PG:{payrollGroupCode}";
-        return $"DTR{rangeFrom.ToString("MMMddyyyy")}-{rangeTo.ToString("MMMddyyyy")}{pgSegment} TS:{ts}";
+        var baseCode = $"DTR{rangeFrom.ToString("MMMddyyyy")}-{rangeTo.ToString("MMMddyyyy")}{pgSegment} TS:{ts}";
+        return await MakeUniqueBatchCodeAsync(baseCode, token);
+    }
+
+    // The timestamp is only to the minute, so two drafts for the same period and payroll group
+    // saved in the same minute (e.g. one per client) used to share a code -- and everything keyed
+    // by it (approve, post, delete, the Saved DTR list) treated them as one batch. A taken code
+    // gets "-2", "-3", ... Checked against both the batch headers and the DTR rows (legacy batches
+    // have rows only), including rows of confidential employees the caller can't see.
+    internal async Task<string> MakeUniqueBatchCodeAsync(string baseCode, CancellationToken token)
+    {
+        var taken = (await Context.DTRBatches
+                .Where(x => x.BatchCode.StartsWith(baseCode))
+                .Select(x => x.BatchCode)
+                .ToListAsync(token))
+            .Concat(await Context.IgnoringConfidentiality<DailyRecord>()
+                .Where(x => x.BatchCode != null && x.BatchCode.StartsWith(baseCode))
+                .Select(x => x.BatchCode!)
+                .Distinct()
+                .ToListAsync(token))
+            .ToHashSet();
+
+        if (!taken.Contains(baseCode)) return baseCode;
+        for (var n = 2; ; n++)
+        {
+            var candidate = $"{baseCode}-{n}";
+            if (!taken.Contains(candidate)) return candidate;
+        }
     }
     // Direct delete -- only for a batch that isn't posted yet (ForApproval/Declined), where
     // nothing is final and no approval is needed. An already-posted batch must go through
@@ -611,7 +638,11 @@ public class DailyRecordService : BaseService<DailyRecord>
         // DTRBatch has no matching row here and is reported as already-Approved, see BatchesModel.
         var batchCodes = records.Select(x => x.Key).Where(x => x != null).Select(x => x!).Distinct().ToList();
         var dtrBatches = await _dtrBatchService.FindByCodesAsync(batchCodes, token);
-        var dtrBatchesByCode = dtrBatches.ToDictionary(x => x.BatchCode);
+        // Batches saved before codes were made unique can share one (same period and payroll
+        // group, same minute) -- list the newest header instead of failing the whole list.
+        var dtrBatchesByCode = dtrBatches
+            .GroupBy(x => x.BatchCode)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
 
         // One lookup for every generator/deletion-requester across all batches, so the UI can
         // show names without downloading the whole employee list to resolve a few ids.

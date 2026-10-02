@@ -261,6 +261,41 @@ public class ConfidentialAccessTests
         sut.IsHiddenFromEmployeeScreens(s.Public).Should().BeFalse();
     }
 
+    // Regression: with a partial grant the employee is visible anyway, so approving one of their
+    // requests must not take them off the employee screens (they used to vanish from e.g. Manual
+    // Attendance Entry's employee search while others stayed).
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task PartialGrant_Approver_StillSeesTheEmployee_OnEmployeeScreens(bool operations, bool entries)
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedAsync(db);
+        await SeedApprovalAsync(db, s);
+        var scope = await ScopeForCallerAsync(db, grants: new ConfidentialGrants(operations, entries));
+        await using var context = db.NewContext(scope);
+        var sut = EmployeeServiceFor(context, scope);
+
+        (await sut.SearchAsync(new EmployeeListQuery(), CancellationToken.None)).Data.Select(x => x.Id)
+            .Should().Contain(s.Secret);
+        (await sut.Filter(new EmployeeFilter(), CancellationToken.None)).Select(x => x.Id)
+            .Should().Contain(s.Secret);
+        sut.IsHiddenFromEmployeeScreens(s.Secret).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PartialGrant_SeesTheConfidentialEmployee_InTheEmployeePicker()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedAsync(db);
+        var scope = await ScopeForCallerAsync(db, grants: new ConfidentialGrants(Operations: true, Entries: false));
+        await using var context = db.NewContext(scope);
+        var sut = EmployeeServiceFor(context, scope);
+
+        (await sut.Filter(new EmployeeFilter(), CancellationToken.None)).Select(x => x.Id)
+            .Should().BeEquivalentTo([s.Public, s.Secret, s.Caller]);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, true)]

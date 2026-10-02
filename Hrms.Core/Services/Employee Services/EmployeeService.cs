@@ -103,11 +103,15 @@ public class EmployeeService : BaseService<Employee>
         _access is { Restricted: true } ? Context.EmployeesForIntegrityChecks() : GetQueryable();
 
     // Employee screens (list, search, 201 file): the query filter already hides confidential
-    // employees; this also leaves out the ones visible only via an approval.
+    // employees; this also leaves out the ones visible only via an approval. Only those -- a
+    // caller whose Operations/Entries grant already shows an employee keeps them even while
+    // approving one of their requests (previously such employees vanished from the pickers).
     private IQueryable<Employee> EmployeeScreenQuery(Expression<Func<Employee, bool>>? exp = null)
     {
         var query = exp == null ? GetQueryable() : GetQueryable(exp);
-        var approvalOnly = _access is { Restricted: true } ? _access.ApprovalVisibleEmployeeIds : [];
+        var approvalOnly = _access is { Restricted: true }
+            ? _access.ApprovalVisibleEmployeeIds.Where(_access.IsApprovalOnlyEmployee).ToArray()
+            : [];
         return approvalOnly.Length == 0 ? query : query.Where(x => !approvalOnly.Contains(x.Id));
     }
 
