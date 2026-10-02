@@ -46,10 +46,14 @@ public class EmployeePayrollLineService
             dateRange, employee, batchId, period, creditPolicy, wtaxCreditPolicy, payDate, remarks,
             rangePayload.CompanyPolicy.OtNdCalculationMethod);
 
-        ComputeHoursBreakdown(empDtr, payrollLine);
+        // Hours and pay must read the same DTR rows: a duplicate same-date row (overlapping
+        // batches) or one dated outside the cutoff used to be summed into the hours but never
+        // paid, so payslip hours x rate stopped matching the amounts.
+        var paidDtr = SelectPaidRecords(empDtr, employee.Id, dateRange.FromDate, dateRange.ToDate);
+        ComputeHoursBreakdown(paidDtr, payrollLine);
         ComputeRetirementAccrual(employee, rangePayload, payrollLine);
         payrollLine.PaidLeaveBreakdown = BuildPaidLeaveBreakdown(empLeaveInfo);
-        ComputeBasicSalary(dateRange, empDtr, employee, rangePayload, payrollLine, leavePaySourceMap);
+        ComputeBasicSalary(dateRange, paidDtr, employee, rangePayload, payrollLine, leavePaySourceMap);
         rangePayload.Leaves.TryGetValue(new Leavekey(employee.Id), out var employeeLeaveApps);
         var employeeOneTimeLeaveApps = employeeLeaveApps?.Where(a => a.PayoutMode == PayoutMode.OneTime).ToList();
         ComputeNonCompanyPaidLeaves(empLeaveInfo, leavePaySourceMap, employeeOneTimeLeaveApps, payrollLine);
@@ -392,6 +396,21 @@ public class EmployeePayrollLineService
             basicResultMoel.Add(result);
         }
         return basicResultMoel;
+    }
+
+    // The DTR rows this run actually pays: one per date in the period, picked by
+    // SelectDtrRecordForDate. Everything else in the employee's DTR list (a second row for a
+    // date, a row outside FromDate..ToDate) is neither paid nor counted in the hours.
+    internal static List<DailyRecordRunModel> SelectPaidRecords(
+        List<DailyRecordRunModel> dtrs, Guid employeeId, DateOnly from, DateOnly to)
+    {
+        var paid = new List<DailyRecordRunModel>();
+        for (var date = from; date <= to; date = date.AddDays(1))
+        {
+            var record = SelectDtrRecordForDate(dtrs, employeeId, date);
+            if (record != null) paid.Add(record);
+        }
+        return paid;
     }
 
     // Grouped, hours-aware pick rather than a plain FirstOrDefault: if more than one

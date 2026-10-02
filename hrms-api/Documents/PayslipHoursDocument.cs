@@ -24,6 +24,18 @@ public class PayslipHoursDocument : IDocument
     private const decimal StandardShiftHours = 8m;
     private decimal HourlyRate => _p.DailyRate > 0 ? _p.DailyRate / StandardShiftHours : 0m;
 
+    // What the plain regular hours were actually paid: the per-day RegularDayPay saved with the
+    // payroll (TimeHourPayResults). Not BasicPay — salary adjustments are added onto that. A
+    // payroll with no per-day breakdown falls back to hours x hourly, the old behaviour.
+    private decimal RegularPaidAmount
+    {
+        get
+        {
+            var days = _p.TimeHourPayResults;
+            return days is { Count: > 0 } ? days.Sum(d => d.RegularDayPay) : _p.RegularNetHours * HourlyRate;
+        }
+    }
+
     public PayslipHoursDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null)
     {
         _p = payroll;
@@ -163,8 +175,10 @@ public class PayslipHoursDocument : IDocument
         Header("Total Number of Work Days", PayslipSections.DaysWorked(_p));
         Header("Regular Days", PayslipSections.RegularDaysWorked(_p));
 
-        // Regular — VARIABLE reproduces BasicPay exactly as hours x hourly; FIXED's BasicPay
-        // (MonthlyRate/divisor) isn't hours-driven, so it's shown as a plain amount.
+        // Regular — VARIABLE shows what was actually paid for the plain regular hours
+        // (RegularDayPay, the per-day hourly x RegularNetHours sum that BasicPay is built from),
+        // so the rows always add up to GROSS INCOME; FIXED's BasicPay (MonthlyRate/divisor)
+        // isn't hours-driven, so it's shown as a plain amount.
         if (_p.SalaryType == SalaryType.FIXED)
         {
             var fixedBasic = _p.BasicPay - _p.PaidLeaves;
@@ -172,7 +186,7 @@ public class PayslipHoursDocument : IDocument
         }
         else
         {
-            Add(BaseRow("Regular Hours", _p.RegularNetHours, _p.RegularNetHours * HourlyRate, _p.RegularNDHours, _p.RegularNDBasePay));
+            Add(BaseRow("Regular Hours", _p.RegularNetHours, RegularPaidAmount, _p.RegularNDHours, _p.RegularNDBasePay));
             Add(OtRow("Regular OT Hours", _p.RegularOTHours, _p.RegularNDOTHours, _p.RegularOTBasePay, _p.RegularNDOTBasePay));
         }
 
