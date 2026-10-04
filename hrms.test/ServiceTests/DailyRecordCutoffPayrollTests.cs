@@ -269,5 +269,6 @@ public class DailyRecordCutoffPayrollTests
         row.PendingDays.Should().Be(1);
         row.PaidDays.Should().Be(1);
         row.PendingBatchCodes.Should().Equal("DTR-clientB");
+        row.SavedDates.Should().Equal(new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 6), new DateOnly(2026, 1, 7));
     }
 }

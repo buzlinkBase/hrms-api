@@ -225,6 +225,9 @@ public class PayrollReadinessEmployee
     public int PaidDays { get; set; }
     // DTR batches still holding this employee's pending days, so the user knows whom to chase.
     public List<string> PendingBatchCodes { get; set; } = [];
+    // Distinct work dates that already have a DTR row in the range (any status) -- lets the
+    // Calculate DTR screen skip days that are already saved instead of failing the whole save.
+    public List<DateOnly> SavedDates { get; set; } = [];
     // "Ready" (approved days, nothing pending), "Partial" (approved days plus pending ones),
     // "Pending" (only pending days), "Paid" (every day in the range already in a run) or
     // "FixedSalaryAlreadyPaid" (FIXED salary whose period pay an earlier run covered -- a run skips them).
