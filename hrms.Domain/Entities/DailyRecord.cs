@@ -96,22 +96,22 @@ public class DailyRecord : BaseEntity, IUserField, IEmployeeOwned
     // without paying any day twice -- see PayrollProcessorService.GenerateAsync.
     public Guid? PayrollBatchId { get; set; }
 
-    // Sum of every mutually-exclusive Hrs/OT/ND/ND-OT bucket below — exactly one WorkType
-    // group is ever populated per day (see WorkTypeResolver), so this is a straight sum, not a
-    // max/first. Deliberately excludes OBHours/PaidLeaveHours/UnpaidLeaveHours — those aren't
-    // worked hours. Mirrors DTRDetailModel.TotalHours (that DTO's own copy of this same
-    // calculation); DailyRecord doesn't have the SpecialWorkDay* fields DTRDetailModel does
-    // (commented out above), so they're simply omitted here. Getter-only — EF Core won't map
-    // this to a column. Used to pick the hours-bearing record when more than one DailyRecord
-    // candidate exists for the same employee+date (see EmployeePayrollLineService.CalculateDTRTimePay).
-    public double TotalHours => RegularNetHours + RegularOTHours + RegularNDHours + RegularNDOTHours
-        + RestDayHours + RestDayOTHours + RestDayNDHours + RestDayNDOTHours
-        + LegalHolHours + LegalHolOTHours + LegalHolNightDiffHours + LegalHolNightDiffOTHours
-        + SpecialHolHours + SpecialHolOTHours + SpecialHolNightDiffHours + SpecialHolNightDiffOTHours
-        + RestLegalDayHours + RestLegalDayOTHours + RestLegalDayNDHours + RestLegalDayNDOTHours
-        + RestSpecialDayHours + RestSpecialDayOTHours + RestSpecialDayNDHours + RestSpecialDayNDOTHours
-        + DoubleLegalHours + DoubleLegalOTHours + DoubleLegalNDHours + DoubleLegalNDOTHours
-        + RestDoubleLegalHours + RestDoubleLegalOTHours + RestDoubleLegalNDHours + RestDoubleLegalNDOTHours;
+    // Worked hours = Hrs + OT of every day type — exactly one WorkType group is ever populated
+    // per day (see WorkTypeResolver), so this is a straight sum. ND/ND-OT are not added: the DTR
+    // stores natural hours (Hrs and OT already include their night portion), so adding them
+    // would double count. Deliberately excludes OBHours/PaidLeaveHours/UnpaidLeaveHours — those
+    // aren't worked hours. Mirrors DTRDetailModel.TotalHours; DailyRecord doesn't have the
+    // SpecialWorkDay* fields DTRDetailModel does, so they're simply omitted here. Getter-only —
+    // EF Core won't map this to a column. Used to pick the hours-bearing record when more than one
+    // DailyRecord candidate exists for the same employee+date (see EmployeePayrollLineService).
+    public double TotalHours => RegularNetHours + RegularOTHours
+        + RestDayHours + RestDayOTHours
+        + LegalHolHours + LegalHolOTHours
+        + SpecialHolHours + SpecialHolOTHours
+        + RestLegalDayHours + RestLegalDayOTHours
+        + RestSpecialDayHours + RestSpecialDayOTHours
+        + DoubleLegalHours + DoubleLegalOTHours
+        + RestDoubleLegalHours + RestDoubleLegalOTHours;
 }
 
 [DisableSoftDelete]

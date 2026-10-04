@@ -61,14 +61,13 @@ internal sealed class CategoryRateResolver : ICategoryRateResolver
     }
 }
 
-// Additive: the DTR screens' display hours -- the C# twin of the UI's toDisplayHours
-// (one-punch-hris-ui src/app/modules/daily-time-record/detail/utils/dtr-hours-display.ts):
+// Additive: the separated buckets joined back into the natural hours the DTR shows --
 //   Hrs = Hrs + ND,  OT = OT + NDOT,  ND = ND + NDOT,  NDOT = 0.
 // Hrs + ND is all regular-rate hours, OT + NDOT all overtime, ND + NDOT all night hours, so
 // pricing these buckets separately and adding them up is exactly what "additive" means.
-internal static class DisplayHoursShaper
+internal static class NaturalHours
 {
-    public static CategoryHours Shape(CategoryHours saved) => new(
+    public static CategoryHours Join(CategoryHours saved) => new(
         Hrs: saved.Hrs + saved.Nd,
         Ot: saved.Ot + saved.Ndot,
         Nd: saved.Nd + saved.Ndot,

@@ -503,11 +503,13 @@ public enum SettingKey
 
 // How a day's OT / ND / NDOT hours are priced -- each method is its own IDtrPayCalculator
 // (Hrms.Core/Calculators/DtrPay), picked by IDtrPayCalculatorFactory.
-// - Compounded (DOLE-standard): the saved DTR hours as stored, each at its fully compounded rate --
-//   OT x day x OT, ND x day x ND, NDOT x day x OT x ND.
-// - Additive (the default, see OtNdCalculationMethodDefaults): the DTR display hours (Hrs + ND,
-//   OT + NDOT, ND + NDOT; NDOT = 0), each at one rate and added up -- Hrs x day rate, OT x raw OT
-//   rate (no day-type multiplier), ND x (ND rate - 1). Confirmed against the company's own manual
+// The DTR stores natural hours (Hrs/OT include their night part, ND = all night hours, NDOT = the
+// night-OT subset of OT and ND); each day-type policy branches on the method (DayTypeHours).
+// - Compounded (DOLE-standard): the hours separated into daytime / night buckets, each at its fully
+//   compounded rate -- daytime Hrs x day, OT x day x OT, ND x day x ND, NDOT x day x OT x ND.
+// - Additive (the default, see OtNdCalculationMethodDefaults): the natural hours (NDOT = 0), each
+//   at one rate and added up -- Hrs x day rate, OT x raw OT rate (no day-type multiplier),
+//   ND x (ND rate - 1). Confirmed against the company's own manual
 //   payroll worksheet; computes LESS than Compounded for any category whose day rate isn't 1.0, so
 //   Setup > Company Policy shows a compliance warning when it's selected.
 public enum OtNdCalculationMethod

@@ -3,9 +3,24 @@ namespace Hrms.Core.Calculators.DtrPay;
 // Immutable value objects passed between the pay-calculation steps -- nothing is accumulated onto
 // a shared mutable line, so every step is a pure function of its inputs.
 
-// One category's hours for one day, as decimals (DailyRecord stores doubles).
+// One category's hours for one day, as decimals (DailyRecord stores doubles), separated into
+// mutually exclusive buckets: Hrs = daytime regular, Ot = daytime OT, Nd = night regular,
+// Ndot = night OT.
 internal readonly record struct CategoryHours(decimal Hrs, decimal Ot, decimal Nd, decimal Ndot)
 {
+    // The DTR stores natural hours (dtr-api DailyRecordBuilder): Hrs and OT include their night
+    // portion, ND holds every night hour (regular + OT) and NDOT is the night-OT subset of both.
+    // Separating them lets each pay method price every hour exactly once.
+    public static CategoryHours Separate(decimal hrs, decimal ot, decimal nd, decimal ndot)
+    {
+        var nightRegular = Math.Max(0m, nd - ndot);
+        return new CategoryHours(
+            Hrs: Math.Max(0m, hrs - nightRegular),
+            Ot: Math.Max(0m, ot - ndot),
+            Nd: nightRegular,
+            Ndot: ndot);
+    }
+
     // True when there's anything for the OT / ND / NDOT pricers to price.
     public bool HasPremiumHours => Ot > 0 || Nd > 0 || Ndot > 0;
 }
@@ -36,11 +51,7 @@ internal sealed record BucketPay(
 
 // What the plain worked/unworked hours of one category pay (the day-type policies' output).
 // Worked/Unworked are only reported for the legal-holiday categories.
-internal sealed record DayPay(decimal Value, decimal Worked, decimal Unworked)
-{
-    // Extra worked-hour pay priced at this day's own rate (Additive's folded-in night hours).
-    public DayPay AddWorked(decimal amount) => this with { Value = Value + amount, Worked = Worked + amount };
-}
+internal sealed record DayPay(decimal Value, decimal Worked, decimal Unworked);
 
 // Everything one category pays for one day.
 internal sealed record CategoryPay(PayCategoryKind Kind, DayPay Day, BucketPay Ot, BucketPay Nd, BucketPay Ndot)

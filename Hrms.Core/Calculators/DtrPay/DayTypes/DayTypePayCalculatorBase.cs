@@ -17,7 +17,8 @@ internal interface ICompoundedDayTypePay : IDayTypePayCalculator { }
 internal sealed record DayTypePayInputs(ICategoryRateResolver Rates, IEligibleHoursFilter Eligibility);
 
 // Template Method for one day type:
-//   plain day pay (this day type's existing pipeline: rates, Fixed pre-funding, unworked pay)
+//   day pay (this day type's existing pipeline: rates, Fixed pre-funding, unworked pay; which
+//   hours it pays depends on the method -- see DayTypeHours)
 //   -> this day type's OT / ND / NDOT hours, minus anything the employee isn't eligible for
 //   -> nothing more to price? done : resolve this day type's rates -> PriceHours (per method).
 internal abstract class DayTypePayCalculatorBase : IDayTypePayCalculator
@@ -37,11 +38,16 @@ internal abstract class DayTypePayCalculatorBase : IDayTypePayCalculator
 
     public PayCategoryKind Kind => Category.Kind;
 
+    // The pay method this class prices for. The day pipeline's policy branches on it too
+    // (DayTypeHours), so it's stamped on the context before the pipeline runs.
+    protected abstract OtNdCalculationMethod Method { get; }
+
     // Prices this day type's eligible OT / ND / NDOT hours the way the pay method does.
     protected abstract CategoryPay PriceHours(CategoryHours saved, CategoryRates rates, DayPay day, PayrollContext context);
 
     public CategoryPay Calculate(PayrollContext context)
     {
+        context.OtNdCalculationMethod = Method;
         var line = _dayPipeline.Run(context);
         var day = new DayPay(line.Value, line.Worked, line.UnWork);
 

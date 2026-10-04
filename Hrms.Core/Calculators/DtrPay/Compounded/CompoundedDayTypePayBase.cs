@@ -3,7 +3,8 @@ namespace Hrms.Core.Calculators.DtrPay;
 // The Compounded method's bucket pricers, registered once and shared by its 8 day types.
 internal sealed record CompoundedPricers(IBucketPricer Ot, IBucketPricer Nd, IBucketPricer Ndot);
 
-// Compounded (DOLE-standard), for one day type: the saved DTR hours exactly as stored, each
+// Compounded (DOLE-standard), for one day type: the DTR hours separated into daytime / night
+// buckets (CategoryHours.Separate) -- the day-type policy pays the daytime Hrs -- each
 // bucket at its fully compounded rate --
 //   OT   x day rate x OT rate
 //   ND   x day rate x ND rate
@@ -17,6 +18,8 @@ internal abstract class CompoundedDayTypePayBase : DayTypePayCalculatorBase, ICo
     {
         _pricers = pricers;
     }
+
+    protected sealed override OtNdCalculationMethod Method => OtNdCalculationMethod.Compounded;
 
     protected sealed override CategoryPay PriceHours(CategoryHours saved, CategoryRates rates, DayPay day, PayrollContext context) =>
         new(Kind, day, PriceOt(saved.Ot, rates), PriceNd(saved.Nd, rates), PriceNdot(saved.Ndot, rates));

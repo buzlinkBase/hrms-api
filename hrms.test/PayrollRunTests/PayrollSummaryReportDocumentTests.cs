@@ -6,14 +6,15 @@ namespace hrms.test.PayrollRunTests;
 
 /// <summary>
 /// Payroll Summary's Basic/OT/ND/Holiday columns must observe OtNdCalculationMethod the same
-/// way PayslipHoursDocument already does. Under Additive mode: NDOT hours (both overtime AND
-/// night-diff) price exactly like OT-only hours plus a separate ND delta (day-type rate dropped
-/// entirely -- see Calculators/DtrPay), so they fold into BOTH
-/// the OT and ND columns; and each category's ND-hours day-rate portion moves out of the ND
+/// way PayslipHoursDocument already does. Hours are stored natural (OT and ND each already
+/// include the NDOT hours), so the OT/ND hour columns read them as-is in both modes. Under
+/// Additive mode: NDOT pay (both overtime AND night-diff) prices exactly like OT-only hours plus
+/// a separate ND delta (day-type rate dropped entirely -- see Calculators/DtrPay), so it folds
+/// into BOTH the OT and ND pay columns; and each category's ND-hours day-rate portion moves out of the ND
 /// column into Basic (Regular) or Holiday (the 6 holiday categories) -- matching
 /// PayslipHoursDocument.BaseRow's "Regular Hours"/"Special Holiday" fold exactly -- leaving ND
-/// premium-only. Under Compounded mode, none of this applies: NDOT stays excluded from OT/ND,
-/// and Basic/Holiday/ND all read their underlying Payroll fields unchanged, byte-for-byte as
+/// premium-only. Under Compounded mode, none of the pay folds apply: NDOT pay stays excluded from
+/// OT/ND, and Basic/Holiday/ND all read their underlying Payroll fields unchanged, byte-for-byte as
 /// before this feature.
 /// </summary>
 public class PayrollSummaryReportDocumentTests
@@ -24,9 +25,9 @@ public class PayrollSummaryReportDocumentTests
 
         // Regular category -- Basic's own scope.
         BasicPay = 1000m, // Regular's plain day-rate pay (RegularDayPay)
-        RegularOTHours = 5,
+        RegularOTHours = 7, // natural: 5 daytime OT + 2 NDOT
         OvertimePay = 500m, // OT-only Value, mode-aware already
-        RegularNDHours = 3,
+        RegularNDHours = 5, // natural: 3 night regular + 2 NDOT
         RegularNDBasePay = 27m, // ND-only day-rate portion
         RegularNDPremiumPay = 3m, // ND-only premium portion (27 + 3 = 30, folded into NightDifferentialPay below)
         RegularNDOTHours = 2,
@@ -45,12 +46,12 @@ public class PayrollSummaryReportDocumentTests
     };
 
     [Fact]
-    public void Compounded_LeavesBasicHolidayNdUnchanged_AndExcludesNdotFromOtAndNd()
+    public void Compounded_LeavesBasicHolidayNdUnchanged_AndExcludesNdotPayFromOtAndNd()
     {
         var row = BuildRow(OtNdCalculationMethod.Compounded);
 
-        PayrollSummaryReportDocument.OtHours(row).Should().Be(5);
-        PayrollSummaryReportDocument.NdHours(row).Should().Be(7); // Regular's 3 + Special's 4
+        PayrollSummaryReportDocument.OtHours(row).Should().Be(7); // natural, as stored
+        PayrollSummaryReportDocument.NdHours(row).Should().Be(9); // Regular's 5 + Special's 4
         PayrollSummaryReportDocument.OtPay(row).Should().Be(500m);
         PayrollSummaryReportDocument.NdPay(row).Should().Be(85m); // full blended, unchanged
         PayrollSummaryReportDocument.BasicPay(row).Should().Be(1000m); // unchanged, no fold
@@ -62,8 +63,8 @@ public class PayrollSummaryReportDocumentTests
     {
         var row = BuildRow(OtNdCalculationMethod.Additive);
 
-        PayrollSummaryReportDocument.OtHours(row).Should().Be(7); // 5 OT-only + 2 NDOT
-        PayrollSummaryReportDocument.NdHours(row).Should().Be(9); // (Regular's 3 + Special's 4) + 2 NDOT
+        PayrollSummaryReportDocument.OtHours(row).Should().Be(7); // natural, as stored -- no fold
+        PayrollSummaryReportDocument.NdHours(row).Should().Be(9); // Regular's 5 + Special's 4 -- no fold
         PayrollSummaryReportDocument.OtPay(row).Should().Be(625m); // 500 + 125 (NDOT's OT-rate portion)
         PayrollSummaryReportDocument.BasicPay(row).Should().Be(1027m); // 1000 + 27 (Regular's ND day-rate)
         PayrollSummaryReportDocument.HolidayPay(row).Should().Be(250m); // 200 + 50 (Special's ND day-rate)
@@ -105,9 +106,9 @@ public class PayrollSummaryReportDocumentTests
         {
             OtNdCalculationMethod = OtNdCalculationMethod.Additive,
             BasicPay = 1027m, // 1000 + Regular's ND base 27
-            RegularOTHours = 5,
+            RegularOTHours = 7,
             OvertimePay = 625m, // 500 + NDOT's OT portion 125
-            RegularNDHours = 3,
+            RegularNDHours = 5,
             RegularNDPremiumPay = 16.5m, // 3 + NDOT's ND delta 13.5
             RegularNDOTHours = 2,
             HolidayPay = 250m, // 200 + Special's ND base 50

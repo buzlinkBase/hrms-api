@@ -7,11 +7,12 @@ namespace hrms.test.PayrollRunTests;
 /// <summary>
 /// Setup > Company Policy > OT/ND Calculation Method -- each method is its own IDtrPayCalculator
 /// (Hrms.Core/Calculators/DtrPay):
-/// - Compounded: saved hours at compounded rates (OT x day x OT, ND x day x ND, NDOT x day x OT x ND).
-/// - Additive: the DTR display hours (Hrs + ND, OT + NDOT, ND + NDOT; NDOT = 0), one rate each --
-///   day rate for Hrs, raw OT rate for OT, (ND rate - 1) for ND. It pays exactly what the old
-///   Additive branches paid (dayRate dropped for OT-involving hours, ND hours at day + (ND - 1)),
-///   only the bucket each amount is reported in moved.
+/// The DTR stores natural hours (Hrs/OT include their night part, ND = all night hours, NDOT =
+/// the night-OT subset of OT and ND).
+/// - Compounded: separated hours at compounded rates (OT x day x OT, ND x day x ND, NDOT x day x OT x ND).
+/// - Additive: the natural hours (NDOT = 0), one rate each -- day rate for Hrs (paid by the
+///   day-type policy), raw OT rate for OT, (ND rate - 1) for ND. It pays exactly what the old
+///   Additive branches paid (dayRate dropped for OT-involving hours, ND hours at day + (ND - 1)).
 /// All on a Special Non-Working day: DailyRate 540 (hourly 67.50), SPECIAL_NON_WORKING 1.30,
 /// HOLIDAY_OT 1.25, NIGHTDIFF 1.10.
 /// </summary>
@@ -20,6 +21,9 @@ public class OtNdCalculationMethodTests
     private const decimal HourlyRate = 67.5m; // DailyRate 540 / 8
     private const decimal Day = 1.30m, Ot = 1.25m, Nd = 1.10m;
 
+    // otHours / ndHours / ndotHours are the separated daytime-OT / night-regular / night-OT
+    // buckets; the record stores them natural, as the DTR does (Hrs includes the night regular
+    // hours, OT and ND each include the NDOT hours).
     private static PayrollContext CreateContext(
         double otHours = 0, double ndHours = 0, double ndotHours = 0,
         SalaryType salaryType = SalaryType.VARIABLE, bool otEligible = true, bool ndEligible = true)
@@ -39,8 +43,9 @@ public class OtNdCalculationMethodTests
             DailyRecord = new DailyRecordRunModel
             {
                 ShiftWorkingHour = 8,
-                SpecialHolOTHours = otHours,
-                SpecialHolNightDiffHours = ndHours,
+                SpecialHolHours = ndHours,
+                SpecialHolOTHours = otHours + ndotHours,
+                SpecialHolNightDiffHours = ndHours + ndotHours,
                 SpecialHolNightDiffOTHours = ndotHours,
             },
             Payload = new CalculatorPayload(),
@@ -58,7 +63,7 @@ public class OtNdCalculationMethodTests
     private static DTRPayModel Compounded(PayrollContext context) =>
         DtrPayKit.Calculator(OtNdCalculationMethod.Compounded).Calculate(context);
 
-    // --- Compounded: saved hours x compounded rates ----------------------------------------
+    // --- Compounded: separated hours x compounded rates ----------------------------------------
 
     [Fact]
     public void Compounded_OtHours_MultiplyDayRateAndOtRate()
@@ -99,7 +104,7 @@ public class OtNdCalculationMethodTests
         model.SpecialPay.Should().Be(0m); // no plain holiday hours on this day
     }
 
-    // --- Additive: display hours x one rate each ---------------------------------------------
+    // --- Additive: natural hours x one rate each ---------------------------------------------
 
     [Fact]
     public void Additive_OtHours_PayTheRawOtRateAlone_NoDayRate()
@@ -116,7 +121,7 @@ public class OtNdCalculationMethodTests
     {
         var model = Additive(CreateContext(ndHours: 5));
 
-        model.SpecialPay.Should().Be(5 * HourlyRate * Day); // folded into "Hrs" at the day rate
+        model.SpecialPay.Should().Be(5 * HourlyRate * Day); // natural Hrs, paid by the policy at the day rate
         model.SpecialNDPay.Should().Be(5 * HourlyRate * (Nd - 1.0m)); // the .10 only
         model.SpecialNDBasePay.Should().Be(0m);
         model.SpecialNDPremiumPay.Should().Be(5 * HourlyRate * (Nd - 1.0m));
@@ -170,6 +175,7 @@ public class OtNdCalculationMethodTests
     public void Additive_RegularNightHours_KeepTheirBaseWhereGrossCountsIt(SalaryType salaryType)
     {
         var context = CreateContext(salaryType: salaryType);
+        context.DailyRecord.RegularNetHours = 5; // natural: all 5 regular hours are at night
         context.DailyRecord.RegularNDHours = 5;
 
         var model = Additive(context);

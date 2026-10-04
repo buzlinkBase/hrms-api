@@ -69,7 +69,7 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
         record.LegalHolHours.Should().Be(0); // stepped aside for DoubleLegal
         record.RegularNetHours.Should().Be(0);
         record.RegularNDHours.Should().Be(0);
-        (record.DoubleLegalHours + record.DoubleLegalNDHours).Should().BeApproximately(8.0, 0.01);
+        record.DoubleLegalHours.Should().BeApproximately(8.0, 0.01);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         record.RestDayHours.Should().Be(0);
         record.RestLegalDayHours.Should().Be(0); // stepped aside for RestDoubleLegal
-        (record.RestDoubleLegalHours + record.RestDoubleLegalNDHours).Should().BeApproximately(8.0, 0.01);
+        record.RestDoubleLegalHours.Should().BeApproximately(8.0, 0.01);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         record.LegalHolHours.Should().Be(0); // stepped aside for DoubleLegal throughout
         record.RegularNDHours.Should().BeGreaterThan(0); // the regression this test guards against
-        (record.RegularNetHours + record.RegularNDHours + record.DoubleLegalHours + record.DoubleLegalNDHours)
+        (record.RegularNetHours + record.DoubleLegalHours)
             .Should().BeApproximately(8.0, 0.01); // the full 480-min capped shift, nothing lost or doubled
     }
 
@@ -142,7 +142,7 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         record.RestLegalDayHours.Should().Be(0); // stepped aside for RestDoubleLegal
         record.RestDayNDHours.Should().BeGreaterThan(0); // the Rest counterpart of the same regression
-        (record.RestDayHours + record.RestDayNDHours + record.RestDoubleLegalHours + record.RestDoubleLegalNDHours)
+        (record.RestDayHours + record.RestDoubleLegalHours)
             .Should().BeApproximately(8.0, 0.01);
     }
 
@@ -184,7 +184,7 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
         record.LegalHolHours.Should().Be(0); // stepped aside for DoubleLegal, both days included
         record.RegularNetHours.Should().Be(0);
         record.RegularNDHours.Should().Be(0);
-        (record.DoubleLegalHours + record.DoubleLegalNDHours).Should().BeApproximately(8.0, 0.01); // both days combined
+        record.DoubleLegalHours.Should().BeApproximately(8.0, 0.01); // both days combined
     }
 
     [Fact]
@@ -214,9 +214,9 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
         record.LegalHolHours.Should().Be(0); // stepped aside for DoubleLegal
         record.RegularNetHours.Should().Be(0);
         record.RegularNDHours.Should().Be(0);
-        (record.DoubleLegalHours + record.DoubleLegalNDHours).Should().BeGreaterThan(0); // Day1's portion
-        (record.SpecialHolHours + record.SpecialHolNightDiffHours).Should().BeGreaterThan(0); // Day2's portion
-        (record.DoubleLegalHours + record.DoubleLegalNDHours + record.SpecialHolHours + record.SpecialHolNightDiffHours)
+        record.DoubleLegalHours.Should().BeGreaterThan(0); // Day1's portion
+        record.SpecialHolHours.Should().BeGreaterThan(0); // Day2's portion
+        (record.DoubleLegalHours + record.SpecialHolHours)
             .Should().BeApproximately(8.0, 0.01); // the full capped shift, split correctly by date/type
     }
 
@@ -240,9 +240,9 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         record.RestLegalDayHours.Should().Be(0); // stepped aside for RestDoubleLegal
         record.RestDayHours.Should().Be(0);
-        (record.RestDoubleLegalHours + record.RestDoubleLegalNDHours).Should().BeGreaterThan(0); // Day1's portion
-        (record.RestSpecialDayHours + record.RestSpecialDayNDHours).Should().BeGreaterThan(0); // Day2's portion
-        (record.RestDoubleLegalHours + record.RestDoubleLegalNDHours + record.RestSpecialDayHours + record.RestSpecialDayNDHours)
+        record.RestDoubleLegalHours.Should().BeGreaterThan(0); // Day1's portion
+        record.RestSpecialDayHours.Should().BeGreaterThan(0); // Day2's portion
+        (record.RestDoubleLegalHours + record.RestSpecialDayHours)
             .Should().BeApproximately(8.0, 0.01);
     }
 
@@ -266,9 +266,9 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         var record = RunFullRow(context);
 
-        (record.DoubleLegalHours + record.DoubleLegalNDHours).Should().BeGreaterThan(0); // Day1's portion
-        (record.RegularNetHours + record.RegularNDHours).Should().BeGreaterThan(0); // Day2's genuine non-holiday remainder
-        (record.DoubleLegalHours + record.DoubleLegalNDHours + record.RegularNetHours + record.RegularNDHours)
+        record.DoubleLegalHours.Should().BeGreaterThan(0); // Day1's portion
+        record.RegularNetHours.Should().BeGreaterThan(0); // Day2's genuine non-holiday remainder
+        (record.DoubleLegalHours + record.RegularNetHours)
             .Should().BeApproximately(8.0, 0.01);
     }
 
@@ -303,10 +303,10 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         var record = RunFullRow(context);
 
-        (record.DoubleLegalHours + record.DoubleLegalNDHours).Should().Be(0); // double status not detected off-anchor
-        (record.RegularNetHours + record.RegularNDHours).Should().BeGreaterThan(0); // Day1's genuine non-holiday portion
-        (record.LegalHolHours + record.LegalHolNightDiffHours).Should().BeGreaterThan(0); // Day2's minutes, NOT lost
-        (record.RegularNetHours + record.RegularNDHours + record.LegalHolHours + record.LegalHolNightDiffHours)
+        record.DoubleLegalHours.Should().Be(0); // double status not detected off-anchor
+        record.RegularNetHours.Should().BeGreaterThan(0); // Day1's genuine non-holiday portion
+        record.LegalHolHours.Should().BeGreaterThan(0); // Day2's minutes, NOT lost
+        (record.RegularNetHours + record.LegalHolHours)
             .Should().BeApproximately(8.0, 0.01);
     }
 
@@ -327,10 +327,10 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         var record = RunFullRow(context);
 
-        (record.RestDoubleLegalHours + record.RestDoubleLegalNDHours).Should().Be(0);
-        (record.RestDayHours + record.RestDayNDHours).Should().BeGreaterThan(0); // Day1's genuine rest-day portion
-        (record.RestLegalDayHours + record.RestLegalDayNDHours).Should().BeGreaterThan(0); // Day2's minutes, NOT lost
-        (record.RestDayHours + record.RestDayNDHours + record.RestLegalDayHours + record.RestLegalDayNDHours)
+        record.RestDoubleLegalHours.Should().Be(0);
+        record.RestDayHours.Should().BeGreaterThan(0); // Day1's genuine rest-day portion
+        record.RestLegalDayHours.Should().BeGreaterThan(0); // Day2's minutes, NOT lost
+        (record.RestDayHours + record.RestLegalDayHours)
             .Should().BeApproximately(8.0, 0.01);
     }
 
@@ -355,10 +355,10 @@ public class DoubleLegalHolidayCrossDateReproTests : DtrTestBase
 
         var record = RunFullRow(context);
 
-        (record.DoubleLegalHours + record.DoubleLegalNDHours).Should().Be(0); // still not detected, anchor (Day1) has no Legal holiday at all
-        (record.SpecialHolHours + record.SpecialHolNightDiffHours).Should().BeGreaterThan(0); // Day1's portion
-        (record.LegalHolHours + record.LegalHolNightDiffHours).Should().BeGreaterThan(0); // Day2's portion, plain Legal not Double
-        (record.SpecialHolHours + record.SpecialHolNightDiffHours + record.LegalHolHours + record.LegalHolNightDiffHours)
+        record.DoubleLegalHours.Should().Be(0); // still not detected, anchor (Day1) has no Legal holiday at all
+        record.SpecialHolHours.Should().BeGreaterThan(0); // Day1's portion
+        record.LegalHolHours.Should().BeGreaterThan(0); // Day2's portion, plain Legal not Double
+        (record.SpecialHolHours + record.LegalHolHours)
             .Should().BeApproximately(8.0, 0.01);
     }
 }

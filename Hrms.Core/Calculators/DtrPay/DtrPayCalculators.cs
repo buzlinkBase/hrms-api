@@ -42,8 +42,8 @@ internal abstract class DtrPayCalculatorBase : IDtrPayCalculator
     }
 }
 
-// Compounded (DOLE-standard): the saved DTR hours exactly as stored, each bucket at its fully
-// compounded rate -- one class per day type under Compounded/ (CompoundedDayTypePayBase).
+// Compounded (DOLE-standard): the DTR hours separated into daytime / night buckets, each at its
+// fully compounded rate -- one class per day type under Compounded/ (CompoundedDayTypePayBase).
 internal sealed class CompoundedDtrPayCalculator : DtrPayCalculatorBase
 {
     public CompoundedDtrPayCalculator(
@@ -55,9 +55,9 @@ internal sealed class CompoundedDtrPayCalculator : DtrPayCalculatorBase
     public override OtNdCalculationMethod Method => OtNdCalculationMethod.Compounded;
 }
 
-// Additive: the DTR display hours, each bucket at one rate, added up -- one class per day type
-// under Additive/ (AdditiveDayTypePayBase). Pays exactly what the old Additive branches did;
-// only the bucket each peso lands in changed.
+// Additive: the natural DTR hours, each bucket at one rate, added up -- one class per day type
+// under Additive/ (AdditiveDayTypePayBase); each day-type policy pays its natural Hrs at its day
+// rate (DayTypeHours).
 internal sealed class AdditiveDtrPayCalculator : DtrPayCalculatorBase
 {
     public AdditiveDtrPayCalculator(

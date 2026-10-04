@@ -26,13 +26,17 @@ public class PayslipHoursDocument : IDocument
 
     // What the plain regular hours were actually paid: the per-day RegularDayPay saved with the
     // payroll (TimeHourPayResults). Not BasicPay — salary adjustments are added onto that. A
-    // payroll with no per-day breakdown falls back to hours x hourly, the old behaviour.
+    // payroll with no per-day breakdown falls back to the daytime hours x hourly, the old
+    // behaviour. RegularNetHours is natural (night included), so the night regular hours
+    // (ND - NDOT) come off first — their base is RegularNDBasePay, added by BaseRow.
     private decimal RegularPaidAmount
     {
         get
         {
             var days = _p.TimeHourPayResults;
-            return days is { Count: > 0 } ? days.Sum(d => d.RegularDayPay) : _p.RegularNetHours * HourlyRate;
+            if (days is { Count: > 0 }) return days.Sum(d => d.RegularDayPay);
+            var nightRegularHours = Math.Max(0m, _p.RegularNDHours - _p.RegularNDOTHours);
+            return Math.Max(0m, _p.RegularNetHours - nightRegularHours) * HourlyRate;
         }
     }
 
@@ -95,31 +99,28 @@ public class PayslipHoursDocument : IDocument
     // Worked-only base pay for a day-type category, no OT/premium — Legal/RestLegal/DoubleLegal/
     // RestDoubleLegal's {Category}Pay is worked+unworked blended, so their unworked amount is
     // subtracted here to avoid double-counting against the separate merged unworked row.
-    // ND hours are folded in too: {Category}NDBasePay already isolates the day-type-rate-only
-    // portion of those hours (Value - NDPremium, no night premium), which is priced at the
-    // exact same rate as the plain hours here — the night premium itself is shown separately in
+    // Hours are the category's natural Hrs (the DTR stores them with their night portion), so no
+    // ND hours are added. The amount adds {Category}NDBasePay: the day-type-rate-only portion of
+    // those night hours wherever the pay method left it in the ND bucket (Compounded, or a Fixed
+    // employee's regular day under Additive) — the night premium itself is shown separately in
     // the merged "Night Diff." row below, so this is additive, not double-counting the premium.
-    // Without this, a category whose hours were mostly worked at night (common for a guard) would
-    // show an understated hours/amount here.
     //
-    // OT and NDOT hours are NOT folded in here — they get their own "{Category} OT" row instead
-    // (see OtRow below), and under both Compounded and Additive modes those buckets carry no
-    // day-type-rate portion of their own to fold in (see Calculators/DtrPay's
-    // AdditiveDtrPayCalculator).
-    private EarningsRow? BaseRow(string label, decimal hours, decimal pay, decimal ndHours = 0m, decimal ndBasePay = 0m, decimal unworkedPay = 0m)
+    // OT hours get their own "{Category} OT" row instead (see OtRow below), and under both
+    // Compounded and Additive modes those buckets carry no day-type-rate portion of their own to
+    // fold in (see Calculators/DtrPay's AdditiveDtrPayCalculator).
+    private EarningsRow? BaseRow(string label, decimal hours, decimal pay, decimal ndBasePay = 0m, decimal unworkedPay = 0m)
     {
-        var totalHours = hours + ndHours;
         var totalAmount = (pay - unworkedPay) + ndBasePay;
-        if (totalHours <= 0 || totalAmount == 0m) return null;
-        return new EarningsRow(label, totalHours, totalAmount, true);
+        if (hours <= 0 || totalAmount == 0m) return null;
+        return new EarningsRow(label, hours, totalAmount, true);
     }
 
-    // OT and NDOT hours/base-pay for the same category always use the identical raw OT rate
+    // OT and NDOT base pay for the same category always use the identical raw OT rate
     // (OVERTIME for Regular, HOLIDAY_OT for every other category — see
-    // OvertimeRateStrategies.ResolveRawOtRate), so they merge into a single row.
-    private EarningsRow? OtRow(string label, decimal otHours, decimal ndotHours, decimal otBasePay, decimal ndotBasePay)
+    // OvertimeRateStrategies.ResolveRawOtRate), so they merge into a single row. The hours are the
+    // natural OT hours, which already include the NDOT hours.
+    private EarningsRow? OtRow(string label, decimal hours, decimal otBasePay, decimal ndotBasePay)
     {
-        var hours = otHours + ndotHours;
         var amount = otBasePay + ndotBasePay;
         if (hours <= 0 || amount == 0m) return null;
         return new EarningsRow(label, hours, amount, true);
@@ -141,18 +142,19 @@ public class PayslipHoursDocument : IDocument
         return new EarningsRow("Paid Holiday (Unworked)", hours, amount, true);
     }
 
-    // "Night Diff." — one merged row across all 8 categories' ND + NDOT hours/premium, shown
-    // once under Regular Days regardless of which category the hours actually fall under.
+    // "Night Diff." — one merged row across all 8 categories' ND hours (natural: they already
+    // include the NDOT hours) and ND + NDOT premium, shown once under Regular Days regardless of
+    // which category the hours actually fall under.
     private EarningsRow? NightDiffRow()
     {
-        var hours = _p.RegularNDHours + _p.RegularNDOTHours
-            + _p.RestDayNDHours + _p.RestDayNDOTHours
-            + _p.LegalHolNightDiffHours + _p.LegalHolNightDiffOTHours
-            + _p.SpecialHolNightDiffHours + _p.SpecialHolNightDiffOTHours
-            + _p.RestLegalDayNDHours + _p.RestLegalDayNDOTHours
-            + _p.RestSpecialDayNDHours + _p.RestSpecialDayNDOTHours
-            + _p.DoubleLegalNDHours + _p.DoubleLegalNDOTHours
-            + _p.RestDoubleLegalNDHours + _p.RestDoubleLegalNDOTHours;
+        var hours = _p.RegularNDHours
+            + _p.RestDayNDHours
+            + _p.LegalHolNightDiffHours
+            + _p.SpecialHolNightDiffHours
+            + _p.RestLegalDayNDHours
+            + _p.RestSpecialDayNDHours
+            + _p.DoubleLegalNDHours
+            + _p.RestDoubleLegalNDHours;
         var amount = _p.RegularNDPremiumPay + _p.RegularNDOTPremiumPay
             + _p.RestDayNDPremiumPay + _p.RestDayNDOTPremiumPay
             + _p.LegalNDPremiumPay + _p.LegalNDOTPremiumPay
@@ -186,30 +188,30 @@ public class PayslipHoursDocument : IDocument
         }
         else
         {
-            Add(BaseRow("Regular Hours", _p.RegularNetHours, RegularPaidAmount, _p.RegularNDHours, _p.RegularNDBasePay));
-            Add(OtRow("Regular OT Hours", _p.RegularOTHours, _p.RegularNDOTHours, _p.RegularOTBasePay, _p.RegularNDOTBasePay));
+            Add(BaseRow("Regular Hours", _p.RegularNetHours, RegularPaidAmount, _p.RegularNDBasePay));
+            Add(OtRow("Regular OT Hours", _p.RegularOTHours, _p.RegularOTBasePay, _p.RegularNDOTBasePay));
         }
 
-        Add(BaseRow("Rest Day", _p.RestDayHours, _p.RestDayPay, _p.RestDayNDHours, _p.RestDayNDBasePay));
-        Add(OtRow("Rest Day OT Hours", _p.RestDayOTHours, _p.RestDayNDOTHours, _p.RestDayOTBasePay, _p.RestDayNDOTBasePay));
+        Add(BaseRow("Rest Day", _p.RestDayHours, _p.RestDayPay, _p.RestDayNDBasePay));
+        Add(OtRow("Rest Day OT Hours", _p.RestDayOTHours, _p.RestDayOTBasePay, _p.RestDayNDOTBasePay));
 
         Add(NightDiffRow());
         AddPlain("Paid Leave", _p.PaidLeaves);
 
         Header("Holiday/s", PayslipSections.HolidayDaysWorked(_p));
         Add(MergedUnworkedRow());
-        Add(BaseRow("Legal Holiday (Worked)", _p.LegalHolHours, _p.LegalPay, _p.LegalHolNightDiffHours, _p.LegalNDBasePay, _p.LegalHolidayUnworkedPay));
-        Add(OtRow("Legal Holiday OT", _p.LegalHolOTHours, _p.LegalHolNightDiffOTHours, _p.LegalOTBasePay, _p.LegalNDOTBasePay));
-        Add(BaseRow("Special Holiday", _p.SpecialHolHours, _p.SpecialPay, _p.SpecialHolNightDiffHours, _p.SpecialNDBasePay));
-        Add(OtRow("Special Holiday OT", _p.SpecialHolOTHours, _p.SpecialHolNightDiffOTHours, _p.SpecialOTBasePay, _p.SpecialNDOTBasePay));
-        Add(BaseRow("Rest Day + Legal Holiday (Worked)", _p.RestLegalDayHours, _p.RestLegalPay, _p.RestLegalDayNDHours, _p.RestLegalNDBasePay, _p.RestLegalUnworkedPay));
-        Add(OtRow("Rest Day + Legal Holiday OT", _p.RestLegalDayOTHours, _p.RestLegalDayNDOTHours, _p.RestLegalOTBasePay, _p.RestLegalNDOTBasePay));
-        Add(BaseRow("Rest Day + Special Holiday", _p.RestSpecialDayHours, _p.RestSpecialPay, _p.RestSpecialDayNDHours, _p.RestSpecialNDBasePay));
-        Add(OtRow("Rest Day + Special Holiday OT", _p.RestSpecialDayOTHours, _p.RestSpecialDayNDOTHours, _p.RestSpecialOTBasePay, _p.RestSpecialNDOTBasePay));
-        Add(BaseRow("Double Legal Holiday (Worked)", _p.DoubleLegalHours, _p.DoubleLegalPay, _p.DoubleLegalNDHours, _p.DoubleLegalNDBasePay, _p.DoubleLegalUnworkedPay));
-        Add(OtRow("Double Legal Holiday OT", _p.DoubleLegalOTHours, _p.DoubleLegalNDOTHours, _p.DoubleLegalOTBasePay, _p.DoubleLegalNDOTBasePay));
-        Add(BaseRow("Rest Day + Double Legal Holiday (Worked)", _p.RestDoubleLegalHours, _p.RestDoubleLegalPay, _p.RestDoubleLegalNDHours, _p.RestDoubleLegalNDBasePay, _p.RestDoubleLegalUnworkedPay));
-        Add(OtRow("Rest Day + Double Legal Holiday OT", _p.RestDoubleLegalOTHours, _p.RestDoubleLegalNDOTHours, _p.RestDoubleLegalOTBasePay, _p.RestDoubleLegalNDOTBasePay));
+        Add(BaseRow("Legal Holiday (Worked)", _p.LegalHolHours, _p.LegalPay, _p.LegalNDBasePay, _p.LegalHolidayUnworkedPay));
+        Add(OtRow("Legal Holiday OT", _p.LegalHolOTHours, _p.LegalOTBasePay, _p.LegalNDOTBasePay));
+        Add(BaseRow("Special Holiday", _p.SpecialHolHours, _p.SpecialPay, _p.SpecialNDBasePay));
+        Add(OtRow("Special Holiday OT", _p.SpecialHolOTHours, _p.SpecialOTBasePay, _p.SpecialNDOTBasePay));
+        Add(BaseRow("Rest Day + Legal Holiday (Worked)", _p.RestLegalDayHours, _p.RestLegalPay, _p.RestLegalNDBasePay, _p.RestLegalUnworkedPay));
+        Add(OtRow("Rest Day + Legal Holiday OT", _p.RestLegalDayOTHours, _p.RestLegalOTBasePay, _p.RestLegalNDOTBasePay));
+        Add(BaseRow("Rest Day + Special Holiday", _p.RestSpecialDayHours, _p.RestSpecialPay, _p.RestSpecialNDBasePay));
+        Add(OtRow("Rest Day + Special Holiday OT", _p.RestSpecialDayOTHours, _p.RestSpecialOTBasePay, _p.RestSpecialNDOTBasePay));
+        Add(BaseRow("Double Legal Holiday (Worked)", _p.DoubleLegalHours, _p.DoubleLegalPay, _p.DoubleLegalNDBasePay, _p.DoubleLegalUnworkedPay));
+        Add(OtRow("Double Legal Holiday OT", _p.DoubleLegalOTHours, _p.DoubleLegalOTBasePay, _p.DoubleLegalNDOTBasePay));
+        Add(BaseRow("Rest Day + Double Legal Holiday (Worked)", _p.RestDoubleLegalHours, _p.RestDoubleLegalPay, _p.RestDoubleLegalNDBasePay, _p.RestDoubleLegalUnworkedPay));
+        Add(OtRow("Rest Day + Double Legal Holiday OT", _p.RestDoubleLegalOTHours, _p.RestDoubleLegalOTBasePay, _p.RestDoubleLegalNDOTBasePay));
 
         // Non-DTR income — no hours breakdown applies to these (not attendance-priced), so
         // they're plain amount rows, same treatment as the FIXED Basic Pay row above. Included

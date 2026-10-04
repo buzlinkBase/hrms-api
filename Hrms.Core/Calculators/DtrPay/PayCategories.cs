@@ -27,8 +27,9 @@ internal sealed record PayCategory(
     Func<DailyRecordRunModel, double> Ndot,
     IOtRateStrategy OtRates)
 {
+    // This day type's hours as the separated buckets the pricers take (see CategoryHours.Separate).
     public CategoryHours HoursOf(DailyRecordRunModel r) =>
-        new((decimal)Hrs(r), (decimal)Ot(r), (decimal)Nd(r), (decimal)Ndot(r));
+        CategoryHours.Separate((decimal)Hrs(r), (decimal)Ot(r), (decimal)Nd(r), (decimal)Ndot(r));
 }
 
 // Each pay method has one class per day type (Additive/, Compounded/) pointing at its row here, so

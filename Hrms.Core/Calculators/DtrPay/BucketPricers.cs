@@ -68,17 +68,18 @@ internal sealed class CompoundedNdotPricer : BucketPricerBase
     }
 }
 
-// ── Additive (display hours x one rate each) ─────────────────────────────────────────────────
+// ── Additive (natural hours x one rate each) ─────────────────────────────────────────────────
 
-// The night hours folded into the display "Hrs": paid at this day's own rate, in full (night
-// hours were never Fixed-salary pre-funded). Value is the only figure -- it's day pay.
+// Night regular hours' base: paid at this day's own rate, in full (night hours were never
+// Fixed-salary pre-funded). Only used for a Fixed employee's regular day (AdditiveRegularDayPay),
+// whose night base stays in the ND bucket. Value is the only figure.
 internal sealed class AdditiveNdBasePricer : BucketPricerBase
 {
     protected override BucketPay PriceBasePay(decimal basePay, CategoryRates rates) =>
         new(Value: basePay * rates.Day, OTPremium: 0m, NDPremium: 0m, FlatOvertimeBase: 0m, FlatNightDiffPremium: 0m);
 }
 
-// Display OT hours (OT + NDOT): the raw OT rate alone, no day-type multiplier. With no day-rate
+// Natural OT hours (OT + NDOT): the raw OT rate alone, no day-type multiplier. With no day-rate
 // portion to net out, the whole amount is OT premium, and it is also the flat OT base.
 internal sealed class AdditiveOtPricer : BucketPricerBase
 {
@@ -89,8 +90,8 @@ internal sealed class AdditiveOtPricer : BucketPricerBase
     }
 }
 
-// Display ND hours (ND + NDOT): only the night premium, (ND rate - 1). Their base pay is already
-// in the day bucket (AdditiveNdBasePricer) or, for NDOT, in the OT bucket.
+// Natural ND hours (ND + NDOT): only the night premium, (ND rate - 1). Their base pay is already
+// in the day pay (the day-type policy, via DayTypeHours) or, for NDOT, in the OT bucket.
 internal sealed class AdditiveNdPremiumPricer : BucketPricerBase
 {
     protected override BucketPay PriceBasePay(decimal basePay, CategoryRates rates)

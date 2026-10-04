@@ -1,9 +1,9 @@
 namespace Hrms.Core.Calculators.DtrPay;
 
 // Additive -- Legal (regular) holiday. Hours: LegalHolHours / LegalHolOTHours / LegalHolNightDiffHours / LegalHolNightDiffOTHours.
-//   Hrs + ND    x hourly x LEGAL_HOLIDAY_DUTY   (plain hours via RegularHolidayPipeLine)
-//   OT + NDOT   x hourly x LEGAL_HOLIDAY_OT_PREMIUM (else HOLIDAY_OT)
-//   ND + NDOT   x hourly x (NIGHTDIFF - 1)
+//   Hrs         x hourly x LEGAL_HOLIDAY_DUTY   (night included, via RegularHolidayPipeLine)
+//   OT          x hourly x LEGAL_HOLIDAY_OT_PREMIUM (else HOLIDAY_OT)
+//   ND          x hourly x (NIGHTDIFF - 1)
 //   NDOT        -> 0
 internal sealed class AdditiveLegalHolidayPay : AdditiveDayTypePayBase
 {
