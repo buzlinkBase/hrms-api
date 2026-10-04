@@ -251,6 +251,33 @@ public class PayrollProcessorService
         return result;
     }
 
+    // Who in the range can be paid right now -- the Payroll Run screen's readiness list, shown
+    // before anything is previewed. Uses the same day rules as a cutoff-mode run (approved and
+    // unpaid days are paid; FIXED employees whose period pay is already in a Regular run are
+    // skipped), so "Ready" here means a run over the same range would include them.
+    public async Task<List<PayrollReadinessEmployee>> GetReadinessAsync(DateOnly from, DateOnly to, Guid? payrollGroupId, CancellationToken token)
+    {
+        if (from > to)
+            throw new ValidationException("The date range's start date is after its end date.");
+        var result = await _dtrServie.GetPayrollReadinessAsync(from, to, payrollGroupId, token);
+
+        var fixedWithApproved = result
+            .Where(x => x.SalaryType == SalaryType.FIXED && x.ApprovedDays > 0)
+            .Select(x => x.EmployeeId)
+            .ToList();
+        var fixedAlreadyPaid = await _payrollService.GetEmployeeIdsWithRegularPayrollInRangeAsync(fixedWithApproved, from, to, token);
+
+        foreach (var e in result)
+        {
+            e.Status = fixedAlreadyPaid.Contains(e.EmployeeId) ? "FixedSalaryAlreadyPaid"
+                : e.ApprovedDays > 0 && e.PendingDays > 0 ? "Partial"
+                : e.ApprovedDays > 0 ? "Ready"
+                : e.PendingDays > 0 ? "Pending"
+                : "Paid";
+        }
+        return result;
+    }
+
     private static void ValidatePayload(PayrollRunPayload payload)
     {
         if (!payload.IsCutoffMode) return;
