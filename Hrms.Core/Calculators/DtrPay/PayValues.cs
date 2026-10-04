@@ -38,8 +38,6 @@ internal sealed record BucketPay(
 // Worked/Unworked are only reported for the legal-holiday categories.
 internal sealed record DayPay(decimal Value, decimal Worked, decimal Unworked)
 {
-    public static readonly DayPay Zero = new(0m, 0m, 0m);
-
     // Extra worked-hour pay priced at this day's own rate (Additive's folded-in night hours).
     public DayPay AddWorked(decimal amount) => this with { Value = Value + amount, Worked = Worked + amount };
 }

@@ -1,18 +1,14 @@
 namespace Hrms.Core.Policies.DTRPolicies;
 
-// Strategy for how a day-type category (Calculators/DtrPay PayCategories) resolves its two rate
-// tiers for a given day/employee.
-// DayRate is the multiplier for a non-OT hour of the same day-type (e.g. 2.00 for Legal Holiday)
-// -- kept separate from FullRate purely so OTPremium can keep meaning "the amount above the base
-// day rate," same as before this was extracted. FullRate is the multiplier actually applied to
-// the OT hours themselves.
+// Strategy for how a day-type category (Calculators/DtrPay PayCategories) resolves its rates for a
+// given day/employee: the day-type multiplier (e.g. 2.00 for Legal Holiday) and the category's own
+// raw OT multiplier. Each pay method combines them its own way (Compounded: day x OT; Additive: OT
+// alone).
 internal interface IOtRateStrategy
 {
-    (decimal DayRate, decimal FullRate) Resolve(PayrollContext context);
+    decimal ResolveDayRate(PayrollContext context);
 
-    // The raw OT-only multiplier (this category's own OT/premium RateType), ignoring day-type
-    // compounding -- used for the segregated "OT Base" recording (BasicPipelineData.
-    // FlatOvertimeBase) as well as Resolve's FullRate above.
+    // The category's own OT/premium RateType, ignoring day-type compounding.
     decimal ResolveRawOtRate(PayrollContext context);
 }
 
@@ -36,18 +32,15 @@ internal class CompoundedOtRateStrategy : IOtRateStrategy
         _dayTypeRateTypes = dayTypeRateTypes;
     }
 
-    public (decimal DayRate, decimal FullRate) Resolve(PayrollContext context)
+    public decimal ResolveDayRate(PayrollContext context)
     {
-        // Establish the Day-Type Base Multiplier (e.g., Regular = 1.0, RestDay = 1.3, Legal = 2.0)
-        // -- multiplies out compound day bases like Rest Day + Legal Day (1.30 * 2.00 = 2.60).
+        // Multiplies out compound day bases like Rest Day + Legal Day (1.30 * 2.00 = 2.60).
         decimal dayTypeMultiplier = 1.0m;
         foreach (var rateType in _dayTypeRateTypes)
         {
             dayTypeMultiplier *= PremiumRateHelper.GetRate(context, rateType, RATE_DEFAULT.For(rateType));
         }
-
-        var otRateMultiplier = ResolveRawOtRate(context);
-        return (dayTypeMultiplier, dayTypeMultiplier * otRateMultiplier);
+        return dayTypeMultiplier;
     }
 
     public decimal ResolveRawOtRate(PayrollContext context)

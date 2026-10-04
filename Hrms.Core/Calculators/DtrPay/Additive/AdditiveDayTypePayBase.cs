@@ -12,7 +12,6 @@ internal sealed record AdditivePricers(IBucketPricer NdBase, IBucketPricer Ot, I
 // step (see AdditiveRegularDayPay).
 internal abstract class AdditiveDayTypePayBase : DayTypePayCalculatorBase, IAdditiveDayTypePay
 {
-    private static readonly IHoursShaper Display = new DisplayHoursShaper();
     private readonly AdditivePricers _pricers;
 
     protected AdditiveDayTypePayBase(BasicPipelineBase dayPipeline, DayTypePayInputs inputs, AdditivePricers pricers)
@@ -23,7 +22,7 @@ internal abstract class AdditiveDayTypePayBase : DayTypePayCalculatorBase, IAddi
 
     protected sealed override CategoryPay PriceHours(CategoryHours saved, CategoryRates rates, DayPay day, PayrollContext context)
     {
-        var shown = Display.Shape(saved);
+        var shown = DisplayHoursShaper.Shape(saved);
         // The night hours the display folded into "Hrs" -- the day pipeline already paid the rest.
         var nightHoursInHrs = shown.Hrs - saved.Hrs;
 

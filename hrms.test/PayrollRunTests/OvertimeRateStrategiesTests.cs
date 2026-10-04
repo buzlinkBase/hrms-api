@@ -42,7 +42,8 @@ public class OvertimeRateStrategiesTests
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
         var strategy = new CompoundedOtRateStrategy(RateType.HOLIDAY_OT, null, RateType.LEGAL_HOLIDAY_DUTY);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(2.00m);
         fullRate.Should().Be(2.60m); // matches Radisson Blu's spreadsheet figure exactly
@@ -56,7 +57,8 @@ public class OvertimeRateStrategiesTests
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
         var strategy = new CompoundedOtRateStrategy(RateType.HOLIDAY_OT, null, RateType.SPECIAL_NON_WORKING);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(1.30m);
         fullRate.Should().Be(1.69m); // matches Radisson Blu's spreadsheet figure exactly
@@ -70,7 +72,8 @@ public class OvertimeRateStrategiesTests
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
         var strategy = new CompoundedOtRateStrategy(RateType.HOLIDAY_OT, null, RateType.LEGAL_HOLIDAY_DUTY, RateType.LEGAL_HOLIDAY_DUTY);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(4.00m); // 2.00 * 2.00
         fullRate.Should().Be(5.20m); // 4.00 * 1.30
@@ -86,7 +89,8 @@ public class OvertimeRateStrategiesTests
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_DUTY, 1.50m); // e.g. a different day-type rate for this client
         var strategy = new CompoundedOtRateStrategy(RateType.HOLIDAY_OT, null, RateType.LEGAL_HOLIDAY_DUTY);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(1.50m);
         fullRate.Should().Be(1.95m); // 1.50 * 1.30
@@ -103,7 +107,8 @@ public class OvertimeRateStrategiesTests
         var context = CreateContext();
         var strategy = new CompoundedOtRateStrategy(RateType.HOLIDAY_OT, null, RateType.LEGAL_HOLIDAY_DUTY);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(2.00m); // RATE_DEFAULT.LEGAL_HOLIDAY_DUTY
         fullRate.Should().Be(2.60m); // 2.00 x RATE_DEFAULT.HOLIDAY_OT (1.30)
@@ -115,7 +120,8 @@ public class OvertimeRateStrategiesTests
         var context = CreateContext();
         var strategy = new CompoundedOtRateStrategy(RateType.OVERTIME, null);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(1.0m); // no day-type component in this category at all
         fullRate.Should().Be(1.25m); // RATE_DEFAULT.OVERTIME, not HOLIDAY_OT's 1.30
@@ -131,7 +137,8 @@ public class OvertimeRateStrategiesTests
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
         var strategy = new CompoundedOtRateStrategy(RateType.LEGAL_HOLIDAY_OT_PREMIUM, RateType.HOLIDAY_OT, RateType.LEGAL_HOLIDAY_DUTY);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(2.00m);
         fullRate.Should().Be(2.60m); // no LEGAL_HOLIDAY_OT_PREMIUM override -- falls back to the shared HOLIDAY_OT (1.30)
@@ -147,7 +154,8 @@ public class OvertimeRateStrategiesTests
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT_PREMIUM, 1.50m);
         var strategy = new CompoundedOtRateStrategy(RateType.LEGAL_HOLIDAY_OT_PREMIUM, RateType.HOLIDAY_OT, RateType.LEGAL_HOLIDAY_DUTY);
 
-        var (dayRate, fullRate) = strategy.Resolve(context);
+        var dayRate = strategy.ResolveDayRate(context);
+        var fullRate = dayRate * strategy.ResolveRawOtRate(context);
 
         dayRate.Should().Be(2.00m); // regular Legal Holiday pay is never touched by this override
         fullRate.Should().Be(3.00m); // 2.00 x 1.50, this client's own OT premium
@@ -168,7 +176,7 @@ public class OvertimeRateStrategiesTests
         // No LEGAL_HOLIDAY_OT_PREMIUM override configured.
         var strategy = new CompoundedOtRateStrategy(RateType.LEGAL_HOLIDAY_OT_PREMIUM, RateType.HOLIDAY_OT, RateType.LEGAL_HOLIDAY_DUTY);
 
-        var (_, fullRate) = strategy.Resolve(context);
+        var fullRate = strategy.ResolveDayRate(context) * strategy.ResolveRawOtRate(context);
 
         fullRate.Should().Be(2.80m); // 2.00 x 1.40 -- the client's own HOLIDAY_OT, not the company's 1.30
     }
@@ -186,7 +194,7 @@ public class OvertimeRateStrategiesTests
 
         var special = new CompoundedOtRateStrategy(RateType.SPECIAL_HOLIDAY_OT_PREMIUM, RateType.HOLIDAY_OT, RateType.SPECIAL_NON_WORKING);
 
-        special.Resolve(context).FullRate.Should().Be(1.69m); // untouched -- falls back to HOLIDAY_OT, no SPECIAL_HOLIDAY_OT_PREMIUM override
+        (special.ResolveDayRate(context) * special.ResolveRawOtRate(context)).Should().Be(1.69m); // untouched -- falls back to HOLIDAY_OT, no SPECIAL_HOLIDAY_OT_PREMIUM override
     }
 
     // --- ResolveRawOtRate (segregated "OT Base" figure) -- same fallback chain, OT tier alone -

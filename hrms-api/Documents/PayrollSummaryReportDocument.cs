@@ -113,8 +113,8 @@ public class PayrollSummaryReportDocument : IDocument
         r.RegularNDOTHours + r.RestDayNDOTHours + r.LegalHolNightDiffOTHours + r.SpecialHolNightDiffOTHours +
         r.RestLegalDayNDOTHours + r.RestSpecialDayNDOTHours + r.DoubleLegalNDOTHours + r.RestDoubleLegalNDOTHours;
 
-    // NDOT's raw-OT-rate portion (FlatOvertimeBase, mode-independent — see
-    // Calculators/DtrPay's AdditiveDtrPayCalculator) and ND-delta portion (FlatNightDiffPremium)
+    // NDOT's raw-OT-rate portion (the flat OT base, mode-independent — see
+    // Calculators/DtrPay's AdditiveDtrPayCalculator) and ND-delta portion (the flat ND premium)
     // are exactly what NDOT's Value decomposes into under Additive mode (dayRate dropped, only
     // otRate + (ndRate - 1) applies) — under Compounded mode NDOT's Value has a genuine 3-way
     // day-rate x OT x ND cross-term that these two pieces alone don't reconstruct, so folding
@@ -140,7 +140,7 @@ public class PayrollSummaryReportDocument : IDocument
     // OvertimePay is already mode-aware (the OT-only policy branches its own Value on the mode)
     // -- only the NDOT top-up needs to be conditional here, so a Compounded-mode row keeps
     // reading exactly r.OvertimePay, unchanged from before this feature. Mirrors
-    // PayslipHoursDocument's "{Category} OT" row exactly, since FlatOvertimeBase (what
+    // PayslipHoursDocument's "{Category} OT" row exactly, since the flat OT base (what
     // {cat}OTBasePay/NDOTBasePay hold) is itself mode-independent.
     internal static decimal OtPay(Payroll r) => r.OvertimePay + (IsAdditive(r) ? NdotOtPortionPay(r) : 0m);
 

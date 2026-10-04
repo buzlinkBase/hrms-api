@@ -53,25 +53,12 @@ internal sealed class CategoryRateResolver : ICategoryRateResolver
 {
     public CategoryRates Resolve(PayCategory category, PayrollContext context)
     {
-        var (dayRate, _) = category.OtRates.Resolve(context);
         return new CategoryRates(
             Hourly: PremiumRateHelper.GetHourlyRate(context),
-            Day: dayRate,
+            Day: category.OtRates.ResolveDayRate(context),
             RawOt: category.OtRates.ResolveRawOtRate(context),
             Nd: PremiumRateHelper.GetRate(context, RateType.NIGHTDIFF, RATE_DEFAULT.NIGHTDIFF));
     }
-}
-
-// Adapter: turns a category's saved DTR hours into the shape a pay method prices.
-internal interface IHoursShaper
-{
-    CategoryHours Shape(CategoryHours saved);
-}
-
-// Compounded: the hours exactly as the DTR saved them -- Hrs, OT, ND and NDOT each on their own.
-internal sealed class SavedHoursShaper : IHoursShaper
-{
-    public CategoryHours Shape(CategoryHours saved) => saved;
 }
 
 // Additive: the DTR screens' display hours -- the C# twin of the UI's toDisplayHours
@@ -79,9 +66,9 @@ internal sealed class SavedHoursShaper : IHoursShaper
 //   Hrs = Hrs + ND,  OT = OT + NDOT,  ND = ND + NDOT,  NDOT = 0.
 // Hrs + ND is all regular-rate hours, OT + NDOT all overtime, ND + NDOT all night hours, so
 // pricing these buckets separately and adding them up is exactly what "additive" means.
-internal sealed class DisplayHoursShaper : IHoursShaper
+internal static class DisplayHoursShaper
 {
-    public CategoryHours Shape(CategoryHours saved) => new(
+    public static CategoryHours Shape(CategoryHours saved) => new(
         Hrs: saved.Hrs + saved.Nd,
         Ot: saved.Ot + saved.Ndot,
         Nd: saved.Nd + saved.Ndot,

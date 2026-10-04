@@ -16,7 +16,7 @@ internal enum PayCategoryKind
 
 // One row of the category table (Registry): which DailyRecord fields hold this day type's hours,
 // and which rates price them. OtRates is the same CompoundedOtRateStrategy each category's OT and
-// NDOT policies used to own -- it also yields the day-type multiplier (Resolve().DayRate), which is
+// NDOT policies used to own -- it also yields the day-type multiplier (ResolveDayRate), which is
 // exactly the product the ND policies computed from their own rate list, in the same order -- so a
 // category's OT, ND and NDOT hours can never resolve to different rates in either pay method.
 internal sealed record PayCategory(

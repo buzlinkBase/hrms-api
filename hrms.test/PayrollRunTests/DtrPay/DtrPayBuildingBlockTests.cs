@@ -9,17 +9,9 @@ public class DtrPayBuildingBlockTests
     public void DisplayHoursShaper_MatchesTheDtrScreensFold()
     {
         // Same fold as the UI's toDisplayHours: Hrs + ND, OT + NDOT, ND + NDOT, NDOT = 0.
-        var shown = new DisplayHoursShaper().Shape(new CategoryHours(Hrs: 6, Ot: 2, Nd: 3, Ndot: 1));
+        var shown = DisplayHoursShaper.Shape(new CategoryHours(Hrs: 6, Ot: 2, Nd: 3, Ndot: 1));
 
         shown.Should().Be(new CategoryHours(Hrs: 9, Ot: 3, Nd: 4, Ndot: 0));
-    }
-
-    [Fact]
-    public void SavedHoursShaper_LeavesHoursAsStored()
-    {
-        var saved = new CategoryHours(6, 2, 3, 1);
-
-        new SavedHoursShaper().Shape(saved).Should().Be(saved);
     }
 
     [Fact]
