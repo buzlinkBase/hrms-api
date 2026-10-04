@@ -25,14 +25,26 @@ jobs:
         with:
           filters: |
             hrms:
-              - 'src/hrms/**'
-              - 'apps/hrms/**'
+              - 'hrms-api/**'
+              - 'Hrms.Core/**'
+              - 'Hrms.Common.Lib/**'
+              - 'hrms.Domain/**'
+              - 'hrms.Infrastructure/**'
+              - 'dtr-api/**'
+              - 'tenantstore'
+              - 'Directory.Packages.props'
               - 'Dockerfile'
               - '.gitmodules'
             adms:
-              - 'src/adms/**'
-              - 'apps/adms/**'
+              - 'hrms-adms-api/**'
+              - 'Hrms.Core/**'
+              - 'Hrms.Common.Lib/**'
+              - 'hrms.Domain/**'
+              - 'hrms.Infrastructure/**'
+              - 'tenantstore'
+              - 'Directory.Packages.props'
               - 'Dockerfile'
+              - '.gitmodules'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
