@@ -405,6 +405,23 @@ public class PayrollService : BaseService<Payroll>
         return ids.ToHashSet();
     }
 
+    // Employees who already have a Regular payroll row overlapping [from, to]. A cutoff-mode run uses it
+    // to avoid paying a FIXED-salary employee's whole period salary a second time when a later
+    // run picks up days that were still awaiting DTR approval (a FIXED employee's basic pay is the
+    // flat period rate, not a sum of the days in the run -- see EmployeePayrollLineService.GetBasicPay).
+    public async Task<HashSet<Guid>> GetEmployeeIdsWithRegularPayrollInRangeAsync(
+        List<Guid> employeeIds, DateOnly from, DateOnly to, CancellationToken token)
+    {
+        if (employeeIds.Count == 0) return [];
+        var ids = await GetQueryable(x => x.PayrollType == PayrollType.Regular
+                && employeeIds.Contains(x.EmployeeId)
+                && x.PayPeriodStart <= to && x.PayPeriodEnd >= from)
+            .Select(x => x.EmployeeId)
+            .Distinct()
+            .ToListAsync(token);
+        return ids.ToHashSet();
+    }
+
     // Last Pay is a one-time-ever payout per employee (not annual like 13th month), so no
     // year bound — an employee who already has a LastPay row must have it deleted first to
     // regenerate. See PayrollProcessorService.GenerateLastPayAsync.

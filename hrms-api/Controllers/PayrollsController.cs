@@ -94,7 +94,10 @@ namespace Hrms.Api.Controllers
         {
             var batch = Guid.CreateVersion7();
             var payrolls = await _service.CalculateAsync(payload, batch, token);
-            var response = new { data = payrolls, total = payrolls.Count };
+            // Cutoff mode only: employees of the group with DTR days in the range that aren't
+            // approved yet, so the preview can warn instead of silently short-paying them.
+            var notReady = await _service.GetNotReadyEmployeesAsync(payload, token);
+            var response = new { data = payrolls, total = payrolls.Count, notReady };
             return Ok(response);
         }
 

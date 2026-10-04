@@ -1686,6 +1686,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "WorkDate")
                         .IsUnique();
 
+                    b.HasIndex("PayrollBatchId");
+
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("DailyTimeRecords");

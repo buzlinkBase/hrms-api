@@ -32,6 +32,8 @@ public class DailyRecordConfig : IEntityTypeConfiguration<DailyRecord>
         // Releasing a deleted payroll run's days, and "has this batch been paid" checks.
         builder.HasIndex(d => d.PayrollBatchId);
 
+        builder.HasIndex(d => d.PayrollBatchId);
+
         builder.HasMany(d => d.LeavesInfo)
             .WithOne(x => x.DTR)
             .HasForeignKey(d => d.DTRId)

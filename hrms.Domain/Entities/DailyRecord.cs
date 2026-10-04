@@ -91,9 +91,9 @@ public class DailyRecord : BaseEntity, IUserField, IEmployeeOwned
     public double ShiftWorkingHour { get; set; }
     public bool Posted { get; set; }
 
-    // The payroll run (PayrollBatch.Id) that paid this day; null while it's still unpaid.
-    // Payroll is generated per employee, so employees of one DTR batch can be paid in different
-    // runs -- each day is paid exactly once. Cleared again when that payroll run is deleted.
+    // The PayrollBatch that already paid this day, null while unpaid. Day-level (not batch-level)
+    // so one employee's days from several DTR batches/clients can be paid across different runs
+    // without paying any day twice -- see PayrollProcessorService.GenerateAsync.
     public Guid? PayrollBatchId { get; set; }
 
     // Sum of every mutually-exclusive Hrs/OT/ND/ND-OT bucket below — exactly one WorkType

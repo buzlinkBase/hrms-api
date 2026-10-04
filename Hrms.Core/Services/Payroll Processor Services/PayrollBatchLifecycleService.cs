@@ -271,11 +271,11 @@ public class PayrollBatchLifecycleService
         await _payrollService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _consumptionService.ReleaseAsync(payrollIds, token);
 
-        // Deleting a run releases the DTR days it paid: they become payable again but stay
-        // approved (posted) -- the DTR itself was never wrong. A legacy run (whole DTR batches,
-        // DtrBatchCodes) has no per-day stamps; its batches are released by the header below
-        // going away.
-        await _dtrServie.ReleasePayrollAsync(payrollBatchId, token);
+        // Deleting a run releases the DTR days it had paid so a new run can pay them again --
+        // the inverse of PayrollProcessorService.GenerateAsync's per-day PayrollBatchId stamp. The
+        // days stay approved/posted (the DTR was approved on its own, independent of payroll), so
+        // nothing has to be re-approved; the DTR batches are not unposted.
+        await _dtrServie.ReleasePaidAsync(payrollBatchId, token);
 
         await _payrollBatchService.DeleteAsync(payrollBatchId, token, commit: false);
     }
