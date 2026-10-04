@@ -310,14 +310,8 @@ public class PayrollProcessorService
                          .ComposePayload(dateRange, employees, token, payload.PayDate)
                           ?? throw new Exception("Unable to load range payload");
 
-        // PayDate is user-supplied input, not a config fallback — silently defaulting to
-        // ToDate here would quietly violate the company's chosen posting policy, so this
-        // fails loudly instead (StatutoryCreditDateResolver's own fallback is defense in
-        // depth only).
-        var needsPayDate = rangePayload.CompanyPolicy.CrossMonthStatutoryCreditPolicy == CrossMonthStatutoryCreditPolicy.PayDate
-            || rangePayload.CompanyPolicy.WTaxCrossMonthCreditPolicy == CrossMonthStatutoryCreditPolicy.PayDate;
-        if (needsPayDate && payload.PayDate == null)
-            throw new ValidationException("A Pay/Release Date is required to generate this payroll under the configured statutory posting policy.");
+        // Pay/Release Date is optional: when the policy is PayDate and none is supplied,
+        // StatutoryCreditDateResolver falls back to the cutoff end date.
 
         // Small master table — load once per run rather than per employee. Used to split
         // PaidLeaves by funding source (see EmployeePayrollLineService).

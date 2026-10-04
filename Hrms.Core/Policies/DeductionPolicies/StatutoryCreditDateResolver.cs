@@ -8,9 +8,7 @@ namespace Hrms.Core.Policies.DeductionPolicies;
 /// </summary>
 public static class StatutoryCreditDateResolver
 {
-    // payDate is required by the caller when policy is PayDate (see
-    // PayrollProcessorService.CalculateAsync's up-front guard) — the fallback to toDate
-    // here is defense in depth only, not the primary enforcement.
+    // payDate is optional: under the PayDate policy a run without one credits to toDate.
     public static DateOnly Resolve(DateOnly fromDate, DateOnly toDate, CrossMonthStatutoryCreditPolicy policy, DateOnly? payDate = null)
     {
         return policy switch
