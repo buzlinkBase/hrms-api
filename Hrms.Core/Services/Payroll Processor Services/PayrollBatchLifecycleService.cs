@@ -271,18 +271,11 @@ public class PayrollBatchLifecycleService
         await _payrollService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _consumptionService.ReleaseAsync(payrollIds, token);
 
-        // Deleting a run releases the DTR it was built from — unposts every DTR batch this run
-        // used (idempotent/no-op on an already-unposted batch), the inverse of
-        // PayrollProcessorService.GenerateAsync's post-on-save.
-        var dtrBatchCodes = (batch.DtrBatchCodes ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-        foreach (var batchCode in dtrBatchCodes)
-        {
-            await _dtrServie.UnpostAsync(batchCode, token, commit: false);
-            // Mirrors the DailyRecord-level unpost above onto the DTRBatch header row --
-            // ApprovalStatus is left untouched (historical fact preserved), same reasoning
-            // as PayrollBatch keeping ApprovalStatus=Approved after an Unpost/Delete cycle.
-            await _dtrBatchService.MarkUnpostedByCodeAsync(batchCode, token, commit: false);
-        }
+        // Deleting a run releases the DTR days it had paid so a new run can pay them again --
+        // the inverse of PayrollProcessorService.GenerateAsync's per-day PayrollBatchId stamp. The
+        // days stay approved/posted (the DTR was approved on its own, independent of payroll), so
+        // nothing has to be re-approved; the DTR batches are not unposted.
+        await _dtrServie.ReleasePaidAsync(payrollBatchId, token);
 
         await _payrollBatchService.DeleteAsync(payrollBatchId, token, commit: false);
     }

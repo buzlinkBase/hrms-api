@@ -297,8 +297,10 @@ public class DailyRecordService : BaseService<DailyRecord>
         // Payroll.DtrBatchCodes / PayrollBatchService.GetUsedDtrBatchCodesAsync. This is a hard
         // block even through the deletion-approval flow below -- an approver taking on
         // responsibility for a batch still can't un-break a live Payroll run's DTR references.
+        // Day-level (a cutoff-mode run may have paid just some of this batch's days) plus the
+        // run header's batch-code list (the legacy batch-mode link).
         var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
-        if (usedBatchCodes.Contains(batchCode))
+        if (usedBatchCodes.Contains(batchCode) || await BatchRecords(batchCode).AnyAsync(x => x.PayrollBatchId != null, token))
             throw new ValidationException("Cannot delete this DTR batch — payroll has already been generated and saved from it. Delete the payroll run first if you need to regenerate it.");
 
         await ExecuteBatchDeletionAsync(batchCode, token);
@@ -338,7 +340,7 @@ public class DailyRecordService : BaseService<DailyRecord>
             throw new InvalidOperationException("A deletion request is already pending for this batch.");
 
         var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
-        if (usedBatchCodes.Contains(batch.BatchCode))
+        if (usedBatchCodes.Contains(batch.BatchCode) || await BatchRecords(batch.BatchCode).AnyAsync(x => x.PayrollBatchId != null, token))
             throw new ValidationException("Cannot delete this DTR batch — payroll has already been generated and saved from it. Delete the payroll run first if you need to regenerate it.");
 
         batch.PendingDeletion = true;
@@ -413,6 +415,123 @@ public class DailyRecordService : BaseService<DailyRecord>
             throw;
         }
     }
+    // Cutoff-mode filter shared by the day loader and the leave loader below: approved (Posted),
+    // not yet paid by any payroll run, inside the range, for employees currently in the group.
+    private static Expression<Func<DailyRecord, bool>> CutoffPayableFilter(
+        DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds) =>
+        x => x.Posted
+            && x.PayrollBatchId == null
+            && x.WorkDate >= from && x.WorkDate <= to
+            && x.Employee!.PayrollGroupId == payrollGroupId
+            && (employeeIds == null || employeeIds.Count == 0 || employeeIds.Contains(x.EmployeeId));
+
+    // Per-employee payroll run: every payable DTR day of the group's employees in the range,
+    // regardless of which DTR batch or client it was reported under. The requested range is
+    // returned as the pay period (not Min/Max of the days found) so cutoff/statutory handling
+    // stays stable when a later run pays only the remainder of a cutoff.
+    public async Task<(Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records, DateOnly FromDate, DateOnly ToDate)>
+    LoadForPayrollRunByCutoffAsync(DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token)
+    {
+        var recordsList = await GetQueryable(CutoffPayableFilter(from, to, payrollGroupId, employeeIds))
+             .AsNoTracking()
+             .ProjectToType<DailyRecordRunModel>(_config)
+             .AsSplitQuery()
+             .ToListAsync(token);
+
+        var records = recordsList
+            .GroupBy(x => new EmployeeKey(x.EmployeeId!))
+            .ToDictionary(g => g.Key, g => g.ToList());
+        return (records, from, to);
+    }
+
+    public Task<Dictionary<EmployeeKey, List<LeaveMetaDataModel>>>
+        LoadLeaveInfoForPayrollRunByCutoffAsync(DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token) =>
+        LoadLeaveInfoAsync(CutoffPayableFilter(from, to, payrollGroupId, employeeIds), token);
+
+    // Employees of the group with DTR days in the range that aren't approved yet and unpaid --
+    // shown as a warning on the cutoff-mode payroll preview ("these people have days still waiting
+    // on DTR approval") so nobody is silently short-paid.
+    public async Task<List<PayrollNotReadyEmployee>> GetNotReadyEmployeesAsync(
+        DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => !x.Posted
+                && x.PayrollBatchId == null
+                && x.WorkDate >= from && x.WorkDate <= to
+                && x.Employee!.PayrollGroupId == payrollGroupId
+                && (employeeIds == null || employeeIds.Count == 0 || employeeIds.Contains(x.EmployeeId)))
+            .Select(x => new { x.EmployeeId, x.FullName, x.BatchCode })
+            .ToListAsync(token);
+
+        return rows
+            .GroupBy(x => x.EmployeeId)
+            .Select(g => new PayrollNotReadyEmployee
+            {
+                EmployeeId = g.Key,
+                FullName = g.Select(x => x.FullName).FirstOrDefault(n => !string.IsNullOrEmpty(n)),
+                UnapprovedDays = g.Count(),
+                BatchCodes = g.Select(x => x.BatchCode).Where(c => !string.IsNullOrEmpty(c)).Select(c => c!).Distinct().ToList(),
+            })
+            .OrderBy(x => x.FullName)
+            .ToList();
+    }
+
+    // FIXED-salary employees of the group who have approved, unpaid days in the range -- the
+    // candidates for the "fixed salary already paid" skip in a cutoff-mode run.
+    public async Task<List<PayrollNotReadyEmployee>> GetPayableFixedSalaryEmployeesAsync(
+        DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token)
+    {
+        var rows = await GetQueryable(CutoffPayableFilter(from, to, payrollGroupId, employeeIds))
+            .Where(x => x.Employee!.SalaryType == SalaryType.FIXED)
+            .Select(x => new { x.EmployeeId, x.FullName })
+            .ToListAsync(token);
+        return rows
+            .GroupBy(x => x.EmployeeId)
+            .Select(g => new PayrollNotReadyEmployee
+            {
+                EmployeeId = g.Key,
+                FullName = g.Select(x => x.FullName).FirstOrDefault(n => !string.IsNullOrEmpty(n)),
+                UnapprovedDays = g.Count(),
+            })
+            .ToList();
+    }
+
+    // Stamps the payroll run on every day it paid, in the same unit of work as the run's header and
+    // Payroll rows (nothing is flushed here -- the caller's CommitChangesAsync does it). Fails if any
+    // day was paid by another run since this one loaded it, which rolls the whole run back.
+    public async Task MarkPaidAsync(IReadOnlyCollection<Guid> dailyRecordIds, Guid payrollBatchId, CancellationToken token)
+    {
+        if (dailyRecordIds.Count == 0) return;
+        var stamped = 0;
+        foreach (var chunk in dailyRecordIds.Chunk(1000))
+        {
+            var ids = chunk.ToList();
+            var records = await Context.IgnoringConfidentiality<DailyRecord>()
+                .Where(x => ids.Contains(x.Id))
+                .ToListAsync(token);
+            foreach (var r in records)
+            {
+                if (r.PayrollBatchId != null && r.PayrollBatchId != payrollBatchId)
+                    throw new ValidationException("Some of these DTR days were just paid by another payroll run. Preview again and retry.");
+                r.PayrollBatchId = payrollBatchId;
+            }
+            stamped += records.Count;
+        }
+        if (stamped != dailyRecordIds.Count)
+            throw new ValidationException("Some of these DTR days no longer exist. Preview again and retry.");
+        await SaveChangesAsync(token);
+    }
+
+    // Releases every day a payroll run had paid so it can be paid again -- the inverse of
+    // MarkPaidAsync. The days stay approved/posted; nothing needs to be re-approved.
+    public async Task ReleasePaidAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        var records = await Context.IgnoringConfidentiality<DailyRecord>()
+            .Where(x => x.PayrollBatchId == payrollBatchId)
+            .ToListAsync(token);
+        foreach (var r in records) r.PayrollBatchId = null;
+        await SaveChangesAsync(token);
+    }
+
     public async Task<(Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records, DateOnly FromDate, DateOnly ToDate)>
     LoadForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
     {
@@ -463,8 +582,14 @@ public class DailyRecordService : BaseService<DailyRecord>
         LoadLeaveInfoForPayrollRunAsync(List<string> batchCodes, CancellationToken token)
     {
         if (batchCodes.Count == 0) return [];
+        return await LoadLeaveInfoAsync(x => batchCodes.Contains(x.BatchCode!), token);
+    }
 
-        var rows = await GetQueryable(x => batchCodes.Contains(x.BatchCode!) && x.LeavesInfo != null && x.LeavesInfo.Any())
+    private async Task<Dictionary<EmployeeKey, List<LeaveMetaDataModel>>>
+        LoadLeaveInfoAsync(Expression<Func<DailyRecord, bool>> dayFilter, CancellationToken token)
+    {
+        var rows = await GetQueryable(dayFilter)
+            .Where(x => x.LeavesInfo != null && x.LeavesInfo.Any())
             .AsNoTracking()
             .SelectMany(x => x.LeavesInfo!.Select(li => new
             {
@@ -628,11 +753,11 @@ public class DailyRecordService : BaseService<DailyRecord>
                 ToDate = g.Max(x => x.WorkDate),
                 EmployeeCount = g.Select(x => x.EmployeeId).Distinct().Count(),
                 UnpostedCount = g.Count(x => !x.Posted),
+                TotalCount = g.Count(),
+                PaidCount = g.Count(x => x.PayrollBatchId != null),
                 PostingDescription = g.Max(x => x.PostingDescription),
             })
             .ToListAsync(token);
-
-        var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
 
         // Left-join by BatchCode (a plain string, not a real FK) -- a legacy batch that predates
         // DTRBatch has no matching row here and is reported as already-Approved, see BatchesModel.
@@ -678,7 +803,9 @@ public class DailyRecordService : BaseService<DailyRecord>
                  EmployeeCount = g.EmployeeCount,
                  IsPosted = g.UnpostedCount == 0,
                  PostingDescription = g.PostingDescription ?? "",
-                 IsPayrollGenerated = g.Key != null && usedBatchCodes.Contains(g.Key),
+                 // Fully paid only -- a cutoff-mode run can pay some of a batch's days and leave the rest
+                 // for a later run, so a partly-paid batch still has work left.
+                 IsPayrollGenerated = g.PaidCount > 0 && g.PaidCount == g.TotalCount,
                  ApprovalStatus = dtrBatch?.ApprovalStatus ?? ApprovalStatus.Approved,
                  GeneratedByEmployeeId = dtrBatch?.GeneratedByEmployeeId,
                  GeneratedByName = NameOf(dtrBatch?.GeneratedByEmployeeId),

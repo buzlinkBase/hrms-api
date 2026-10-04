@@ -1544,6 +1544,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("PaidLeaveHours")
                         .HasColumnType("double");
 
+                    b.Property<Guid?>("PayrollBatchId")
+                        .HasColumnType("char(36)");
+
                     b.Property<Guid?>("PayrollGroupId")
                         .HasColumnType("char(36)");
 
@@ -1680,6 +1683,8 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("EmployeeId", "WorkDate")
                         .IsUnique();
+
+                    b.HasIndex("PayrollBatchId");
 
                     b.HasIndex("TenantId", "DeletedAt");
 

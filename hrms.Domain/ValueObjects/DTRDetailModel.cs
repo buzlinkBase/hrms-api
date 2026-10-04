@@ -192,6 +192,20 @@ public class BatchesModel
     public string? RequestedDeletionByName { get; set; }
 }
 
+// An employee of a cutoff-mode payroll run's group who still has DTR days in the range that
+// aren't approved yet (so the run can't pay them) -- surfaced as a warning, not a blocker. See
+// DailyRecordService.GetNotReadyEmployeesAsync.
+public class PayrollNotReadyEmployee
+{
+    public Guid EmployeeId { get; set; }
+    public string? FullName { get; set; }
+    public int UnapprovedDays { get; set; }
+    public List<string> BatchCodes { get; set; } = [];
+    // "UnapprovedDtr" (days still awaiting DTR approval) or "FixedSalaryAlreadyPaid" (a FIXED-salary
+    // employee whose period salary an earlier run already paid; the run skips them).
+    public string Reason { get; set; } = "UnapprovedDtr";
+}
+
 public class TardinessReportModel
 {
     public DateOnly WorkDate { get; set; }

@@ -30,6 +30,8 @@ public class DailyRecordConfig : IEntityTypeConfiguration<DailyRecord>
         // the primary guard lives in DailyRecordService.AddRangeAsync.
         builder.HasIndex(d => new { d.EmployeeId, d.WorkDate }).IsUnique();
 
+        builder.HasIndex(d => d.PayrollBatchId);
+
         builder.HasMany(d => d.LeavesInfo)
             .WithOne(x => x.DTR)
             .HasForeignKey(d => d.DTRId)

@@ -91,6 +91,11 @@ public class DailyRecord : BaseEntity, IUserField, IEmployeeOwned
     public double ShiftWorkingHour { get; set; }
     public bool Posted { get; set; }
 
+    // The PayrollBatch that already paid this day, null while unpaid. Day-level (not batch-level)
+    // so one employee's days from several DTR batches/clients can be paid across different runs
+    // without paying any day twice -- see PayrollProcessorService.GenerateAsync.
+    public Guid? PayrollBatchId { get; set; }
+
     // Sum of every mutually-exclusive Hrs/OT/ND/ND-OT bucket below — exactly one WorkType
     // group is ever populated per day (see WorkTypeResolver), so this is a straight sum, not a
     // max/first. Deliberately excludes OBHours/PaidLeaveHours/UnpaidLeaveHours — those aren't

@@ -9,10 +9,21 @@ public record PayrollCalcPayload(DateOnly FromDate, DateOnly ToDate, Guid? Depar
     public List<string>? BatchCodes { get; init; }
 }
 
-// Payload for the UI-driven payroll run — only the selected posted batch codes.
-// Date range and employees are derived from the actual DTR records in those batches.
-public record PayrollRunPayload(List<string> BatchCodes)
+// Payload for the UI-driven payroll run. Two selection modes:
+//  * Cutoff mode (BatchCodes null/empty) -- FromDate, ToDate and PayrollGroupId are required; the run
+//    pays every approved, not-yet-paid DTR day of that group's employees in the range, whichever
+//    DTR batch or client it was reported under (EmployeeIds optionally narrows it to specific
+//    people). The pay period is the requested range.
+//  * Legacy batch mode (BatchCodes set) -- only the selected posted batch codes; date range and
+//    employees are derived from the actual DTR records in those batches.
+public record PayrollRunPayload(List<string>? BatchCodes = null)
 {
+    public DateOnly? FromDate { get; init; }
+    public DateOnly? ToDate { get; init; }
+    public Guid? PayrollGroupId { get; init; }
+    public List<Guid>? EmployeeIds { get; init; }
+    public bool IsCutoffMode => BatchCodes == null || BatchCodes.Count == 0;
+
     // Explicit Pay/Release Date, required only when CrossMonthStatutoryCreditPolicy or
     // WTaxCrossMonthCreditPolicy is set to PayDate — see PayrollProcessorService.CalculateAsync.
     public DateOnly? PayDate { get; init; }
