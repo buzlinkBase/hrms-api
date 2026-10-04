@@ -254,8 +254,8 @@ public class PayrollProcessorService
     private static void ValidatePayload(PayrollRunPayload payload)
     {
         if (!payload.IsCutoffMode) return;
-        if (payload.FromDate == null || payload.ToDate == null || payload.PayrollGroupId == null)
-            throw new ValidationException("Select a payroll group and a date range, or select DTR batches, to run payroll.");
+        if (payload.FromDate == null || payload.ToDate == null)
+            throw new ValidationException("Select a date range, or select DTR batches, to run payroll.");
         if (payload.FromDate > payload.ToDate)
             throw new ValidationException("The date range's start date is after its end date.");
     }

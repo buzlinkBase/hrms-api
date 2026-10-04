@@ -12,14 +12,14 @@ public record PayrollCalcPayload(DateOnly FromDate, DateOnly ToDate, Guid? Depar
 // Which DTR days a cutoff-mode run pays: the range, the payroll group, and optional narrowing by
 // the employee's own tags -- see DailyRecordService.CutoffPayableFilter.
 public record CutoffScope(
-    DateOnly From, DateOnly To, Guid PayrollGroupId,
+    DateOnly From, DateOnly To, Guid? PayrollGroupId,
     List<Guid>? EmployeeIds = null, List<Guid>? DepartmentIds = null, List<Guid>? ClientIds = null);
 
 // Payload for the UI-driven payroll run. Two selection modes:
-//  * Cutoff mode (BatchCodes null/empty) -- FromDate, ToDate and PayrollGroupId are required; the run
-//    pays every approved, not-yet-paid DTR day of that group's employees in the range, whichever
-//    DTR batch or client it was reported under (EmployeeIds optionally narrows it to specific
-//    people). The pay period is the requested range.
+//  * Cutoff mode (BatchCodes null/empty) -- only FromDate and ToDate are required; the run pays
+//    every approved, not-yet-paid DTR day of the matching employees in the range, whichever DTR
+//    batch or client it was reported under. PayrollGroupId, DepartmentIds, ClientIds and
+//    EmployeeIds are all optional narrowing filters (omitted = no narrowing). The pay period is the requested range.
 //  * Legacy batch mode (BatchCodes set) -- only the selected posted batch codes; date range and
 //    employees are derived from the actual DTR records in those batches.
 public record PayrollRunPayload(List<string>? BatchCodes = null)
@@ -35,7 +35,7 @@ public record PayrollRunPayload(List<string>? BatchCodes = null)
     public bool IsCutoffMode => BatchCodes == null || BatchCodes.Count == 0;
     // Valid only in cutoff mode (ProcessorService validates first).
     public CutoffScope ToCutoffScope() =>
-        new(FromDate!.Value, ToDate!.Value, PayrollGroupId!.Value, EmployeeIds, DepartmentIds, ClientIds);
+        new(FromDate!.Value, ToDate!.Value, PayrollGroupId, EmployeeIds, DepartmentIds, ClientIds);
 
     // Explicit Pay/Release Date, required only when CrossMonthStatutoryCreditPolicy or
     // WTaxCrossMonthCreditPolicy is set to PayDate — see PayrollProcessorService.CalculateAsync.

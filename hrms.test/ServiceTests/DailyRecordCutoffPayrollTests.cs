@@ -98,6 +98,26 @@ public class DailyRecordCutoffPayrollTests
     }
 
     [Fact]
+    public async Task GetNotReadyEmployeesAsync_IncludesEveryGroup_WhenNoPayrollGroupIsGiven()
+    {
+        using var db = new SqliteHrmsContext();
+        Guid employeeId;
+        await using (var seed = db.NewContext())
+        {
+            (_, employeeId, _, _) = Seed(seed);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+
+        var result = await service.GetNotReadyEmployeesAsync(
+            new CutoffScope(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15), null), CancellationToken.None);
+
+        result.Should().ContainSingle().Which.EmployeeId.Should().Be(employeeId);
+    }
+
+    [Fact]
     public async Task GetNotReadyEmployeesAsync_FiltersByTheEmployeesOwnClientAndDepartmentTags()
     {
         using var db = new SqliteHrmsContext();

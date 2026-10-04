@@ -417,13 +417,13 @@ public class DailyRecordService : BaseService<DailyRecord>
     }
     // Cutoff-mode filter shared by the day loader, the leave loader and the warning queries:
     // inside the range, not yet paid by any payroll run, and Posted (approved) or not as asked.
-    // Group, employee, department and client all come from the Employee record (its current
+    // Group, employee, department and client are all optional and come from the Employee record (its current
     // tags), never from the DTR row, so the run follows how the employee is set up today.
     private static Expression<Func<DailyRecord, bool>> CutoffFilter(CutoffScope c, bool posted) =>
         x => x.Posted == posted
             && x.PayrollBatchId == null
             && x.WorkDate >= c.From && x.WorkDate <= c.To
-            && x.Employee!.PayrollGroupId == c.PayrollGroupId
+            && (c.PayrollGroupId == null || x.Employee!.PayrollGroupId == c.PayrollGroupId)
             && (c.EmployeeIds == null || c.EmployeeIds.Count == 0 || c.EmployeeIds.Contains(x.EmployeeId))
             && (c.DepartmentIds == null || c.DepartmentIds.Count == 0 || (x.Employee!.DepartmentId != null && c.DepartmentIds.Contains(x.Employee!.DepartmentId.Value)))
             && (c.ClientIds == null || c.ClientIds.Count == 0 || (x.Employee!.ClientId != null && c.ClientIds.Contains(x.Employee!.ClientId.Value)));
