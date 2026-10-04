@@ -85,21 +85,20 @@ public class DTRDetailModel
     public Guid? AreaId { get; set; }
     public double ShiftWorkingHour { get; set; }
     public bool Posted { get; set; }
-    // Sum of every mutually-exclusive Hrs/OT/ND/ND-OT bucket the DTR detail table displays —
-    // exactly one WorkType group (Regular/RestDay/LegalHol/SpecialHol/RestLegal/RestSpecial/
-    // DoubleLegal/RestDoubleLegal) is ever populated per day (see WorkTypeResolver), so this is
-    // a straight sum, not a max/first. Deliberately excludes OBHours/PaidLeaveHours/
-    // UnpaidLeaveHours — those aren't worked hours.
-    public double TotalHours => RegularNetHours + RegularOTHours + RegularNDHours + RegularNDOTHours
-        + RestDayHours + RestDayOTHours + RestDayNDHours + RestDayNDOTHours
-        + LegalHolHours + LegalHolOTHours + LegalHolNightDiffHours + LegalHolNightDiffOTHours
-        + SpecialHolHours + SpecialHolOTHours + SpecialHolNightDiffHours + SpecialHolNightDiffOTHours
-        + RestLegalDayHours + RestLegalDayOTHours + RestLegalDayNDHours + RestLegalDayNDOTHours
-        + RestSpecialDayHours + RestSpecialDayOTHours + RestSpecialDayNDHours + RestSpecialDayNDOTHours
-        + DoubleLegalHours + DoubleLegalOTHours + DoubleLegalNDHours + DoubleLegalNDOTHours
-        + RestDoubleLegalHours + RestDoubleLegalOTHours + RestDoubleLegalNDHours + RestDoubleLegalNDOTHours
-        + SpecialWorkDayHours + SpecialWorkDayOTHours + SpecialWorkDayNDHours + SpecialWorkDayNDOTHours
-        ;
+    // Worked hours = Hrs + OT of every day type. Exactly one WorkType group (Regular/RestDay/
+    // LegalHol/SpecialHol/RestLegal/RestSpecial/DoubleLegal/RestDoubleLegal) is ever populated per
+    // day (see WorkTypeResolver), so this is a straight sum. ND/ND-OT are not added: DTR hours are
+    // natural (Hrs and OT already include their night portion), so adding them would double count.
+    // Deliberately excludes OBHours/PaidLeaveHours/UnpaidLeaveHours — those aren't worked hours.
+    public double TotalHours => RegularNetHours + RegularOTHours
+        + RestDayHours + RestDayOTHours
+        + LegalHolHours + LegalHolOTHours
+        + SpecialHolHours + SpecialHolOTHours
+        + RestLegalDayHours + RestLegalDayOTHours
+        + RestSpecialDayHours + RestSpecialDayOTHours
+        + DoubleLegalHours + DoubleLegalOTHours
+        + RestDoubleLegalHours + RestDoubleLegalOTHours
+        + SpecialWorkDayHours + SpecialWorkDayOTHours;
 }
 public class DTRSummaryModel
 {

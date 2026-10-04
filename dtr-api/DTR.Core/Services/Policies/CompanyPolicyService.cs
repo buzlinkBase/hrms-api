@@ -27,8 +27,8 @@ public class CompanyPolicyRule
     // other company policy field — never actually consumed by DTR-side logic. The real consumer
     // is Hrms.Core.Pipelines.PayrollContext's own CompanyPolicyRule (hrms.Domain/ValueObjects/
     // PaginationPayload.cs), populated separately by PayrollRangeContextComposerService. See
-    // NightDiffOTCategoryPolicies.SingleCategoryNDOTPolicy.
-    public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethod.Compounded;
+    // Hrms.Core/Calculators/DtrPay.
+    public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default;
 
 }
 
@@ -215,10 +215,10 @@ public class CompanyPolicyService
 
     private void SetOtNdCalculationMethod(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
     {
-        policy.OtNdCalculationMethod = OtNdCalculationMethod.Compounded;
+        policy.OtNdCalculationMethod = OtNdCalculationMethodDefaults.Default;
         if (data.TryGetValue(SettingKey.OtNdCalculationMethod.ToString(), out GeneralSettingModel? method))
         {
-            var settingvalue = GeneralSettingsUtil.ParseEnum(method.Value, OtNdCalculationMethod.Compounded);
+            var settingvalue = GeneralSettingsUtil.ParseEnum(method.Value, OtNdCalculationMethodDefaults.Default);
             policy.OtNdCalculationMethod = settingvalue;
         }
     }

@@ -1,10 +1,12 @@
+using Hrms.Core.Calculators.DtrPay;
 using Hrms.Core.Policies.DTRPolicies;
+using hrms.test.PayrollRunTests.DtrPay;
 
 namespace hrms.test.PayrollRunTests;
 
 /// <summary>
-/// Covers the segregated Base/Premium recording added to OvertimeCategoryPolicies.cs/
-/// NightDiffCategoryPolicies.cs/NightDiffOTCategoryPolicies.cs, built directly from the client's
+/// Covers the segregated Base/Premium recording of the Compounded pay method's OT / ND / NDOT
+/// pricers (Hrms.Core/Calculators/DtrPay/BucketPricers.cs), built directly from the client's
 /// own "Special Non Working (Base)" spreadsheet example: DailyRate 540 (HourlyRate 67.50), 3
 /// Reg hours, 1 OT hour, 5 ND hours, 3 NDOT hours, SPECIAL_NON_WORKING=1.30, HOLIDAY_OT=1.25,
 /// NIGHTDIFF=1.10. Confirms four things, all priced against ONE rate alone, never compounded
@@ -25,6 +27,8 @@ public class NightDiffBasePremiumSegregationTests
     private const double ShiftHours = 8;
     private const decimal HourlyRate = 67.5m; // DailyRate / ShiftHours
 
+    // otHours / ndHours are the daytime-OT / night-regular buckets; the DTR stores them natural
+    // (OT and ND each include the NDOT hours), so they're stored that way here.
     private static PayrollContext CreateContext(double otHours = 0, double ndHours = 0, double ndotHours = 0, Guid? clientId = null)
     {
         return new PayrollContext
@@ -42,8 +46,8 @@ public class NightDiffBasePremiumSegregationTests
             DailyRecord = new DailyRecordRunModel
             {
                 ShiftWorkingHour = ShiftHours,
-                SpecialHolOTHours = otHours,
-                SpecialHolNightDiffHours = ndHours,
+                SpecialHolOTHours = otHours + ndotHours,
+                SpecialHolNightDiffHours = ndHours + ndotHours,
                 SpecialHolNightDiffOTHours = ndotHours,
             },
             Payload = new CalculatorPayload(),
@@ -64,9 +68,9 @@ public class NightDiffBasePremiumSegregationTests
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.25m);
         SetCompanyRate(context, RateType.NIGHTDIFF, 1.10m);
 
-        var otLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var ndLine = new SpecialNonWorkingNDPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var ndotLine = new SpecialNonWorkingNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var otLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
+        var ndLine = DtrPayKit.CompoundedNd(PayCategories.Special, context);
+        var ndotLine = DtrPayKit.CompoundedNdot(PayCategories.Special, context);
 
         // 1. Existing blended (actually paid) amounts -- untouched by this feature.
         otLine.Value.Should().Be(1 * HourlyRate * 1.30m * 1.25m); // 109.6875, compounded -- not the spreadsheet's row
@@ -100,7 +104,7 @@ public class NightDiffBasePremiumSegregationTests
         SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
         SetCompanyRate(context, RateType.NIGHTDIFF, 1.15m);
 
-        var ndLine = new SpecialNonWorkingNDPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var ndLine = DtrPayKit.CompoundedNd(PayCategories.Special, context);
 
         ndLine.FlatNightDiffPremium.Should().Be(5 * HourlyRate * 0.15m);
     }
@@ -118,7 +122,7 @@ public class NightDiffBasePremiumSegregationTests
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.25m); // company default -- not what this client actually gets
         SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT_PREMIUM, 1.50m); // this client's negotiated premium
 
-        var otLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var otLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
 
         otLine.Value.Should().Be(1 * HourlyRate * (1.30m * 1.50m)); // actual pay: day rate x this client's premium
         otLine.FlatOvertimeBase.Should().Be(1 * HourlyRate * 1.50m); // Base: the same premium alone, day-rate excluded
@@ -132,9 +136,9 @@ public class NightDiffBasePremiumSegregationTests
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.25m);
         SetCompanyRate(context, RateType.NIGHTDIFF, 1.10m);
 
-        var otLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var ndLine = new SpecialNonWorkingNDPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var ndotLine = new SpecialNonWorkingNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var otLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
+        var ndLine = DtrPayKit.CompoundedNd(PayCategories.Special, context);
+        var ndotLine = DtrPayKit.CompoundedNdot(PayCategories.Special, context);
 
         otLine.FlatOvertimeBase.Should().Be(0m);
         ndLine.FlatNightDiffPremium.Should().Be(0m);
@@ -146,15 +150,15 @@ public class NightDiffBasePremiumSegregationTests
     public void NothingConfigured_DayTypeAndRateFallbacksUseRateDefaultConstants_NotBlanket1Point0Or1Point25()
     {
         // Regression guard, same class of bug as OvertimeRateStrategiesTests' equivalent test --
-        // NightDiffCategoryPolicies.cs/NightDiffOTCategoryPolicies.cs had the identical blanket
+        // the ND / NDOT pricing (then NightDiff[OT]CategoryPolicies.cs) had the identical blanket
         // 1.0m/1.25m fallback bug, independently of OvertimeRateStrategies.cs.
         var context = CreateContext(otHours: 1, ndHours: 5, ndotHours: 3);
         // No company/client rates configured at all -- every lookup must fall through to
         // RATE_DEFAULT.For(...): SPECIAL_NON_WORKING=1.30, HOLIDAY_OT=1.30, NIGHTDIFF=1.10.
 
-        var otLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var ndLine = new SpecialNonWorkingNDPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var ndotLine = new SpecialNonWorkingNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var otLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
+        var ndLine = DtrPayKit.CompoundedNd(PayCategories.Special, context);
+        var ndotLine = DtrPayKit.CompoundedNdot(PayCategories.Special, context);
 
         otLine.FlatOvertimeBase.Should().Be(1 * HourlyRate * 1.30m); // RATE_DEFAULT.HOLIDAY_OT, not .OVERTIME's 1.25
         var ndBase = ndLine.Value - ndLine.NDPremium;
@@ -166,10 +170,10 @@ public class NightDiffBasePremiumSegregationTests
     public void NDOTPolicy_ActualPayHonorsClientPremiumOverride_SameAsPlainOTPolicy()
     {
         // Regression guard for the real payroll-calculation bug (not just presentation):
-        // NightDiffOTCategoryPolicies used to resolve its OT-tier rate via a plain
+        // The NDOT pricing (then NightDiffOTCategoryPolicies) used to resolve its OT-tier rate via a plain
         // PremiumRateHelper.GetRate(HOLIDAY_OT) lookup, bypassing any client override entirely --
         // a client's negotiated OT premium was silently ignored for any hour that was ALSO at
-        // night, even though the same client's plain-OT hours (SingleCategoryOTPolicy) already
+        // night, even though the same client's plain-OT hours (the plain OT pricing) already
         // correctly honored it. Both must now trace back to the same configured premium.
         var clientId = Guid.NewGuid();
         var context = CreateContext(ndotHours: 3, clientId: clientId);
@@ -178,7 +182,7 @@ public class NightDiffBasePremiumSegregationTests
         SetCompanyRate(context, RateType.NIGHTDIFF, 1.10m);
         SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT_PREMIUM, 1.50m); // this client's negotiated premium
 
-        var ndotLine = new SpecialNonWorkingNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var ndotLine = DtrPayKit.CompoundedNdot(PayCategories.Special, context);
 
         // day rate (1.30) x this client's premium (1.50) x night rate (1.10) = 2.145.
         var expectedFullRate = 1.30m * 1.50m * 1.10m;

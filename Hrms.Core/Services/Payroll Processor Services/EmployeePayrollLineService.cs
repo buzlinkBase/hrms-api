@@ -1,4 +1,5 @@
 using DTR.Core;
+using Hrms.Core.Calculators.DtrPay;
 using Hrms.Core.Policies.DeductionPolicies;
 using Hrms.Domain.Entities;
 
@@ -11,18 +12,18 @@ namespace Hrms.Core.Services;
 public class EmployeePayrollLineService
 {
     private readonly IDailyRateResolver _dailyRateResolver;
-    private readonly ICalculator<DTRPayModel, PayrollContext> _basicPayrollCalculator;
+    private readonly IDtrPayCalculatorFactory _dtrPayCalculators;
     private readonly ICalculator<AllowancePipeData, PayrollContext> _allowancesCalculator;
     private readonly ICalculator<DeductionPipeData, DeductionPayloadContext> _deductionCalculator;
 
     public EmployeePayrollLineService(
         IDailyRateResolver dailyRateResolver,
-        ICalculator<DTRPayModel, PayrollContext> basicPayrollCalculator,
+        IDtrPayCalculatorFactory dtrPayCalculators,
         ICalculator<AllowancePipeData, PayrollContext> allowancesCalculator,
         ICalculator<DeductionPipeData, DeductionPayloadContext> deductionCalculator)
     {
         _dailyRateResolver = dailyRateResolver;
-        _basicPayrollCalculator = basicPayrollCalculator;
+        _dtrPayCalculators = dtrPayCalculators;
         _allowancesCalculator = allowancesCalculator;
         _deductionCalculator = deductionCalculator;
     }
@@ -120,9 +121,9 @@ public class EmployeePayrollLineService
     // day in the period — the DTR posting pipeline already computed these (see
     // DailyRecordRunModel/DailyRecord), this just carries them forward instead of letting
     // them get dropped once the DTR rows are rolled up into pay amounts. No payroll math of
-    // its own; OvertimeHours is the one derived figure — the sum of every pure *OTHours
-    // category (excluding the ND-OT combo hours, which are their own columns) — matching
-    // what the Payroll Summary "OT Total Hr" figure means.
+    // its own; OvertimeHours is the one derived figure — the sum of every *OTHours category
+    // (natural: each already includes its ND-OT hours, so those are never added on top) —
+    // matching what the Payroll Summary "OT Total Hr" figure means.
     internal static void ComputeHoursBreakdown(List<DailyRecordRunModel> dtrs, PayrollSummaryLine line)
     {
         decimal Sum(Func<DailyRecordRunModel, double> selector) => (decimal)dtrs.Sum(selector);
@@ -372,6 +373,9 @@ public class EmployeePayrollLineService
     {
 
         var basicResultMoel = new List<DTRPayModel>();
+        // Setup > Company Policy > OT/ND Calculation Method decides how every day of this run is
+        // priced -- resolved once per employee, not per day.
+        var dtrPayCalculator = _dtrPayCalculators.For(calcPayload.CompanyPolicy.OtNdCalculationMethod);
         for (var date = payload.FromDate; date <= payload.ToDate; date = date.AddDays(1))
         {
             var record = SelectDtrRecordForDate(dtrs, employee.Id, date);
@@ -384,7 +388,7 @@ public class EmployeePayrollLineService
                 .SetPayload(calcPayload)
                 .Build();
 
-            var result = _basicPayrollCalculator.Calculate(context);
+            var result = dtrPayCalculator.Calculate(context);
             if (result == null) continue;
             result.Date = date;
             result.DTRRef = record.BatchCode;

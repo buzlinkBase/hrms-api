@@ -497,22 +497,33 @@ public enum SettingKey
     // gross income (0-100) that scheduled/statutory deductions may never cut into.
     RequiredTakehomePercentage,
     // Company-wide only. Picks how hours that are overtime (OT-only or NDOT) price their day/OT/ND
-    // rates — see OvertimeCategoryPolicies.SingleCategoryOTPolicy and
-    // NightDiffOTCategoryPolicies.SingleCategoryNDOTPolicy.
+    // rates — see the OtNdCalculationMethod enum and Hrms.Core/Calculators/DtrPay.
     OtNdCalculationMethod,
 }
 
-// How OT-involving hours (OT-only or NDOT) price their day/OT/ND rates. Compounded (default,
-// DOLE-standard): dayRate x otRate (x ndRate for NDOT). Additive: the day-type multiplier is
-// DROPPED entirely for these hours -- only the raw OT rate applies (plus (ndRate - 1) for NDOT),
-// i.e. otRate, or otRate + (ndRate - 1). Computes LESS than Compounded for any category whose day
-// rate isn't 1.0; company-wide opt-in only, with a compliance warning shown in Setup > Company
-// Policy. Confirmed against the company's own manual payroll worksheet. Plain ND-only hours (no
-// OT) are unaffected by this setting in either mode -- they always keep the day-type rate.
+// How a day's OT / ND / NDOT hours are priced -- each method is its own IDtrPayCalculator
+// (Hrms.Core/Calculators/DtrPay), picked by IDtrPayCalculatorFactory.
+// The DTR stores natural hours (Hrs/OT include their night part, ND = all night hours, NDOT = the
+// night-OT subset of OT and ND); each day-type policy branches on the method (DayTypeHours).
+// - Compounded (DOLE-standard): the hours separated into daytime / night buckets, each at its fully
+//   compounded rate -- daytime Hrs x day, OT x day x OT, ND x day x ND, NDOT x day x OT x ND.
+// - Additive (the default, see OtNdCalculationMethodDefaults): the natural hours (NDOT = 0), each
+//   at one rate and added up -- Hrs x day rate, OT x raw OT rate (no day-type multiplier),
+//   ND x (ND rate - 1). Confirmed against the company's own manual
+//   payroll worksheet; computes LESS than Compounded for any category whose day rate isn't 1.0, so
+//   Setup > Company Policy shows a compliance warning when it's selected.
 public enum OtNdCalculationMethod
 {
     Compounded,
     Additive,
+}
+
+// The method a company uses until it saves one of its own -- the single source for every fallback
+// (new-company seed, unset setting, Company Policy screen). Runs already generated keep the method
+// recorded on them (Payroll.OtNdCalculationMethod), so changing this never re-prices history.
+public static class OtNdCalculationMethodDefaults
+{
+    public const OtNdCalculationMethod Default = OtNdCalculationMethod.Additive;
 }
 
 // Which statutory contribution a ClientStatutoryCapKey caps — see StatutoryCapHelper.

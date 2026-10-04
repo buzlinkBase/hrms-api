@@ -3,14 +3,13 @@ using Hrms.Domain.ValueObjects;
 namespace hrms.test.DTRTests;
 
 /// <summary>
-/// DTRDetailModel.TotalHours — the per-day sum the DTR detail table's columns should add up
-/// to. Regression coverage for a bug where LegalHolOTHours was added twice and
-/// LegalHolNightDiffOTHours was never added at all.
+/// DTRDetailModel.TotalHours — worked hours = Hrs + OT of every day type. DTR hours are
+/// natural (Hrs/OT already include their night portion), so ND/ND-OT are never added.
 /// </summary>
 public class DTRDetailModelTotalHoursTests
 {
     [Fact]
-    public void RegularDay_SumsAllFourRegularBuckets()
+    public void RegularDay_SumsHrsAndOt_IgnoringNightBuckets()
     {
         var model = new DTRDetailModel
         {
@@ -20,14 +19,12 @@ public class DTRDetailModelTotalHoursTests
             RegularNDOTHours = 0.5,
         };
 
-        model.TotalHours.Should().Be(11.5);
+        model.TotalHours.Should().Be(10);
     }
 
     [Fact]
-    public void LegalHolidayDay_IncludesNightDiffOT_AndDoesNotDoubleCountOT()
+    public void LegalHolidayDay_CountsOtOnce_AndNoNightBuckets()
     {
-        // Regression case for the original bug: LegalHolOTHours was summed twice and
-        // LegalHolNightDiffOTHours was omitted entirely.
         var model = new DTRDetailModel
         {
             LegalHolHours = 8,
@@ -36,7 +33,7 @@ public class DTRDetailModelTotalHoursTests
             LegalHolNightDiffOTHours = 0.5,
         };
 
-        model.TotalHours.Should().Be(11.5); // 8 + 2 + 1 + 0.5, each counted exactly once
+        model.TotalHours.Should().Be(10); // 8 + 2; the night hours are already inside Hrs/OT
     }
 
     [Fact]

@@ -19,7 +19,8 @@ public class PaidRecordsHoursTests
     private static readonly DateOnly From = new(2026, 9, 16);
     private static readonly DateOnly To = new(2026, 9, 30);
 
-    // A guard's 12-hour day: 8 regular (of which 4 at night) + 4 OT, all OT at night.
+    // A guard's 12-hour day: 8 regular + 4 OT, all OT at night. Hours are natural, so OT and
+    // ND each include the 4 NDOT hours.
     private static DailyRecordRunModel GuardDay(DateOnly date, string batch = "B1") => new()
     {
         Id = Guid.NewGuid(),
@@ -27,6 +28,8 @@ public class PaidRecordsHoursTests
         WorkDate = date,
         BatchCode = batch,
         RegularNetHours = 8,
+        RegularOTHours = 4,
+        RegularNDHours = 4,
         RegularNDOTHours = 4,
     };
 
@@ -37,7 +40,7 @@ public class PaidRecordsHoursTests
         EmployeeId = EmployeeId,
         WorkDate = date,
         BatchCode = "OLD",
-        RegularNetHours = 4,
+        RegularNetHours = 8,
         RegularNDHours = 4,
         RegularOTHours = 4,
     };
@@ -62,8 +65,8 @@ public class PaidRecordsHoursTests
         var line = HoursOf(dtrs);
 
         line.RegularNetHours.Should().Be(112);
-        line.RegularNDHours.Should().Be(0);
-        line.RegularOTHours.Should().Be(0);
+        line.RegularNDHours.Should().Be(56);
+        line.RegularOTHours.Should().Be(56);
         line.RegularNDOTHours.Should().Be(56);
     }
 
@@ -106,7 +109,8 @@ public class PaidRecordsHoursTests
             TimeHourPayResults = PaidDays(14, 8 * hourly),
             RegularNDOTHours = 52,
             RegularNDOTBasePay = 52 * hourly * 1.25m, // 4,387.50
-            RegularOTHours = 4,
+            RegularOTHours = 56, // natural: 4 daytime + 52 NDOT
+            RegularNDHours = 52, // natural: the 52 NDOT hours
             RegularOTBasePay = 4 * hourly * 1.25m, // 337.50
             RegularNDOTPremiumPay = 52 * hourly * 0.10m, // 351.00
             GrossIncome = 12636m,

@@ -1,11 +1,13 @@
+using Hrms.Core.Calculators.DtrPay;
 using Hrms.Core.Policies.DTRPolicies;
+using hrms.test.PayrollRunTests.DtrPay;
 
 namespace hrms.test.PayrollRunTests;
 
 /// <summary>
-/// End-to-end wiring tests for the 7 holiday/rest-day OT policies (Hrms.Core/Policies/
-/// DTRPolicies/OvertimeCategoryPolicies.cs) — proves SingleCategoryOTPolicy's Template Method
-/// correctly composes with each policy's IOtRateStrategy (CompoundedOtRateStrategy, whose
+/// End-to-end wiring tests for the 7 holiday/rest-day OT categories (Hrms.Core/Calculators/DtrPay
+/// PayCategories + the Compounded OT pricer) — proves each category's IOtRateStrategy
+/// (CompoundedOtRateStrategy, whose
 /// otType/otFallbackType let a client override a category's own OT PREMIUM, falling back to the
 /// shared HOLIDAY_OT when not overridden), not just the strategies in isolation
 /// (OvertimeRateStrategiesTests). Covers the three concrete scenarios from the client's
@@ -60,8 +62,8 @@ public class OvertimeCategoryPolicyTests
         SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
 
-        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var legalLine = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
+        var specialLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
 
         legalLine.Value.Should().Be(HourlyRate * 2 * 2.60m);
         specialLine.Value.Should().Be(HourlyRate * 2 * 1.69m);
@@ -81,8 +83,8 @@ public class OvertimeCategoryPolicyTests
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT_PREMIUM, 1.25m / 2.00m);
         SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT_PREMIUM, 1.25m / 1.30m);
 
-        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var legalLine = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
+        var specialLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
 
         legalLine.Value.Should().Be(HourlyRate * 3 * 1.25m); // 0.625 x 2.00 recombines exactly
         specialLine.Value.Should().Be(HourlyRate * 3 * (1.30m * (1.25m / 1.30m))); // ~337.50, within a fraction of a centavo
@@ -104,8 +106,8 @@ public class OvertimeCategoryPolicyTests
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT_PREMIUM, 1.125m);
         SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT_PREMIUM, 1.25m);
 
-        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var legalLine = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
+        var specialLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
 
         // Spreadsheet: rate/8*1.25*hrs + rate/8*hrs == rate/8*hrs*2.25
         legalLine.Value.Should().Be(HourlyRate * 4 * 1.25m + HourlyRate * 4);
@@ -129,8 +131,8 @@ public class OvertimeCategoryPolicyTests
         SetCompanyRate(plainContext, RateType.LEGAL_HOLIDAY_DUTY, 2.00m);
         SetCompanyRate(plainContext, RateType.HOLIDAY_OT, 1.30m);
 
-        var overriddenLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), overriddenContext);
-        var plainLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), plainContext);
+        var overriddenLine = DtrPayKit.CompoundedOt(PayCategories.Legal, overriddenContext);
+        var plainLine = DtrPayKit.CompoundedOt(PayCategories.Legal, plainContext);
 
         overriddenLine.Value.Should().Be(HourlyRate * 1 * 1.25m);
         plainLine.Value.Should().Be(HourlyRate * 1 * 2.60m); // unaffected by the other client's override -- falls back to shared HOLIDAY_OT
@@ -150,7 +152,7 @@ public class OvertimeCategoryPolicyTests
         SetClientRate(context, clientId, RateType.HOLIDAY_OT, 1.40m); // this client's own HOLIDAY_OT override
         // No LEGAL_HOLIDAY_OT_PREMIUM override configured for this client.
 
-        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var legalLine = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
 
         legalLine.Value.Should().Be(HourlyRate * 1 * (2.00m * 1.40m)); // the client's own HOLIDAY_OT, not the company's 1.30
     }
@@ -162,7 +164,7 @@ public class OvertimeCategoryPolicyTests
         var context = CreateContext(clientId, legalHolOtHours: 0);
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT_PREMIUM, 0.625m);
 
-        var line = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var line = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
 
         line.Value.Should().Be(0m);
     }
@@ -175,7 +177,7 @@ public class OvertimeCategoryPolicyTests
         context.Employee.Settings = new EmployeeSettingModel { IsEligibleForOvertime = false };
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT_PREMIUM, 0.625m);
 
-        var line = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var line = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
 
         line.Value.Should().Be(0m);
     }
@@ -201,8 +203,8 @@ public class OvertimeCategoryPolicyTests
         SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
         SetCompanyRate(context, RateType.HOLIDAY_OT, 1.30m);
 
-        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var legalLine = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
+        var specialLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
 
         legalLine.Value.Should().Be(702.00m);
         specialLine.Value.Should().Be(456.30m);
@@ -227,8 +229,8 @@ public class OvertimeCategoryPolicyTests
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT_PREMIUM, 1.25m / 2.00m);
         SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT_PREMIUM, 1.25m / 1.30m);
 
-        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var legalLine = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
+        var specialLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
 
         var hourlyRate = rate / 8m;
         var basePayForHours = hourlyRate * 4m;
@@ -255,8 +257,8 @@ public class OvertimeCategoryPolicyTests
         SetClientRate(context, clientId, RateType.LEGAL_HOLIDAY_OT_PREMIUM, 1.125m);
         SetClientRate(context, clientId, RateType.SPECIAL_HOLIDAY_OT_PREMIUM, 1.25m);
 
-        var legalLine = new LegalHolOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-        var specialLine = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
+        var legalLine = DtrPayKit.CompoundedOt(PayCategories.Legal, context);
+        var specialLine = DtrPayKit.CompoundedOt(PayCategories.Special, context);
 
         legalLine.Value.Should().Be(607.50m);
         specialLine.Value.Should().Be(438.75m);

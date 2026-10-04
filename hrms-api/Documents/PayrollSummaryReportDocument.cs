@@ -98,23 +98,19 @@ public class PayrollSummaryReportDocument : IDocument
     // EmployeePayrollLineService.GetBasicPay / BasicPayrollModel.Calculate):
     // - Basic: Regular category only (BasicPay = Sum(RegularDayPay)) — meaningless for FIXED
     //   salary (no hours drive a flat monthly rate), so left at 0 for those rows.
-    // - OT/ND: all 8 day-type categories' OT-only/ND-only hours. NDOT (hours that are BOTH OT
-    //   and ND) folds into BOTH columns, but only for a row generated under Additive mode — see
-    //   OtHours/NdHours/OtPay/NdPay below for why.
+    // - OT/ND: all 8 day-type categories' OT/ND hours, as stored (natural: NDOT hours -- both
+    //   OT and ND -- are already inside BOTH columns). The NDOT pay folds into both columns only
+    //   for a row generated under Additive mode — see OtPay/NdPay below for why.
     // - Holiday: the 6 holiday-involving categories' plain worked hours only, matching
     //   HolidayPay's own scope (which explicitly excludes their OT/ND/NDOT pay too, in either
-    //   mode — NightDiffOTCategoryPolicies never touches HolidayPay's inputs).
+    //   mode — the OT/ND/NDOT pricing (Calculators/DtrPay) never touches HolidayPay's inputs).
     internal static bool IsAdditive(Payroll r) => r.OtNdCalculationMethod == OtNdCalculationMethod.Additive;
 
     internal static decimal BasicHours(Payroll r) =>
         r.SalaryType == SalaryType.FIXED ? 0m : r.RegularNetHours;
 
-    internal static decimal NdotHoursTotal(Payroll r) =>
-        r.RegularNDOTHours + r.RestDayNDOTHours + r.LegalHolNightDiffOTHours + r.SpecialHolNightDiffOTHours +
-        r.RestLegalDayNDOTHours + r.RestSpecialDayNDOTHours + r.DoubleLegalNDOTHours + r.RestDoubleLegalNDOTHours;
-
-    // NDOT's raw-OT-rate portion (FlatOvertimeBase, mode-independent — see
-    // NightDiffOTCategoryPolicies' own doc comment) and ND-delta portion (FlatNightDiffPremium)
+    // NDOT's raw-OT-rate portion (the flat OT base, mode-independent — see
+    // Calculators/DtrPay's AdditiveDtrPayCalculator) and ND-delta portion (the flat ND premium)
     // are exactly what NDOT's Value decomposes into under Additive mode (dayRate dropped, only
     // otRate + (ndRate - 1) applies) — under Compounded mode NDOT's Value has a genuine 3-way
     // day-rate x OT x ND cross-term that these two pieces alone don't reconstruct, so folding
@@ -127,20 +123,20 @@ public class PayrollSummaryReportDocument : IDocument
         r.RegularNDOTPremiumPay + r.RestDayNDOTPremiumPay + r.LegalNDOTPremiumPay + r.SpecialNDOTPremiumPay +
         r.RestLegalNDOTPremiumPay + r.RestSpecialNDOTPremiumPay + r.DoubleLegalNDOTPremiumPay + r.RestDoubleLegalNDOTPremiumPay;
 
+    // OT and ND hours are stored natural (OT and ND each already include the NDOT hours -- see
+    // dtr-api DailyRecordBuilder), so they're summed as-is in both modes.
     internal static decimal OtHours(Payroll r) =>
         r.RegularOTHours + r.RestDayOTHours + r.LegalHolOTHours + r.SpecialHolOTHours +
-        r.RestLegalDayOTHours + r.RestSpecialDayOTHours + r.DoubleLegalOTHours + r.RestDoubleLegalOTHours
-        + (IsAdditive(r) ? NdotHoursTotal(r) : 0m);
+        r.RestLegalDayOTHours + r.RestSpecialDayOTHours + r.DoubleLegalOTHours + r.RestDoubleLegalOTHours;
 
     internal static decimal NdHours(Payroll r) =>
         r.RegularNDHours + r.RestDayNDHours + r.LegalHolNightDiffHours + r.SpecialHolNightDiffHours +
-        r.RestLegalDayNDHours + r.RestSpecialDayNDHours + r.DoubleLegalNDHours + r.RestDoubleLegalNDHours
-        + (IsAdditive(r) ? NdotHoursTotal(r) : 0m);
+        r.RestLegalDayNDHours + r.RestSpecialDayNDHours + r.DoubleLegalNDHours + r.RestDoubleLegalNDHours;
 
     // OvertimePay is already mode-aware (the OT-only policy branches its own Value on the mode)
     // -- only the NDOT top-up needs to be conditional here, so a Compounded-mode row keeps
     // reading exactly r.OvertimePay, unchanged from before this feature. Mirrors
-    // PayslipHoursDocument's "{Category} OT" row exactly, since FlatOvertimeBase (what
+    // PayslipHoursDocument's "{Category} OT" row exactly, since the flat OT base (what
     // {cat}OTBasePay/NDOTBasePay hold) is itself mode-independent.
     internal static decimal OtPay(Payroll r) => r.OvertimePay + (IsAdditive(r) ? NdotOtPortionPay(r) : 0m);
 

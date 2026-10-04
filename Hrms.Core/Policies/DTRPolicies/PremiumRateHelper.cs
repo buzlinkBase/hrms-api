@@ -21,15 +21,6 @@
             return RateChain.TryResolve(context, type, out var rate) ? rate : fallback;
         }
 
-        // Unlike GetRate, doesn't silently substitute a fallback -- callers that need to know
-        // whether a rate was actually configured (client or company row exists) rather than
-        // just "some value to use" (e.g. ClientOverrideOtRateStrategy, which must behave as a
-        // no-op when nothing was explicitly set) should use this instead.
-        public static bool TryGetRate(PayrollContext context, RateType type, out decimal rate)
-        {
-            return RateChain.TryResolve(context, type, out rate);
-        }
-
         public static decimal GetHourlyRate(PayrollContext context)
         {
             return RateHelper.GetHourlyRate(context);
@@ -38,11 +29,6 @@
 
     public class RateHelper
     {
-        public static decimal GetDailyRate(PayrollContext context)
-        {
-            return context.Employee.DailyRate;
-        }
-
         public static decimal GetHourlyRate(PayrollContext context)
         {
             return context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;

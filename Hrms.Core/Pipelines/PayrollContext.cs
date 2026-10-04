@@ -60,6 +60,10 @@ public class PayrollContext : BasePayloadContext
     public DateOnly PayrollDate { get; set; }
     public WorkType WorkType { get; set; }
     public CalculatorPayload Payload { get; set; } = new();
+    // The OT/ND pay method this day is priced under (Setup > Company Policy > OT/ND Calculation
+    // Method). Stamped by the DTR day-type pay calculator pricing the day, so the day-type policies
+    // (DayTypeHours) always branch the same way as the OT/ND buckets they pair with.
+    public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default;
 }
 public class DeductionPayloadContext : BasePayloadContext
 {
