@@ -9,6 +9,12 @@ public record PayrollCalcPayload(DateOnly FromDate, DateOnly ToDate, Guid? Depar
     public List<string>? BatchCodes { get; init; }
 }
 
+// Which DTR days a cutoff-mode run pays: the range, the payroll group, and optional narrowing by
+// the employee's own tags -- see DailyRecordService.CutoffPayableFilter.
+public record CutoffScope(
+    DateOnly From, DateOnly To, Guid PayrollGroupId,
+    List<Guid>? EmployeeIds = null, List<Guid>? DepartmentIds = null, List<Guid>? ClientIds = null);
+
 // Payload for the UI-driven payroll run. Two selection modes:
 //  * Cutoff mode (BatchCodes null/empty) -- FromDate, ToDate and PayrollGroupId are required; the run
 //    pays every approved, not-yet-paid DTR day of that group's employees in the range, whichever
@@ -22,7 +28,14 @@ public record PayrollRunPayload(List<string>? BatchCodes = null)
     public DateOnly? ToDate { get; init; }
     public Guid? PayrollGroupId { get; init; }
     public List<Guid>? EmployeeIds { get; init; }
+    // Narrow the group's employees by their own Employee.DepartmentId / Employee.ClientId tags
+    // (not the department/client stamped on their DTR rows). Combined with EmployeeIds by AND.
+    public List<Guid>? DepartmentIds { get; init; }
+    public List<Guid>? ClientIds { get; init; }
     public bool IsCutoffMode => BatchCodes == null || BatchCodes.Count == 0;
+    // Valid only in cutoff mode (ProcessorService validates first).
+    public CutoffScope ToCutoffScope() =>
+        new(FromDate!.Value, ToDate!.Value, PayrollGroupId!.Value, EmployeeIds, DepartmentIds, ClientIds);
 
     // Explicit Pay/Release Date, required only when CrossMonthStatutoryCreditPolicy or
     // WTaxCrossMonthCreditPolicy is set to PayDate — see PayrollProcessorService.CalculateAsync.

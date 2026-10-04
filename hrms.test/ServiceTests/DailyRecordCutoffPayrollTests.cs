@@ -2,6 +2,7 @@ using Hrms.Core.Services;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Domain.ValueObjects;
 using Hrms.Infrastructure;
 using hrms.test.TestSupport;
 using Mapster;
@@ -66,7 +67,7 @@ public class DailyRecordCutoffPayrollTests
         var service = BuildService(new UnitOfWorkService(context));
 
         var result = await service.GetNotReadyEmployeesAsync(
-            new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15), groupId, null, CancellationToken.None);
+            new CutoffScope(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15), groupId), CancellationToken.None);
 
         var notReady = result.Should().ContainSingle().Subject;
         notReady.EmployeeId.Should().Be(employeeId);
@@ -89,11 +90,36 @@ public class DailyRecordCutoffPayrollTests
         var service = BuildService(new UnitOfWorkService(context));
 
         (await service.GetNotReadyEmployeesAsync(
-            new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15), Guid.NewGuid(), null, CancellationToken.None))
+            new CutoffScope(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15), Guid.NewGuid()), CancellationToken.None))
             .Should().BeEmpty("the employee belongs to a different payroll group");
         (await service.GetNotReadyEmployeesAsync(
-            new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 15), groupId, null, CancellationToken.None))
+            new CutoffScope(new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 15), groupId), CancellationToken.None))
             .Should().BeEmpty("the draft day falls outside this range");
+    }
+
+    [Fact]
+    public async Task GetNotReadyEmployeesAsync_FiltersByTheEmployeesOwnClientAndDepartmentTags()
+    {
+        using var db = new SqliteHrmsContext();
+        Guid groupId;
+        await using (var seed = db.NewContext())
+        {
+            // The seeded employee has no client or department tag at all, so filtering by any
+            // client or department excludes them, whatever their DTR rows say.
+            (groupId, _, _, _) = Seed(seed);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var range = (From: new DateOnly(2026, 1, 1), To: new DateOnly(2026, 1, 15));
+
+        (await service.GetNotReadyEmployeesAsync(
+            new CutoffScope(range.From, range.To, groupId, ClientIds: [Guid.NewGuid()]), CancellationToken.None))
+            .Should().BeEmpty();
+        (await service.GetNotReadyEmployeesAsync(
+            new CutoffScope(range.From, range.To, groupId, DepartmentIds: [Guid.NewGuid()]), CancellationToken.None))
+            .Should().BeEmpty();
     }
 
     [Fact]

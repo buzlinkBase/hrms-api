@@ -415,24 +415,27 @@ public class DailyRecordService : BaseService<DailyRecord>
             throw;
         }
     }
-    // Cutoff-mode filter shared by the day loader and the leave loader below: approved (Posted),
-    // not yet paid by any payroll run, inside the range, for employees currently in the group.
-    private static Expression<Func<DailyRecord, bool>> CutoffPayableFilter(
-        DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds) =>
-        x => x.Posted
+    // Cutoff-mode filter shared by the day loader, the leave loader and the warning queries:
+    // inside the range, not yet paid by any payroll run, and Posted (approved) or not as asked.
+    // Group, employee, department and client all come from the Employee record (its current
+    // tags), never from the DTR row, so the run follows how the employee is set up today.
+    private static Expression<Func<DailyRecord, bool>> CutoffFilter(CutoffScope c, bool posted) =>
+        x => x.Posted == posted
             && x.PayrollBatchId == null
-            && x.WorkDate >= from && x.WorkDate <= to
-            && x.Employee!.PayrollGroupId == payrollGroupId
-            && (employeeIds == null || employeeIds.Count == 0 || employeeIds.Contains(x.EmployeeId));
+            && x.WorkDate >= c.From && x.WorkDate <= c.To
+            && x.Employee!.PayrollGroupId == c.PayrollGroupId
+            && (c.EmployeeIds == null || c.EmployeeIds.Count == 0 || c.EmployeeIds.Contains(x.EmployeeId))
+            && (c.DepartmentIds == null || c.DepartmentIds.Count == 0 || (x.Employee!.DepartmentId != null && c.DepartmentIds.Contains(x.Employee!.DepartmentId.Value)))
+            && (c.ClientIds == null || c.ClientIds.Count == 0 || (x.Employee!.ClientId != null && c.ClientIds.Contains(x.Employee!.ClientId.Value)));
 
     // Per-employee payroll run: every payable DTR day of the group's employees in the range,
     // regardless of which DTR batch or client it was reported under. The requested range is
     // returned as the pay period (not Min/Max of the days found) so cutoff/statutory handling
     // stays stable when a later run pays only the remainder of a cutoff.
     public async Task<(Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records, DateOnly FromDate, DateOnly ToDate)>
-    LoadForPayrollRunByCutoffAsync(DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token)
+    LoadForPayrollRunByCutoffAsync(CutoffScope scope, CancellationToken token)
     {
-        var recordsList = await GetQueryable(CutoffPayableFilter(from, to, payrollGroupId, employeeIds))
+        var recordsList = await GetQueryable(CutoffFilter(scope, posted: true))
              .AsNoTracking()
              .ProjectToType<DailyRecordRunModel>(_config)
              .AsSplitQuery()
@@ -441,24 +444,19 @@ public class DailyRecordService : BaseService<DailyRecord>
         var records = recordsList
             .GroupBy(x => new EmployeeKey(x.EmployeeId!))
             .ToDictionary(g => g.Key, g => g.ToList());
-        return (records, from, to);
+        return (records, scope.From, scope.To);
     }
 
     public Task<Dictionary<EmployeeKey, List<LeaveMetaDataModel>>>
-        LoadLeaveInfoForPayrollRunByCutoffAsync(DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token) =>
-        LoadLeaveInfoAsync(CutoffPayableFilter(from, to, payrollGroupId, employeeIds), token);
+        LoadLeaveInfoForPayrollRunByCutoffAsync(CutoffScope scope, CancellationToken token) =>
+        LoadLeaveInfoAsync(CutoffFilter(scope, posted: true), token);
 
     // Employees of the group with DTR days in the range that aren't approved yet and unpaid --
     // shown as a warning on the cutoff-mode payroll preview ("these people have days still waiting
     // on DTR approval") so nobody is silently short-paid.
-    public async Task<List<PayrollNotReadyEmployee>> GetNotReadyEmployeesAsync(
-        DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token)
+    public async Task<List<PayrollNotReadyEmployee>> GetNotReadyEmployeesAsync(CutoffScope scope, CancellationToken token)
     {
-        var rows = await GetQueryable(x => !x.Posted
-                && x.PayrollBatchId == null
-                && x.WorkDate >= from && x.WorkDate <= to
-                && x.Employee!.PayrollGroupId == payrollGroupId
-                && (employeeIds == null || employeeIds.Count == 0 || employeeIds.Contains(x.EmployeeId)))
+        var rows = await GetQueryable(CutoffFilter(scope, posted: false))
             .Select(x => new { x.EmployeeId, x.FullName, x.BatchCode })
             .ToListAsync(token);
 
@@ -477,10 +475,9 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     // FIXED-salary employees of the group who have approved, unpaid days in the range -- the
     // candidates for the "fixed salary already paid" skip in a cutoff-mode run.
-    public async Task<List<PayrollNotReadyEmployee>> GetPayableFixedSalaryEmployeesAsync(
-        DateOnly from, DateOnly to, Guid payrollGroupId, List<Guid>? employeeIds, CancellationToken token)
+    public async Task<List<PayrollNotReadyEmployee>> GetPayableFixedSalaryEmployeesAsync(CutoffScope scope, CancellationToken token)
     {
-        var rows = await GetQueryable(CutoffPayableFilter(from, to, payrollGroupId, employeeIds))
+        var rows = await GetQueryable(CutoffFilter(scope, posted: true))
             .Where(x => x.Employee!.SalaryType == SalaryType.FIXED)
             .Select(x => new { x.EmployeeId, x.FullName })
             .ToListAsync(token);

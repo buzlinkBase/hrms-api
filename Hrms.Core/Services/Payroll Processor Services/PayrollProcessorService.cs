@@ -231,19 +231,17 @@ public class PayrollProcessorService
 
     private async Task<List<PayrollNotReadyEmployee>> GetCutoffNotReadyAsync(PayrollRunPayload payload, CancellationToken token)
     {
-        var from = payload.FromDate!.Value;
-        var to = payload.ToDate!.Value;
-        var groupId = payload.PayrollGroupId!.Value;
-        var result = await _dtrServie.GetNotReadyEmployeesAsync(from, to, groupId, payload.EmployeeIds, token);
+        var scope = payload.ToCutoffScope();
+        var result = await _dtrServie.GetNotReadyEmployeesAsync(scope, token);
 
         // FIXED-salary employees the run will skip because an earlier run already paid their
         // period salary -- see CalculateCoreAsync. Their approved days stay unpaid until that run
         // is deleted, so the user needs to see who was left out.
-        var fixedCandidates = await _dtrServie.GetPayableFixedSalaryEmployeesAsync(from, to, groupId, payload.EmployeeIds, token);
+        var fixedCandidates = await _dtrServie.GetPayableFixedSalaryEmployeesAsync(scope, token);
         if (fixedCandidates.Count > 0)
         {
             var alreadyPaid = await _payrollService.GetEmployeeIdsWithRegularPayrollInRangeAsync(
-                fixedCandidates.Select(x => x.EmployeeId).ToList(), from, to, token);
+                fixedCandidates.Select(x => x.EmployeeId).ToList(), scope.From, scope.To, token);
             foreach (var e in fixedCandidates.Where(x => alreadyPaid.Contains(x.EmployeeId)))
             {
                 e.Reason = "FixedSalaryAlreadyPaid";
@@ -270,13 +268,11 @@ public class PayrollProcessorService
         var payrollLines = new List<PayrollSummaryLine>();
         var noRun = (payrollLines, new List<Guid>(), new List<string>());
         var dtrRecords = payload.IsCutoffMode
-            ? await _dtrServie.LoadForPayrollRunByCutoffAsync(
-                payload.FromDate!.Value, payload.ToDate!.Value, payload.PayrollGroupId!.Value, payload.EmployeeIds, token)
+            ? await _dtrServie.LoadForPayrollRunByCutoffAsync(payload.ToCutoffScope(), token)
             : await _dtrServie.LoadForPayrollRunAsync(payload.BatchCodes!, token);
         if (dtrRecords.Records == null || !dtrRecords.Records.Any()) return noRun;
         var leaveInfoByEmployee = payload.IsCutoffMode
-            ? await _dtrServie.LoadLeaveInfoForPayrollRunByCutoffAsync(
-                payload.FromDate!.Value, payload.ToDate!.Value, payload.PayrollGroupId!.Value, payload.EmployeeIds, token)
+            ? await _dtrServie.LoadLeaveInfoForPayrollRunByCutoffAsync(payload.ToCutoffScope(), token)
             : await _dtrServie.LoadLeaveInfoForPayrollRunAsync(payload.BatchCodes!, token);
         var dateRange = new DateRangePayload(dtrRecords.FromDate, dtrRecords.ToDate);
         var period = BuildPayrollPeriod(dateRange);
