@@ -293,7 +293,6 @@ public class AttendanceService : BaseService<Attendance>
         bool canProcess,
         CancellationToken token)
     {
-
         var departmentId = payload.DepartmentId;
         var payrollGroupId = payload.PayrollGroupId;
         var branchId = payload.BranchId;
@@ -302,9 +301,7 @@ public class AttendanceService : BaseService<Attendance>
 
         var from = payload.FromDate.AddDays(TimeAllowance.AttLookbackDays).ToDateTime(TimeOnly.MinValue);
         var to = payload.ToDate.AddDays(TimeAllowance.AttLookforward).ToDateTime(TimeOnly.MinValue);
-
         var spec = new UserHasViewSpec<Attendance>(canProcess);
-
         var data = await _uow.Repository
             .Find(spec)
             .AsNoTracking()
@@ -314,12 +311,14 @@ public class AttendanceService : BaseService<Attendance>
                 x.WorkDateTime >= from &&
                 x.WorkDateTime <= to &&
                 x.EmployeeId != null &&
-                empIds.Contains(x.EmployeeId.Value) &&
-                (branchId == null || branchId == Guid.Empty || x.BranchId == branchId) && 
-                (departmentId == null || departmentId == Guid.Empty || x.DepartmentId == departmentId) &&
-                (areaId == null || areaId == Guid.Empty || x.OperationAreaId == areaId) &&
-                (payrollGroupId == null || payrollGroupId == Guid.Empty || x.Employee!.PayrollGroupId == payrollGroupId) &&
-                (clientId == null || clientId == Guid.Empty || x.ClientId == clientId))
+                empIds.Contains(x.EmployeeId.Value)
+                //&&
+                //(branchId == null || branchId == Guid.Empty || x.BranchId == branchId) && 
+                //(departmentId == null || departmentId == Guid.Empty || x.DepartmentId == departmentId) &&
+                //(areaId == null || areaId == Guid.Empty || x.OperationAreaId == areaId) &&
+                //(payrollGroupId == null || payrollGroupId == Guid.Empty || x.Employee!.PayrollGroupId == payrollGroupId) &&
+                //(clientId == null || clientId == Guid.Empty || x.ClientId == clientId)
+                )
             .ToListAsync(token);
 
         var result = data
