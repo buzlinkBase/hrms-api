@@ -115,11 +115,11 @@ public class PayrollRangeContextComposerService
                 ? GeneralSettingsUtil.ParseDouble(takehomeSetting.Value, 10)
                 : 10;
 
-            // Setup > Company Policy > OT/ND Calculation Method — see
-            // NightDiffOTCategoryPolicies.SingleCategoryNDOTPolicy.
+            // Setup > Company Policy > OT/ND Calculation Method — picks the IDtrPayCalculator
+            // (Calculators/DtrPay). Unset means the company default.
             var otNdCalculationMethod = companySettings.TryGetValue(SettingKey.OtNdCalculationMethod.ToString(), out var otNdMethodSetting)
-                ? GeneralSettingsUtil.ParseEnum(otNdMethodSetting.Value, OtNdCalculationMethod.Compounded)
-                : OtNdCalculationMethod.Compounded;
+                ? GeneralSettingsUtil.ParseEnum(otNdMethodSetting.Value, OtNdCalculationMethodDefaults.Default)
+                : OtNdCalculationMethodDefaults.Default;
 
             // Setup > Client > Settings > Statutory Capping — only added when a client actually
             // has a positive cap set for that type; an absent key means uncapped (see

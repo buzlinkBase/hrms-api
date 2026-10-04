@@ -103,7 +103,7 @@ public class PayrollSummaryReportDocument : IDocument
     //   OtHours/NdHours/OtPay/NdPay below for why.
     // - Holiday: the 6 holiday-involving categories' plain worked hours only, matching
     //   HolidayPay's own scope (which explicitly excludes their OT/ND/NDOT pay too, in either
-    //   mode — NightDiffOTCategoryPolicies never touches HolidayPay's inputs).
+    //   mode — the OT/ND/NDOT pricing (Calculators/DtrPay) never touches HolidayPay's inputs).
     internal static bool IsAdditive(Payroll r) => r.OtNdCalculationMethod == OtNdCalculationMethod.Additive;
 
     internal static decimal BasicHours(Payroll r) =>
@@ -114,7 +114,7 @@ public class PayrollSummaryReportDocument : IDocument
         r.RestLegalDayNDOTHours + r.RestSpecialDayNDOTHours + r.DoubleLegalNDOTHours + r.RestDoubleLegalNDOTHours;
 
     // NDOT's raw-OT-rate portion (FlatOvertimeBase, mode-independent — see
-    // NightDiffOTCategoryPolicies' own doc comment) and ND-delta portion (FlatNightDiffPremium)
+    // Calculators/DtrPay's AdditiveDtrPayCalculator) and ND-delta portion (FlatNightDiffPremium)
     // are exactly what NDOT's Value decomposes into under Additive mode (dayRate dropped, only
     // otRate + (ndRate - 1) applies) — under Compounded mode NDOT's Value has a genuine 3-way
     // day-rate x OT x ND cross-term that these two pieces alone don't reconstruct, so folding

@@ -1,6 +1,7 @@
 namespace Hrms.Core.Policies.DTRPolicies;
 
-// Strategy for how a SingleCategoryOTPolicy resolves its two rate tiers for a given day/employee.
+// Strategy for how a day-type category (Calculators/DtrPay PayCategories) resolves its two rate
+// tiers for a given day/employee.
 // DayRate is the multiplier for a non-OT hour of the same day-type (e.g. 2.00 for Legal Holiday)
 // -- kept separate from FullRate purely so OTPremium can keep meaning "the amount above the base
 // day rate," same as before this was extracted. FullRate is the multiplier actually applied to

@@ -18,9 +18,9 @@ public class BasicPipelineData : IPipeData
     // Flat, uncompounded segregated-recording figures -- NOT the same as OTPremium/NDPremium
     // above, which are deltas within the compounded rate stack used for actual pay (Value).
     // FlatOvertimeBase = hours * rawOtRate (HOLIDAY_OT/OVERTIME alone, ignoring day-type
-    // compounding and any client override) -- set by both SingleCategoryOTPolicy (plain OT) and
-    // SingleCategoryNDOTPolicy (NDOT). FlatNightDiffPremium = hours * (nightDiffRate - 1) against
-    // the plain base pay -- set by SingleCategoryNDPolicy and SingleCategoryNDOTPolicy. See
+    // compounding and any client override). FlatNightDiffPremium = hours * (nightDiffRate - 1)
+    // against the plain base pay. The DTR pay calculators now carry these on their own
+    // Calculators/DtrPay BucketPay value; the day-type pipelines never set them. See
     // DTRPayModel's matching OTBasePay/NDOTBasePay/NDPremiumPay/NDOTPremiumPay fields.
     public decimal FlatOvertimeBase { get; set; }
     public decimal FlatNightDiffPremium { get; set; }

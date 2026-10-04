@@ -104,8 +104,8 @@ public class PayslipHoursDocument : IDocument
     //
     // OT and NDOT hours are NOT folded in here — they get their own "{Category} OT" row instead
     // (see OtRow below), and under both Compounded and Additive modes those buckets carry no
-    // day-type-rate portion of their own to fold in (see OvertimeCategoryPolicies/
-    // NightDiffOTCategoryPolicies' own doc comments).
+    // day-type-rate portion of their own to fold in (see Calculators/DtrPay's
+    // AdditiveDtrPayCalculator).
     private EarningsRow? BaseRow(string label, decimal hours, decimal pay, decimal ndHours = 0m, decimal ndBasePay = 0m, decimal unworkedPay = 0m)
     {
         var totalHours = hours + ndHours;

@@ -155,7 +155,7 @@ public class UpdateCompanyPolicyRequest
     public string CrossMonthStatutoryCreditPolicy { get; set; } = "";
     public string WTaxCrossMonthCreditPolicy { get; set; } = "";
     public double RequiredTakehomePercentage { get; set; } = 10;
-    public string OtNdCalculationMethod { get; set; } = "Compounded";
+    public string OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default.ToString();
 }
 public class CompanyPolicyResponse
 {
@@ -176,7 +176,7 @@ public class CompanyPolicyResponse
     public required string CrossMonthStatutoryCreditPolicy { get; set; } = "";
     public required string WTaxCrossMonthCreditPolicy { get; set; } = "";
     public required double RequiredTakehomePercentage { get; set; }
-    public required string OtNdCalculationMethod { get; set; } = "Compounded";
+    public required string OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default.ToString();
 }
 public class ClientPolicyDto
 {

@@ -8,7 +8,7 @@ namespace hrms.test.PayrollRunTests;
 /// Payroll Summary's Basic/OT/ND/Holiday columns must observe OtNdCalculationMethod the same
 /// way PayslipHoursDocument already does. Under Additive mode: NDOT hours (both overtime AND
 /// night-diff) price exactly like OT-only hours plus a separate ND delta (day-type rate dropped
-/// entirely -- see OvertimeCategoryPolicies/NightDiffOTCategoryPolicies), so they fold into BOTH
+/// entirely -- see Calculators/DtrPay), so they fold into BOTH
 /// the OT and ND columns; and each category's ND-hours day-rate portion moves out of the ND
 /// column into Basic (Regular) or Holiday (the 6 holiday categories) -- matching
 /// PayslipHoursDocument.BaseRow's "Regular Hours"/"Special Holiday" fold exactly -- leaving ND
@@ -90,6 +90,38 @@ public class PayrollSummaryReportDocumentTests
         row.RestDayNDPay = 40m; // full blended Rest Day ND value (day-rate + premium together)
 
         PayrollSummaryReportDocument.NdPay(row).Should().Be(21.5m + 40m);
+    }
+
+    [Fact]
+    public void Additive_RunsFromTheSplitCalculator_ShowTheSameColumnsAsOlderAdditiveRuns()
+    {
+        // Same day as BuildRow, but stored the way AdditiveDtrPayCalculator (Calculators/DtrPay)
+        // lays it out: ND hours' day-rate base already inside Basic/Holiday, ND buckets premium
+        // only (NDOT's ND delta included), NDOT's OT portion already inside OvertimePay, and
+        // every NDOT / ND-base field 0. The report's Additive fold must be a no-op on these, so
+        // old and new runs read identically.
+        var oldRow = BuildRow(OtNdCalculationMethod.Additive);
+        var newRow = new Payroll
+        {
+            OtNdCalculationMethod = OtNdCalculationMethod.Additive,
+            BasicPay = 1027m, // 1000 + Regular's ND base 27
+            RegularOTHours = 5,
+            OvertimePay = 625m, // 500 + NDOT's OT portion 125
+            RegularNDHours = 3,
+            RegularNDPremiumPay = 16.5m, // 3 + NDOT's ND delta 13.5
+            RegularNDOTHours = 2,
+            HolidayPay = 250m, // 200 + Special's ND base 50
+            SpecialHolNightDiffHours = 4,
+            SpecialNDPremiumPay = 5m,
+            NightDifferentialPay = 21.5m,
+        };
+
+        PayrollSummaryReportDocument.OtHours(newRow).Should().Be(PayrollSummaryReportDocument.OtHours(oldRow));
+        PayrollSummaryReportDocument.NdHours(newRow).Should().Be(PayrollSummaryReportDocument.NdHours(oldRow));
+        PayrollSummaryReportDocument.OtPay(newRow).Should().Be(PayrollSummaryReportDocument.OtPay(oldRow));
+        PayrollSummaryReportDocument.BasicPay(newRow).Should().Be(PayrollSummaryReportDocument.BasicPay(oldRow));
+        PayrollSummaryReportDocument.HolidayPay(newRow).Should().Be(PayrollSummaryReportDocument.HolidayPay(oldRow));
+        PayrollSummaryReportDocument.NdPay(newRow).Should().Be(PayrollSummaryReportDocument.NdPay(oldRow));
     }
 
     [Fact]

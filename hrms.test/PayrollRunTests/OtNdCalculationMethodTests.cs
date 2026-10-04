@@ -1,34 +1,39 @@
+using Hrms.Core.Calculators.DtrPay;
 using Hrms.Core.Policies.DTRPolicies;
-using Hrms.Domain.ValueObjects;
+using hrms.test.PayrollRunTests.DtrPay;
 
 namespace hrms.test.PayrollRunTests;
 
 /// <summary>
-/// Setup > Company Policy > OT/ND Calculation Method — Compounded (default, DOLE-standard:
-/// dayRate x otRate (x ndRate for NDOT)) vs Additive (opt-in: the day-type multiplier is DROPPED
-/// entirely for OT-involving hours — only the raw OT rate applies, plus (ndRate - 1) for NDOT).
-/// Confirmed against the company's own manual payroll worksheet. Computes LESS than Compounded
-/// for any category whose day rate isn't 1.0. Plain ND-only hours (no OT) are unaffected by this
-/// setting in either mode — they always keep the day-type rate. For Regular category (dayRate ==
-/// 1.0), dropping the day rate has no numeric effect vs. keeping it (multiplying/adding 1 is a
-/// no-op either way), so Regular's OT-only and NDOT hours happen to be identical in both modes —
-/// see the two Regular-category tests below.
+/// Setup > Company Policy > OT/ND Calculation Method -- each method is its own IDtrPayCalculator
+/// (Hrms.Core/Calculators/DtrPay):
+/// - Compounded: saved hours at compounded rates (OT x day x OT, ND x day x ND, NDOT x day x OT x ND).
+/// - Additive: the DTR display hours (Hrs + ND, OT + NDOT, ND + NDOT; NDOT = 0), one rate each --
+///   day rate for Hrs, raw OT rate for OT, (ND rate - 1) for ND. It pays exactly what the old
+///   Additive branches paid (dayRate dropped for OT-involving hours, ND hours at day + (ND - 1)),
+///   only the bucket each amount is reported in moved.
+/// All on a Special Non-Working day: DailyRate 540 (hourly 67.50), SPECIAL_NON_WORKING 1.30,
+/// HOLIDAY_OT 1.25, NIGHTDIFF 1.10.
 /// </summary>
 public class OtNdCalculationMethodTests
 {
     private const decimal HourlyRate = 67.5m; // DailyRate 540 / 8
+    private const decimal Day = 1.30m, Ot = 1.25m, Nd = 1.10m;
 
-    private static PayrollContext CreateContext(OtNdCalculationMethod method, double otHours = 0, double ndHours = 0, double ndotHours = 0)
+    private static PayrollContext CreateContext(
+        double otHours = 0, double ndHours = 0, double ndotHours = 0,
+        SalaryType salaryType = SalaryType.VARIABLE, bool otEligible = true, bool ndEligible = true)
     {
-        return new PayrollContext
+        var context = new PayrollContext
         {
             Employee = new EmployeeModelPayrollRun
             {
                 DailyRate = 540m,
+                SalaryType = salaryType,
                 Settings = new EmployeeSettingModel
                 {
-                    IsEligibleForOvertime = true,
-                    IsEligibleForNightDifferential = true,
+                    IsEligibleForOvertime = otEligible,
+                    IsEligibleForNightDifferential = ndEligible,
                 },
             },
             DailyRecord = new DailyRecordRunModel
@@ -38,154 +43,175 @@ public class OtNdCalculationMethodTests
                 SpecialHolNightDiffHours = ndHours,
                 SpecialHolNightDiffOTHours = ndotHours,
             },
-            Payload = new CalculatorPayload
-            {
-                CompanyPolicy = new CompanyPolicyRule { OtNdCalculationMethod = method },
-            },
+            Payload = new CalculatorPayload(),
         };
+        context.Payload.PremiumRates[RateType.SPECIAL_NON_WORKING] = Day;
+        context.Payload.PremiumRates[RateType.HOLIDAY_OT] = Ot;
+        context.Payload.PremiumRates[RateType.NIGHTDIFF] = Nd;
+        context.Payload.PremiumRates[RateType.OVERTIME] = Ot;
+        return context;
     }
 
-    private static void SetCompanyRate(PayrollContext context, RateType type, decimal rate)
-        => context.Payload.PremiumRates[type] = rate;
+    private static DTRPayModel Additive(PayrollContext context) =>
+        DtrPayKit.Calculator(OtNdCalculationMethod.Additive).Calculate(context);
 
-    // --- Plain OT-only (SingleCategoryOTPolicy) --------------------------------------------
+    private static DTRPayModel Compounded(PayrollContext context) =>
+        DtrPayKit.Calculator(OtNdCalculationMethod.Compounded).Calculate(context);
 
-    [Fact]
-    public void OtOnly_Compounded_MultipliesDayRateAndOtRate_UnaffectedByThisFeature()
-    {
-        var context = CreateContext(OtNdCalculationMethod.Compounded, otHours: 4);
-        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
-        SetCompanyRate(context, RateType.HOLIDAY_OT, 1.25m);
-
-        var line = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-
-        line.Value.Should().Be(4 * HourlyRate * (1.30m * 1.25m)); // 438.75
-        line.FlatOvertimeBase.Should().Be(4 * HourlyRate * 1.25m); // 337.50 -- unchanged Compounded-mode meaning
-    }
+    // --- Compounded: saved hours x compounded rates ----------------------------------------
 
     [Fact]
-    public void OtOnly_Additive_DropsDayRateEntirely_UsesRawOtRateAlone()
+    public void Compounded_OtHours_MultiplyDayRateAndOtRate()
     {
-        var context = CreateContext(OtNdCalculationMethod.Additive, otHours: 4);
-        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
-        SetCompanyRate(context, RateType.HOLIDAY_OT, 1.25m);
+        var pay = DtrPayKit.CompoundedOt(PayCategories.Special, CreateContext(otHours: 4));
 
-        var line = new SpecialNonWorkingOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-
-        line.Value.Should().Be(4 * HourlyRate * 1.25m); // 337.50 -- day rate (1.30) dropped entirely
-        line.Value.Should().BeLessThan(4 * HourlyRate * (1.30m * 1.25m));
-        line.FlatOvertimeBase.Should().Be(4 * HourlyRate * 1.25m); // 337.50 -- same as Compounded's own FlatOvertimeBase
-        line.OTPremium.Should().Be(4 * HourlyRate * 1.25m); // the entire amount is "premium" -- no day-rate portion to net out
-    }
-
-    // --- Plain ND-only (SingleCategoryNDPolicy) ---------------------------------------------
-
-    [Fact]
-    public void NdOnly_Compounded_MultipliesDayRateAndNdRate_UnaffectedByThisFeature()
-    {
-        var context = CreateContext(OtNdCalculationMethod.Compounded, ndHours: 5);
-        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
-        SetCompanyRate(context, RateType.NIGHTDIFF, 1.10m);
-
-        var line = new SpecialNonWorkingNDPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-
-        line.Value.Should().Be(5 * HourlyRate * (1.30m * 1.10m)); // 482.625
-        line.FlatNightDiffPremium.Should().Be(5 * HourlyRate * 0.10m); // already delta-only, unaffected by mode
+        pay.Value.Should().Be(4 * HourlyRate * (Day * Ot)); // 438.75
+        pay.FlatOvertimeBase.Should().Be(4 * HourlyRate * Ot); // 337.50
     }
 
     [Fact]
-    public void NdOnly_Additive_AddsDayRateAndNdPremiumDelta()
+    public void Compounded_NdHours_MultiplyDayRateAndNdRate()
     {
-        var context = CreateContext(OtNdCalculationMethod.Additive, ndHours: 5);
-        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
-        SetCompanyRate(context, RateType.NIGHTDIFF, 1.10m);
+        var pay = DtrPayKit.CompoundedNd(PayCategories.Special, CreateContext(ndHours: 5));
 
-        var line = new SpecialNonWorkingNDPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-
-        var expectedRate = 1.30m + (1.10m - 1.0m); // 1.40
-        line.Value.Should().Be(5 * HourlyRate * expectedRate); // 472.50, less than Compounded's 482.625
-        line.Value.Should().BeLessThan(5 * HourlyRate * (1.30m * 1.10m));
-        // NDBasePay (Value - NDPremium) still isolates the pure day-rate portion in either mode.
-        var ndBase = line.Value - line.NDPremium;
-        ndBase.Should().Be(5 * HourlyRate * 1.30m);
-    }
-
-    // --- OT + ND combined (SingleCategoryNDOTPolicy) ----------------------------------------
-
-    [Fact]
-    public void Ndot_Compounded_MultipliesAllThreeRates_UnaffectedByThisFeature()
-    {
-        var context = CreateContext(OtNdCalculationMethod.Compounded, ndotHours: 3);
-        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
-        SetCompanyRate(context, RateType.HOLIDAY_OT, 1.25m);
-        SetCompanyRate(context, RateType.NIGHTDIFF, 1.10m);
-
-        var line = new SpecialNonWorkingNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-
-        line.Value.Should().Be(3 * HourlyRate * (1.30m * 1.25m * 1.10m)); // 361.96875
+        pay.Value.Should().Be(5 * HourlyRate * (Day * Nd)); // 482.625
+        pay.FlatNightDiffPremium.Should().Be(5 * HourlyRate * 0.10m);
     }
 
     [Fact]
-    public void Ndot_Additive_DropsDayRate_UsesOtRatePlusNdDelta()
+    public void Compounded_NdotHours_MultiplyAllThreeRates()
     {
-        var context = CreateContext(OtNdCalculationMethod.Additive, ndotHours: 3);
-        SetCompanyRate(context, RateType.SPECIAL_NON_WORKING, 1.30m);
-        SetCompanyRate(context, RateType.HOLIDAY_OT, 1.25m);
-        SetCompanyRate(context, RateType.NIGHTDIFF, 1.10m);
+        var pay = DtrPayKit.CompoundedNdot(PayCategories.Special, CreateContext(ndotHours: 3));
 
-        var line = new SpecialNonWorkingNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), context);
-
-        var expectedRate = 1.25m + (1.10m - 1.0m); // 1.35 -- day rate (1.30) dropped entirely
-        line.Value.Should().Be(3 * HourlyRate * expectedRate); // 273.375, less than Compounded's 361.96875
-        line.Value.Should().BeLessThan(3 * HourlyRate * (1.30m * 1.25m * 1.10m));
-        line.FlatOvertimeBase.Should().Be(3 * HourlyRate * 1.25m); // 253.125 -- raw OT rate alone, same as Compounded's own FlatOvertimeBase
-        line.FlatNightDiffPremium.Should().Be(3 * HourlyRate * (1.10m - 1.0m)); // 20.25 -- unaffected by mode
+        pay.Value.Should().Be(3 * HourlyRate * (Day * Ot * Nd)); // 361.96875
     }
 
     [Fact]
-    public void RegularCategory_PlainOtOnly_DayRateOneMakesTwoWayCompoundingModeIndependent()
+    public void Compounded_Calculator_ReportsEachSavedBucketOnItsOwn()
     {
-        // dayRate x X == dayRate + (X - 1) whenever dayRate == 1, for exactly TWO factors --
-        // Regular's plain OT-only hours (day x OT, nothing else) are identical in both modes.
-        var compounded = CreateContext(OtNdCalculationMethod.Compounded);
-        var additive = CreateContext(OtNdCalculationMethod.Additive);
-        foreach (var ctx in new[] { compounded, additive })
+        var context = CreateContext(otHours: 1, ndHours: 5, ndotHours: 3);
+
+        var model = Compounded(context);
+
+        model.SpecialOTPay.Should().Be(DtrPayKit.CompoundedOt(PayCategories.Special, context).Value);
+        model.SpecialNDPay.Should().Be(DtrPayKit.CompoundedNd(PayCategories.Special, context).Value);
+        model.SpecialNDOTPay.Should().Be(DtrPayKit.CompoundedNdot(PayCategories.Special, context).Value);
+        model.SpecialPay.Should().Be(0m); // no plain holiday hours on this day
+    }
+
+    // --- Additive: display hours x one rate each ---------------------------------------------
+
+    [Fact]
+    public void Additive_OtHours_PayTheRawOtRateAlone_NoDayRate()
+    {
+        var model = Additive(CreateContext(otHours: 4));
+
+        model.SpecialOTPay.Should().Be(4 * HourlyRate * Ot); // 337.50 -- day rate (1.30) not applied
+        model.SpecialOTBasePay.Should().Be(4 * HourlyRate * Ot);
+        model.OTPremiumPay.Should().Be(4 * HourlyRate * Ot); // no day-rate portion to net out
+    }
+
+    [Fact]
+    public void Additive_NdHours_BaseGoesToDayPay_NdBucketIsPremiumOnly()
+    {
+        var model = Additive(CreateContext(ndHours: 5));
+
+        model.SpecialPay.Should().Be(5 * HourlyRate * Day); // folded into "Hrs" at the day rate
+        model.SpecialNDPay.Should().Be(5 * HourlyRate * (Nd - 1.0m)); // the .10 only
+        model.SpecialNDBasePay.Should().Be(0m);
+        model.SpecialNDPremiumPay.Should().Be(5 * HourlyRate * (Nd - 1.0m));
+        model.Holiday.Should().Be(5 * HourlyRate * Day);
+        // Same money as the old Additive ND policy: 5 x hourly x (1.30 + 0.10) = 472.50.
+        (model.SpecialPay + model.SpecialNDPay).Should().BeApproximately(5 * HourlyRate * (Day + Nd - 1.0m), 0.0000001m);
+    }
+
+    [Fact]
+    public void Additive_NdotHours_FoldIntoOtAndNd_NdotIsAlwaysZero()
+    {
+        var model = Additive(CreateContext(ndotHours: 3));
+
+        model.SpecialOTPay.Should().Be(3 * HourlyRate * Ot);
+        model.SpecialNDPay.Should().Be(3 * HourlyRate * (Nd - 1.0m));
+        model.SpecialNDOTPay.Should().Be(0m);
+        model.SpecialNDOTBasePay.Should().Be(0m);
+        model.SpecialNDOTPremiumPay.Should().Be(0m);
+        model.TotalNDOT.Should().Be(0m);
+        // Same money as the old Additive NDOT policy: 3 x hourly x (1.25 + 0.10) = 273.375.
+        model.TotalExcludingBasic.Should().BeApproximately(3 * HourlyRate * (Ot + Nd - 1.0m), 0.0000001m);
+    }
+
+    [Fact]
+    public void Additive_AllBuckets_SameGrossAndPremiumsAsBefore()
+    {
+        var model = Additive(CreateContext(otHours: 1, ndHours: 5, ndotHours: 3));
+
+        var oldAdditiveGross =
+            1 * HourlyRate * Ot                       // OT: raw OT rate
+            + 5 * HourlyRate * (Day + Nd - 1.0m)      // ND: day + (ND - 1)
+            + 3 * HourlyRate * (Ot + Nd - 1.0m);      // NDOT: OT + (ND - 1)
+        model.TotalExcludingBasic.Should().BeApproximately(oldAdditiveGross, 0.0000001m);
+        model.OTPremiumPay.Should().BeApproximately((1 + 3) * HourlyRate * Ot, 0.0000001m);
+        model.NDPremiumPay.Should().BeApproximately((5 + 3) * HourlyRate * (Nd - 1.0m), 0.0000001m);
+    }
+
+    [Fact]
+    public void Additive_PaysLessThanCompounded_WhenTheDayRateIsAboveOne()
+    {
+        var context = CreateContext(otHours: 1, ndHours: 5, ndotHours: 3);
+
+        Additive(context).TotalExcludingBasic.Should().BeLessThan(Compounded(context).TotalExcludingBasic);
+    }
+
+    // --- Additive: the Fixed-salary Regular guard ---------------------------------------------
+
+    [Theory]
+    [InlineData(SalaryType.VARIABLE)]
+    [InlineData(SalaryType.FIXED)]
+    public void Additive_RegularNightHours_KeepTheirBaseWhereGrossCountsIt(SalaryType salaryType)
+    {
+        var context = CreateContext(salaryType: salaryType);
+        context.DailyRecord.RegularNDHours = 5;
+
+        var model = Additive(context);
+
+        var basePay = 5 * HourlyRate * 1.0m;
+        var premium = 5 * HourlyRate * (Nd - 1.0m);
+        if (salaryType == SalaryType.FIXED)
         {
-            SetCompanyRate(ctx, RateType.OVERTIME, 1.25m);
-            ctx.DailyRecord.RegularOTHours = 3;
-            ctx.DailyRecord.SpecialHolOTHours = 0;
+            // Basic Pay is the monthly salary for FIXED, so the base stays in the ND bucket.
+            model.RegularDayPay.Should().Be(0m);
+            model.RegularNDPay.Should().Be(basePay + premium);
+            model.RegularNDBasePay.Should().Be(basePay);
         }
+        else
+        {
+            model.RegularDayPay.Should().Be(basePay);
+            model.RegularNDPay.Should().Be(premium);
+            model.RegularNDBasePay.Should().Be(0m);
+        }
+        model.RegularNDPremiumPay.Should().Be(premium);
+    }
 
-        var compoundedLine = new RegularOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), compounded);
-        var additiveLine = new RegularOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), additive);
+    // --- Eligibility applies the same way in both methods -------------------------------------
 
-        compoundedLine.Value.Should().Be(additiveLine.Value);
+    [Theory]
+    [InlineData(OtNdCalculationMethod.Compounded)]
+    [InlineData(OtNdCalculationMethod.Additive)]
+    public void NotNdEligible_NightAndNdotHoursPayNothing(OtNdCalculationMethod method)
+    {
+        var model = DtrPayKit.Calculator(method).Calculate(CreateContext(ndHours: 5, ndotHours: 3, ndEligible: false));
+
+        model.TotalExcludingBasic.Should().Be(0m);
     }
 
     [Fact]
-    public void RegularCategory_Ndot_StillDiffersBetweenModes_EvenAtDayRateOne()
+    public void Additive_NdotHours_OnlyNeedNdEligibility_SameAsBefore()
     {
-        // The THREE-way case (day x OT x ND) has a genuine cross-term between OT and ND
-        // themselves (OT x ND != OT + ND - 1 unless one of them is exactly 1), independent of
-        // the day rate -- so even Regular category's NDOT hours are NOT mode-independent. This
-        // is the exact mechanism behind the original "TOTAL (ITEMIZED) vs GROSS INCOME" gap
-        // discussion earlier this session, which happened to occur entirely on the Regular
-        // category (dayRate = 1) yet still showed a real, non-zero discrepancy.
-        var compounded = CreateContext(OtNdCalculationMethod.Compounded);
-        var additive = CreateContext(OtNdCalculationMethod.Additive);
-        foreach (var ctx in new[] { compounded, additive })
-        {
-            SetCompanyRate(ctx, RateType.OVERTIME, 1.25m);
-            SetCompanyRate(ctx, RateType.NIGHTDIFF, 1.10m);
-            ctx.DailyRecord.RegularNDOTHours = 3;
-            ctx.DailyRecord.SpecialHolNightDiffOTHours = 0;
-        }
+        // NDOT hours were always gated on night-diff eligibility alone -- folding them into the
+        // OT bucket must not suddenly require overtime eligibility too.
+        var model = Additive(CreateContext(otHours: 2, ndotHours: 3, otEligible: false));
 
-        var compoundedLine = new RegularNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), compounded);
-        var additiveLine = new RegularNDOTPolicy().ApplyIfSatisfied(new BasicPipelineData(), additive);
-
-        compoundedLine.Value.Should().Be(3 * HourlyRate * (1.25m * 1.10m)); // 278.4375
-        additiveLine.Value.Should().Be(3 * HourlyRate * (1.25m + 1.10m - 1.0m)); // 273.375
-        compoundedLine.Value.Should().NotBe(additiveLine.Value);
+        model.SpecialOTPay.Should().Be(3 * HourlyRate * Ot); // NDOT hours only -- the 2 OT hours are ineligible
+        model.SpecialNDPay.Should().Be(3 * HourlyRate * (Nd - 1.0m));
     }
 }
