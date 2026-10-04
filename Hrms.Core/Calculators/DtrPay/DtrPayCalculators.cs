@@ -9,145 +9,64 @@ public interface IDtrPayCalculator
 }
 
 // Template Method: the flow every pay method follows, in one place --
-//   for each day-type category: saved hours -> eligible hours -> shaped hours -> priced pay,
+//   each day type's pay (one class per day type, see Additive/ and Compounded/),
 //   then the day's attendance amounts, then the DTRPayModel.
-// Subclasses supply only what actually differs: how hours are shaped and how a category's
-// OT / ND / NDOT hours are priced. Day-type pay, rates, eligibility, attendance and the model
-// mapping are shared collaborators, so the two methods can't drift apart on any of those.
+// A pay method is just its own set of 8 day-type calculators; attendance and the model mapping
+// are shared, so the two methods can't drift apart on those.
 internal abstract class DtrPayCalculatorBase : IDtrPayCalculator
 {
-    private readonly IDayTypePayPricer _dayPay;
+    private readonly IReadOnlyList<IDayTypePayCalculator> _dayTypes;
     private readonly IAttendancePayCalculator _attendance;
-    private readonly ICategoryRateResolver _rates;
-    private readonly IEligibleHoursFilter _eligibility;
     private readonly IDtrPayModelBuilder _builder;
 
     protected DtrPayCalculatorBase(
-        IDayTypePayPricer dayPay,
+        IEnumerable<IDayTypePayCalculator> dayTypes,
         IAttendancePayCalculator attendance,
-        ICategoryRateResolver rates,
-        IEligibleHoursFilter eligibility,
         IDtrPayModelBuilder builder)
     {
-        _dayPay = dayPay;
+        _dayTypes = dayTypes.ToList();
+        var kinds = _dayTypes.Select(d => d.Kind).ToList();
+        if (kinds.Count != kinds.Distinct().Count() || !Enum.GetValues<PayCategoryKind>().All(kinds.Contains))
+            throw new InvalidOperationException(
+                $"{GetType().Name} needs exactly one day-type calculator per day type; got [{string.Join(", ", kinds)}].");
         _attendance = attendance;
-        _rates = rates;
-        _eligibility = eligibility;
         _builder = builder;
     }
 
     public abstract OtNdCalculationMethod Method { get; }
 
-    // How this method wants the saved DTR hours laid out before pricing them.
-    protected abstract IHoursShaper Shaper { get; }
-
-    // Prices one category's OT / ND / NDOT hours. saved = eligible hours as stored, shown = the
-    // same hours after Shaper; day = the category's plain worked/unworked pay.
-    protected abstract CategoryPay PriceCategory(
-        PayCategory category, CategoryHours saved, CategoryHours shown, CategoryRates rates, DayPay day, PayrollContext context);
-
     public DTRPayModel Calculate(PayrollContext context)
     {
-        var pay = new Dictionary<PayCategoryKind, CategoryPay>(PayCategories.All.Count);
-        foreach (var category in PayCategories.All)
-        {
-            var day = _dayPay.Price(category.Kind, context);
-            var saved = _eligibility.Filter(category.HoursOf(context.DailyRecord), context);
-            pay[category.Kind] = saved.HasPremiumHours
-                ? PriceCategory(category, saved, Shaper.Shape(saved), _rates.Resolve(category, context), day, context)
-                : CategoryPay.DayOnly(category.Kind, day);
-        }
+        var pay = _dayTypes.ToDictionary(d => d.Kind, d => d.Calculate(context));
         return _builder.Build(context, pay, _attendance.Calculate(context));
     }
 }
 
 // Compounded (DOLE-standard): the saved DTR hours exactly as stored, each bucket at its fully
-// compounded rate --
-//   OT   x day rate x OT rate
-//   ND   x day rate x ND rate
-//   NDOT x day rate x OT rate x ND rate
+// compounded rate -- one class per day type under Compounded/ (CompoundedDayTypePayBase).
 internal sealed class CompoundedDtrPayCalculator : DtrPayCalculatorBase
 {
-    private readonly IBucketPricer _ot;
-    private readonly IBucketPricer _nd;
-    private readonly IBucketPricer _ndot;
-
     public CompoundedDtrPayCalculator(
-        IDayTypePayPricer dayPay,
+        IEnumerable<ICompoundedDayTypePay> dayTypes,
         IAttendancePayCalculator attendance,
-        ICategoryRateResolver rates,
-        IEligibleHoursFilter eligibility,
-        IDtrPayModelBuilder builder,
-        IBucketPricer ot,
-        IBucketPricer nd,
-        IBucketPricer ndot)
-        : base(dayPay, attendance, rates, eligibility, builder)
-    {
-        _ot = ot;
-        _nd = nd;
-        _ndot = ndot;
-    }
+        IDtrPayModelBuilder builder)
+        : base(dayTypes, attendance, builder) { }
 
     public override OtNdCalculationMethod Method => OtNdCalculationMethod.Compounded;
-
-    protected override IHoursShaper Shaper { get; } = new SavedHoursShaper();
-
-    protected override CategoryPay PriceCategory(
-        PayCategory category, CategoryHours saved, CategoryHours shown, CategoryRates rates, DayPay day, PayrollContext context) =>
-        new(category.Kind, day, _ot.Price(shown.Ot, rates), _nd.Price(shown.Nd, rates), _ndot.Price(shown.Ndot, rates));
 }
 
-// Additive: the DTR display hours (DisplayHoursShaper), each bucket at ONE rate, added up --
-//   Hrs (Hrs + ND)    x day rate      -> day pay (the ND part at the full day rate)
-//   OT  (OT + NDOT)   x raw OT rate   -> OT pay, no day-type multiplier
-//   ND  (ND + NDOT)   x (ND rate - 1) -> ND pay, the night premium only
-//   NDOT              -> always 0 (its hours are already in OT and ND)
-// Pays exactly what the old Additive branches did; only the bucket each peso lands in changed.
+// Additive: the DTR display hours, each bucket at one rate, added up -- one class per day type
+// under Additive/ (AdditiveDayTypePayBase). Pays exactly what the old Additive branches did;
+// only the bucket each peso lands in changed.
 internal sealed class AdditiveDtrPayCalculator : DtrPayCalculatorBase
 {
-    private readonly IBucketPricer _ndBase;
-    private readonly IBucketPricer _ot;
-    private readonly IBucketPricer _ndPremium;
-    private readonly INdBaseRoutingRule _ndBaseRouting;
-
     public AdditiveDtrPayCalculator(
-        IDayTypePayPricer dayPay,
+        IEnumerable<IAdditiveDayTypePay> dayTypes,
         IAttendancePayCalculator attendance,
-        ICategoryRateResolver rates,
-        IEligibleHoursFilter eligibility,
-        IDtrPayModelBuilder builder,
-        IBucketPricer ndBase,
-        IBucketPricer ot,
-        IBucketPricer ndPremium,
-        INdBaseRoutingRule ndBaseRouting)
-        : base(dayPay, attendance, rates, eligibility, builder)
-    {
-        _ndBase = ndBase;
-        _ot = ot;
-        _ndPremium = ndPremium;
-        _ndBaseRouting = ndBaseRouting;
-    }
+        IDtrPayModelBuilder builder)
+        : base(dayTypes, attendance, builder) { }
 
     public override OtNdCalculationMethod Method => OtNdCalculationMethod.Additive;
-
-    protected override IHoursShaper Shaper { get; } = new DisplayHoursShaper();
-
-    protected override CategoryPay PriceCategory(
-        PayCategory category, CategoryHours saved, CategoryHours shown, CategoryRates rates, DayPay day, PayrollContext context)
-    {
-        // The night hours the display folded into "Hrs" -- the day-type pipeline already paid the
-        // rest of Hrs, so only these are priced here.
-        var ndBase = _ndBase.Price(shown.Hrs - saved.Hrs, rates).Value;
-        var ot = _ot.Price(shown.Ot, rates);
-        var nd = _ndPremium.Price(shown.Nd, rates);
-
-        if (_ndBaseRouting.KeepInNdBucket(category, context))
-            nd = nd with { Value = ndBase + nd.Value }; // NDPremium unchanged, so BasePortion == ndBase
-        else
-            day = day.AddWorked(ndBase);
-
-        return new CategoryPay(category.Kind, day, ot, nd, BucketPay.Zero);
-    }
 }
 
 // Factory: the one place that maps a company's OT/ND method to its calculator. Registry-based --

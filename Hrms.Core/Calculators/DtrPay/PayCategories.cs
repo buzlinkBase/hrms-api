@@ -31,8 +31,8 @@ internal sealed record PayCategory(
         new((decimal)Hrs(r), (decimal)Ot(r), (decimal)Nd(r), (decimal)Ndot(r));
 }
 
-// Adding a day type is one row here plus its day-type pipeline in DayTypePayPricer -- nothing in
-// either pay method or the model builder's per-category plumbing has to learn about it.
+// Each pay method has one class per day type (Additive/, Compounded/) pointing at its row here, so
+// the Additive and Compounded class of the same day type always read the same hours and rates.
 internal static class PayCategories
 {
     public static readonly PayCategory Regular = new(

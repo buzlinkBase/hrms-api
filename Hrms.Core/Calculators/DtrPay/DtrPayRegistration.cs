@@ -2,9 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Hrms.Core.Calculators.DtrPay;
 
-// Composition root for the DTR pay calculators: wires each pay method's bucket pricers explicitly,
-// so the calculators themselves depend only on abstractions. Everything here is stateless, so
-// singletons are safe.
+// Composition root for the DTR pay calculators: each pay method is its 8 day-type classes plus
+// its bucket pricers; the calculators and day types depend only on abstractions. Everything here
+// is stateless, so singletons are safe.
 public static class DtrPayRegistration
 {
     public static IServiceCollection AddDtrPayCalculators(this IServiceCollection services)
@@ -23,33 +23,41 @@ public static class DtrPayRegistration
         services.AddSingleton<UnderTimePipeLine>();
         services.AddSingleton<LeavePipeline>();
 
-        services.AddSingleton<IDayTypePayPricer, DayTypePayPricer>();
         services.AddSingleton<IAttendancePayCalculator, AttendancePayCalculator>();
         services.AddSingleton<ICategoryRateResolver, CategoryRateResolver>();
         services.AddSingleton<IEligibleHoursFilter, EligibleHoursFilter>();
         services.AddSingleton<IDtrPayModelBuilder, DtrPayModelBuilder>();
-        services.AddSingleton<INdBaseRoutingRule, FixedSalaryRegularNdBaseRule>();
+        services.AddSingleton<DayTypePayInputs>();
 
-        services.AddSingleton<IDtrPayCalculator>(sp => new CompoundedDtrPayCalculator(
-            sp.GetRequiredService<IDayTypePayPricer>(),
-            sp.GetRequiredService<IAttendancePayCalculator>(),
-            sp.GetRequiredService<ICategoryRateResolver>(),
-            sp.GetRequiredService<IEligibleHoursFilter>(),
-            sp.GetRequiredService<IDtrPayModelBuilder>(),
-            ot: new CompoundedOtPricer(),
-            nd: new CompoundedNdPricer(),
-            ndot: new CompoundedNdotPricer()));
+        // Compounded: one class per day type, sharing the compounded bucket pricers.
+        services.AddSingleton(new CompoundedPricers(
+            Ot: new CompoundedOtPricer(),
+            Nd: new CompoundedNdPricer(),
+            Ndot: new CompoundedNdotPricer()));
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedRegularDayPay>();
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedRestDayPay>();
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedLegalHolidayPay>();
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedSpecialHolidayPay>();
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedRestLegalDayPay>();
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedRestSpecialDayPay>();
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedDoubleLegalPay>();
+        services.AddSingleton<ICompoundedDayTypePay, CompoundedRestDoubleLegalPay>();
+        services.AddSingleton<IDtrPayCalculator, CompoundedDtrPayCalculator>();
 
-        services.AddSingleton<IDtrPayCalculator>(sp => new AdditiveDtrPayCalculator(
-            sp.GetRequiredService<IDayTypePayPricer>(),
-            sp.GetRequiredService<IAttendancePayCalculator>(),
-            sp.GetRequiredService<ICategoryRateResolver>(),
-            sp.GetRequiredService<IEligibleHoursFilter>(),
-            sp.GetRequiredService<IDtrPayModelBuilder>(),
-            ndBase: new AdditiveNdBasePricer(),
-            ot: new AdditiveOtPricer(),
-            ndPremium: new AdditiveNdPremiumPricer(),
-            ndBaseRouting: sp.GetRequiredService<INdBaseRoutingRule>()));
+        // Additive: one class per day type, sharing the additive bucket pricers.
+        services.AddSingleton(new AdditivePricers(
+            NdBase: new AdditiveNdBasePricer(),
+            Ot: new AdditiveOtPricer(),
+            NdPremium: new AdditiveNdPremiumPricer()));
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveRegularDayPay>();
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveRestDayPay>();
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveLegalHolidayPay>();
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveSpecialHolidayPay>();
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveRestLegalDayPay>();
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveRestSpecialDayPay>();
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveDoubleLegalPay>();
+        services.AddSingleton<IAdditiveDayTypePay, AdditiveRestDoubleLegalPay>();
+        services.AddSingleton<IDtrPayCalculator, AdditiveDtrPayCalculator>();
 
         services.AddSingleton<IDtrPayCalculatorFactory, DtrPayCalculatorFactory>();
         return services;
