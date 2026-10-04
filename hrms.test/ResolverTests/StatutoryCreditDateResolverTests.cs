@@ -30,8 +30,7 @@ public class StatutoryCreditDateResolverTests
     [Fact]
     public void PayDate_FallsBackToToDate_WhenNoPayDateSupplied()
     {
-        // Defense-in-depth fallback only — PayrollProcessorService.CalculateAsync's own
-        // up-front guard is the primary enforcement that PayDate is supplied when required.
+        // Pay/Release Date is optional; the run falls back to the cutoff end date.
         StatutoryCreditDateResolver.Resolve(FromDate, ToDate, CrossMonthStatutoryCreditPolicy.PayDate)
             .Should().Be(ToDate);
     }

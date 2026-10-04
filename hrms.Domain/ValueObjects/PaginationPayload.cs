@@ -37,8 +37,8 @@ public record PayrollRunPayload(List<string>? BatchCodes = null)
     public CutoffScope ToCutoffScope() =>
         new(FromDate!.Value, ToDate!.Value, PayrollGroupId, EmployeeIds, DepartmentIds, ClientIds);
 
-    // Explicit Pay/Release Date, required only when CrossMonthStatutoryCreditPolicy or
-    // WTaxCrossMonthCreditPolicy is set to PayDate — see PayrollProcessorService.CalculateAsync.
+    // Optional Pay/Release Date, used when CrossMonthStatutoryCreditPolicy or
+    // WTaxCrossMonthCreditPolicy is set to PayDate; falls back to the cutoff end date.
     public DateOnly? PayDate { get; init; }
     // Free-text identity for this run — captured once at Generate time (see the frontend's
     // Generate Payroll confirmation dialog) and stamped onto every Payroll row it produces,
