@@ -9,10 +9,15 @@ public record PayrollCalcPayload(DateOnly FromDate, DateOnly ToDate, Guid? Depar
     public List<string>? BatchCodes { get; init; }
 }
 
-// Payload for the UI-driven payroll run — only the selected posted batch codes.
-// Date range and employees are derived from the actual DTR records in those batches.
-public record PayrollRunPayload(List<string> BatchCodes)
+// Payload for the UI-driven payroll run -- the pay period and the employees to pay. Each
+// employee's approved, not-yet-paid DTR days in the period are used, whichever DTR batch they
+// came from, so employees of one batch (e.g. different clients) can be paid in separate runs.
+// See DailyRecordService.PayrollRunRecords.
+public record PayrollRunPayload
 {
+    public DateOnly FromDate { get; init; }
+    public DateOnly ToDate { get; init; }
+    public List<Guid> EmployeeIds { get; init; } = [];
     // Explicit Pay/Release Date, required only when CrossMonthStatutoryCreditPolicy or
     // WTaxCrossMonthCreditPolicy is set to PayDate — see PayrollProcessorService.CalculateAsync.
     public DateOnly? PayDate { get; init; }
@@ -26,6 +31,35 @@ public record PayrollRunPayload(List<string> BatchCodes)
 // so unlike PayrollRunPayload there's no DTR batch to select from. PayrollGroupIds/EmployeeIds
 // scope which employees are included; both null/empty means everyone with posted regular pay
 // in Year. See PayrollProcessorService.GenerateThirteenthMonthAsync.
+// Filters for the payroll run's employee picker -- which employees have DTR days in the period.
+// Matched against each DTR day's own assignment (the client/group/department/area/branch it was
+// worked under), not the employee's current one.
+public record PayrollRunCandidateQuery
+{
+    public DateOnly FromDate { get; init; }
+    public DateOnly ToDate { get; init; }
+    public Guid? PayrollGroupId { get; init; }
+    public Guid? ClientId { get; init; }
+    public Guid? DepartmentId { get; init; }
+    public Guid? AreaId { get; init; }
+    public Guid? BranchId { get; init; }
+}
+
+// One employee in that picker. ReadyDays: approved and unpaid -- what a run would pay.
+public record PayrollRunCandidate
+{
+    public Guid EmployeeId { get; init; }
+    public string FullName { get; init; } = "";
+    public string? EmployeeNo { get; init; }
+    public Guid? PayrollGroupId { get; init; }
+    public Guid? ClientId { get; init; }
+    public Guid? DepartmentId { get; init; }
+    public int ReadyDays { get; init; }
+    // Already paid by another run (skipped), and DTR still awaiting approval (not payable yet).
+    public int PaidDays { get; init; }
+    public int UnapprovedDays { get; init; }
+}
+
 public record ThirteenthMonthRunPayload(int Year)
 {
     public List<Guid>? PayrollGroupIds { get; init; }

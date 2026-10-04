@@ -271,18 +271,11 @@ public class PayrollBatchLifecycleService
         await _payrollService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _consumptionService.ReleaseAsync(payrollIds, token);
 
-        // Deleting a run releases the DTR it was built from — unposts every DTR batch this run
-        // used (idempotent/no-op on an already-unposted batch), the inverse of
-        // PayrollProcessorService.GenerateAsync's post-on-save.
-        var dtrBatchCodes = (batch.DtrBatchCodes ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
-        foreach (var batchCode in dtrBatchCodes)
-        {
-            await _dtrServie.UnpostAsync(batchCode, token, commit: false);
-            // Mirrors the DailyRecord-level unpost above onto the DTRBatch header row --
-            // ApprovalStatus is left untouched (historical fact preserved), same reasoning
-            // as PayrollBatch keeping ApprovalStatus=Approved after an Unpost/Delete cycle.
-            await _dtrBatchService.MarkUnpostedByCodeAsync(batchCode, token, commit: false);
-        }
+        // Deleting a run releases the DTR days it paid: they become payable again but stay
+        // approved (posted) -- the DTR itself was never wrong. A legacy run (whole DTR batches,
+        // DtrBatchCodes) has no per-day stamps; its batches are released by the header below
+        // going away.
+        await _dtrServie.ReleasePayrollAsync(payrollBatchId, token);
 
         await _payrollBatchService.DeleteAsync(payrollBatchId, token, commit: false);
     }

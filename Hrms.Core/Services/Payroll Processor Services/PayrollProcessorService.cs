@@ -71,32 +71,13 @@ public class PayrollProcessorService
 
     public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, Guid batch, Guid generatedByEmployeeId, CancellationToken token)
     {
-        var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
-        var alreadyPosted = payload.BatchCodes.Where(usedBatchCodes.Contains).ToList();
-        if (alreadyPosted.Count > 0)
-        {
+        // Only approved (posted) DTR days that no payroll has paid yet are loaded -- see
+        // DailyRecordService.PayrollRunRecordsAsync -- so a day is never paid twice, and DTR still
+        // awaiting approval simply isn't payable yet.
+        var (lines, records) = await CalculateRunAsync(payload, batch, token);
+        if (lines.Count == 0)
             throw new ValidationException(
-                $"Payroll has already been generated for DTR batch(es): {string.Join(", ", alreadyPosted)}. " +
-                "Delete the existing payroll run first if you need to regenerate it.");
-        }
-
-        // Blocks generating payroll from a DTR batch that hasn't cleared its own approval yet --
-        // a batch with no DTRBatch row at all (legacy, predates this entity) is treated as
-        // already-Approved, same convention as DailyRecordService.GetBatches.
-        var dtrBatches = await _dtrBatchService.FindByCodesAsync(payload.BatchCodes, token);
-        var unapprovedDtrBatches = dtrBatches
-            .Where(b => b.ApprovalStatus != ApprovalStatus.Approved)
-            .Select(b => b.BatchCode)
-            .ToList();
-        if (unapprovedDtrBatches.Count > 0)
-        {
-            throw new ValidationException(
-                $"Payroll generation is blocked — the following DTR batch(es) are not yet approved: " +
-                $"{string.Join(", ", unapprovedDtrBatches)}.");
-        }
-
-        var lines = await CalculateAsync(payload, batch,token);
-        if (lines.Count() == 0) return lines;
+                "None of the selected employees has approved, unpaid DTR in this period.");
 
         var touchedYears = lines.Select(x => x.PostingPeriod.Year).Distinct().ToList();
         foreach (var year in touchedYears)
@@ -122,7 +103,10 @@ public class PayrollProcessorService
             PayPeriodStart = lines.MinBy(x => x.PayPeriodStart)!.PayPeriodStart,
             PayPeriodEnd = lines.MaxBy(x => x.PayPeriodEnd)!.PayPeriodEnd,
             PayDate = payload.PayDate,
-            DtrBatchCodes = string.Join(",", payload.BatchCodes),
+            // Left empty: which days this run paid is stamped on the DTR rows themselves
+            // (DailyRecord.PayrollBatchId). DtrBatchCodes now only identifies legacy runs, which
+            // paid whole DTR batches.
+            DtrBatchCodes = null,
             Remarks = payload.Remarks,
             GeneratedByEmployeeId = generatedByEmployeeId,
         };
@@ -141,6 +125,14 @@ public class PayrollProcessorService
             payroll.BatchCode = savingBatch;
         }
         await _payrollService.SavePayrollsAsync(payrolls, token, commit: false);
+        // The days of the employees this run paid. Same transaction, so a failed save leaves
+        // them unpaid; fails outright if another run paid any of them meanwhile.
+        var paidEmployees = lines.Select(x => new EmployeeKey(x.EmployeeId)).ToHashSet();
+        var paidRecordIds = records
+            .Where(kv => paidEmployees.Contains(kv.Key))
+            .SelectMany(kv => kv.Value.Select(r => r.Id))
+            .ToList();
+        await _dtrServie.MarkPaidAsync(batchHeader.Id, paidRecordIds, token);
         // Atomic commit point: if anything above failed (mapping error, cancellation), neither
         // the batch header nor any Payroll row is ever persisted — see AddAsync's doc comment.
         await _payrollService.CommitChangesAsync(token);
@@ -150,10 +142,6 @@ public class PayrollProcessorService
         // moments earlier — see PayrollInputConsumptionService.
         await _consumptionService.MarkConsumedByDateRangeAsync(payrolls, token);
 
-        // No DTR posting loop here anymore -- the unapproved-DTR-batch check above already
-        // guarantees every batch this run used is Approved, which (via DailyRecordService.
-        // ApproveBatchAsync) already means every one of its DailyRecord rows is Posted. Calling
-        // PostAsync again here would be a redundant no-op.
         return lines;
     }
 
@@ -205,14 +193,39 @@ public class PayrollProcessorService
     public Task<List<PayrollBatchListModel>> GetBatchesAsync(DateOnly from, DateOnly to, CancellationToken token) =>
         _payrollBatchService.GetBatchesAsync(from, to, token);
 
-    public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload,Guid batch, CancellationToken token)
+    // The employee picker of the payroll run screen -- see DailyRecordService.GetPayrollRunCandidatesAsync.
+    public Task<List<PayrollRunCandidate>> GetRunCandidatesAsync(PayrollRunCandidateQuery query, CancellationToken token)
     {
+        if (query.FromDate == default || query.ToDate == default || query.FromDate > query.ToDate)
+            throw new ValidationException("Choose a valid pay period.");
+        return _dtrServie.GetPayrollRunCandidatesAsync(query, token);
+    }
+
+    public async Task<List<PayrollSummaryLine>> CalculateAsync(PayrollRunPayload payload, Guid batch, CancellationToken token) =>
+        (await CalculateRunAsync(payload, batch, token)).Lines;
+
+    private static void ValidateRunPayload(PayrollRunPayload payload)
+    {
+        if (payload.EmployeeIds.Count == 0)
+            throw new ValidationException("Select at least one employee to pay.");
+        if (payload.FromDate == default || payload.ToDate == default || payload.FromDate > payload.ToDate)
+            throw new ValidationException("Choose a valid pay period.");
+    }
+
+    // The lines plus the DTR days they were computed from -- GenerateAsync stamps those days paid.
+    private async Task<(List<PayrollSummaryLine> Lines, Dictionary<EmployeeKey, List<DailyRecordRunModel>> Records)>
+        CalculateRunAsync(PayrollRunPayload payload, Guid batch, CancellationToken token)
+    {
+        ValidateRunPayload(payload);
         var payrollLines = new List<PayrollSummaryLine>();
-        var dtrRecords = await _dtrServie.LoadForPayrollRunAsync(payload.BatchCodes, token);
-        if (dtrRecords.Records == null || !dtrRecords.Records.Any()) return payrollLines;
-        var leaveInfoByEmployee = await _dtrServie.LoadLeaveInfoForPayrollRunAsync(payload.BatchCodes, token);
-        var dateRange = new DateRangePayload(dtrRecords.FromDate, dtrRecords.ToDate);
+        var records = await _dtrServie.LoadForPayrollRunAsync(payload, token);
+        if (records.Count == 0) return (payrollLines, records);
+        var leaveInfoByEmployee = await _dtrServie.LoadLeaveInfoForPayrollRunAsync(payload, token);
+        // The chosen pay period, not the span of the days found -- a period with a few missing
+        // days is still that period (proration, fixed-salary divisor, statutory dates).
+        var dateRange = new DateRangePayload(payload.FromDate, payload.ToDate);
         var period = BuildPayrollPeriod(dateRange);
+        var dtrRecords = (Records: records, dateRange.FromDate, dateRange.ToDate);
 
         var employees = dtrRecords.Records.Values
             .SelectMany(x => x.Select(y => y.Employee))
@@ -221,7 +234,7 @@ public class PayrollProcessorService
 
         if (employees == null || employees.Count() == 0)
         {
-            return payrollLines;
+            return (payrollLines, records);
         }
 
         // Resolve tenant-vs-employee Fixed-salary inclusion settings once, upstream —
@@ -260,7 +273,7 @@ public class PayrollProcessorService
                 payload.PayDate, payload.Remarks, empLeaveInfo, leavePaySourceMap);
             payrollLines.Add(payrollLine);
         }
-        return payrollLines;
+        return (payrollLines, records);
     }
 
     private static string BuildPayrollPeriod(DateRangePayload payload)

@@ -29,6 +29,8 @@ public class DailyRecordConfig : IEntityTypeConfiguration<DailyRecord>
         // Backstop against double-posting the same employee's DTR for the same work date —
         // the primary guard lives in DailyRecordService.AddRangeAsync.
         builder.HasIndex(d => new { d.EmployeeId, d.WorkDate }).IsUnique();
+        // Releasing a deleted payroll run's days, and "has this batch been paid" checks.
+        builder.HasIndex(d => d.PayrollBatchId);
 
         builder.HasMany(d => d.LeavesInfo)
             .WithOne(x => x.DTR)
