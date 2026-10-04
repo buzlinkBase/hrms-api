@@ -183,6 +183,24 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // Per-employee DTR coverage for a cutoff -- which days already have a saved DTR row (draft,
+    // approved or paid) -- so the Calculate DTR screen shows who still needs DTR and skips days
+    // that are already saved. Same projection as PayrollsController.Readiness. Group optional.
+    [HttpGet("coverage")]
+    [RequirePermission("DTR Master:View")]
+    [ProducesResponseType(typeof(ResponseModel<List<PayrollReadinessEmployee>>), 200)]
+    public async Task<IActionResult> GetCoverage(
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] Guid? payrollGroupId,
+        CancellationToken token)
+    {
+        if (from > to)
+            return BadRequest("The date range's start date is after its end date.");
+        var data = await _service.GetPayrollReadinessAsync(from, to, payrollGroupId, token);
+        return Ok(new { data, total = data.Count });
+    }
+
     // No frontend caller found for UnpostBatch (dead today), gated defensively anyway. The
     // forward PostBatch counterpart was removed -- it directly flipped DailyRecord.Posted
     // without going through the approval engine, exactly the bypass this feature closes. No

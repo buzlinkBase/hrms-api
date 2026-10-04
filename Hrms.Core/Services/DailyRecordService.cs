@@ -473,7 +473,8 @@ public class DailyRecordService : BaseService<DailyRecord>
             .ToList();
     }
 
-    // Per-employee day counts behind the Payroll Run screen's readiness list: every DTR day in the
+    // Per-employee day counts behind the Payroll Run screen's readiness list (and the Calculate
+    // DTR screen's coverage view): every DTR day in the
     // range, split into approved-and-unpaid, pending (not approved, unpaid) and already paid.
     // Group is optional and, like CutoffFilter, read from the Employee record. Status is left for
     // the caller (PayrollProcessorService.GetReadinessAsync), which also knows about FIXED pay.
@@ -486,6 +487,7 @@ public class DailyRecordService : BaseService<DailyRecord>
                 x.EmployeeId,
                 x.FullName,
                 x.BatchCode,
+                x.WorkDate,
                 x.Posted,
                 Paid = x.PayrollBatchId != null,
                 x.Employee!.EmployeeNo,
@@ -515,6 +517,7 @@ public class DailyRecordService : BaseService<DailyRecord>
                     PendingDays = pending.Count,
                     PaidDays = g.Count(x => x.Paid),
                     PendingBatchCodes = pending.Select(x => x.BatchCode).Where(c => !string.IsNullOrEmpty(c)).Select(c => c!).Distinct().ToList(),
+                    SavedDates = g.Select(x => x.WorkDate).Distinct().Order().ToList(),
                 };
             })
             .OrderBy(x => x.FullName)
