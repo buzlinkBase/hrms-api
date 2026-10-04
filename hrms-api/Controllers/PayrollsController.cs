@@ -78,6 +78,21 @@ namespace Hrms.Api.Controllers
             return (approverEmployeeId, User.IsOwnerOrAdmin());
         }
 
+        // Per-employee readiness for a cutoff (approved / pending / already-paid DTR days), so the
+        // Payroll Run screen can show who is ready before anything is previewed. Group optional.
+        [HttpGet("readiness")]
+        [RequirePermission("Payroll Run:Create")]
+        [ProducesResponseType(typeof(ResponseModel<List<PayrollReadinessEmployee>>), 200)]
+        public async Task<IActionResult> Readiness(
+            [FromQuery] DateOnly from,
+            [FromQuery] DateOnly to,
+            [FromQuery] Guid? payrollGroupId,
+            CancellationToken token)
+        {
+            var data = await _service.GetReadinessAsync(from, to, payrollGroupId, token);
+            return Ok(new { data, total = data.Count });
+        }
+
         //// Employees with DTR in the pay period, for picking who this run pays.
         //[HttpGet("run-candidates")]
         //[RequirePermission("Payroll Run:Create")]

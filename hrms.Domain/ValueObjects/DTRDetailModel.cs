@@ -206,6 +206,31 @@ public class PayrollNotReadyEmployee
     public string Reason { get; set; } = "UnapprovedDtr";
 }
 
+// One employee's payroll readiness for a cutoff -- what the Payroll Run screen lists up front so
+// the payroll master can see who can be paid now without opening the DTR batches. Counts are DTR
+// days inside the range: Approved = Posted and not yet paid by any run (what a run would pay
+// today), Pending = not approved yet and unpaid, Paid = already stamped by a payroll run (draft or
+// approved). See PayrollProcessorService.GetReadinessAsync.
+public class PayrollReadinessEmployee
+{
+    public Guid EmployeeId { get; set; }
+    public string? EmployeeNo { get; set; }
+    public string? FullName { get; set; }
+    public Guid? PayrollGroupId { get; set; }
+    public Guid? ClientId { get; set; }
+    public Guid? DepartmentId { get; set; }
+    public SalaryType SalaryType { get; set; }
+    public int ApprovedDays { get; set; }
+    public int PendingDays { get; set; }
+    public int PaidDays { get; set; }
+    // DTR batches still holding this employee's pending days, so the user knows whom to chase.
+    public List<string> PendingBatchCodes { get; set; } = [];
+    // "Ready" (approved days, nothing pending), "Partial" (approved days plus pending ones),
+    // "Pending" (only pending days), "Paid" (every day in the range already in a run) or
+    // "FixedSalaryAlreadyPaid" (FIXED salary whose period pay an earlier run covered -- a run skips them).
+    public string Status { get; set; } = "Ready";
+}
+
 public class TardinessReportModel
 {
     public DateOnly WorkDate { get; set; }

@@ -225,4 +225,49 @@ public class DailyRecordCutoffPayrollTests
         batches.Single(x => x.Code == "DTR-clientA").IsPayrollGenerated
             .Should().BeFalse("only one of the batch's two days has been paid");
     }
+
+    [Fact]
+    public async Task GetPayrollReadinessAsync_SplitsDaysIntoApprovedPendingAndPaid()
+    {
+        using var db = new SqliteHrmsContext();
+        Guid groupId, employeeId;
+        await using (var seed = db.NewContext())
+        {
+            (groupId, employeeId, _, _) = Seed(seed);
+            // An approved day already paid by a run, and one outside the range.
+            seed.DailyTimeRecords.Add(new DailyRecord
+            {
+                Id = Guid.NewGuid(), EmployeeId = employeeId, WorkDate = new DateOnly(2026, 1, 7),
+                BatchCode = "DTR-clientA", Posted = true, PayrollBatchId = Guid.NewGuid(),
+            });
+            seed.DailyTimeRecords.Add(new DailyRecord
+            {
+                Id = Guid.NewGuid(), EmployeeId = employeeId, WorkDate = new DateOnly(2026, 1, 20),
+                BatchCode = "DTR-clientA", Posted = true,
+            });
+            // Another group's employee, filtered out by payrollGroupId.
+            var otherGroupId = Guid.NewGuid();
+            seed.PayrollGroups.Add(new PayrollGroup { Id = otherGroupId });
+            var other = new Employee { Id = Guid.NewGuid(), PayrollGroupId = otherGroupId };
+            seed.Employees.Add(other);
+            seed.DailyTimeRecords.Add(new DailyRecord
+            {
+                Id = Guid.NewGuid(), EmployeeId = other.Id, WorkDate = new DateOnly(2026, 1, 5),
+                BatchCode = "DTR-other", Posted = true,
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var result = await BuildService(new UnitOfWorkService(context))
+            .GetPayrollReadinessAsync(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15), groupId, CancellationToken.None);
+
+        var row = result.Should().ContainSingle().Subject;
+        row.EmployeeId.Should().Be(employeeId);
+        row.PayrollGroupId.Should().Be(groupId);
+        row.ApprovedDays.Should().Be(1, "only the unpaid client A day in range is approved and payable");
+        row.PendingDays.Should().Be(1);
+        row.PaidDays.Should().Be(1);
+        row.PendingBatchCodes.Should().Equal("DTR-clientB");
+    }
 }

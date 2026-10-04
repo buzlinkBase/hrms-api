@@ -473,6 +473,54 @@ public class DailyRecordService : BaseService<DailyRecord>
             .ToList();
     }
 
+    // Per-employee day counts behind the Payroll Run screen's readiness list: every DTR day in the
+    // range, split into approved-and-unpaid, pending (not approved, unpaid) and already paid.
+    // Group is optional and, like CutoffFilter, read from the Employee record. Status is left for
+    // the caller (PayrollProcessorService.GetReadinessAsync), which also knows about FIXED pay.
+    public async Task<List<PayrollReadinessEmployee>> GetPayrollReadinessAsync(DateOnly from, DateOnly to, Guid? payrollGroupId, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => x.WorkDate >= from && x.WorkDate <= to
+                && (payrollGroupId == null || x.Employee!.PayrollGroupId == payrollGroupId))
+            .Select(x => new
+            {
+                x.EmployeeId,
+                x.FullName,
+                x.BatchCode,
+                x.Posted,
+                Paid = x.PayrollBatchId != null,
+                x.Employee!.EmployeeNo,
+                x.Employee!.PayrollGroupId,
+                x.Employee!.ClientId,
+                x.Employee!.DepartmentId,
+                x.Employee!.SalaryType,
+            })
+            .ToListAsync(token);
+
+        return rows
+            .GroupBy(x => x.EmployeeId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var pending = g.Where(x => !x.Paid && !x.Posted).ToList();
+                return new PayrollReadinessEmployee
+                {
+                    EmployeeId = g.Key,
+                    EmployeeNo = first.EmployeeNo,
+                    FullName = g.Select(x => x.FullName).FirstOrDefault(n => !string.IsNullOrEmpty(n)),
+                    PayrollGroupId = first.PayrollGroupId,
+                    ClientId = first.ClientId,
+                    DepartmentId = first.DepartmentId,
+                    SalaryType = first.SalaryType,
+                    ApprovedDays = g.Count(x => !x.Paid && x.Posted),
+                    PendingDays = pending.Count,
+                    PaidDays = g.Count(x => x.Paid),
+                    PendingBatchCodes = pending.Select(x => x.BatchCode).Where(c => !string.IsNullOrEmpty(c)).Select(c => c!).Distinct().ToList(),
+                };
+            })
+            .OrderBy(x => x.FullName)
+            .ToList();
+    }
+
     // FIXED-salary employees of the group who have approved, unpaid days in the range -- the
     // candidates for the "fixed salary already paid" skip in a cutoff-mode run.
     public async Task<List<PayrollNotReadyEmployee>> GetPayableFixedSalaryEmployeesAsync(CutoffScope scope, CancellationToken token)
