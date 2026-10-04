@@ -78,14 +78,14 @@ namespace Hrms.Api.Controllers
             return (approverEmployeeId, User.IsOwnerOrAdmin());
         }
 
-        // Employees with DTR in the pay period, for picking who this run pays.
-        [HttpGet("run-candidates")]
-        [RequirePermission("Payroll Run:Create")]
-        [ProducesResponseType(typeof(ResponseModel<List<PayrollRunCandidate>>), 200)]
-        public async Task<IActionResult> RunCandidates([FromQuery] PayrollRunCandidateQuery query, CancellationToken token)
-        {
-            return Ok(await _service.GetRunCandidatesAsync(query, token));
-        }
+        //// Employees with DTR in the pay period, for picking who this run pays.
+        //[HttpGet("run-candidates")]
+        //[RequirePermission("Payroll Run:Create")]
+        //[ProducesResponseType(typeof(ResponseModel<List<PayrollRunCandidate>>), 200)]
+        //public async Task<IActionResult> RunCandidates([FromQuery] PayrollRunCandidateQuery query, CancellationToken token)
+        //{
+        //    return Ok(await _service.GetRunCandidatesAsync(query, token));
+        //}
 
         [HttpPost("calculate")]
         [RequirePermission("Payroll Run:Create")]
