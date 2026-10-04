@@ -22,8 +22,12 @@ public record CutoffScope(
 //    EmployeeIds are all optional narrowing filters (omitted = no narrowing). The pay period is the requested range.
 //  * Legacy batch mode (BatchCodes set) -- only the selected posted batch codes; date range and
 //    employees are derived from the actual DTR records in those batches.
-public record PayrollRunPayload(List<string>? BatchCodes = null)
+public record PayrollRunPayload
 {
+    // A plain optional property (not a positional parameter): MVC validates positional record
+    // parameters separately and can flag them "required" even when nullable, which 400'd every
+    // cutoff-mode run that omits BatchCodes.
+    public List<string>? BatchCodes { get; init; }
     public DateOnly? FromDate { get; init; }
     public DateOnly? ToDate { get; init; }
     public Guid? PayrollGroupId { get; init; }
