@@ -60,7 +60,7 @@ public class PayrollLineComputationTests : TestContextBase
 
         EmployeePayrollLineService.ComputeHoursBreakdown(dtrs, line);
 
-        line.OvertimeHours.Should().Be(6); // 2 + 1 + 3 — the *NDOTHours columns are separate and not summed in
+        line.OvertimeHours.Should().Be(6); // 2 + 1 + 3 — OT is natural (already includes NDOT), so *NDOTHours is never added on top
     }
 
     [Fact]

@@ -10,8 +10,9 @@ namespace hrms.test.PayrollRunTests;
 /// night-diff), Regular OT 48h @ 1.25, Special Holiday 8h @ 1.30, Special Holiday OT 4h @ 1.25,
 /// Night Diff. premium 72h @ 0.10 -- Legal Holiday/Legal Holiday OT both zero and must not appear
 /// as rows. Confirms BuildRows() reproduces the sample's own figures exactly and that
-/// zero-amount categories are omitted (never rendered as a blank/zero line). Regular's 72 ND
-/// hours fold their day-rate portion into "Regular Hours" (168h total) -- see
+/// zero-amount categories are omitted (never rendered as a blank/zero line). Hours are stored
+/// natural, so "Regular Hours" reads the stored 168h (96 daytime + 72 night) as-is, and its
+/// amount adds the 72 ND hours' day-rate portion -- see
 /// CategoryWithNightDifferentialHours_FoldsThemIntoTheBaseRow below for why: without this, a
 /// guard working mostly at night would show understated hours, and the itemized total would fall
 /// short of Gross Income by the ND hours' day-rate share.
@@ -25,7 +26,7 @@ public class PayslipHoursDocumentTests
     {
         DailyRate = DailyRate,
         SalaryType = SalaryType.VARIABLE,
-        RegularNetHours = 96,
+        RegularNetHours = 168, // natural: 96 daytime + 72 night
         RegularOTHours = 48,
         RegularOTBasePay = 48 * HourlyRate * 1.25m, // 4,050.00
         SpecialHolHours = 8,
@@ -46,7 +47,7 @@ public class PayslipHoursDocumentTests
         var rows = doc.BuildRows();
 
         var regular = rows.Single(r => r.Label == "Regular Hours");
-        regular.Hours.Should().Be(168); // 96 plain + 72 ND, folded at the same day rate
+        regular.Hours.Should().Be(168); // natural hours as stored (96 daytime + 72 night)
         regular.Amount.Should().Be(11340.00m); // 6,480.00 + 4,860.00
 
         var regularOt = rows.Single(r => r.Label == "Regular OT Hours");
@@ -103,7 +104,9 @@ public class PayslipHoursDocumentTests
     [Fact]
     public void CategoryWithNightDifferentialHours_FoldsThemIntoTheBaseRow()
     {
-        // Regression: a guard who works mostly at night previously showed an understated
+        // Hours are natural (night included) and shown as stored; the amount adds the ND
+        // hours' day-rate portion. Regression: a guard who works mostly at night previously
+        // showed an understated
         // "Special Holiday" hours/amount, because SpecialHolNightDiffHours (that category's ND
         // hours) were only reflected in the merged "Night Diff." row's premium fraction, never
         // in the base row itself. SpecialNDBasePay already isolates the day-type-rate-only
@@ -114,10 +117,10 @@ public class PayslipHoursDocumentTests
         {
             DailyRate = DailyRate,
             SalaryType = SalaryType.VARIABLE,
-            RegularNetHours = 56,
+            RegularNetHours = 66, // natural: 56 daytime + 10 night
             RegularNDHours = 10,
             RegularNDBasePay = 10 * HourlyRate * 1.00m, // 675.00
-            SpecialHolHours = 3,
+            SpecialHolHours = 5, // natural: 3 daytime + 2 night
             SpecialHolNightDiffHours = 2,
             SpecialPay = 3 * HourlyRate * 1.30m, // 263.25
             SpecialNDBasePay = 2 * HourlyRate * 1.30m, // 175.50
@@ -128,11 +131,11 @@ public class PayslipHoursDocumentTests
         var rows = doc.BuildRows();
 
         var regular = rows.Single(r => r.Label == "Regular Hours");
-        regular.Hours.Should().Be(66); // 56 plain + 10 ND
+        regular.Hours.Should().Be(66); // natural, as stored
         regular.Amount.Should().Be(4455.00m); // 3,780.00 + 675.00
 
         var special = rows.Single(r => r.Label == "Special Holiday");
-        special.Hours.Should().Be(5); // 3 plain + 2 ND
+        special.Hours.Should().Be(5); // natural, as stored
         special.Amount.Should().Be(438.75m); // 263.25 + 175.50
     }
 
@@ -155,14 +158,14 @@ public class PayslipHoursDocumentTests
             SalaryType = SalaryType.VARIABLE,
             OtNdCalculationMethod = OtNdCalculationMethod.Additive,
 
-            SpecialHolHours = 8,
+            SpecialHolHours = 13, // natural: 8 daytime + 5 night
             SpecialPay = 8 * HourlyRate * dayRate, // 702.00
 
-            SpecialHolOTHours = 4,
+            SpecialHolOTHours = 7, // natural: 4 daytime + 3 NDOT
             SpecialOTBasePay = 4 * HourlyRate * otRate, // 337.50 -- raw OT rate alone, day rate dropped
             SpecialOTPay = 4 * HourlyRate * otRate, // 337.50 -- day rate doesn't apply to OT hours under Additive
 
-            SpecialHolNightDiffHours = 5,
+            SpecialHolNightDiffHours = 8, // natural: 5 night regular + 3 NDOT
             SpecialNDBasePay = 5 * HourlyRate * dayRate, // 438.75
             SpecialNDPremiumPay = 5 * HourlyRate * (ndRate - 1.0m), // 33.75
             SpecialNDPay = 5 * HourlyRate * (dayRate + (ndRate - 1.0m)), // 472.50
@@ -181,14 +184,15 @@ public class PayslipHoursDocumentTests
         itemizedTotal.Should().Be(payroll.GrossIncome);
 
         var special = rows.Single(r => r.Label == "Special Holiday");
-        special.Hours.Should().Be(13); // 8 plain + 5 ND -- OT/NDOT hours have no day-rate portion to fold in
+        special.Hours.Should().Be(13); // natural, as stored -- OT/NDOT hours have no day-rate portion to fold in
         special.Amount.Should().Be(1140.75m);
 
         var otSpecial = rows.Single(r => r.Label == "Special Holiday OT");
-        otSpecial.Hours.Should().Be(7); // 4 OT-only + 3 NDOT
+        otSpecial.Hours.Should().Be(7); // natural, as stored (NDOT already included)
         otSpecial.Amount.Should().Be(590.625m);
 
         var nightDiff = rows.Single(r => r.Label == "Night Diff.");
+        nightDiff.Hours.Should().Be(8); // natural ND, as stored (NDOT already included)
         nightDiff.Amount.Should().Be(54.00m); // 33.75 (ND) + 20.25 (NDOT)
     }
 

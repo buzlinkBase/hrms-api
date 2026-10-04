@@ -93,7 +93,7 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
 
         record.RegularNetHours.Should().Be(0);
         record.RestDayHours.Should().Be(0);
-        (record.SpecialHolHours + record.SpecialHolNightDiffHours).Should().BeApproximately(8.0, 0.01); // full 480 min
+        record.SpecialHolHours.Should().BeApproximately(8.0, 0.01); // full 480 min (natural: night portion included)
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
 
         record.RestDayHours.Should().Be(0);
         record.RegularNetHours.Should().Be(0);
-        (record.RestSpecialDayHours + record.RestSpecialDayNDHours).Should().BeApproximately(8.0, 0.01);
+        record.RestSpecialDayHours.Should().BeApproximately(8.0, 0.01);
     }
 
     [Fact]
@@ -118,19 +118,19 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
         // HRS-column split already covered above, going through HolidayOTFactory instead of
         // HolidayPlusRegularRule/RegularDayEvaluator. That 108-min OT window (03:12-05:00) also
         // falls entirely within the 22:00-06:00 night-diff band, so it shows up under
-        // RegularNDOTHours rather than RegularOTHours -- the same HRS-vs-ND split the real DTR
-        // row's OT/ND-OT columns showed (OT blank, ND-OT populated).
+        // RegularNDOTHours too. Hours are natural, so OT keeps the full 108 min and ND-OT
+        // reports the night subset of it (here all of it).
         var context = BuildContext(HolidayTimeBasis.BasedOnActualWorkHours, markRestDay: false);
         context.Payload.Data.CompanyPolicy.OTInclusionPolicy = OvertimeInclusionPolicy.UsePostShiftWork;
         context.Payload.Data.CurrentShift.OTRequireTimeIn = false; // simpler FixedOT start-time path
 
         var record = RunFullRow(context);
 
-        record.RegularOTHours.Should().Be(0);
-        record.RegularNDOTHours.Should().BeApproximately(1.8, 0.01); // 108 min, all on Sept5, all in night-diff hours
+        record.RegularOTHours.Should().BeApproximately(1.8, 0.01); // 108 min, all on Sept5 (natural OT)
+        record.RegularNDOTHours.Should().BeApproximately(1.8, 0.01); // ...all of it in night-diff hours
         record.SpecialHolOTHours.Should().Be(0);
         record.SpecialHolNightDiffOTHours.Should().Be(0);
-        (record.RegularOTHours + record.RegularNDOTHours + record.SpecialHolOTHours + record.SpecialHolNightDiffOTHours)
+        (record.RegularOTHours + record.SpecialHolOTHours)
             .Should().BeApproximately(1.8, 0.01); // the full 108-min overflow, nothing lost or doubled
     }
 
@@ -143,11 +143,11 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
 
         // 480 min claimed work time split Sept4-holiday (288) / Sept5-non-holiday (192). The
         // non-holiday remainder (00:00-03:12 Sept5) falls entirely inside the 22:00-06:00
-        // night-diff window, so it all lands under RegularNDHours, not RegularNetHours.
-        record.RegularNetHours.Should().Be(0);
+        // night-diff window, so RegularNDHours reports all of it (Hrs stays natural).
+        record.RegularNetHours.Should().BeApproximately(3.2, 0.01); // 192 min
         record.RegularNDHours.Should().BeApproximately(3.2, 0.01); // 192 min, all night-diff
-        (record.SpecialHolHours + record.SpecialHolNightDiffHours).Should().BeApproximately(4.8, 0.01); // 288 min
-        (record.RegularNetHours + record.RegularNDHours + record.SpecialHolHours + record.SpecialHolNightDiffHours)
+        record.SpecialHolHours.Should().BeApproximately(4.8, 0.01); // 288 min
+        (record.RegularNetHours + record.SpecialHolHours)
             .Should().BeApproximately(8.0, 0.01); // the full 480 min, nothing lost or doubled
         record.RestDayHours.Should().Be(0);
         record.RestSpecialDayHours.Should().Be(0);
@@ -165,12 +165,12 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
 
         record.RegularNetHours.Should().Be(0);
         record.SpecialHolHours.Should().Be(0);
-        // Same 00:00-03:12 Sept5 remainder, entirely inside the night-diff window -> all under
-        // RestDayNDHours, none under RestDayHours.
-        record.RestDayHours.Should().Be(0);
+        // Same 00:00-03:12 Sept5 remainder, entirely inside the night-diff window -> RestDayHours
+        // holds it (natural) and RestDayNDHours reports all of it as night.
+        record.RestDayHours.Should().BeApproximately(3.2, 0.01); // 192 min
         record.RestDayNDHours.Should().BeApproximately(3.2, 0.01); // 192 min, all night-diff
-        (record.RestSpecialDayHours + record.RestSpecialDayNDHours).Should().BeApproximately(4.8, 0.01); // 288 min
-        (record.RestDayHours + record.RestDayNDHours + record.RestSpecialDayHours + record.RestSpecialDayNDHours)
+        record.RestSpecialDayHours.Should().BeApproximately(4.8, 0.01); // 288 min
+        (record.RestDayHours + record.RestSpecialDayHours)
             .Should().BeApproximately(8.0, 0.01);
     }
 
@@ -185,7 +185,7 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
         var record = RunFullRow(context);
 
         record.RegularNetHours.Should().Be(0);
-        (record.SpecialHolHours + record.SpecialHolNightDiffHours).Should().BeApproximately(8.0, 0.01); // the full 480 min
+        record.SpecialHolHours.Should().BeApproximately(8.0, 0.01); // the full 480 min
     }
 
     [Fact]
@@ -196,7 +196,7 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
         var record = RunFullRow(context);
 
         record.RestDayHours.Should().Be(0);
-        (record.RestSpecialDayHours + record.RestSpecialDayNDHours).Should().BeApproximately(8.0, 0.01);
+        record.RestSpecialDayHours.Should().BeApproximately(8.0, 0.01);
     }
 
     [Fact]
@@ -223,11 +223,11 @@ public class SpecialHolidayCrossDateReproTests : DtrTestBase
         var record = RunFullRow(context);
 
         // Whatever the exact HRS/ND split turns out to be, the non-holiday remainder's ND
-        // portion must not be silently dropped: RegularNetHours + RegularNDHours must equal the
-        // full non-holiday remainder, and RegularNDHours specifically must be > 0 since that
+        // portion must not be silently dropped: RegularNetHours (natural) must equal the full
+        // non-holiday remainder, and RegularNDHours specifically must be > 0 since that
         // remainder falls entirely inside 22:00-06:00.
         record.RegularNDHours.Should().BeGreaterThan(0);
-        (record.RegularNetHours + record.RegularNDHours + record.SpecialHolHours + record.SpecialHolNightDiffHours)
+        (record.RegularNetHours + record.SpecialHolHours)
             .Should().BeApproximately(8.0, 0.01); // the full 480-min capped shift, nothing lost
     }
 }

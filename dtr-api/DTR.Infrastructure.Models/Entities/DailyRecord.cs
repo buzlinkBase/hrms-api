@@ -135,14 +135,16 @@ public class DailyRecord : BaseEntity, IUserField
     }
 
     [NotMapped]
+    // Worked hours = Hrs + OT of every day type. Hours are natural (Hrs/OT include their night
+    // portion), so ND/ND-OT are not added.
     public double TotalHours => new[]
                     {
-                    RegularNetHours, RegularOTHours, RegularNDHours, RegularNDOTHours,
-                    RestDayHours, RestDayOTHours, RestDayNDHours, RestDayNDOTHours,
-                    //RestLegalDayHours, RestLegalDayOTHours, RestLegalDayNDHours, RestLegalDayNDOTHours,
-                    //RestSpecialDayHours, RestSpecialDayOTHours, RestSpecialDayNDHours, RestSpecialDayNDOTHours,
-                    LegalHolHours, LegalHolOTHours, LegalHolNightDiffHours, LegalHolNightDiffOTHours,
-                    SpecialHolHours, SpecialHolOTHours, SpecialHolNightDiffHours, SpecialHolNightDiffOTHours
+                    RegularNetHours, RegularOTHours,
+                    RestDayHours, RestDayOTHours,
+                    LegalHolHours, LegalHolOTHours,
+                    SpecialHolHours, SpecialHolOTHours,
+                    RestLegalDayHours, RestLegalDayOTHours,
+                    RestSpecialDayHours, RestSpecialDayOTHours,
                 }.Sum();
     public string Note { get; set; } = string.Empty;
     public DTRStatus RecordStatus { get; set; } = DTRStatus.OPEN;

@@ -1,3 +1,5 @@
+using Hrms.Core.Calculators.DtrPay;
+
 namespace Hrms.Core.Policies.DTRPolicies;
 
 /// <summary>
@@ -11,6 +13,18 @@ internal class DoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, PayrollC
 {
     public override BasicPipelineData ApplyIfSatisfied(BasicPipelineData line, PayrollContext context)
     {
+        var dailyRecord = context.DailyRecord;
+        var hours = DayTypeHours.For(context, dailyRecord.DoubleLegalHours, dailyRecord.DoubleLegalNDHours, dailyRecord.DoubleLegalNDOTHours);
+        // Plain hours keep this day type's own rules below; under Additive the night hours inside
+        // DoubleLegalHours are then added at the full day rate (DayTypeHours). Night is added after the
+        // plain pay because the plain pay sets line.Worked rather than adding to it.
+        return hours.AddNightPay(PayPlainHours(line, context, hours.Plain), context, PayCategories.DoubleLegal);
+    }
+
+    // This day type's pay for its plain (daytime) hours -- unchanged from before the DTR stored
+    // natural hours: holiday eligibility, Fixed-salary pre-funding, unworked = shift - plain.
+    private static BasicPipelineData PayPlainHours(BasicPipelineData line, PayrollContext context, decimal plainHours)
+    {
         // Holiday Hours Basis (BasedOnTimeInDayType vs BasedOnActualWorkHours) is already
         // applied upstream by dtr-api's HolidayPolicyProviderFactory when DoubleLegalHours is
         // computed — see CleanDTRDetailProcessor.cs. Nothing to branch on here.
@@ -22,7 +36,7 @@ internal class DoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, PayrollC
         }
 
         var hourlyRate = RateHelper.GetHourlyRate(context);
-        var workedHours = (decimal)Math.Max(0, dailyRecord.DoubleLegalHours);
+        var workedHours = plainHours;
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
         var isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);

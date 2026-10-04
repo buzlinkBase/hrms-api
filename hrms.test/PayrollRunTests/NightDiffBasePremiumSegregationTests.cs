@@ -27,6 +27,8 @@ public class NightDiffBasePremiumSegregationTests
     private const double ShiftHours = 8;
     private const decimal HourlyRate = 67.5m; // DailyRate / ShiftHours
 
+    // otHours / ndHours are the daytime-OT / night-regular buckets; the DTR stores them natural
+    // (OT and ND each include the NDOT hours), so they're stored that way here.
     private static PayrollContext CreateContext(double otHours = 0, double ndHours = 0, double ndotHours = 0, Guid? clientId = null)
     {
         return new PayrollContext
@@ -44,8 +46,8 @@ public class NightDiffBasePremiumSegregationTests
             DailyRecord = new DailyRecordRunModel
             {
                 ShiftWorkingHour = ShiftHours,
-                SpecialHolOTHours = otHours,
-                SpecialHolNightDiffHours = ndHours,
+                SpecialHolOTHours = otHours + ndotHours,
+                SpecialHolNightDiffHours = ndHours + ndotHours,
                 SpecialHolNightDiffOTHours = ndotHours,
             },
             Payload = new CalculatorPayload(),

@@ -1,9 +1,9 @@
 namespace Hrms.Core.Calculators.DtrPay;
 
 // Compounded -- Regular work day. Hours: RegularNetHours / RegularOTHours / RegularNDHours / RegularNDOTHours.
-//   Hrs    via RegularPipeline
-//   OT     x hourly x 1.0 (plain hourly rate) x OVERTIME
-//   ND     x hourly x 1.0 (plain hourly rate) x NIGHTDIFF
+//   daytime Hrs (Hrs - (ND - NDOT)) via RegularPipeline
+//   OT - NDOT x hourly x 1.0 (plain hourly rate) x OVERTIME
+//   ND - NDOT x hourly x 1.0 (plain hourly rate) x NIGHTDIFF
 //   NDOT   x hourly x 1.0 (plain hourly rate) x OVERTIME x NIGHTDIFF
 internal sealed class CompoundedRegularDayPay : CompoundedDayTypePayBase
 {

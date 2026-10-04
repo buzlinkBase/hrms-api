@@ -24,6 +24,20 @@ public class DailyRecordTotalHoursTests
     }
 
     [Fact]
+    public void IgnoresNightBuckets_BecauseHoursAreNatural()
+    {
+        var record = new DailyRecord
+        {
+            RegularNetHours = 8,
+            RegularOTHours = 2,
+            RegularNDHours = 3,
+            RegularNDOTHours = 1,
+        };
+
+        record.TotalHours.Should().Be(10);
+    }
+
+    [Fact]
     public void IgnoresNonWorkedHourFields()
     {
         var record = new DailyRecord

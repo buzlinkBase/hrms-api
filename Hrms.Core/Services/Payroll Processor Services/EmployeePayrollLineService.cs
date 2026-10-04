@@ -121,9 +121,9 @@ public class EmployeePayrollLineService
     // day in the period — the DTR posting pipeline already computed these (see
     // DailyRecordRunModel/DailyRecord), this just carries them forward instead of letting
     // them get dropped once the DTR rows are rolled up into pay amounts. No payroll math of
-    // its own; OvertimeHours is the one derived figure — the sum of every pure *OTHours
-    // category (excluding the ND-OT combo hours, which are their own columns) — matching
-    // what the Payroll Summary "OT Total Hr" figure means.
+    // its own; OvertimeHours is the one derived figure — the sum of every *OTHours category
+    // (natural: each already includes its ND-OT hours, so those are never added on top) —
+    // matching what the Payroll Summary "OT Total Hr" figure means.
     internal static void ComputeHoursBreakdown(List<DailyRecordRunModel> dtrs, PayrollSummaryLine line)
     {
         decimal Sum(Func<DailyRecordRunModel, double> selector) => (decimal)dtrs.Sum(selector);

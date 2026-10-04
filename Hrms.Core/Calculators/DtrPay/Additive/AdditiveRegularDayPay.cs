@@ -1,9 +1,9 @@
 namespace Hrms.Core.Calculators.DtrPay;
 
 // Additive -- Regular work day. Hours: RegularNetHours / RegularOTHours / RegularNDHours / RegularNDOTHours.
-//   Hrs + ND    x hourly x 1.0 (plain hourly rate)   (plain hours via RegularPipeline)
-//   OT + NDOT   x hourly x OVERTIME
-//   ND + NDOT   x hourly x (NIGHTDIFF - 1)
+//   Hrs         x hourly x 1.0 (plain hourly rate)   (RegularWorkDayPolicy, night included)
+//   OT          x hourly x OVERTIME
+//   ND          x hourly x (NIGHTDIFF - 1)
 //   NDOT        -> 0
 internal sealed class AdditiveRegularDayPay : AdditiveDayTypePayBase
 {
@@ -14,10 +14,10 @@ internal sealed class AdditiveRegularDayPay : AdditiveDayTypePayBase
 
     // A Fixed-salary employee's Basic Pay is the monthly salary, not this day type's day pay
     // (EmployeePayrollLineService.GetBasicPay), while their regular night hours' base has always
-    // been paid on top of it through the ND bucket. Folding it into day pay would silently drop
-    // it, so for them it stays in the ND bucket (RegularNDBasePay), exactly where it always was.
-    protected override (DayPay Day, BucketPay Nd) FoldNightHoursIntoDayPay(decimal nightBase, DayPay day, BucketPay nd, PayrollContext context) =>
+    // been paid on top of it through the ND bucket. RegularWorkDayPolicy leaves those hours out of
+    // the day pay for them, so the base is paid here (RegularNDBasePay), exactly where it always was.
+    protected override BucketPay AddNightBaseToNd(decimal nightRegularHours, CategoryRates rates, BucketPay nd, PayrollContext context) =>
         context.Employee.SalaryType == SalaryType.FIXED
-            ? (day, nd with { Value = nightBase + nd.Value }) // NDPremium unchanged, so BasePortion == nightBase
-            : base.FoldNightHoursIntoDayPay(nightBase, day, nd, context);
+            ? nd with { Value = Pricers.NdBase.Price(nightRegularHours, rates).Value + nd.Value } // NDPremium unchanged, so BasePortion == the base
+            : nd;
 }

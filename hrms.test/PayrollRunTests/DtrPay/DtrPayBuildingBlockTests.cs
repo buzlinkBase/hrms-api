@@ -6,20 +6,29 @@ namespace hrms.test.PayrollRunTests.DtrPay;
 public class DtrPayBuildingBlockTests
 {
     [Fact]
-    public void DisplayHoursShaper_MatchesTheDtrScreensFold()
+    public void Separate_SplitsNaturalDtrHoursIntoExclusiveBuckets()
     {
-        // Same fold as the UI's toDisplayHours: Hrs + ND, OT + NDOT, ND + NDOT, NDOT = 0.
-        var shown = new DisplayHoursShaper().Shape(new CategoryHours(Hrs: 6, Ot: 2, Nd: 3, Ndot: 1));
+        // Natural DTR: Hrs 9 (3 at night), OT 3 (1 at night), ND 4 (3 regular + 1 OT), NDOT 1.
+        var separated = CategoryHours.Separate(hrs: 9, ot: 3, nd: 4, ndot: 1);
 
-        shown.Should().Be(new CategoryHours(Hrs: 9, Ot: 3, Nd: 4, Ndot: 0));
+        separated.Should().Be(new CategoryHours(Hrs: 6, Ot: 2, Nd: 3, Ndot: 1));
     }
 
     [Fact]
-    public void SavedHoursShaper_LeavesHoursAsStored()
+    public void NaturalHoursJoin_UndoesSeparate_WithNdotFoldedIn()
     {
-        var saved = new CategoryHours(6, 2, 3, 1);
+        // Additive prices the natural hours: Hrs + ND, OT + NDOT, ND + NDOT, NDOT = 0.
+        var natural = NaturalHours.Join(new CategoryHours(Hrs: 6, Ot: 2, Nd: 3, Ndot: 1));
 
-        new SavedHoursShaper().Shape(saved).Should().Be(saved);
+        natural.Should().Be(new CategoryHours(Hrs: 9, Ot: 3, Nd: 4, Ndot: 0));
+    }
+
+    [Fact]
+    public void Separate_NeverGoesNegative_OnInconsistentRows()
+    {
+        var separated = CategoryHours.Separate(hrs: 1, ot: 0, nd: 3, ndot: 1);
+
+        separated.Should().Be(new CategoryHours(Hrs: 0, Ot: 0, Nd: 2, Ndot: 1));
     }
 
     [Fact]

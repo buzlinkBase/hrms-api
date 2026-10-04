@@ -76,7 +76,8 @@ public class DayTypePayCalculatorTests
         // Rest Day pay is counted in gross for Fixed employees too, so it folds normally.
         var restDay = Services.GetServices<IAdditiveDayTypePay>().Single(d => d.Kind == PayCategoryKind.RestDay);
 
-        var pay = restDay.Calculate(Context(SalaryType.FIXED, r => r.RestDayNDHours = 2));
+        // Natural hours: both rest-day hours were at night.
+        var pay = restDay.Calculate(Context(SalaryType.FIXED, r => { r.RestDayHours = 2; r.RestDayNDHours = 2; }));
 
         pay.Day.Value.Should().Be(2 * HourlyRate * 1.30m);
         pay.Nd.Value.Should().Be(2 * HourlyRate * 0.10m);
@@ -86,7 +87,8 @@ public class DayTypePayCalculatorTests
     [Fact]
     public void LegalHoliday_SameHours_AdditiveVsCompounded()
     {
-        var context = Context(SalaryType.VARIABLE, r => { r.LegalHolOTHours = 2; r.LegalHolNightDiffOTHours = 1; });
+        // Natural hours: 3 OT hours, 1 of them at night (so ND and NDOT are both 1).
+        var context = Context(SalaryType.VARIABLE, r => { r.LegalHolOTHours = 3; r.LegalHolNightDiffHours = 1; r.LegalHolNightDiffOTHours = 1; });
         var additive = Services.GetServices<IAdditiveDayTypePay>().Single(d => d.Kind == PayCategoryKind.Legal).Calculate(context);
         var compounded = Services.GetServices<ICompoundedDayTypePay>().Single(d => d.Kind == PayCategoryKind.Legal).Calculate(context);
 
@@ -95,7 +97,7 @@ public class DayTypePayCalculatorTests
         additive.Nd.Value.Should().Be(1 * HourlyRate * 0.10m);
         additive.Ndot.Should().Be(BucketPay.Zero);
 
-        // Compounded: each saved bucket on its own, at day x OT (x ND).
+        // Compounded: each separated bucket on its own, at day x OT (x ND).
         compounded.Ot.Value.Should().Be(2 * HourlyRate * (2.00m * 1.30m));
         compounded.Ndot.Value.Should().Be(1 * HourlyRate * (2.00m * 1.30m * 1.10m));
         compounded.Nd.Value.Should().Be(0m);
