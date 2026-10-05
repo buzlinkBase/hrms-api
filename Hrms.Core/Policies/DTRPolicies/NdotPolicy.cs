@@ -1,7 +1,5 @@
 namespace Hrms.Core.Calculators.DtrPay;
 
-namespace Hrms.Core.Calculators.DtrPay;
-
 // The NDOT (night-differential overtime) policies, one per pay method. The DtrPay calculators call
 // the one for their method for every day type's NDOT hours (see AdditiveDayTypePayBase /
 // CompoundedDayTypePayBase).
