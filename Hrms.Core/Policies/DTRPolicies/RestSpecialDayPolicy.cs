@@ -17,15 +17,14 @@ internal class RestSpecialDayPolicy : PayrollPolicyBase<BasicPipelineData, Payro
     {
         var dailyRecord = context.DailyRecord;
         var hours = DayTypeHours.For(context, dailyRecord.RestSpecialDayHours, dailyRecord.RestSpecialDayNDHours, dailyRecord.RestSpecialDayNDOTHours);
-        // Plain hours keep this day type's own rules below; under Additive the night hours inside
-        // RestSpecialDayHours are then added at the full day rate (DayTypeHours). Night is added after the
-        // plain pay because the plain pay sets line.Worked rather than adding to it.
-        return hours.AddNightPay(PayPlainHours(line, context, hours.Plain), context, PayCategories.RestSpecial);
+        // Additive pays the natural hours (night hours included) at this day type's rate, so night
+        // differential only adds its premium; Compounded pays the daytime hours only (DayTypeHours).
+        return PayHours(line, context, hours.PaidHours(context, dailyRecord.RestSpecialDayHours));
     }
 
-    // This day type's pay for its plain (daytime) hours -- unchanged from before the DTR stored
-    // natural hours: holiday eligibility, Fixed-salary pre-funding, unworked = shift - plain.
-    private static BasicPipelineData PayPlainHours(BasicPipelineData line, PayrollContext context, decimal plainHours)
+    // This day type's pay for the hours it pays at its own rate: holiday eligibility,
+    // Fixed-salary pre-funding, unworked = shift - paid.
+    private static BasicPipelineData PayHours(BasicPipelineData line, PayrollContext context, decimal paidHours)
     {
         var dailyRecord = context.DailyRecord;
 
@@ -36,7 +35,7 @@ internal class RestSpecialDayPolicy : PayrollPolicyBase<BasicPipelineData, Payro
         }
 
         var hourlyRate = RateHelper.GetHourlyRate(context);
-        var workedHours = plainHours;
+        var workedHours = paidHours;
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
         var isEligible = new IsEligibleForSpecialHolidayPay().IsSatisfiedBy(context);

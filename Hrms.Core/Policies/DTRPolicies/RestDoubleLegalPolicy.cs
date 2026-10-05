@@ -8,15 +8,14 @@ internal class RestDoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, Payr
     {
         var dailyRecord = context.DailyRecord;
         var hours = DayTypeHours.For(context, dailyRecord.RestDoubleLegalHours, dailyRecord.RestDoubleLegalNDHours, dailyRecord.RestDoubleLegalNDOTHours);
-        // Plain hours keep this day type's own rules below; under Additive the night hours inside
-        // RestDoubleLegalHours are then added at the full day rate (DayTypeHours). Night is added after the
-        // plain pay because the plain pay sets line.Worked rather than adding to it.
-        return hours.AddNightPay(PayPlainHours(line, context, hours.Plain), context, PayCategories.RestDoubleLegal);
+        // Additive pays the natural hours (night hours included) at this day type's rate, so night
+        // differential only adds its premium; Compounded pays the daytime hours only (DayTypeHours).
+        return PayHours(line, context, hours.PaidHours(context, dailyRecord.RestDoubleLegalHours));
     }
 
-    // This day type's pay for its plain (daytime) hours -- unchanged from before the DTR stored
-    // natural hours: holiday eligibility, Fixed-salary pre-funding, unworked = shift - plain.
-    private static BasicPipelineData PayPlainHours(BasicPipelineData line, PayrollContext context, decimal plainHours)
+    // This day type's pay for the hours it pays at its own rate: holiday eligibility,
+    // Fixed-salary pre-funding, unworked = shift - paid.
+    private static BasicPipelineData PayHours(BasicPipelineData line, PayrollContext context, decimal paidHours)
     {
         // Holiday Hours Basis (BasedOnTimeInDayType vs BasedOnActualWorkHours) is already
         // applied upstream by dtr-api's HolidayPolicyProviderFactory when RestDoubleLegalHours
@@ -29,7 +28,7 @@ internal class RestDoubleLegalPolicy : PayrollPolicyBase<BasicPipelineData, Payr
         }
 
         var hourlyRate = RateHelper.GetHourlyRate(context);
-        var workedHours = plainHours;
+        var workedHours = paidHours;
         var unworkedHours = Math.Max(0m, (decimal)dailyRecord.ShiftWorkingHour - workedHours);
 
         var isEligible = new IsEligibleForRegularHolidayPay().IsSatisfiedBy(context);

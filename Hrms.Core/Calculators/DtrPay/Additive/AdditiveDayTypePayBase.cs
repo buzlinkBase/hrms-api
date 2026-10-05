@@ -2,13 +2,13 @@ namespace Hrms.Core.Calculators.DtrPay;
 
 // The Additive method's bucket pricers, registered once and shared by its 8 day types. NdBase is
 // only used where a day type keeps its night hours' base pay in the ND bucket (AdditiveRegularDayPay).
-internal sealed record AdditivePricers(IBucketPricer NdBase, IBucketPricer Ot, IBucketPricer NdPremium);
+internal sealed record AdditivePricers(IBucketPricer NdBase, IBucketPricer Ot, IBucketPricer NdPremium, IBucketPricer Ndot);
 
 // Additive, for one day type: the natural DTR hours, each bucket at ONE rate, added up --
 //   Hrs (night included) x day rate  -> day pay, paid by the day-type policy itself (DayTypeHours)
 //   OT  (OT + NDOT) x raw OT rate    -> OT pay, no day-type multiplier
 //   ND  (ND + NDOT) x (ND rate - 1)  -> ND pay, the night premium only
-//   NDOT            -> always 0 (its hours are already in OT and ND)
+//   NDOT            -> always 0 (AdditiveNdotPolicy; its hours are already in OT and ND)
 // Each step is its own virtual method so a day type with a genuine exception overrides just that
 // step (see AdditiveRegularDayPay).
 internal abstract class AdditiveDayTypePayBase : DayTypePayCalculatorBase, IAdditiveDayTypePay
@@ -33,7 +33,7 @@ internal abstract class AdditiveDayTypePayBase : DayTypePayCalculatorBase, IAddi
         var nd = PriceNdPremium(natural.Nd, rates);
         nd = AddNightBaseToNd(saved.Nd, rates, nd, context);
 
-        return new CategoryPay(Kind, day, ot, nd, BucketPay.Zero);
+        return new CategoryPay(Kind, day, ot, nd, _pricers.Ndot.Price(saved.Ndot, rates));
     }
 
     // OT + NDOT hours at this day type's raw OT rate.
