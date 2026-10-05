@@ -33,7 +33,7 @@ public static class DtrPayRegistration
         services.AddSingleton(new CompoundedPricers(
             Ot: new CompoundedOtPricer(),
             Nd: new CompoundedNdPricer(),
-            Ndot: new CompoundedNdotPricer()));
+            Ndot: new CompoundedNdotPolicy()));
         services.AddSingleton<ICompoundedDayTypePay, CompoundedRegularDayPay>();
         services.AddSingleton<ICompoundedDayTypePay, CompoundedRestDayPay>();
         services.AddSingleton<ICompoundedDayTypePay, CompoundedLegalHolidayPay>();
@@ -48,7 +48,8 @@ public static class DtrPayRegistration
         services.AddSingleton(new AdditivePricers(
             NdBase: new AdditiveNdBasePricer(),
             Ot: new AdditiveOtPricer(),
-            NdPremium: new AdditiveNdPremiumPricer()));
+            NdPremium: new AdditiveNdPremiumPricer(),
+            Ndot: new AdditiveNdotPolicy()));
         services.AddSingleton<IAdditiveDayTypePay, AdditiveRegularDayPay>();
         services.AddSingleton<IAdditiveDayTypePay, AdditiveRestDayPay>();
         services.AddSingleton<IAdditiveDayTypePay, AdditiveLegalHolidayPay>();

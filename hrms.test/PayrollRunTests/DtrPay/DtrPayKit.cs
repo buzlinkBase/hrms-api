@@ -23,7 +23,7 @@ internal static class DtrPayKit
         Price(new CompoundedNdPricer(), category, context, h => h.Nd);
 
     public static BucketPay CompoundedNdot(PayCategory category, PayrollContext context) =>
-        Price(new CompoundedNdotPricer(), category, context, h => h.Ndot);
+        Price(new CompoundedNdotPolicy(), category, context, h => h.Ndot);
 
     private static BucketPay Price(IBucketPricer pricer, PayCategory category, PayrollContext context, Func<CategoryHours, decimal> pick)
     {

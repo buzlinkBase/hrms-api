@@ -10,11 +10,9 @@ internal class RegularWorkDayPolicy : PayrollPolicyBase<BasicPipelineData, Payro
             return line;
         }
         var hours = DayTypeHours.For(context, dailyRecord.RegularNetHours, dailyRecord.RegularNDHours, dailyRecord.RegularNDOTHours);
-        var multiplier = context.OtNdCalculationMethod == OtNdCalculationMethod.Additive
-            ? (decimal)context.DailyRecord.RegularNetHours 
-            : hours.Plain;
+        var paidHours = hours.PaidHours(context, dailyRecord.RegularNetHours);
 
-        line.Value += RateHelper.GetHourlyRate(context) * multiplier;
+        line.Value += RateHelper.GetHourlyRate(context) * paidHours;
         return line;
     }
 }

@@ -51,23 +51,6 @@ internal sealed class CompoundedNdPricer : BucketPricerBase
     }
 }
 
-// NDOT hours: day rate x OT rate x ND rate. The OT and ND premiums are the differences between
-// consecutive tiers, so day-rate portion + OTPremium + NDPremium telescopes back to Value.
-internal sealed class CompoundedNdotPricer : BucketPricerBase
-{
-    protected override BucketPay PriceBasePay(decimal basePay, CategoryRates rates)
-    {
-        var overtimeRate = rates.Day * rates.RawOt;
-        var fullRate = overtimeRate * rates.Nd;
-        return new BucketPay(
-            Value: basePay * fullRate,
-            OTPremium: basePay * (overtimeRate - rates.Day),
-            NDPremium: basePay * (fullRate - overtimeRate),
-            FlatOvertimeBase: basePay * rates.RawOt,
-            FlatNightDiffPremium: basePay * (rates.Nd - 1.0m));
-    }
-}
-
 // ── Additive (natural hours x one rate each) ─────────────────────────────────────────────────
 
 // Night regular hours' base: paid at this day's own rate, in full (night hours were never
