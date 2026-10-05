@@ -208,6 +208,7 @@ public class PayrollSummaryReportDocument : IDocument
                 cols.RelativeColumn(1);    // OT
                 cols.RelativeColumn(0.8f); // ND Hrs
                 cols.RelativeColumn(1);    // ND
+                cols.RelativeColumn(1);    // NDOT
                 cols.RelativeColumn(0.8f); // Holiday Hrs
                 cols.RelativeColumn(1);    // Holiday
                 cols.RelativeColumn(1);    // Allowances
@@ -240,6 +241,7 @@ public class PayrollSummaryReportDocument : IDocument
                 header.Cell().Element(HeaderCell).AlignRight().Text("OT").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("ND Hrs").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("ND").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("NDOT").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("Holiday Hrs").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("Holiday").Bold();
                 header.Cell().Element(HeaderCell).AlignRight().Text("Allow.").Bold();
@@ -267,6 +269,9 @@ public class PayrollSummaryReportDocument : IDocument
                 table.Cell().Element(DataCell).AlignRight().Text(Money(OtPay(r)));
                 table.Cell().Element(DataCell).AlignRight().Text(Hours(NdHours(r))).FontColor(LabelColor);
                 table.Cell().Element(DataCell).AlignRight().Text(Money(NdPay(r)));
+                // Always shown, in both OT/ND modes. Under Additive this pay is already folded into the
+                // OT/ND columns above, so it is informational there.
+                table.Cell().Element(DataCell).AlignRight().Text(Money(r.NightDifferentialOTPay));
                 table.Cell().Element(DataCell).AlignRight().Text(Hours(HolidayHours(r))).FontColor(LabelColor);
                 table.Cell().Element(DataCell).AlignRight().Text(Money(HolidayPay(r)));
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.TotalRegularAllowances));
@@ -295,6 +300,7 @@ public class PayrollSummaryReportDocument : IDocument
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(OtPay))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Hours(_rows.Sum(NdHours))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(NdPay))).Bold();
+            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.NightDifferentialOTPay))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Hours(_rows.Sum(HolidayHours))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(HolidayPay))).Bold();
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.TotalRegularAllowances))).Bold();
