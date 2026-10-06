@@ -124,9 +124,9 @@ public class AccountInitService : BaseService<Company>
     /// late policy, night diff threshold, attendance-fill and holiday-eligibility rules) so
     /// every new tenant starts with explicit, editable rows instead of relying solely on the
     /// runtime fallback defaults in DTR.Core.CompanyPolicyService — which this mirrors value
-    /// for value.
+    /// for value. Internal (not private) so it can be tested without a database.
     /// </summary>
-    private async Task SetDefaultAttendancePayrollPolicy(CancellationToken token)
+    internal async Task SetDefaultAttendancePayrollPolicy(CancellationToken token)
     {
         var settings = new List<GeneralSetting>
         {
@@ -145,6 +145,7 @@ public class AccountInitService : BaseService<Company>
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = false.ToString() },
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.WaivePriorDayRequirement.ToString(), Value = false.ToString() },
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.OtNdCalculationMethod.ToString(), Value = OtNdCalculationMethodDefaults.Default.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.HourlyRateDivisor.ToString(), Value = HourlyRateDivisorDefaults.Default.ToString() },
         };
         await _uow.Repository.AddRangeAsync(settings, token);
     }

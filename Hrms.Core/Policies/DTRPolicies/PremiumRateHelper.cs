@@ -29,9 +29,16 @@
 
     public class RateHelper
     {
+        // Setup > Company Policy > Hourly Rate Divisor: a flat 8 (default) or the day's shift length.
         public static decimal GetHourlyRate(PayrollContext context)
         {
-            return context.Employee.DailyRate / (decimal)context.DailyRecord.ShiftWorkingHour;
+            var divisor = context.Payload.CompanyPolicy.HourlyRateDivisor switch
+            {
+                HourlyRateDivisor.ShiftMaxWorkingHours => (decimal)context.DailyRecord.ShiftWorkingHour,
+                HourlyRateDivisor.Fixed8Hours => HourlyRateDivisorDefaults.FixedHours,
+                var unknown => throw new ArgumentOutOfRangeException(nameof(context), unknown, "Unknown hourly rate divisor."),
+            };
+            return context.Employee.DailyRate / divisor;
         }
     }
 }

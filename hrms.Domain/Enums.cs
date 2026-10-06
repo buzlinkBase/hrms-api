@@ -499,6 +499,28 @@ public enum SettingKey
     // Company-wide only. Picks how hours that are overtime (OT-only or NDOT) price their day/OT/ND
     // rates — see the OtNdCalculationMethod enum and Hrms.Core/Calculators/DtrPay.
     OtNdCalculationMethod,
+    // Company-wide only. What the daily rate is divided by to get the hourly rate — see the
+    // HourlyRateDivisor enum and RateHelper.GetHourlyRate.
+    HourlyRateDivisor,
+}
+
+// What a day's daily rate is divided by to get the hourly rate that every payroll hour bucket
+// (regular, late, undertime, leave, OT, ND, holiday...) is priced from.
+// - ShiftMaxWorkingHours: the shift the employee worked that day, so a 9-hour shift prices at
+//   DailyRate / 9.
+// - Fixed8Hours (the default): always 8, regardless of the shift's length.
+public enum HourlyRateDivisor
+{
+    ShiftMaxWorkingHours,
+    Fixed8Hours,
+}
+
+// The divisor a company uses until it saves one of its own. Single source for the new-company
+// seed, unset setting and the Company Policy screen.
+public static class HourlyRateDivisorDefaults
+{
+    public const HourlyRateDivisor Default = HourlyRateDivisor.Fixed8Hours;
+    public const decimal FixedHours = 8m;
 }
 
 // How a day's OT / ND / NDOT hours are priced -- each method is its own IDtrPayCalculator

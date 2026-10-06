@@ -30,6 +30,10 @@ public class CompanyPolicyRule
     // Hrms.Core/Calculators/DtrPay.
     public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default;
 
+    // Mirrored for the same reason as OtNdCalculationMethod above -- the payroll-side consumer is
+    // RateHelper.GetHourlyRate via Hrms.Domain's CompanyPolicyRule.
+    public HourlyRateDivisor HourlyRateDivisor { get; set; } = HourlyRateDivisorDefaults.Default;
+
 }
 
 public class CompanyPolicyService
@@ -53,6 +57,7 @@ public class CompanyPolicyService
         SetWTaxCrossMonthCreditPolicy(policy, data);
         SetRequiredTakehomePercentage(policy, data);
         SetOtNdCalculationMethod(policy, data);
+        SetHourlyRateDivisor(policy, data);
         return policy;
     }
 
@@ -220,6 +225,16 @@ public class CompanyPolicyService
         {
             var settingvalue = GeneralSettingsUtil.ParseEnum(method.Value, OtNdCalculationMethodDefaults.Default);
             policy.OtNdCalculationMethod = settingvalue;
+        }
+    }
+
+    private void SetHourlyRateDivisor(CompanyPolicyRule policy, Dictionary<string, GeneralSettingModel> data)
+    {
+        policy.HourlyRateDivisor = HourlyRateDivisorDefaults.Default;
+        if (data.TryGetValue(SettingKey.HourlyRateDivisor.ToString(), out GeneralSettingModel? divisor))
+        {
+            var settingvalue = GeneralSettingsUtil.ParseEnum(divisor.Value, HourlyRateDivisorDefaults.Default);
+            policy.HourlyRateDivisor = settingvalue;
         }
     }
 }

@@ -49,6 +49,7 @@ public class GeneralSettingsController : ControllerBase
             WTaxCrossMonthCreditPolicy = policy.WTaxCrossMonthCreditPolicy.ToString(),
             RequiredTakehomePercentage = policy.RequiredTakehomePercentage,
             OtNdCalculationMethod = policy.OtNdCalculationMethod.ToString(),
+            HourlyRateDivisor = policy.HourlyRateDivisor.ToString(),
         };
         return Ok(response);
     }
@@ -79,6 +80,7 @@ public class GeneralSettingsController : ControllerBase
             new() { IdentityType = "Company", Description = SettingKey.WTaxCrossMonthCreditPolicy.ToString(), Value = request.WTaxCrossMonthCreditPolicy },
             new() { IdentityType = "Company", Description = SettingKey.RequiredTakehomePercentage.ToString(), Value = request.RequiredTakehomePercentage.ToString() },
             new() { IdentityType = "Company", Description = SettingKey.OtNdCalculationMethod.ToString(), Value = request.OtNdCalculationMethod },
+            new() { IdentityType = "Company", Description = SettingKey.HourlyRateDivisor.ToString(), Value = request.HourlyRateDivisor },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync("Company", settings, null, token);
@@ -156,6 +158,7 @@ public class UpdateCompanyPolicyRequest
     public string WTaxCrossMonthCreditPolicy { get; set; } = "";
     public double RequiredTakehomePercentage { get; set; } = 10;
     public string OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default.ToString();
+    public string HourlyRateDivisor { get; set; } = HourlyRateDivisorDefaults.Default.ToString();
 }
 public class CompanyPolicyResponse
 {
@@ -177,6 +180,7 @@ public class CompanyPolicyResponse
     public required string WTaxCrossMonthCreditPolicy { get; set; } = "";
     public required double RequiredTakehomePercentage { get; set; }
     public required string OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default.ToString();
+    public required string HourlyRateDivisor { get; set; } = HourlyRateDivisorDefaults.Default.ToString();
 }
 public class ClientPolicyDto
 {

@@ -121,6 +121,12 @@ public class PayrollRangeContextComposerService
                 ? GeneralSettingsUtil.ParseEnum(otNdMethodSetting.Value, OtNdCalculationMethodDefaults.Default)
                 : OtNdCalculationMethodDefaults.Default;
 
+            // Setup > Company Policy > Hourly Rate Divisor — see RateHelper.GetHourlyRate. Unset
+            // means the company default (fixed 8 hours).
+            var hourlyRateDivisor = companySettings.TryGetValue(SettingKey.HourlyRateDivisor.ToString(), out var hourlyDivisorSetting)
+                ? GeneralSettingsUtil.ParseEnum(hourlyDivisorSetting.Value, HourlyRateDivisorDefaults.Default)
+                : HourlyRateDivisorDefaults.Default;
+
             // Setup > Client > Settings > Statutory Capping — only added when a client actually
             // has a positive cap set for that type; an absent key means uncapped (see
             // StatutoryCapHelper.ApplyClientCap).
@@ -197,6 +203,7 @@ public class PayrollRangeContextComposerService
                     WTaxCrossMonthCreditPolicy = wtaxCreditPolicy,
                     RequiredTakehomePercentage = (decimal)requiredTakehomePercentage,
                     OtNdCalculationMethod = otNdCalculationMethod,
+                    HourlyRateDivisor = hourlyRateDivisor,
                 }
             };
         }

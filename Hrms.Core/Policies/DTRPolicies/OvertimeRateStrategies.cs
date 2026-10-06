@@ -1,24 +1,10 @@
-namespace Hrms.Core.Policies.DTRPolicies;
-
-// Strategy for how a day-type category (Calculators/DtrPay PayCategories) resolves its rates for a
-// given day/employee: the day-type multiplier (e.g. 2.00 for Legal Holiday) and the category's own
-// raw OT multiplier. Each pay method combines them its own way (Compounded: day x OT; Additive: OT
-// alone).
+namespace Hrms.Core.Policies.DTRPolicies; 
 internal interface IOtRateStrategy
 {
-    decimal ResolveDayRate(PayrollContext context);
-
-    // The category's own OT/premium RateType, ignoring day-type compounding.
+    decimal ResolveDayRate(PayrollContext context); 
     decimal ResolveRawOtRate(PayrollContext context);
 }
-
-// The standard formula -- day-type rate(s) compounded with this category's own OT-tier rate.
-// otType is resolved client-first, then company-wide, then (if neither is configured) via
-// otFallbackType's own full resolution -- e.g. a category's dedicated OT premium
-// (RESTDAY_OT_PREMIUM) falls back to the shared HOLIDAY_OT rate when a client hasn't overridden
-// it, rather than a flat constant, so "not overridden" means "use the shared Non-Regular OT
-// rate" exactly like before per-category premiums existed. otFallbackType is null for plain
-// OVERTIME (Regular was never shared with anything to fall back to).
+ 
 internal class CompoundedOtRateStrategy : IOtRateStrategy
 {
     private readonly RateType _otType;

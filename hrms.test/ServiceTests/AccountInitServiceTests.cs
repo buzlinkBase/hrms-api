@@ -56,4 +56,24 @@ public class AccountInitServiceTests
                 && rates.Select(r => r.RegionCode).Distinct().Count() == rates.Count()),
             Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task SetDefaultAttendancePayrollPolicy_SeedsHourlyRateDivisorAsFixed8Hours()
+    {
+        var repo = Substitute.For<IRepository>();
+        var uow = Substitute.For<IUnitOfWorkService>();
+        uow.Repository.Returns(repo);
+
+        var sut = new AccountInitService(uow, null!);
+
+        await sut.SetDefaultAttendancePayrollPolicy(CancellationToken.None);
+
+        var key = SettingKey.HourlyRateDivisor.ToString();
+        await repo.Received(1).AddRangeAsync(
+            Arg.Is<IEnumerable<GeneralSetting>>(settings =>
+                settings.Count(s => s.Description == key) == 1
+                && settings.Single(s => s.Description == key).IdentityType == "Company"
+                && settings.Single(s => s.Description == key).Value == HourlyRateDivisor.Fixed8Hours.ToString()),
+            Arg.Any<CancellationToken>());
+    }
 }
