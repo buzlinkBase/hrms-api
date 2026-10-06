@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using Asp.Versioning;
 using Hrms.Api.Documents;
+using Hrms.Api.Documents.Shared;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain;
@@ -317,15 +318,9 @@ namespace Hrms.Api.Controllers
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
-            // Format follows the OT/ND calculation method actually used for this payroll run
-            // (recorded per-row on Payroll.OtNdCalculationMethod, not the live company setting,
-            // so an old payslip always reprints the format it was originally correct for) --
-            // Additive mode's Hours-breakdown format is the one whose itemized rows reconcile to
-            // Gross Income exactly; Compounded's Standard format is the client-approved default.
-            // No longer user-selectable -- see PayslipHoursDocument's own doc comment.
-            IDocument document = payroll.OtNdCalculationMethod == OtNdCalculationMethod.Additive
-                ? new PayslipHoursDocument(payroll, employee, company)
-                : new PayslipDocument(payroll, employee, company);
+            // Layout (Fixed-salary / Hours / Standard) is chosen by PayslipDocumentFactory from the
+            // row itself -- not user-selectable, see PayslipHoursDocument's own doc comment.
+            var document = PayslipDocumentFactory.Create(payroll, employee, company);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }

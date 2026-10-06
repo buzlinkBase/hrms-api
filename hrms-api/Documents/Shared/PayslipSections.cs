@@ -194,12 +194,10 @@ internal static class PayslipSections
                 {
                     AmountRow(table, "Loans", p.TotalLoans);
                     AmountRow(table, "Other Deductions", p.OtherDeductions - p.TotalLoans);
-                    if (p.SalaryType == SalaryType.FIXED)
-                    {
-                        AmountRow(table, "Late", p.LateAmount);
-                        AmountRow(table, "Under Time", p.UnderTimeAmount);
-                        AmountRow(table, "Absences", p.AbsencesAmount);
-                    }
+                    // Late/Under Time/Absences are deliberately NOT listed here for FIXED: they're
+                    // already taken off Basic Salary before Gross Income (see
+                    // PayslipFixedDocument), never part of TOTAL DEDUCTIONS, so listing them
+                    // made this box look like it didn't add up.
                 }
                 AmountRow(table, "TOTAL DEDUCTIONS", p.TotalDeductions, bold: true);
             });

@@ -224,6 +224,11 @@ public class EmployeePayrollLineService
         payrollLine.TimeHourPayResults = employeeBasicCalc;
         payrollLine.SalaryType = employee.SalaryType;
         payrollLine.DailyRate = employee.DailyRate;
+        // As resolved for this run (EmployeePayrollInclusionResolver) -- recorded so a reprinted
+        // Fixed payslip labels holiday/rest-day lines "Premium" vs "Pay" the way they were paid.
+        payrollLine.IsRestDayPaid = employee.IsRestDayPaid;
+        payrollLine.IsRegularHolidayIncluded = employee.IsRegularHolidayIncluded;
+        payrollLine.IsSpecialNonWorkingIncluded = employee.IsSpecialNonWorkingIncluded;
         var oneTimeLeaveDays = CountOneTimeLeaveCalendarDays(rangePayload, employee.Id, payload.FromDate, payload.ToDate);
         GetBasicPay(payrollLine, employeeBasicCalc, employee, oneTimeLeaveDays);
         payrollLine.GrossIncome += payrollLine.BasicPay + employeeBasicCalc.Sum(x => x.TotalExcludingBasic);
@@ -449,6 +454,9 @@ public class EmployeePayrollLineService
         }
         var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
         var basicTotal = employee.MonthlyRate / divisor;
+        // Snapshot of the contractual period share before any cut -- the Fixed payslip shows it
+        // as "Basic Salary" with the cuts below it, so Basic - cuts reconciles to BasicPay.
+        payrollLine.FixedBasicSalary = basicTotal;
         var deductions = Math.Max(0, TimeCalcResult.Sum(x => x.LateAmount + x.UTAmount + x.UnpaidLeave + x.AbsentAmount));
         // OneTime-payout leave days (e.g. Shared-funded SSS maternity, paid via
         // ApplyOneTimeLeavePayoutsToGross's lump sum) are WithPay — not UnpaidLeave — and

@@ -1686,8 +1686,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "WorkDate")
                         .IsUnique();
 
-                    b.HasIndex("PayrollBatchId");
-
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("DailyTimeRecords");
@@ -4542,6 +4540,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("EmployerSSSContribution")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<decimal>("FixedBasicSalary")
+                        .HasColumnType("decimal(65,30)");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -4559,6 +4560,15 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<bool>("IsPosted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRegularHolidayIncluded")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRestDayPaid")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsSpecialNonWorkingIncluded")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<decimal>("LateAmount")

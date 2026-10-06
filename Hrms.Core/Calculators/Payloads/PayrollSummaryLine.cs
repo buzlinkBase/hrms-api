@@ -210,6 +210,12 @@ public class PayrollSummaryLine
     public decimal LateAmount { get; set; }
     public decimal UnderTimeAmount { get; set; }
 
+    // FIXED salary snapshot -- see Payroll.FixedBasicSalary.
+    public decimal FixedBasicSalary { get; set; }
+    public bool IsRestDayPaid { get; set; }
+    public bool IsRegularHolidayIncluded { get; set; }
+    public bool IsSpecialNonWorkingIncluded { get; set; }
+
     // Net Pay
     public decimal NetPay { get; set; }
 

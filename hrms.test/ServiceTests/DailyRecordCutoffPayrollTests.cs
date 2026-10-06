@@ -156,8 +156,11 @@ public class DailyRecordCutoffPayrollTests
 
         await using (var context = db.NewContext())
         {
-            var service = BuildService(new UnitOfWorkService(context));
-            await service.MarkPaidAsync([approvedDayId], firstRun, CancellationToken.None);
+            var uow = new UnitOfWorkService(context);
+            await BuildService(uow).MarkPaidAsync([approvedDayId], firstRun, CancellationToken.None);
+            // MarkPaidAsync only stages the stamp -- the caller (PayrollProcessorService.GenerateAsync)
+            // owns the commit, so the test plays that role.
+            await uow.CommitChangesAsync("", CancellationToken.None);
         }
         await using (var verify = db.NewContext())
         {
@@ -188,7 +191,11 @@ public class DailyRecordCutoffPayrollTests
 
         await using (var context = db.NewContext())
         {
-            await BuildService(new UnitOfWorkService(context)).ReleasePaidAsync(run, CancellationToken.None);
+            var uow = new UnitOfWorkService(context);
+            await BuildService(uow).ReleasePaidAsync(run, CancellationToken.None);
+            // ReleasePaidAsync only stages the release -- the caller (PayrollBatchLifecycleService.
+            // DeleteBatchAsync) owns the commit, so the test plays that role.
+            await uow.CommitChangesAsync("", CancellationToken.None);
         }
 
         await using var verify = db.NewContext();

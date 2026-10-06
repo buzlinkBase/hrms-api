@@ -38,11 +38,16 @@ public class OtNdCalculationMethodTests
                 {
                     IsEligibleForOvertime = otEligible,
                     IsEligibleForNightDifferential = ndEligible,
+                    // Special Non-Working pay is "no work, no pay" unless eligible; these tests
+                    // price the worked hours at the day rate (1.30).
+                    IsEligibleForSpecialHolidayPay = true,
                 },
             },
             DailyRecord = new DailyRecordRunModel
             {
                 ShiftWorkingHour = 8,
+                // The day-type policies only pay a day that is actually this day type.
+                WorkTypeEnum = WorkType.SpecialNonWorkingHoliday,
                 SpecialHolHours = ndHours,
                 SpecialHolOTHours = otHours + ndotHours,
                 SpecialHolNightDiffHours = ndHours + ndotHours,
@@ -203,11 +208,33 @@ public class OtNdCalculationMethodTests
     [Theory]
     [InlineData(OtNdCalculationMethod.Compounded)]
     [InlineData(OtNdCalculationMethod.Additive)]
-    public void NotNdEligible_NightAndNdotHoursPayNothing(OtNdCalculationMethod method)
+    public void NotNdEligible_NightAndNdotHoursEarnNoNightDifferentialOrOvertime(OtNdCalculationMethod method)
     {
         var model = DtrPayKit.Calculator(method).Calculate(CreateContext(ndHours: 5, ndotHours: 3, ndEligible: false));
 
+        model.TotalND.Should().Be(0m);
+        model.TotalNDOT.Should().Be(0m);
+        model.TotalOT.Should().Be(0m);
+        model.NDPremiumPay.Should().Be(0m);
+    }
+
+    [Fact]
+    public void NotNdEligible_Compounded_PaysNothingForTheNightHours()
+    {
+        var model = Compounded(CreateContext(ndHours: 5, ndotHours: 3, ndEligible: false));
+
         model.TotalExcludingBasic.Should().Be(0m);
+    }
+
+    [Fact]
+    public void NotNdEligible_Additive_StillPaysTheWorkedHoursAtTheDayRate_JustNoNightPremium()
+    {
+        // The policy pays the natural Hrs (night included) at the day rate, so a night worker who
+        // isn't ND-eligible is still paid for the hours worked -- only the premium is withheld.
+        var model = Additive(CreateContext(ndHours: 5, ndotHours: 3, ndEligible: false));
+
+        model.SpecialPay.Should().Be(5 * HourlyRate * Day);
+        model.TotalExcludingBasic.Should().Be(5 * HourlyRate * Day);
     }
 
     [Fact]

@@ -211,6 +211,19 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, I
     public decimal LateAmount { get; set; }
     public decimal UnderTimeAmount { get; set; }
 
+    // FIXED salary snapshot for the Fixed payslip layout (PayslipFixedDocument) -- persisted copies
+    // of PayrollSummaryLine's identically-named members (Mapster maps by name). FixedBasicSalary is
+    // the period's contractual share (MonthlyRate / divisor) BEFORE late/under-time/absence/
+    // unpaid-leave/one-time-leave cuts, so the payslip can show Basic - cuts = BasicPay. The three
+    // flags record whether rest day / regular holiday / special non-working holiday were already
+    // included in the monthly rate on the day this run was generated (they decide whether the
+    // holiday and rest-day lines are a premium on top of base pay or the full pay). 0/false on
+    // rows generated before these fields existed and on VARIABLE rows.
+    public decimal FixedBasicSalary { get; set; }
+    public bool IsRestDayPaid { get; set; }
+    public bool IsRegularHolidayIncluded { get; set; }
+    public bool IsSpecialNonWorkingIncluded { get; set; }
+
     // Net Pay
     public decimal GrossPay { get; set; }
     public decimal NetPay { get; set; }
