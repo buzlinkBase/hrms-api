@@ -126,6 +126,14 @@ public class PayrollSummaryReportDocumentTests
     }
 
     [Fact]
+    public void Hours_ShowsTwoDecimals_SoMinuteLevelOtIsNotRoundedAway()
+    {
+        PayrollSummaryReportDocument.Hours(62m / 60m).Should().Be(1.03m.ToString("N2")); // 62 min OT
+        PayrollSummaryReportDocument.Hours(8m).Should().Be(8m.ToString("N2"));
+        PayrollSummaryReportDocument.Hours(0m).Should().Be("—");
+    }
+
+    [Fact]
     public void BasicHours_IsZeroForFixedSalary_NoHoursDriveAFlatMonthlyRate()
     {
         var fixedRow = new Payroll { SalaryType = SalaryType.FIXED, RegularNetHours = 96 };

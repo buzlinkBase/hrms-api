@@ -190,10 +190,12 @@ public class PayrollSummaryReportDocument : IDocument
         r.LegalHolHours + r.SpecialHolHours + r.RestLegalDayHours + r.RestSpecialDayHours +
         r.DoubleLegalHours + r.RestDoubleLegalHours;
 
+    // 2 decimals like every other DTR hours display, so minute-level time shows (62 min OT = 1.03).
+    internal static string Hours(decimal v) => v == 0 ? "—" : v.ToString("N2");
+
     void ComposeTable(IContainer c)
     {
         static string Money(decimal v) => v.ToString("N2");
-        static string Hours(decimal v) => v == 0 ? "—" : v.ToString("N1");
 
         c.Table(table =>
         {
