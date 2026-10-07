@@ -31,12 +31,11 @@ public class AttendanceProvider
         if (!_payload.Context.CleanAttendance.TryGetValue(key, out var attendances) || attendances == null)
             return new List<Attendance>();
 
-        var allowance = currentShift.ShiftType == TimeShiftType.SPLIT ? 0 : _payload.Context.CompanyPolicy.TimeInAllowance;
-        var allAtts = attendances
-            .Where(x =>
-                x.WorkDateTime >= currentShift.StartTime.AddMinutes(allowance) &&
-                x.WorkDateTime < nextShift.StartTime.AddMinutes(allowance))
+        var window = AttendanceCaptureWindow.For(
+            currentShift.ShiftType, currentShift.StartTime, nextShift.StartTime,
+            _payload.Context.CompanyPolicy.TimeInAllowance);
+        return attendances
+            .Where(x => window.Contains(x.WorkDateTime))
             .ToList();
-        return allAtts;
     } 
 }

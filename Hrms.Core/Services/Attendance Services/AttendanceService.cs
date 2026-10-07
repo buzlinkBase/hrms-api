@@ -140,16 +140,20 @@ public class AttendanceService : BaseService<Attendance>
 
     public async Task<List<AttendanceModel>> GetAllLogsInRange(Guid employeeId, CurrentShiftInfo current, CurrentShiftInfo next, CancellationToken ct)
     {
-        var settings = await Context.GeneralSettings.FirstOrDefaultAsync(x => x.Description == nameof(SettingKey.TimeInAllowance), ct);
-        var allowance = current.ShiftType == TimeShiftType.SPLIT ? 0 : GeneralSettingsUtil.ParseInt(settings?.Value, -120);
-        Guid? filterEmployeeId = employeeId;
-
-        var startTime = current.StartTime!.Value;
-        var endTime = next.StartTime!.Value.AddMinutes(allowance);
+        // Same window the DTR captures for this shift (DTR.Core AttendanceProvider), including the
+        // earliest allowed clock-in before the shift start — otherwise an early time-in the DTR
+        // counted would be missing from this list.
+        var settings = await Context.GeneralSettings.FirstOrDefaultAsync(
+            x => x.IdentityType == "Company" && x.Description == nameof(SettingKey.TimeInAllowance), ct);
+        var window = AttendanceCaptureWindow.For(
+            current.ShiftType, current.StartTime!.Value, next.StartTime!.Value,
+            GeneralSettingsUtil.ParseInt(settings?.Value, -120));
+        var from = window.From;
+        var to = window.To;
 
         return await Uow.Context.Attendances
-            .Where(x => x.WorkDateTime >= startTime &&
-                        x.WorkDateTime <= endTime &&
+            .Where(x => x.WorkDateTime >= from &&
+                        x.WorkDateTime < to &&
                         x.EmployeeId == employeeId)
             .Select(x => new AttendanceModel
             {
