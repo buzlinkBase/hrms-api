@@ -8,15 +8,7 @@ public class PostShiftOTHandler : OTComputationHandlerBase
 {
     protected override bool CanHandle(TimeRange input, TimeContext context)
     {
-        if (context.Payload.Data.Employee.ClientId.HasValue)
-        {
-            var clientpolicy = context.Payload.Provider.ClientPolicyProvider.GetPolicy(context.Payload.Data.Employee.ClientId.Value);
-            if (clientpolicy != null)
-            {
-                return clientpolicy.OvertimeInclusionPolicy == OvertimeInclusionPolicy.UsePostShiftWork;
-            }
-        }
-        return context.Payload.Data.CompanyPolicy.OTInclusionPolicy == OvertimeInclusionPolicy.UsePostShiftWork;
+        return OvertimeInclusionPolicyResolver.Resolve(context) == OvertimeInclusionPolicy.UsePostShiftWork;
     }
 
     protected override TimeRange Process(TimeRange input, TimeContext context)

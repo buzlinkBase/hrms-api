@@ -107,6 +107,7 @@ public class DailyRecordBuilder : IDailyRecordBuilder
         var leaveInfo = new List<LeaveMetaDataModel>();
         SetMetaInfo(leaveInfo, GetLeaveInfo(pipeline.Leave, "PaidLeave"));
         SetMetaInfo(leaveInfo, GetLeaveInfo(unpaidLeaveRange, "UnpaidLeave"));
+        var xsx = NightDiff.Regular.TotalMinutes + NightDiff.RegOT.TotalMinutes;
 
         var dtr = new DTRDetailModel
         {

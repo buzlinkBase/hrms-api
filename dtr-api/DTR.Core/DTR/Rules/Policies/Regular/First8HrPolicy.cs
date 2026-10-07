@@ -29,8 +29,9 @@ public class First8HrPolicy : ConditionalPolicyBase
         }
         //cannot borrow morethan MaxWorkingMinutes
         var shortfall = requiredMaxWorkingMinutes - alreadyClaimed;
-        // ⚙️ Dynamically run OT handler
-        TimeRange computedOT = new OverTimeHandlerProcessor(context).Handle(canonicalTime);
+        // ⚙️ Dynamically run OT handler — uncapped, so the top-up borrowed below (regular time,
+        // not OT) doesn't count against the shift's Max OT Hours
+        TimeRange computedOT = new OverTimeHandlerProcessor(context).ComputeUncapped(canonicalTime);
         if (computedOT.IsEmpty())//no OT
         {
             ledger.Record(ledgerKey, regTimeRange);
@@ -46,10 +47,11 @@ public class First8HrPolicy : ConditionalPolicyBase
             .Retag("RegularTimeTopUp")
             .ToTimeRange();
 
-        var remainingOT = otRecords
+        // Cap only what is left after the top-up
+        var remainingOT = OvertimeCapper.Cap(otRecords
             .Exclude(reclaimed.TimeRecords)
             .Retag("OT_after_RegularFulfilled")
-            .ToTimeRange();
+            .ToTimeRange(), context);
 
         //Alter cannonical CanonicalTimeRange
         //this makes the ND and other Pipeline to depend on this modified time

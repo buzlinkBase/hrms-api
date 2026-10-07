@@ -70,6 +70,53 @@ public class OverTimeHandlerProcessorTests : DtrTestBase
         var result = new OverTimeHandlerProcessor(context).Handle(context.CanonicalTimeRange);
 
         result.TotalMinutes.Should().Be(60);
+        // Default policy is UseEarlyClockIn: the kept hour is the one nearest the shift start.
+        result.TimeRecords.Single().StartTime.Should().Be(ShiftStart.AddHours(-1));
+        result.TimeRecords.Single().EndTime.Should().Be(ShiftStart);
+    }
+
+    [Fact]
+    public void ComputeUncapped_ReturnsAcceptableOTWithoutTheCapAndWithoutLedgerOTTag()
+    {
+        var context = BuildContext(maxOvertimeHours: 1);
+
+        var result = new OverTimeHandlerProcessor(context).ComputeUncapped(context.CanonicalTimeRange);
+
+        result.TotalMinutes.Should().Be(120);
+        context.Payload.Ledger.GetByTag("OT", context).IsEmpty().Should().BeTrue();
+    }
+
+    [Fact]
+    public void ApprovedOTWithEarlyTimeIn_PostShiftPolicy_ExcludesPreShiftMinutesBeforeCapping()
+    {
+        // Approval-only OT (no system OT): the approved 06:00-19:00 block also covers the early
+        // time-in, which isn't OT under UsePostShiftWork and must not use up the 2h cap.
+        var context = CreateContext(ShiftStart, ShiftEnd, maxWorkingMinutes: 480);
+        context.Payload.Data.CurrentShift.WithOT = false;
+        context.Payload.Data.CurrentShift.OTRequireTimeIn = false;
+        context.Payload.Data.CurrentShift.MaxOvertimeHours = 2;
+        context.Payload.Data.CompanyPolicy.OTInclusionPolicy = OvertimeInclusionPolicy.UsePostShiftWork;
+        var trc = new TimeRecordCollection
+        {
+            new TimeRecord(PreStart, ShiftStart), // 2h early time-in
+            new TimeRecord(ShiftEnd, ShiftEnd.AddHours(3)), // 3h post-shift
+        };
+        context.CanonicalTimeRange = TimeRange.Set(trc);
+        ApplyOvertime(context, new OverTimeApplication
+        {
+            Employee = new Employee(),
+            IsManualEntry = false,
+            StartTime = PreStart,
+            EndTime = ShiftEnd.AddHours(3),
+            OverTimeThreshold = 30,
+        });
+
+        var result = new OverTimeHandlerProcessor(context).Handle(context.CanonicalTimeRange);
+
+        result.TotalMinutes.Should().Be(120);
+        result.TimeRecords.Should().OnlyContain(r => r.StartTime >= ShiftEnd);
+        result.TimeRecords.Min(r => r.StartTime).Should().Be(ShiftEnd);
+        result.TimeRecords.Max(r => r.EndTime).Should().Be(ShiftEnd.AddHours(2));
     }
 
     [Fact]

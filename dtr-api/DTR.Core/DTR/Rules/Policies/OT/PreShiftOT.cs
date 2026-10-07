@@ -11,16 +11,7 @@ public class PreShiftOTHandler : OTComputationHandlerBase
         var shift = context.Payload.Data.CurrentShift;
         if (shift.ShiftType == TimeShiftType.SPLIT) return false;
 
-        if (context.Payload.Data.Employee.ClientId.HasValue)
-        {
-            var clientpolicy = context.Payload.Provider.ClientPolicyProvider.GetPolicy(context.Payload.Data.Employee.ClientId.Value);
-            if (clientpolicy != null)
-            {
-                return clientpolicy?.OvertimeInclusionPolicy == OvertimeInclusionPolicy.UseEarlyClockIn;
-            }
-        }
-        return context.Payload.Data.CompanyPolicy.OTInclusionPolicy == OvertimeInclusionPolicy.UseEarlyClockIn;
-
+        return OvertimeInclusionPolicyResolver.Resolve(context) == OvertimeInclusionPolicy.UseEarlyClockIn;
     }
     protected override TimeRange Process(TimeRange input, TimeContext context)
     {

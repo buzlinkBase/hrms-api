@@ -5,15 +5,7 @@ public class OutsideShiftOverTimeHandler : OTComputationHandlerBase
 {
     protected override bool CanHandle(TimeRange input, TimeContext context)
     {
-        if (context.Payload.Data.Employee.ClientId.HasValue)
-        {
-            var clientpolicy = context.Payload.Provider.ClientPolicyProvider.GetPolicy(context.Payload.Data.Employee.ClientId.Value);
-            if (clientpolicy != null)
-            {
-                return clientpolicy?.OvertimeInclusionPolicy == OvertimeInclusionPolicy.UseAllExcessOver8Hours;
-            }
-        }
-        return context.Payload.Data.CompanyPolicy.OTInclusionPolicy == OvertimeInclusionPolicy.UseAllExcessOver8Hours;
+        return OvertimeInclusionPolicyResolver.Resolve(context) == OvertimeInclusionPolicy.UseAllExcessOver8Hours;
     }
 
     protected override TimeRange Process(TimeRange input, TimeContext context)
