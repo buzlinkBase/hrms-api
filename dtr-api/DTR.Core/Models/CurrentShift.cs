@@ -39,6 +39,8 @@ public class CurrentShift
     // Null or 0 = no limit; otherwise the max OT hours creditable for a day on this shift —
     // see OvertimeCapper, applied after both auto-computed and manually-filed OT.
     public double? MaxOvertimeHours { get; set; }
+    // Null or 0 = use the company Night Diff Threshold; otherwise this shift's override (minutes).
+    public double? NightDiffThreshold { get; set; }
 
     public bool IsCrossDate => CrossDateChecker.IsCrossDate(StartTime, EndTime);
     public double GracePeriodMinutes { get; set; } = 0;

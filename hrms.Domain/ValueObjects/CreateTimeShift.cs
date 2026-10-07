@@ -26,6 +26,8 @@ public partial class CreateTimeShift
     public double OverTimeThreshold { get; set; } = 60;
     // Null or 0 = no limit; otherwise the max OT hours creditable for a day on this shift.
     public double? MaxOvertimeHours { get; set; } = null;
+    // Null or 0 = use the company Night Diff Threshold; otherwise overrides it for this shift (minutes).
+    public double? NightDiffThreshold { get; set; } = null;
     public double MinimumWorkMinutes { get; set; } = 0;
     public double MaxWorkingMinutes { get; set; } = 480;
 }

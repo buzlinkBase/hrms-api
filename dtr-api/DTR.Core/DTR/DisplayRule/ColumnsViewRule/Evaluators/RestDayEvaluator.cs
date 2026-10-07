@@ -287,11 +287,23 @@ public class DoubleLegalHolidayOTEvaluator : IDutyDayEvaluator
     }
 }
 
+// Effective ND threshold (minutes): the shift's own override when set (> 0), else the company-wide policy.
+public static class NightDiffThresholdResolver
+{
+    public static double Resolve(TimeContext context)
+    {
+        var shiftThreshold = context.Payload.Data.CurrentShift?.NightDiffThreshold;
+        return shiftThreshold is > 0
+            ? shiftThreshold.Value
+            : context.Payload.Data.CompanyPolicy.NightDiffThreshold;
+    }
+}
+
 public class NightDiffEvaluator : IDutyDayEvaluator
 {
     public TimeRange Evaluate(TimeRange range, DisplayContext context)
     {
-        return context.TimeContext.Payload.Data.CompanyPolicy.NightDiffThreshold <= range.TotalMinutes
+        return NightDiffThresholdResolver.Resolve(context.TimeContext) <= range.TotalMinutes
             ? range : TimeRange.Empty;
     }
 }

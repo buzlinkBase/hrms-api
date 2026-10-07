@@ -43,6 +43,9 @@ public class TimeShift : BaseEntity
     // limit; any other value is the cap. Enforced in dtr-api's OT pipeline
     // (OvertimeCapper), applied after both auto-computed and manually-filed OT.
     public double? MaxOvertimeHours { get; set; } = null;
+    // Per-shift override of the company Night Diff Threshold, in minutes — null or 0 means
+    // use the company-wide value. Resolved in dtr-api's NightDiffEvaluator.
+    public double? NightDiffThreshold { get; set; } = null;
     //public bool PaidByNetDutyTime { get; set; }
     //split
     public double MinimumWorkMinutes { get; set; } = 0;

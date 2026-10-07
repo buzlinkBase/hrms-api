@@ -242,6 +242,23 @@ public class RemainingEvaluatorsTests : DtrTestBase
         new NightDiffEvaluator().Evaluate(new TimeRange(30), context).IsEmpty().Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(null, 60, 30, true)]   // no shift override -> company 60 > 30 min range
+    [InlineData(0.0, 60, 30, true)]    // 0 = use company
+    [InlineData(10.0, 60, 30, false)]  // shift 10 <= 30 -> kept (company ignored)
+    [InlineData(45.0, 0, 30, true)]    // shift 45 > 30 -> dropped even though company is 0
+    public void NightDiffEvaluator_ShiftOverride_ResolvesThreshold(
+        double? shiftThreshold, double companyThreshold, double rangeMinutes, bool expectEmpty)
+    {
+        var context = BuildContext();
+        context.TimeContext.Payload.Data.CompanyPolicy.NightDiffThreshold = companyThreshold;
+        context.TimeContext.Payload.Data.CurrentShift.NightDiffThreshold = shiftThreshold;
+
+        var result = new NightDiffEvaluator().Evaluate(new TimeRange(rangeMinutes), context);
+
+        result.IsEmpty().Should().Be(expectEmpty);
+    }
+
     // --- NonHolidayEvaluator -----------------------------------------------------------------
 
     [Fact]
