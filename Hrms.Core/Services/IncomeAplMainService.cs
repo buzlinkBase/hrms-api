@@ -142,16 +142,33 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
     // ConsumedByPayrollId == null is the real gatekeeper now — a row already stamped by a
     // saved payroll run never matches again, regardless of date range, closing the
     // double-application gap the plain date-range match used to allow.
-    public Task<Dictionary<EmployeeKey, List<OtherIncomeInfo>>> LoadAsync(List<Guid> employeeIds, DateOnly fromDate, DateOnly toDate, CancellationToken token)
+    // IncomeClass is projected in SQL (a LEFT JOIN to Allowances) and the rows are materialized
+    // before grouping: reading the lazy Income navigation inside a client-side selector fires a
+    // second query while this one's reader is still open, which MySQL (no MARS) rejects with
+    // "This MySqlConnection is already in use".
+    public async Task<Dictionary<EmployeeKey, List<OtherIncomeInfo>>> LoadAsync(List<Guid> employeeIds, DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
-        return GetQueryable()
+        var rows = await GetQueryable()
             .AsNoTracking()
             .Where(x => x.Status == "Active"
                         && x.Date >= fromDate && x.Date <= toDate
                         && employeeIds.Contains(x.EmployeeId)
                         && x.ConsumedByPayrollId == null)
+            .Select(x => new
+            {
+                x.Id,
+                x.EmployeeId,
+                x.Date,
+                x.Amount,
+                x.IncomeId,
+                x.IsTaxable,
+                IncomeClass = (IncomeClassType?)x.Income!.IncomeClass,
+            })
+            .ToListAsync(token);
+
+        return rows
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
-            .ToDictionaryAsync(x => x.Key, x => x
+            .ToDictionary(g => g.Key, g => g
                 .Select(x => new OtherIncomeInfo
                 {
                     Id = x.Id,
@@ -159,9 +176,8 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                     Amount = x.Amount,
                     IncomeId = x.IncomeId,
                     Taxable = x.IsTaxable,
-                    Type = x.Income?.IncomeClass
-                }).ToList(), token)
-        ;
+                    Type = x.IncomeClass,
+                }).ToList());
     }
 
     // Loads the specific rows HR confirmed in the Last Pay review step — re-checks
