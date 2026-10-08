@@ -207,23 +207,11 @@ public class PayrollRangeContextComposerService
                 }
             };
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return null;
-        }
-        catch (AggregateException ae)
-        {
-            foreach (var ex in ae.Flatten().InnerExceptions)
-            {
-                // Log each specific DB failure here
-                // _logger.LogError(ex, "One of the payroll data fetches failed");
-            }
-            return null;
-        }
-        catch (Exception ex)
-        {
-            // Fallback for unexpected errors
-            return null;
+            // Surface the real failure (e.g. a missing column or a bad setting) instead of
+            // swallowing it into a null the caller can only report as "Unable to load range payload".
+            throw new InvalidOperationException($"Unable to load range payload: {ex.GetBaseException().Message}", ex);
         }
     }
 }
