@@ -311,16 +311,19 @@ namespace Hrms.Api.Controllers
         [HttpGet("{id:guid}/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Payroll Summary:Export")]
-        public async Task<IActionResult> PrintPayslip(Guid id, CancellationToken token)
+        public async Task<IActionResult> PrintPayslip(Guid id, [FromServices] IncomeAplDtlService otherIncomeService,
+            CancellationToken token)
         {
             var payroll = await _payrollService.FineOneAsync(id, token);
             if (payroll == null) return NotFound();
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
+            // Other Income itemized by name -- see PayslipOtherIncome.
+            var otherIncome = new PayslipOtherIncome(await otherIncomeService.GetPayslipLinesAsync(payroll.Id, token));
             // Layout (Fixed-salary / Hours / Standard) is chosen by PayslipDocumentFactory from the
             // row itself -- not user-selectable, see PayslipHoursDocument's own doc comment.
-            var document = PayslipDocumentFactory.Create(payroll, employee, company);
+            var document = PayslipDocumentFactory.Create(payroll, employee, company, otherIncome);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }

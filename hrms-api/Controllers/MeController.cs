@@ -113,7 +113,8 @@ namespace Hrms.Api.Controllers
         [RequireFeature(EntitlementKeys.PayrollCore)]
         [HttpGet("payrolls/{id:guid}/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
-        public async Task<IActionResult> PrintMyPayslip(Guid id, CancellationToken token)
+        public async Task<IActionResult> PrintMyPayslip(Guid id, [FromServices] IncomeAplDtlService otherIncomeService,
+            CancellationToken token)
         {
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null) return NotFound();
@@ -124,8 +125,9 @@ namespace Hrms.Api.Controllers
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
-            // Same layout rule as PayrollsController.PrintPayslip.
-            var document = PayslipDocumentFactory.Create(payroll, employee, company);
+            // Same layout and Other Income rules as PayrollsController.PrintPayslip.
+            var otherIncome = new PayslipOtherIncome(await otherIncomeService.GetPayslipLinesAsync(payroll.Id, token));
+            var document = PayslipDocumentFactory.Create(payroll, employee, company, otherIncome);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }

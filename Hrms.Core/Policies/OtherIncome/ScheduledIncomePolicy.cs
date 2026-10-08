@@ -14,14 +14,17 @@ internal class ScheduledIncomePolicy : PayrollPolicyBase<AllowancePipeData, Payr
         var effectiveIncomes = incomes;
         if (!effectiveIncomes.Any()) return line;
 
-        // Assign grouped incomes
+        // Assign grouped incomes. No class (the income type was deleted after the schedule was
+        // made, so the join in IncomeAplDtlService.LoadAsync found nothing) counts as Others: it is
+        // still paid via RunningTotal below, and skipping it here left it on no payslip line.
+        static IncomeClassType ClassOf(OtherIncomeInfo x) => x.Type ?? IncomeClassType.Others;
         line.AllIncome = effectiveIncomes;
-        line.RegularAllowances = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.Regular).ToList();
-        line.Deminimises = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.Deminimis).ToList();
-        line.Commissions = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.Commission).ToList();
-        line.Bonuses = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.SpecialBonus).ToList();
-        line.Reimbursements = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.Reimbursement).ToList();
-        line.OtherIncome = effectiveIncomes.Where(x => x.Type.HasValue && x.Type == IncomeClassType.Others).ToList();
+        line.RegularAllowances = effectiveIncomes.Where(x => ClassOf(x) == IncomeClassType.Regular).ToList();
+        line.Deminimises = effectiveIncomes.Where(x => ClassOf(x) == IncomeClassType.Deminimis).ToList();
+        line.Commissions = effectiveIncomes.Where(x => ClassOf(x) == IncomeClassType.Commission).ToList();
+        line.Bonuses = effectiveIncomes.Where(x => ClassOf(x) == IncomeClassType.SpecialBonus).ToList();
+        line.Reimbursements = effectiveIncomes.Where(x => ClassOf(x) == IncomeClassType.Reimbursement).ToList();
+        line.OtherIncome = effectiveIncomes.Where(x => ClassOf(x) == IncomeClassType.Others).ToList();
         //TODO capture saved prorated allowance from db to be included for the current month for SSS computation
         //line.ProratedAllowances = context.Payload.ProratedAllowance
         //                        .Where(x => x.EmployeeId == context.Employee.Id)

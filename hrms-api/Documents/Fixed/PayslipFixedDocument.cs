@@ -18,12 +18,15 @@ public class PayslipFixedDocument : IDocument
     private readonly Payroll _p;
     private readonly EmployeeFullModel _e;
     private readonly Company? _company;
+    private readonly PayslipOtherIncome _otherIncome;
 
-    public PayslipFixedDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null)
+    public PayslipFixedDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null,
+        PayslipOtherIncome? otherIncome = null)
     {
         _p = payroll;
         _e = employee;
         _company = company;
+        _otherIncome = otherIncome ?? PayslipOtherIncome.Categories;
     }
 
     public DocumentMetadata GetMetadata() => new DocumentMetadata
@@ -98,7 +101,7 @@ public class PayslipFixedDocument : IDocument
         c.Border(1).BorderColor(ReportDocumentStyle.BorderColor).Column(col =>
         {
             col.Item().Element(c2 => PayslipSections.SectionHeader(c2, "EARNINGS"));
-            var rows = new FixedPayslipRowBuilder(_p).Build();
+            var rows = new FixedPayslipRowBuilder(_p, _otherIncome).Build();
             col.Item().Padding(4).Table(table =>
             {
                 table.ColumnsDefinition(cols =>

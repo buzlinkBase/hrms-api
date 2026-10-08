@@ -13,7 +13,7 @@ namespace Hrms.Api.Documents.Shared;
 internal interface IPayslipLayout
 {
     bool Handles(Payroll payroll);
-    IDocument Create(Payroll payroll, EmployeeFullModel employee, Company? company);
+    IDocument Create(Payroll payroll, EmployeeFullModel employee, Company? company, PayslipOtherIncome otherIncome);
 }
 
 internal static class PayslipDocumentFactory
@@ -26,8 +26,12 @@ internal static class PayslipDocumentFactory
         new StandardPayslipLayout(),
     };
 
-    public static IDocument Create(Payroll payroll, EmployeeFullModel employee, Company? company) =>
-        Layouts.First(l => l.Handles(payroll)).Create(payroll, employee, company);
+    // otherIncome: the itemized Other Income lines for this payroll (see PayslipOtherIncome);
+    // omitted, every layout prints the category totals saved on the row.
+    public static IDocument Create(Payroll payroll, EmployeeFullModel employee, Company? company,
+        PayslipOtherIncome? otherIncome = null) =>
+        Layouts.First(l => l.Handles(payroll))
+            .Create(payroll, employee, company, otherIncome ?? PayslipOtherIncome.Categories);
 
     // FIXED employees aren't paid by the hour, so "hours x rate" doesn't apply whatever the
     // company's OT/ND method is. Lump-sum payroll types (13th Month, Last Pay, Year-End
@@ -35,7 +39,7 @@ internal static class PayslipDocumentFactory
     internal sealed class FixedSalaryPayslipLayout : IPayslipLayout
     {
         public bool Handles(Payroll p) => p.SalaryType == SalaryType.FIXED && p.PayrollType == PayrollType.Regular;
-        public IDocument Create(Payroll p, EmployeeFullModel e, Company? c) => new PayslipFixedDocument(p, e, c);
+        public IDocument Create(Payroll p, EmployeeFullModel e, Company? c, PayslipOtherIncome o) => new PayslipFixedDocument(p, e, c, o);
     }
 
     // Follows the OT/ND method actually used for the run (recorded per row on
@@ -45,13 +49,13 @@ internal static class PayslipDocumentFactory
     internal sealed class HoursPayslipLayout : IPayslipLayout
     {
         public bool Handles(Payroll p) => p.OtNdCalculationMethod == OtNdCalculationMethod.Additive;
-        public IDocument Create(Payroll p, EmployeeFullModel e, Company? c) => new PayslipHoursDocument(p, e, c);
+        public IDocument Create(Payroll p, EmployeeFullModel e, Company? c, PayslipOtherIncome o) => new PayslipHoursDocument(p, e, c, o);
     }
 
     // Compounded's Standard format is the client-approved default.
     internal sealed class StandardPayslipLayout : IPayslipLayout
     {
         public bool Handles(Payroll p) => true;
-        public IDocument Create(Payroll p, EmployeeFullModel e, Company? c) => new PayslipDocument(p, e, c);
+        public IDocument Create(Payroll p, EmployeeFullModel e, Company? c, PayslipOtherIncome o) => new PayslipDocument(p, e, c, o);
     }
 }

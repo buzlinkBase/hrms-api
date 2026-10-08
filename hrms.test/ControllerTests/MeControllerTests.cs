@@ -294,7 +294,7 @@ public class MeControllerTests
     {
         var (controller, _) = BuildController(caller: null, payroll: null);
 
-        var result = await controller.PrintMyPayslip(Guid.NewGuid(), CancellationToken.None);
+        var result = await controller.PrintMyPayslip(Guid.NewGuid(), null!, CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
     }
@@ -306,7 +306,7 @@ public class MeControllerTests
         var someoneElsesPayroll = BuildPayroll(Guid.NewGuid());
         var (controller, _) = BuildController(caller, someoneElsesPayroll);
 
-        var result = await controller.PrintMyPayslip(someoneElsesPayroll.Id, CancellationToken.None);
+        var result = await controller.PrintMyPayslip(someoneElsesPayroll.Id, null!, CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
     }
@@ -317,7 +317,7 @@ public class MeControllerTests
         var caller = BuildEmployee(Guid.NewGuid());
         var (controller, _) = BuildController(caller, payroll: null);
 
-        var result = await controller.PrintMyPayslip(Guid.NewGuid(), CancellationToken.None);
+        var result = await controller.PrintMyPayslip(Guid.NewGuid(), null!, CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
     }

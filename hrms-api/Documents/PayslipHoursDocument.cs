@@ -40,11 +40,15 @@ public class PayslipHoursDocument : IDocument
         }
     }
 
-    public PayslipHoursDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null)
+    private readonly PayslipOtherIncome _otherIncome;
+
+    public PayslipHoursDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null,
+        PayslipOtherIncome? otherIncome = null)
     {
         _p = payroll;
         _e = employee;
         _company = company;
+        _otherIncome = otherIncome ?? PayslipOtherIncome.Categories;
     }
 
     public DocumentMetadata GetMetadata() => new DocumentMetadata
@@ -220,12 +224,8 @@ public class PayslipHoursDocument : IDocument
         Header("Other Income");
         AddPlain("One-Time Leave Payout (Company)", _p.CompanyFundedLeavePay);
         AddPlain("COLA", _p.Cola);
-        AddPlain("Regular Allowances", _p.TotalRegularAllowances);
-        AddPlain("Bonuses", _p.TotalBonuses);
-        AddPlain("Commissions", _p.TotalCommissions);
-        AddPlain("De Minimis", _p.TotalDeminimises);
-        AddPlain("Reimbursement", _p.Reimbursement);
-        AddPlain("Other Income", _p.TotalOtherIncome);
+        foreach (var line in _otherIncome.Rows(_p))
+            AddPlain(line.Label, line.Amount);
 
         return rows;
     }
@@ -250,6 +250,11 @@ public class PayslipHoursDocument : IDocument
                         cols.RelativeColumn(3);
                         cols.RelativeColumn(1);
                     });
+                    if (_p.PayrollType == PayrollType.LastPay)
+                    {
+                        PayslipSections.LastPayLumpSumRows(table, _p, _otherIncome);
+                        return;
+                    }
                     var label = _p.PayrollType switch
                     {
                         PayrollType.ThirteenthMonth => "13th Month Pay",

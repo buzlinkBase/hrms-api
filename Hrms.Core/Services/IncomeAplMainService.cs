@@ -161,6 +161,31 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                 }).ToList());
     }
 
+    // What one saved payroll paid in Other Income, per income type, for the payslip -- the rows
+    // the save stamped with this payroll's Id (PayrollInputConsumptionService). Reads past the
+    // confidential-employee filter (the caller already authorised this payroll) and the
+    // soft-delete filter on the income type, so a type deleted since still prints its name.
+    public async Task<List<PayslipIncomeLine>> GetPayslipLinesAsync(Guid payrollId, CancellationToken token)
+    {
+        var rows = await (
+            from row in Context.IgnoringConfidentiality<OtherIncomeSchedules>()
+            join income in Context.Allowances.IgnoreQueryFilters()
+                on row.IncomeId equals income.Id into incomeJoin
+            from income in incomeJoin.DefaultIfEmpty()
+            where row.ConsumedByPayrollId == payrollId
+            select new { row.IncomeId, Name = income != null ? income.Name : null, row.Amount })
+            .AsNoTracking()
+            .ToListAsync(token);
+
+        return rows
+            .GroupBy(x => x.IncomeId)
+            .Select(g => new PayslipIncomeLine(
+                string.IsNullOrWhiteSpace(g.First().Name) ? "Other Income" : g.First().Name!,
+                g.Sum(x => x.Amount)))
+            .OrderBy(x => x.Label)
+            .ToList();
+    }
+
     // Loads the specific rows HR confirmed in the Last Pay review step — re-checks
     // ConsumedByPayrollId == null so a row consumed by something else between the review
     // screen loading and Generate being clicked is silently skipped rather than re-applied.

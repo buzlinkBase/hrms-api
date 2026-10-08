@@ -1,3 +1,4 @@
+using Hrms.Api.Documents.Shared;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Api.Documents.Fixed;
@@ -28,9 +29,14 @@ internal sealed class FixedPayslipRowBuilder
     private const decimal Tolerance = 0.005m;
 
     private readonly Payroll _p;
+    private readonly PayslipOtherIncome _otherIncome;
     private readonly List<FixedPayslipRow> _rows = new();
 
-    public FixedPayslipRowBuilder(Payroll payroll) => _p = payroll;
+    public FixedPayslipRowBuilder(Payroll payroll, PayslipOtherIncome? otherIncome = null)
+    {
+        _p = payroll;
+        _otherIncome = otherIncome ?? PayslipOtherIncome.Categories;
+    }
 
     public IReadOnlyList<FixedPayslipRow> Build()
     {
@@ -121,12 +127,8 @@ internal sealed class FixedPayslipRowBuilder
         var start = _rows.Count;
         Add("One-Time Leave Payout (Company)", _p.CompanyFundedLeavePay, FixedPayslipRowKind.Earning);
         Add("COLA", _p.Cola, FixedPayslipRowKind.Earning);
-        Add("Regular Allowances", _p.TotalRegularAllowances, FixedPayslipRowKind.Earning);
-        Add("Bonuses", _p.TotalBonuses, FixedPayslipRowKind.Earning);
-        Add("Commissions", _p.TotalCommissions, FixedPayslipRowKind.Earning);
-        Add("De Minimis", _p.TotalDeminimises, FixedPayslipRowKind.Earning);
-        Add("Reimbursement", _p.Reimbursement, FixedPayslipRowKind.Earning);
-        Add("Other Income", _p.TotalOtherIncome, FixedPayslipRowKind.Earning);
+        foreach (var line in _otherIncome.Rows(_p))
+            Add(line.Label, line.Amount, FixedPayslipRowKind.Earning);
         InsertHeaderIfAnyRowsAdded(start, "OTHER INCOME");
     }
 

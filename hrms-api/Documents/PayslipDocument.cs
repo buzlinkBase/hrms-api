@@ -12,12 +12,15 @@ public class PayslipDocument : IDocument
     private readonly Payroll _p;
     private readonly EmployeeFullModel _e;
     private readonly Company? _company;
+    private readonly PayslipOtherIncome _otherIncome;
 
-    public PayslipDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null)
+    public PayslipDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null,
+        PayslipOtherIncome? otherIncome = null)
     {
         _p = payroll;
         _e = employee;
         _company = company;
+        _otherIncome = otherIncome ?? PayslipOtherIncome.Categories;
     }
 
     public DocumentMetadata GetMetadata() => new DocumentMetadata
@@ -135,12 +138,8 @@ public class PayslipDocument : IDocument
 
                 PayslipSections.SubHeaderRow(table, "OTHER INCOME");
                 PayslipSections.AmountRow(table, "COLA", _p.Cola);
-                PayslipSections.AmountRow(table, "Regular Allowances", _p.TotalRegularAllowances);
-                PayslipSections.AmountRow(table, "Bonuses", _p.TotalBonuses);
-                PayslipSections.AmountRow(table, "Commissions", _p.TotalCommissions);
-                PayslipSections.AmountRow(table, "De Minimis", _p.TotalDeminimises);
-                PayslipSections.AmountRow(table, "Reimbursement", _p.Reimbursement);
-                PayslipSections.AmountRow(table, "Other Income", _p.TotalOtherIncome);
+                foreach (var line in _otherIncome.Rows(_p))
+                    PayslipSections.AmountRow(table, line.Label, line.Amount);
 
                 PayslipSections.AmountRow(table, "GROSS INCOME", _p.GrossIncome, bold: true);
             });
@@ -211,7 +210,7 @@ public class PayslipDocument : IDocument
                     cols.RelativeColumn(1);
                 });
 
-                PayslipSections.AmountRow(table, "Prorated 13th Month + Leave Conversion", _p.GrossIncome, bold: true);
+                PayslipSections.LastPayLumpSumRows(table, _p, _otherIncome);
                 PayslipSections.SubHeaderRow(table, "TAX TREATMENT");
                 PayslipSections.AmountRow(table, "Non-Taxable Portion", _p.NonTaxableBenefits);
                 PayslipSections.AmountRow(table, "Taxable Portion", _p.TaxableBenefits);

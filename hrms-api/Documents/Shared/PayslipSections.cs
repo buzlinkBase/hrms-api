@@ -90,6 +90,38 @@ internal static class PayslipSections
     public static void SubHeaderRow(TableDescriptor table, string title) =>
         table.Cell().ColumnSpan(2).Background(ReportDocumentStyle.TableHeaderBg).Padding(3).Text(title).Bold().FontSize(8);
 
+    // Last Pay's lump sum. Other Income HR confirmed for the Last Pay is added straight into
+    // GrossIncome (LastPayrollService.ApplyConfirmedOtherIncome), so it's taken back out of the
+    // 13th Month + Leave figure and listed on its own lines -- otherwise it hid inside a line
+    // labelled as something else.
+    public static void LastPayLumpSumRows(TableDescriptor table, Payroll p, PayslipOtherIncome otherIncome)
+    {
+        foreach (var row in LastPayLumpSum(p, otherIncome))
+        {
+            if (row.Amount is { } amount) AmountRow(table, row.Label, amount, row.Bold);
+            else SubHeaderRow(table, row.Label);
+        }
+    }
+
+    // A null Amount is a sub-section header. Internal so hrms.test can check the rows without
+    // rendering a PDF.
+    internal static List<(string Label, decimal? Amount, bool Bold)> LastPayLumpSum(Payroll p, PayslipOtherIncome otherIncome)
+    {
+        const string lumpSum = "Prorated 13th Month + Leave Conversion";
+        var lines = otherIncome.Rows(p).Where(x => x.Amount != 0m).ToList();
+        if (lines.Count == 0)
+            return [(lumpSum, p.GrossIncome, true)];
+
+        var rows = new List<(string Label, decimal? Amount, bool Bold)>
+        {
+            (lumpSum, p.GrossIncome - PayslipOtherIncome.ScheduledTotal(p), false),
+            ("OTHER INCOME", null, false),
+        };
+        rows.AddRange(lines.Select(x => (x.Label, (decimal?)x.Amount, false)));
+        rows.Add(("GROSS INCOME", p.GrossIncome, true));
+        return rows;
+    }
+
     public static void ComposeEmployeeInfo(IContainer c, Payroll p, EmployeeFullModel e)
     {
         c.Border(1).BorderColor(ReportDocumentStyle.BorderColor).Column(col =>
