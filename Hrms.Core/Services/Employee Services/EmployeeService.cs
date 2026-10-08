@@ -1,6 +1,8 @@
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
+using MassTransit;
+using Onepunch.Common.Lib.DTO;
 using System.Linq.Expressions;
 
 namespace Hrms.Core.Services;
@@ -16,9 +18,10 @@ public class EmployeeService : BaseService<Employee>
     private readonly EmployeeAccountLinkService? _accountLinks;
     private readonly Security.ConfidentialAccessScope? _access;
     private readonly Subscriptions.IPlanLimitGuard? _limits;
+    private readonly IPublishEndpoint? _publisher;
 
-    // accountLinks, access and limits are optional so the many direct constructions in tests stay
-    // valid; the container always supplies them.
+    // accountLinks, access, limits and publisher are optional so the many direct constructions in
+    // tests stay valid; the container always supplies them.
     public EmployeeService(IUnitOfWorkService uow,
         IMapper mapper,
         TypeAdapterConfig config,
@@ -30,9 +33,11 @@ public class EmployeeService : BaseService<Employee>
         SectionService sectionService,
         EmployeeAccountLinkService? accountLinks = null,
         Security.ConfidentialAccessScope? access = null,
-        Subscriptions.IPlanLimitGuard? limits = null
+        Subscriptions.IPlanLimitGuard? limits = null,
+        IPublishEndpoint? publisher = null
         ) : base(uow)
     {
+        _publisher = publisher;
         _mapper = mapper;
         _config = config;
         _departmentService = departmentService;
@@ -205,6 +210,17 @@ public class EmployeeService : BaseService<Employee>
     private Task EnsureWithinEmployeeLimitAsync(int adding, CancellationToken token) =>
         _limits?.EnsureCanAddAsync(Onepunch.Common.Lib.Subscriptions.EntitlementKeys.EmployeesMax, adding, token) ?? Task.CompletedTask;
 
+    // A separated employee (resigned, terminated, ...) must not keep signing in: tell Tenant
+    // Service to revoke their account's membership. Published through the outbox, so it goes out
+    // with the commit that saved the new status. Re-granting access is a manual step in
+    // Security > Users, which is why this only fires on the change into a separated status.
+    private async Task RevokeAccessIfSeparatedAsync(Employee employee, CancellationToken token)
+    {
+        if (_publisher == null || employee.UserId is not { } userId || !SeparatedStatuses.Contains(employee.EmploymentStatus))
+            return;
+        await _publisher.Publish(new EmployeeSeparated { UserId = userId, TenantId = employee.TenantId }, token);
+    }
+
     private void CalculateAge(Employee? model)
     {
         if (model == null || !model.DOB.HasValue) return;
@@ -224,7 +240,16 @@ public class EmployeeService : BaseService<Employee>
         var old = models.Where(x => x.Id != Guid.Empty).ToList();
         // Import and the seeder both land here: the whole batch fits the plan or none of it is saved.
         await EnsureWithinEmployeeLimitAsync(newemps.Count(x => !SeparatedStatuses.Contains(x.EmploymentStatus)), token);
+        var oldIds = old.Select(x => x.Id).ToList();
+        var previouslySeparated = old.Count == 0
+            ? new HashSet<Guid>()
+            : (await EmployeesForIntegrityChecks()
+                .Where(x => oldIds.Contains(x.Id) && SeparatedStatuses.Contains(x.EmploymentStatus))
+                .Select(x => x.Id)
+                .ToListAsync(token)).ToHashSet();
         await ModifyRangeAsync(old, token);
+        foreach (var employee in old.Where(x => !previouslySeparated.Contains(x.Id)))
+            await RevokeAccessIfSeparatedAsync(employee, token);
         await CreateRangeAsync(newemps, token);
         //var empBios = GetQueryable().Select(x => x.BioId).ToList();
         //var existingBioIds = new HashSet<int>(empBios);
@@ -323,6 +348,8 @@ public class EmployeeService : BaseService<Employee>
         var branch = _uow.Repository.FindOne<Branch>(existing.BranchId ?? Guid.Empty);
         existing.BranchId = branch?.Id;
         await ModifyAsync(existing, token);
+        if (currentStatus is not { } before || !SeparatedStatuses.Contains(before))
+            await RevokeAccessIfSeparatedAsync(existing, token);
 
         var newRestDays = incomingRestDays.Select(rd => new RestDay
         {
