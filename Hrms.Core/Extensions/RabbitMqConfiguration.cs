@@ -50,6 +50,8 @@ public static class RabbitMqConfiguration
             x.AddConsumer<AnnouncementLifecycleWorker, AnnouncementLifecycleWorkerDefinition>();
             // One company's daily benefits steps, in order -- queued by the Quartz DailyBenefitsJob.
             x.AddConsumer<DailyBenefitsWorker, DailyBenefitsWorkerDefinition>();
+            // Calculate DTR "Save Draft" for a whole cutoff, outside the HTTP request -- see DtrDraftSaveService.
+            x.AddConsumer<SaveDtrDraftWorker, SaveDtrDraftWorkerDefinition>();
             // Evicts cached entitlements when an account's subscription changes.
             x.AddConsumer<Messaging.Subscriptions.SubscriptionChangedWorker, Messaging.Subscriptions.SubscriptionChangedWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>

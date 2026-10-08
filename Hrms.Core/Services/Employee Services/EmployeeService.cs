@@ -299,7 +299,6 @@ public class EmployeeService : BaseService<Employee>
 
         await _uow.SaveChangesAsync(token);
 
-
         var existing = await Context.Employees
             //.Include(x => x.RestDays)
             //.Include(x => x.Settings)
@@ -367,10 +366,9 @@ public class EmployeeService : BaseService<Employee>
             TimeShiftId = fs.TimeShiftId,
         }).ToList();
         await _uow.Repository.AddRangeAsync(newFixedSchedule, token);
-
         await _uow.SaveChangesAsync(token);
-
         await CommitChangesAsync(token);
+
     }
 
 

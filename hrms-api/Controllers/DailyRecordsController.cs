@@ -27,17 +27,20 @@ public class DailyRecordsController : ControllerBase
     private readonly RosterReportService _rosterReportService;
     private readonly EmployeeService _employeeService;
     private readonly IMapper _mapper;
+    private readonly DtrDraftSaveService _draftSaver;
     public DailyRecordsController(DailyRecordService service,
         DTRCalcService dTRCalcService,
         RosterReportService rosterReportService,
         EmployeeService employeeService,
-        IMapper mapper)
+        IMapper mapper,
+        DtrDraftSaveService draftSaver)
     {
         _service = service;
         _dTRCalcService = dTRCalcService;
         _rosterReportService = rosterReportService;
         _employeeService = employeeService;
         _mapper = mapper;
+        _draftSaver = draftSaver;
     }
 
     private async Task<(Guid? ApproverEmployeeId, bool HasOverride)> ResolveApproverAsync(CancellationToken token)
@@ -117,6 +120,34 @@ public class DailyRecordsController : ControllerBase
             ?? throw new AccountNotLinkedException("this request can't be attributed to an applicant");
         await _service.RequestDeletionAsync(batchId, requestedByEmployeeId, token);
         return Ok("success");
+    }
+
+    // "Save Draft" by reference, for cutoffs too big to upload row by row (a 2,000-employee client is
+    // tens of thousands of rows). Takes what the screen generated from plus the ticked employees,
+    // queues the work and answers 202; SaveDtrDraftWorker recomputes the rows with the same engine
+    // and saves them exactly as POST above does, then notifies the requester through the bell.
+    [HttpPost("save-draft")]
+    [RequirePermission("DTR Master:Manage")]
+    [ProducesResponseType(202)]
+    public async Task<IActionResult> SaveDraft([FromBody] SaveDtrDraftRequest request, CancellationToken token)
+    {
+        if (request.PayrollGroupId is null || request.PayrollGroupId == Guid.Empty)
+            return BadRequest("Payroll Group is required to post DTR.");
+        if (request.FromDate > request.ToDate)
+            return BadRequest("The date range's start date is after its end date.");
+        if (request.EmployeeIds.Count == 0)
+            return BadRequest("Select at least one employee to save.");
+        // The ticked ids come from the browser; one the caller can't see (a confidential employee)
+        // must not be saved on their behalf -- the worker itself runs with no per-user filtering.
+        if (request.EmployeeIds.Any(_employeeService.IsHiddenFromEmployeeScreens))
+            return NotFound("Record not found");
+
+        var generatedByEmployeeId = await _employeeService.ResolveEmployeeIdAsync(
+            User.GetRequiredUserId(), User.GetUserClaim("email"), token)
+            ?? throw new AccountNotLinkedException("this batch can't be attributed to an approval applicant");
+
+        await _draftSaver.QueueAsync(request, User.GetRequiredUserId(), generatedByEmployeeId, token);
+        return Accepted();
     }
 
     // Same eligible approvers as ApproveBatch/DeclineBatch above -- DTR Master:Approve.
@@ -286,6 +317,20 @@ public class DailyRecordsController : ControllerBase
             token,
             IncludeNullResponse.Include);
         return Ok(result);
+    }
+
+    // One summary per employee instead of every day row: what the Calculate DTR review table shows.
+    // The day-level rows load per employee through dtr-detail (employeeId) when one is expanded.
+    [HttpGet("dtr-summary")]
+    [RequirePermission("DTR Master:View")]
+    [ProducesResponseType(typeof(ResponseModel<List<DtrEmployeeSummaryModel>>), 200)]
+    public async Task<IActionResult> DTRSummaryView([FromQuery] DTRRequestPayload payload, CancellationToken token)
+    {
+        var result = await _dTRCalcService.GetDTRInfoAsync<DTRDetailModel>(payload,
+            ProcessorType.DTRDetail,
+            token,
+            IncludeNullResponse.Include);
+        return Ok(DtrSummaryBuilder.Build(result));
     }
 
     [HttpGet("incomplete-columnar")]

@@ -131,19 +131,34 @@ public class DailyRecordService : BaseService<DailyRecord>
                 "Delete the existing batch first if you need to repost.");
         }
 
-        await Uow.Repository.AddRangeAsync(records, token);
-        if (commit) await CommitChangesAsync(token);
-        else await SaveChangesAsync(token);
+        // A whole company's cutoff is tens of thousands of rows; flushing them in chunks keeps each
+        // INSERT batch (and the audit capture riding on it) a manageable size. Every chunk joins the
+        // same still-open transaction, so the save is still all-or-nothing.
+        var chunks = records.Chunk(SaveChunkSize).ToList();
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            await Uow.Repository.AddRangeAsync(chunks[i].ToList(), token);
+            var isLast = i == chunks.Count - 1;
+            if (isLast && commit) await CommitChangesAsync(token);
+            else await SaveChangesAsync(token);
+        }
     }
+
+    // Rows per SaveChanges when persisting a draft -- see AddRangeAsync.
+    internal const int SaveChunkSize = 2000;
 
     // Replaces the controller's direct AddRangeAsync call -- persists the calculated DTR rows as
     // an editable/deletable draft (DailyRecord.Posted stays false) AND creates the DTRBatch
     // header, starting its Dtr-type approval instance automatically at Save Draft time, same as
     // every other application type (see ApprovalEngineService.StartAsync). Only ApproveBatchAsync,
     // once the instance resolves to Approved, actually flips Posted=true via PostAsync.
+    // beforeCommit runs once the batch and its approval exist but before the one commit, so
+    // anything it publishes through the outbox (e.g. the background save's "draft saved" notice)
+    // leaves with that commit and only if the save succeeds.
     public async Task<DTRBatch> SaveDraftAsync(
         List<DailyRecord> records, string batchCode, DateOnly rangeFrom, DateOnly rangeTo,
-        Guid? payrollGroupId, Guid generatedByEmployeeId, CancellationToken token)
+        Guid? payrollGroupId, Guid generatedByEmployeeId, CancellationToken token,
+        Func<DTRBatch, CancellationToken, Task>? beforeCommit = null)
     {
         await AddRangeAsync(records, token, commit: false);
 
@@ -157,6 +172,7 @@ public class DailyRecordService : BaseService<DailyRecord>
         };
         await _dtrBatchService.AddAsync(batch, token, commit: false);
         await _approvalEngine.StartAsync(ApprovalApplicationType.Dtr, batch.Id, generatedByEmployeeId, token);
+        if (beforeCommit != null) await beforeCommit(batch, token);
 
         await CommitChangesAsync(token);
         return batch;

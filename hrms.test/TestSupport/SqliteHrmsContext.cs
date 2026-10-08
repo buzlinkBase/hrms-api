@@ -57,6 +57,22 @@ public sealed class SqliteHrmsContext : IDisposable
     public HrmsContext NewContext(IConfidentialAccess? confidentialAccess, Guid? tenantId = null) =>
         NewContext(new FakeTenantProvider(tenantId ?? Guid.Empty), confidentialAccess);
 
+    /// <summary>
+    /// A context set up the way the API's is (ServiceRegitrations): lazy-loading proxies plus the
+    /// soft-delete and tenant interceptors -- for code whose behaviour depends on them, such as an
+    /// update that reads a navigation property it never Included.
+    /// </summary>
+    public HrmsContext NewProductionLikeContext(Guid? tenantId = null)
+    {
+        var tenantProvider = new FakeTenantProvider(tenantId ?? Guid.Empty);
+        var options = new DbContextOptionsBuilder<HrmsContext>()
+            .UseSqlite(_connectionString, x => x.UseNetTopologySuite())
+            .UseLazyLoadingProxies(true)
+            .AddInterceptors(new SoftDeleteInterceptor(), new ApplyTenantInterceptor(tenantProvider))
+            .Options;
+        return new HrmsContext(options, null!, tenantProvider, null!, null);
+    }
+
     private HrmsContext NewContext(ITenantProvider tenantProvider, IConfidentialAccess? confidentialAccess)
     {
         var options = new DbContextOptionsBuilder<HrmsContext>()

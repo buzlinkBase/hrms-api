@@ -10,6 +10,8 @@ public static class LibDTRServicesRegistrations
         services.AddScoped<RestDayResolver>();
         services.AddScoped<HolidayResolver>();
         services.AddScoped<CurrentRangeDTRPayloadService>();
+        // Lets Hrms.Core's background DTR save reach the engine without referencing this project.
+        services.AddScoped<IDtrRowSource, DtrCalcRowSource>();
 
         services.AddKeyedSingleton<IDTRTimePipeline, NonHolidayDutyTimePipeline>(DTRPipelineKeys.Regular);
         services.AddKeyedSingleton<IDTRTimePipeline, TravelPipeline>(DTRPipelineKeys.Travel);

@@ -622,10 +622,12 @@ public class ApprovalEngineService
     /// Tells the applicant their application's status changed outside the approval chain (e.g.
     /// an approved pass slip revoked) -- same channels and notification preferences as the
     /// approve/decline notice. Publishes through the outbox, so call it before the caller commits.
+    /// <paramref name="allowEmail"/> false keeps it to the bell/push (the background DTR save's
+    /// outcome notices aren't worth an email each).
     /// </summary>
     public async Task NotifyApplicantAsync(
         ApprovalApplicationType type, Guid applicationId, Guid applicantEmployeeId, string statusLabel, string? note,
-        CancellationToken token = default)
+        CancellationToken token = default, bool allowEmail = true)
     {
         var applicant = await _uow.Repository.Find<Employee>(e => e.Id == applicantEmployeeId)
             .AsNoTracking().FirstOrDefaultAsync(token);
@@ -647,7 +649,7 @@ public class ApprovalEngineService
             ApplicationId = applicationId,
             ApprovalInstanceId = instance?.Id ?? Guid.Empty,
             RecipientUserId = applicant.UserId,
-            DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
+            DeliverEmail = allowEmail && deliverEmail && !string.IsNullOrWhiteSpace(applicant.Email),
             DeliverPush = deliverPush && IsPushReachable(applicant),
         }, token);
     }

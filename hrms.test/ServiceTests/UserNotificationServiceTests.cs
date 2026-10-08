@@ -123,9 +123,28 @@ public class UserNotificationServiceTests
         await SeedAsync(db, Entry(AnaId, null, now.AddDays(-100)), Entry(AnaId, null, now.AddDays(-91), tenantId: Guid.NewGuid()), recent);
 
         await using var context = db.NewContext();
-        var removed = await NotificationRetentionJob.PurgeAsync(context, now.AddDays(-90), default);
+        var removed = await NotificationRetentionJob.PurgeAsync(context, now.AddDays(-90), now.AddDays(-2), default);
 
         removed.Should().Be(2);
         (await context.UserNotifications.IgnoreQueryFilters().Select(x => x.Id).ToListAsync()).Should().Equal(recent.Id);
+    }
+
+    [Fact]
+    public async Task Retention_RemovesReadEntriesOlderThanTwoDays_KeepsUnreadAndRecentlyRead()
+    {
+        using var db = new SqliteHrmsContext();
+        var now = DateTime.UtcNow;
+        var readLongAgo = Entry(AnaId, null, now.AddDays(-5), readAt: now.AddDays(-3));
+        var readLongAgoOtherCompany = Entry(AnaId, null, now.AddDays(-5), tenantId: Guid.NewGuid(), readAt: now.AddDays(-3));
+        var readRecently = Entry(AnaId, null, now.AddDays(-5), readAt: now.AddHours(-5));
+        var unreadTenDays = Entry(AnaId, null, now.AddDays(-10));
+        await SeedAsync(db, readLongAgo, readLongAgoOtherCompany, readRecently, unreadTenDays);
+
+        await using var context = db.NewContext();
+        var removed = await NotificationRetentionJob.PurgeAsync(context, now.AddDays(-90), now.AddDays(-2), default);
+
+        removed.Should().Be(2);
+        (await context.UserNotifications.IgnoreQueryFilters().Select(x => x.Id).ToListAsync())
+            .Should().BeEquivalentTo(new[] { readRecently.Id, unreadTenDays.Id });
     }
 }
