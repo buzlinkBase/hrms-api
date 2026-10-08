@@ -1,3 +1,4 @@
+using BuzlinkRepository;
 using Onepunch.AuditEngine;
 namespace Hrms.Domain.Entities;
 
@@ -33,14 +34,20 @@ public class DeductionApplication : BaseEntity, IEmployeeOwned, IEntryRecord, IA
     public DeductionApplication()
     {
         ProcessBy = "";
+        Breakdown = new List<DeductionApplicationDetail>();
     }
 }
 
+// Hard-deleted: an installment payroll never touched has no history worth keeping, and one it
+// did touch is locked (LoanScheduleReconciler) so it's never deleted at all.
+[DisableSoftDelete]
 public class DeductionApplicationDetail : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
     public Guid DeductionId { get; set; }
-    public Guid ApplicationId { get; set; }
+    // The single FK to the owning loan (see DeductionApplicationConfig). Set through the
+    // Breakdown navigation, never by hand -- the loan's Id is still Guid.Empty until EF adds it.
+    public Guid DeductionApplicationId { get; set; }
     public DateOnly Date { get; set; }
     public decimal Principal { get; set; }
     public decimal Interest { get; set; }

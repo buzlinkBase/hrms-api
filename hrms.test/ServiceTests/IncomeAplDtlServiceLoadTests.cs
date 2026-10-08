@@ -33,7 +33,7 @@ public class IncomeAplDtlServiceLoadTests
         Id = Guid.NewGuid(),
         EmployeeId = employeeId,
         IncomeId = incomeId,
-        ApplicationId = applicationId,
+        OtherIncomeApplicationId = applicationId,
         Date = date,
         Amount = amount,
         IsTaxable = true,

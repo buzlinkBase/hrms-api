@@ -1,4 +1,5 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Core.Services.Schedules;
+using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using System.Linq.Expressions;
 
@@ -31,78 +32,46 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
         return true;
     }
 
-    private async Task AddOrDeleteChildAsync(OtherIncomeApplication model,
-        CancellationToken token)
-    {
-        var existing = await _uow.Context.OtherIncomeApplicationDetails
-         .Where(x => x.ApplicationId == model.Id)
-         .ToListAsync(token);
-
-        foreach (var detail in model.Schedule)
-        {
-            var match = existing.FirstOrDefault(x => x.Id == detail.Id);
-            if (match != null)//match
-            {
-                match.Date = detail.Date;
-                match.Amount = detail.Amount;
-                match.Notes = detail.Notes;
-                match.IsTaxable = model.IsTaxable;
-                match.IsProrated = model.IsProrated;
-            }
-            else
-            {
-                _uow.Context.OtherIncomeApplicationDetails.Add(detail);
-            }
-        }
-        var toRemove = existing.Where(x => !model.Schedule.Any(d => d.Id == x.Id));
-        _uow.Context.OtherIncomeApplicationDetails.RemoveRange(toRemove);
-
-    }
+    // Rows are only ever added through the Schedule navigation: the parent's Id is still
+    // Guid.Empty here (EF assigns it on Add), so EF fills in OtherIncomeApplicationId itself.
+    // This used to look up "existing" rows by that empty Id -- which matched every other
+    // application's rows and deleted them all.
     public async Task<OtherIncomeApplication> AddAsync(CreateOtherIncomeApplication payload,
         CancellationToken token)
     {
         var model = _mapper.Map<OtherIncomeApplication>(payload);
-        //map detail
-        foreach (var item in payload.Schedule)
-        {
-            var detail = new OtherIncomeSchedules
-            {
-                Date = item.Date,
-                Amount = item.Amount,
-                ApplicationId = model.Id,
-                IncomeId = model.IncomeId,
-                EmployeeId = model.EmployeeId,
-            };
-            model.Schedule.Add(detail);
-        }
         await ValidateAsync(model, token);
-        await AddOrDeleteChildAsync(model, token);
+        var rows = (payload.Schedule ?? []).Select(x => new UpdateOtherIncomeSchedule { Date = x.Date, Amount = x.Amount });
+        OtherIncomeScheduleReconciler.Instance.Reconcile(model, model.Schedule, rows, _ => { });
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
         return model;
     }
+
+    // Works on the tracked application and its live rows, so nothing the form doesn't send
+    // (CreatedAt, ProcessBy, ...) is overwritten and no client-sent Id is ever INSERTed again.
     public async Task<OtherIncomeApplication> UpdateAsync(UpdateOtherIncomeApplication payload,
         CancellationToken token)
     {
-        var model = _mapper.Map<OtherIncomeApplication>(payload);
-        foreach (var item in payload.Schedule)
-        {
-            var detail = new OtherIncomeSchedules
-            {
-                Id = item.Id,
-                Date = item.Date,
-                Amount = item.Amount,
-                ApplicationId = model.Id,
-                IncomeId = model.IncomeId,
-                EmployeeId = model.EmployeeId,
-            };
-            model.Schedule.Add(detail);
-        }
+        var model = await LoadTrackedAsync(payload.Id, token);
+        Guard.ThrowIfNull(model, "Other income application not found");
+        var reconciler = OtherIncomeScheduleReconciler.Instance;
+        Guard.EnsureFalse(reconciler.AnyLocked(model!.Schedule) &&
+                          (payload.EmployeeId != model.EmployeeId || payload.IncomeId != model.IncomeId),
+            "The employee or income type can't be changed: part of this schedule was already paid in a saved payroll run.");
+
+        _mapper.Map(payload, model);
         await ValidateAsync(model, token);
-        await AddOrDeleteChildAsync(model, token);
-        await ModifyAsync(model, token);
+        reconciler.Reconcile(model, model.Schedule, payload.Schedule ?? [], row => _uow.Repository.Remove(row));
         await CommitChangesAsync(token);
-        return model;
+        return (await FineOneAsync(model.Id, token))!;
+    }
+
+    private Task<OtherIncomeApplication?> LoadTrackedAsync(Guid id, CancellationToken token)
+    {
+        return _uow.Repository.FindAll<OtherIncomeApplication>()
+            .Include(x => x.Schedule)
+            .FirstOrDefaultAsync(x => x.Id == id, token);
     }
 
     public Task<List<OtherIncomeApplication>> FindAllAsync(CancellationToken token)
@@ -119,17 +88,29 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
 
     public async Task<OtherIncomeApplication?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneReadOnlyAsync(Id, token);
+        return await GetQueryable()
+            .Include(x => x.Schedule.OrderBy(s => s.Date))
+            .FirstOrDefaultAsync(x => x.Id == Id, token);
     }
+
+    // The rows go with the application -- payroll reads rows without looking at the parent, so a
+    // live row under a deleted application would still be paid.
     public async Task DeleteParent(Guid Id, CancellationToken token)
     {
-        await RemoveAsync(Id, token);
+        var model = await LoadTrackedAsync(Id, token);
+        if (model == null) return;
+        Guard.EnsureFalse(OtherIncomeScheduleReconciler.Instance.AnyLocked(model.Schedule),
+            "This application can't be deleted: part of its schedule was already paid in a saved payroll run.");
+        foreach (var row in model.Schedule.ToList())
+            _uow.Repository.Remove(row);
+        _uow.Repository.Remove(model);
         await CommitChangesAsync(token);
     }
     public async Task DeleteChild(Guid Id, CancellationToken token)
     {
         var item = await _uow.Repository.FindOneAsync<OtherIncomeSchedules>(Id, token);
         if (item == null) return;
+        OtherIncomeScheduleReconciler.Instance.EnsureNotLocked(item);
         _uow.Repository.Remove(item);
         await CommitChangesAsync(token);
     }

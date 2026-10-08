@@ -5,7 +5,7 @@ using Mapster;
 
 namespace hrms.test.ServiceTests;
 
-// IncomeAplMainService builds the schedule rows itself (stamping ApplicationId/IncomeId/
+// IncomeAplMainService builds the schedule rows itself (stamping IncomeId/
 // EmployeeId). If Mapster also copied payload.Schedule, every save inserted extra rows with an
 // empty IncomeId and failed the FK to Allowances.
 public class OtherIncomeApplicationMappingTests

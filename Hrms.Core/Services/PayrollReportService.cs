@@ -71,18 +71,18 @@ public class PayrollReportService : BaseService<Payroll>
         var latestCandidates = await details
             .Where(x => x.Date <= asOf && x.Balance > 0 &&
                 !details.Any(y =>
-                    y.EmployeeId == x.EmployeeId && y.DeductionId == x.DeductionId && y.ApplicationId == x.ApplicationId &&
+                    y.EmployeeId == x.EmployeeId && y.DeductionId == x.DeductionId && y.DeductionApplicationId == x.DeductionApplicationId &&
                     y.Date <= asOf && y.Balance > 0 && y.RecordOrder > x.RecordOrder))
-            .Select(x => new { x.EmployeeId, x.DeductionId, x.ApplicationId, x.Balance })
+            .Select(x => new { x.EmployeeId, x.DeductionId, x.DeductionApplicationId, x.Balance })
             .ToListAsync(token);
 
         // Two open rows can share the top RecordOrder -- keep one per schedule, as before.
         var latestPerLoan = latestCandidates
-            .GroupBy(x => new { x.EmployeeId, x.DeductionId, x.ApplicationId })
+            .GroupBy(x => new { x.EmployeeId, x.DeductionId, x.DeductionApplicationId })
             .Select(g => g.First())
             .ToList();
 
-        var applicationIds = latestPerLoan.Select(x => x.ApplicationId).Distinct().ToList();
+        var applicationIds = latestPerLoan.Select(x => x.DeductionApplicationId).Distinct().ToList();
         var applicationMap = (await Context.DeductionApplications.AsNoTracking()
             .Where(x => applicationIds.Contains(x.Id)).ToListAsync(token))
             .ToDictionary(x => x.Id);
@@ -101,7 +101,7 @@ public class PayrollReportService : BaseService<Payroll>
 
         return latestPerLoan.Select(x =>
         {
-            applicationMap.TryGetValue(x.ApplicationId, out var app);
+            applicationMap.TryGetValue(x.DeductionApplicationId, out var app);
             deductionMap.TryGetValue(x.DeductionId, out var deduction);
             var deductionTypeName = deduction?.CategoryId != null && categoryMap.TryGetValue(deduction.CategoryId.Value, out var cat)
                 ? cat.Name : "";

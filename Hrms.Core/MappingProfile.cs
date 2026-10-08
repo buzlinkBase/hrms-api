@@ -266,7 +266,7 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateOtherIncome, OtherIncomeType>();
         config.NewConfig<OtherIncomeType, OtherIncomeTypeModel>();
 
-        // Schedule rows are built by IncomeAplMainService (it stamps ApplicationId/IncomeId/
+        // Schedule rows are built by IncomeAplMainService (it stamps IncomeId/
         // EmployeeId); letting Mapster copy them too inserts duplicate rows with an empty IncomeId.
         config.NewConfig<CreateOtherIncomeApplication, OtherIncomeApplication>()
             .Ignore(dest => dest.Schedule);
@@ -277,9 +277,15 @@ public class MappingProfile : IRegister
         config.NewConfig<CreateOtherIncomeSchedule, OtherIncomeSchedules>();
         config.NewConfig<UpdateOtherIncomeSchedule, OtherIncomeSchedules>();
 
-        config.NewConfig<CreateDeductionApplication, DeductionApplication>();
-        config.NewConfig<UpdateDeductionApplication, DeductionApplication>();
+        // Installments are built by DeductionApplicationService (LoanScheduleReconciler); letting
+        // Mapster copy Breakdown by name too inserted stray rows with no employee/deduction, and
+        // on an edit (no breakdown sent) nulled the collection out.
+        config.NewConfig<CreateDeductionApplication, DeductionApplication>()
+            .Ignore(dest => dest.Breakdown);
+        config.NewConfig<UpdateDeductionApplication, DeductionApplication>()
+            .Ignore(dest => dest.Breakdown);
         config.NewConfig<DeductionApplication, DeductionApplicationModel>();
+        config.NewConfig<DeductionApplicationDetail, DeductionApplicationDetailModel>();
 
         // Tables & Rates
         config.NewConfig<CreatePHIC, PHICTable>();

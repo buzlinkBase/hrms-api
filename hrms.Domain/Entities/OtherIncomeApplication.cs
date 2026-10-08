@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using BuzlinkRepository;
+using System.Collections.ObjectModel;
 namespace Hrms.Domain.Entities;
 
 public class OtherIncomeApplication : BaseEntity, IEmployeeOwned, IEntryRecord
@@ -28,10 +29,16 @@ public class OtherIncomeApplication : BaseEntity, IEmployeeOwned, IEntryRecord
         Schedule = new Collection<OtherIncomeSchedules>();
     }
 }
+
+// Hard-deleted: a row payroll never consumed has no history worth keeping, and one it did
+// consume is locked (OtherIncomeScheduleReconciler) so it's never deleted at all.
+[DisableSoftDelete]
 public class OtherIncomeSchedules : BaseEntity, IEmployeeOwned, IEntryRecord
 {
     public Guid EmployeeId { get; set; }
-    public Guid ApplicationId { get; set; }
+    // The single FK to the owning application (see OtherIncomeApplicationConfig). Set through the
+    // Schedule navigation, never by hand -- the parent's Id is still Guid.Empty until EF adds it.
+    public Guid OtherIncomeApplicationId { get; set; }
     public Guid IncomeId { get; set; }
     public virtual OtherIncome? Income { get; set; }
     public DateOnly Date { get; set; }

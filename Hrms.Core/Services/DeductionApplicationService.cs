@@ -1,4 +1,5 @@
 ﻿using Hrms.Core.Services.Approvals;
+using Hrms.Core.Services.Schedules;
 using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
 using System.Linq.Expressions;
@@ -38,32 +39,29 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         return await base.CreateValidatorAsync(model, token);
     }
 
-    private async Task AddOrDeleteChildAsync(DeductionApplication model, CancellationToken token)
+    // A loan's installments as payroll has touched them -- see LoanScheduleReconciler.
+    private async Task<LoanScheduleReconciler> ReconcilerForAsync(DeductionApplication model, CancellationToken token)
     {
-        var existing = await _uow.Context.DeductionApplicationDetails
-         .Where(x => x.ApplicationId == model.Id)
-         .ToListAsync(token);
-
-        foreach (var detail in model.Breakdown)
-        {
-            var match = existing.FirstOrDefault(x => x.Id == detail.Id);
-            if (match != null)
-            {
-                // Update fields
-                match.Date = detail.Date;
-                match.Amount = detail.Amount;
-                match.Balance = detail.Balance;
-                match.Notes = detail.Notes;
-            }
-            else
-            {
-                await _uow.Context.DeductionApplicationDetails.AddAsync(detail, token);
-            }
-        }
-        // remove deleted ones
-        var toRemove = existing.Where(x => !model.Breakdown.Any(d => d.Id == x.Id));
-        _uow.Context.DeductionApplicationDetails.RemoveRange(toRemove);
+        var ids = model.Breakdown.Select(x => x.Id).ToList();
+        var used = await Context.IgnoringConfidentiality<PayrollDeductionDetail>()
+            .Where(x => ids.Contains(x.DeductionApplicationDetailId))
+            .Select(x => x.DeductionApplicationDetailId)
+            .Distinct()
+            .ToListAsync(token);
+        return new LoanScheduleReconciler(used.ToHashSet());
     }
+
+    private Task<DeductionApplication?> LoadTrackedAsync(Guid id, CancellationToken token)
+    {
+        return _uow.Repository.FindAll<DeductionApplication>()
+            .Include(x => x.Breakdown)
+            .FirstOrDefaultAsync(x => x.Id == id, token);
+    }
+
+    // Installments are only ever added through the Breakdown navigation: the loan's Id is still
+    // Guid.Empty here (EF assigns it on Add), so EF fills in DeductionApplicationId itself. This
+    // used to look up "existing" installments by that empty Id -- which matched every other
+    // loan's create-made installments and deleted them all.
     public async Task<DeductionApplication> AddAsync(CreateDeductionApplication payload, ApprovalStatus status,
         CancellationToken token, bool isSelfService = false)
     {
@@ -75,22 +73,11 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
 
         var model = _mapper.Map<DeductionApplication>(payload);
         model.ApprovalStatus = status;
-        foreach (var item in payload.Breakdown)
+        var rows = (payload.Breakdown ?? []).Select(x => new UpdateDeductionApplicationDetail
         {
-            var detail = new DeductionApplicationDetail
-            {
-                Date = item.Date,
-                Interest = item.Interest,
-                Principal = item.Principal,
-                Amount = item.Amount,
-                Balance = item.Amount,
-                ApplicationId = model.Id,
-                DeductionId = model.DeductionId,
-                EmployeeId = model.EmployeeId,
-            };
-            model.Breakdown.Add(detail);
-        }
-        await AddOrDeleteChildAsync(model, token);
+            Date = x.Date, Principal = x.Principal, Interest = x.Interest, Amount = x.Amount,
+        });
+        LoanScheduleReconciler.ForNewLoan.Reconcile(model, model.Breakdown, rows, _ => { });
         await CreateAsync(model, token);
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
             await _approvalEngine.StartAsync(ApprovalApplicationType.Loan, model.Id, model.EmployeeId, token);
@@ -108,45 +95,29 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
     }
 
     // Plain field edit -- never changes ApprovalStatus; only ApproveAsync/DeclineAsync/WithdrawAsync
-    // do. The model below is rebuilt from a payload that carries no status, so without carrying
-    // the stored one across it silently fell back to the entity default (Approved) -- editing a
-    // pending loan approved it with no approver ever involved.
+    // do. The payload carries no status and is mapped onto the stored loan, so the stored status
+    // stays (rebuilding the loan from the payload used to fall back to the entity default,
+    // Approved -- editing a pending loan approved it with no approver involved).
     public async Task<DeductionApplication> UpdateAsync(UpdateDeductionApplication payload,
         CancellationToken token)
     {
-        // Projected, not the entity: the rebuilt model below is what gets attached and saved.
-        var currentStatus = await GetQueryable(x => x.Id == payload.Id)
-            .Select(x => (ApprovalStatus?)x.ApprovalStatus)
-            .FirstOrDefaultAsync(token)
+        var model = await LoadTrackedAsync(payload.Id, token)
             ?? throw new NotFoundException("Record not found");
+        var reconciler = await ReconcilerForAsync(model, token);
+        Guard.EnsureFalse(reconciler.AnyLocked(model.Breakdown) &&
+                          (payload.EmployeeId != model.EmployeeId || payload.DeductionId != model.DeductionId),
+            "The employee or deduction can't be changed: part of this schedule was already deducted in a payroll run.");
 
-        var model = _mapper.Map<DeductionApplication>(payload);
-        model.ApprovalStatus = currentStatus;
-        foreach (var item in payload.Details)
-        {
-            var detail = new DeductionApplicationDetail
-            {
-                Id = item.Id,
-                Date = item.Date,
-                Interest = item.Interest,
-                Principal = item.Principal,
-                Amount = item.Amount,
-                Balance = item.Amount,
-                ApplicationId = model.Id,
-                DeductionId = model.DeductionId,
-                EmployeeId = model.EmployeeId,
-            };
-            model.Breakdown.Add(detail);
-        }
-        await AddOrDeleteChildAsync(model, token);
-        await ModifyAsync(model, token);
+        _mapper.Map(payload, model);
+        await Guard.ModelGuardAsync<DeductionApplication>(CreateValidatorAsync, model, token);
+        reconciler.Reconcile(model, model.Breakdown, payload.Details ?? [], row => _uow.Repository.Remove(row));
 
         // Changed content goes back to the first approver if anyone already signed off.
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
             await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Loan, model.Id, token);
 
         await CommitChangesAsync(token);
-        return model;
+        return (await FineOneAsync(model.Id, token))!;
     }
 
     // Self-service edit: only the caller's own, still-pending loan, and only for a deduction type
@@ -246,22 +217,31 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
 
     public async Task<DeductionApplication?> FineOneAsync(Guid Id, CancellationToken token)
     {
-        return await GetOneReadOnlyAsync(Id, token);
+        return await GetQueryable()
+            .Include(x => x.Breakdown.OrderBy(d => d.RecordOrder).ThenBy(d => d.Date))
+            .FirstOrDefaultAsync(x => x.Id == Id, token);
     }
+
+    // The installments go with the loan. Refused once payroll has touched any of them.
     public async Task DeleteParent(Guid Id, CancellationToken token)
     {
-        await RemoveAsync(Id, token);
-
-        var models = _uow.Repository
-            .Find<DeductionApplicationDetail>(x => x.ApplicationId == Id);
-        _uow.Repository.RemoveRange(models);
+        var model = await LoadTrackedAsync(Id, token);
+        if (model == null) return;
+        var reconciler = await ReconcilerForAsync(model, token);
+        Guard.EnsureFalse(reconciler.AnyLocked(model.Breakdown),
+            "This loan can't be deleted: part of its schedule was already deducted in a payroll run.");
+        foreach (var row in model.Breakdown.ToList())
+            _uow.Repository.Remove(row);
+        _uow.Repository.Remove(model);
         await CommitChangesAsync(token);
-
     }
     public async Task DeleteChildAsync(Guid Id, CancellationToken token)
     {
-        var item = _uow.Repository.FindOne<DeductionApplicationDetail>(Id);
+        var item = await _uow.Repository.FindOneAsync<DeductionApplicationDetail>(Id, token);
         if (item == null) return;
+        var used = await Context.IgnoringConfidentiality<PayrollDeductionDetail>()
+            .AnyAsync(x => x.DeductionApplicationDetailId == Id, token);
+        new LoanScheduleReconciler(used ? new HashSet<Guid> { Id } : new HashSet<Guid>()).EnsureNotLocked(item);
         _uow.Repository.Remove(item);
         await CommitChangesAsync(token);
     }
@@ -286,14 +266,14 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
                 on deduction!.CategoryId equals category.Id into categoryJoin
             from category in categoryJoin.DefaultIfEmpty()
             // Self-service loan applications file ForApproval and must not affect payroll until
-            // an admin approves them — ApplicationId is a required FK so `application == null`
-            // should never actually happen, kept only for consistency with the defensive
-            // null-safety style already used for the deduction/category joins above.
+            // an admin approves them. The loan must exist and be live: allowing a missing parent
+            // let every installment saved with an empty ApplicationId (all create-made ones,
+            // before the single DeductionApplicationId FK) skip this approval gate, and kept a
+            // deleted loan deducting.
             join application in Context.DeductionApplications.AsNoTracking()
-                on detail.ApplicationId equals application.Id into applicationJoin
-            from application in applicationJoin.DefaultIfEmpty()
+                on detail.DeductionApplicationId equals application.Id
             where detail.Date <= toDate && employeeIds.Contains(detail.EmployeeId) && detail.Balance > 0
-                && (application == null || application.ApprovalStatus == ApprovalStatus.Approved)
+                && application.ApprovalStatus == ApprovalStatus.Approved
             select new
             {
                 detail.Id,

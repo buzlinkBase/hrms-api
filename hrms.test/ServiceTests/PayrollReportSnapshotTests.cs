@@ -101,8 +101,8 @@ public class PayrollReportSnapshotTests
             StartDate = new DateOnly(2026, 2, 1), EndDate = new DateOnly(2026, 2, 28),
         });
         seed.OtherIncomeApplicationDetails.AddRange(
-            new OtherIncomeSchedules { Id = Id(210), EmployeeId = Ana, ApplicationId = HazardApp, IncomeId = HazardIncome, Date = new DateOnly(2026, 2, 10), Amount = 50m },
-            new OtherIncomeSchedules { Id = Id(211), EmployeeId = Ana, ApplicationId = HazardApp, IncomeId = HazardIncome, Date = new DateOnly(2026, 3, 10), Amount = 70m });
+            new OtherIncomeSchedules { Id = Id(210), EmployeeId = Ana, OtherIncomeApplicationId = HazardApp, IncomeId = HazardIncome, Date = new DateOnly(2026, 2, 10), Amount = 50m },
+            new OtherIncomeSchedules { Id = Id(211), EmployeeId = Ana, OtherIncomeApplicationId = HazardApp, IncomeId = HazardIncome, Date = new DateOnly(2026, 3, 10), Amount = 70m });
 
         seed.DeductionTypes.Add(new DeductionType { Id = LoanType, Code = "LN", Name = "Loans" });
         seed.Deductions.Add(new Deduction { Id = Loan, CategoryId = LoanType, Code = "SAL", Name = "Salary Loan" });
@@ -112,9 +112,9 @@ public class PayrollReportSnapshotTests
             StartDate = new DateOnly(2026, 1, 1), EndDate = new DateOnly(2026, 3, 31), ProcessBy = "", Note = "", Remarks = "",
         });
         seed.DeductionApplicationDetails.AddRange(
-            new DeductionApplicationDetail { Id = Id(220), EmployeeId = Ana, DeductionId = Loan, ApplicationId = LoanApp, Date = new DateOnly(2026, 1, 15), RecordOrder = 1, Balance = 2000m },
-            new DeductionApplicationDetail { Id = Id(221), EmployeeId = Ana, DeductionId = Loan, ApplicationId = LoanApp, Date = new DateOnly(2026, 1, 31), RecordOrder = 2, Balance = 1000m },
-            new DeductionApplicationDetail { Id = Id(222), EmployeeId = Ana, DeductionId = Loan, ApplicationId = LoanApp, Date = new DateOnly(2026, 2, 15), RecordOrder = 3, Balance = 0m });
+            new DeductionApplicationDetail { Id = Id(220), EmployeeId = Ana, DeductionId = Loan, DeductionApplicationId = LoanApp, Date = new DateOnly(2026, 1, 15), RecordOrder = 1, Balance = 2000m },
+            new DeductionApplicationDetail { Id = Id(221), EmployeeId = Ana, DeductionId = Loan, DeductionApplicationId = LoanApp, Date = new DateOnly(2026, 1, 31), RecordOrder = 2, Balance = 1000m },
+            new DeductionApplicationDetail { Id = Id(222), EmployeeId = Ana, DeductionId = Loan, DeductionApplicationId = LoanApp, Date = new DateOnly(2026, 2, 15), RecordOrder = 3, Balance = 0m });
 
         await seed.SaveChangesAsync();
         return db;

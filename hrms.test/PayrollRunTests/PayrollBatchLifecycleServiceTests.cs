@@ -578,7 +578,7 @@ public class PayrollBatchLifecycleServiceTests
             });
             seed.Add(new DeductionApplicationDetail
             {
-                Id = installmentId, EmployeeId = generator.Id, DeductionId = deductionId, ApplicationId = applicationId,
+                Id = installmentId, EmployeeId = generator.Id, DeductionId = deductionId, DeductionApplicationId = applicationId,
                 Amount = 1000, Balance = 0, Status = "Paid",
             });
             seed.Add(new PayrollDeductionDetail

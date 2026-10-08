@@ -14,5 +14,16 @@ public class OtherIncomeApplicationConfig : IEntityTypeConfiguration<OtherIncome
                 v => v.ToString(),
                 v => EnumParserConfig.SafeParseEnum(v, AllowanceFrequency.SemiMonthly)
             );
+
+        // One FK only. Without this, EF invented a shadow OtherIncomeApplicationId next to the
+        // plain ApplicationId column and the two drifted apart. Restrict: rows are deleted
+        // explicitly by IncomeAplMainService and the parent is only ever soft-deleted. No back
+        // navigation: PayrollsController returns raw schedule rows, and a lazy parent would be
+        // serialized along with them.
+        builder.HasMany(x => x.Schedule)
+            .WithOne()
+            .HasForeignKey(x => x.OtherIncomeApplicationId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
