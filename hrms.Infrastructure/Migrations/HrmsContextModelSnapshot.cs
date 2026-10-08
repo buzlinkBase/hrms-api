@@ -1823,9 +1823,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<Guid>("ApplicationId")
-                        .HasColumnType("char(36)");
-
                     b.Property<decimal>("Balance")
                         .HasColumnType("decimal(65,30)");
 
@@ -1835,7 +1832,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
-                    b.Property<Guid?>("DeductionApplicationId")
+                    b.Property<Guid>("DeductionApplicationId")
                         .HasColumnType("char(36)");
 
                     b.Property<Guid>("DeductionId")
@@ -4118,9 +4115,6 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<Guid>("ApplicationId")
-                        .HasColumnType("char(36)");
-
                     b.Property<Guid?>("ConsumedByPayrollId")
                         .HasColumnType("char(36)");
 
@@ -4149,7 +4143,7 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<Guid?>("OtherIncomeApplicationId")
+                    b.Property<Guid>("OtherIncomeApplicationId")
                         .HasColumnType("char(36)");
 
                     b.Property<string>("Status")
@@ -7108,7 +7102,9 @@ namespace Hrms.Infrastructure.Migrations
                 {
                     b.HasOne("Hrms.Domain.Entities.DeductionApplication", null)
                         .WithMany("Breakdown")
-                        .HasForeignKey("DeductionApplicationId");
+                        .HasForeignKey("DeductionApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DtrLeaveMetaData", b =>
@@ -7460,7 +7456,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasOne("Hrms.Domain.Entities.OtherIncomeApplication", null)
                         .WithMany("Schedule")
-                        .HasForeignKey("OtherIncomeApplicationId");
+                        .HasForeignKey("OtherIncomeApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Income");
                 });
