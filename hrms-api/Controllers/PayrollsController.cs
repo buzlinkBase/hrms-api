@@ -286,20 +286,37 @@ namespace Hrms.Api.Controllers
             return Ok(new { data, total = data.Count });
         }
 
+        // Takes the same filters as the Payroll Summary screen (batch, status, client, payroll
+        // group) so the printout lists exactly the rows on screen. payrollBatchId replaces the
+        // date range the same way it does on Get above.
         [HttpGet("print-summary")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Payroll Summary:Export")]
         public async Task<IActionResult> PrintSummary(
-            [FromQuery] DateTime from,
-            [FromQuery] DateTime to,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
             [FromQuery] Guid? employeeId,
             [FromQuery] Guid? clientId,
             [FromQuery] Guid? payrollGroupId,
+            [FromQuery] Guid? payrollBatchId,
+            [FromQuery] ApprovalStatus? status,
             CancellationToken token)
         {
-            var fromDate = DateOnly.FromDateTime(from);
-            var toDate = DateOnly.FromDateTime(to);
-            var data = await _payrollService.GetAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, null, token);
+            if (payrollBatchId == null && (from == null || to == null))
+                return BadRequest("Provide either a date range (from/to) or a payrollBatchId.");
+
+            var data = await _payrollService.GetAsync(
+                from.HasValue ? DateOnly.FromDateTime(from.Value) : null,
+                to.HasValue ? DateOnly.FromDateTime(to.Value) : null,
+                employeeId, clientId, payrollGroupId, payrollBatchId, token, status);
+            // Header period: the query dates when given, otherwise the selected batch's own period
+            // read off its rows.
+            var fromDate = from.HasValue
+                ? DateOnly.FromDateTime(from.Value)
+                : data.Count > 0 ? data.Min(x => x.PayPeriodStart) : DateOnly.FromDateTime(DateTime.UtcNow);
+            var toDate = to.HasValue
+                ? DateOnly.FromDateTime(to.Value)
+                : data.Count > 0 ? data.Max(x => x.PayPeriodEnd) : fromDate;
             var company = await _companyService.FineOneAsync(token);
             var clientIds = data.Where(x => x.ClientId.HasValue).Select(x => x.ClientId!.Value).ToHashSet();
             var clientNames = await _clientService.FindNamesByIdsAsync(clientIds, token);

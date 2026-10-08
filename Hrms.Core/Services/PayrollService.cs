@@ -454,18 +454,23 @@ public class PayrollService : BaseService<Payroll>
     // payrollBatchId, when given, takes over as the sole date/period filter -- picking an exact
     // run (Payroll Summary's batch selector) instead of a date range avoids ambiguity between
     // overlapping runs of different PayrollTypes (e.g. a Regular and a 13th Month run covering
-    // the same period).
+    // the same period). clientId/payrollGroupId match the row's own snapshot (the assignment it was
+    // paid under), not the employee's current one. status, when given, keeps only rows whose
+    // (batch-level, denormalized) ApprovalStatus matches -- Payroll Summary's Status filter, so the
+    // printout lists exactly what the screen does.
     public async Task<List<Payroll>> GetAsync(
         DateOnly? from, DateOnly? to,
         Guid? employeeId, Guid? clientId, Guid? payrollGroupId, Guid? payrollBatchId,
-        CancellationToken token)
+        CancellationToken token,
+        ApprovalStatus? status = null)
     {
         return await GetQueryable(x =>
                 (payrollBatchId == null || x.PayrollBatchId == payrollBatchId) &&
                 (payrollBatchId != null || (x.PayPeriodStart >= from && x.PayPeriodEnd <= to)) &&
                 (employeeId == null || x.EmployeeId == employeeId) &&
                 (clientId == null || x.ClientId == clientId) &&
-                (payrollGroupId == null || x.PayrollGroupId == payrollGroupId))
+                (payrollGroupId == null || x.PayrollGroupId == payrollGroupId) &&
+                (status == null || x.ApprovalStatus == status))
             .Include(x => x.TimeHourPayResults)
             .OrderByDescending(x => x.PayPeriodStart)
             .ThenBy(x => x.FullName)

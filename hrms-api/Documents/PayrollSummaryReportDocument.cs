@@ -43,14 +43,14 @@ public class PayrollSummaryReportDocument : IDocument
     {
         container.Page(page =>
         {
-            // A1 landscape (rather than A3) — the Client/Payroll Date columns and the four
-            // per-category hour columns (Basic/OT/ND/Holiday) bring this to 23 columns total,
-            // too wide for A3 to stay legible.
+            // A1 landscape (rather than A3) at 8pt -- every Earnings and Deductions figure the
+            // Payroll Summary screen shows is printed (see Columns), 37 columns in all, too wide
+            // for A3 to stay legible.
             page.Size(PageSizes.A1.Landscape());
             page.MarginTop(1.2f, Unit.Centimetre);
             page.MarginBottom(1.2f, Unit.Centimetre);
             page.MarginHorizontal(1.2f, Unit.Centimetre);
-            page.DefaultTextStyle(x => x.FontSize(9).FontColor(TextColor));
+            page.DefaultTextStyle(x => x.FontSize(8).FontColor(TextColor));
 
             page.Header().Element(ComposePageHeader);
             page.Content().PaddingTop(8).Element(ComposeTable);
@@ -193,130 +193,148 @@ public class PayrollSummaryReportDocument : IDocument
     // 2 decimals like every other DTR hours display, so minute-level time shows (62 min OT = 1.03).
     internal static string Hours(decimal v) => v == 0 ? "—" : v.ToString("N2");
 
+    // Same figure as the screen's Earnings "Rest Day" column (payroll-summary.util.ts
+    // restDayTotal): plain Rest Day's own four buckets. The rest-day-plus-holiday categories
+    // live in Holiday instead.
+    internal static decimal RestDayPay(Payroll r) =>
+        r.RestDayPay + r.RestDayOTPay + r.RestDayNDPay + r.RestDayNDOTPay;
+
+    // Same rule as the screen's "Paid Leave" column: FIXED's Basic Pay already covers
+    // company-paid leave days, so only the informational non-company slice is shown for it;
+    // VARIABLE's Basic Pay never includes leave-day pay, so the full amount is shown.
+    internal static decimal PaidLeavePay(Payroll r) =>
+        r.SalaryType == SalaryType.FIXED ? r.NonCompanyPaidLeaves : r.PaidLeaves;
+
+    // Informational, as on the screen's Deductions tab -- already taken out of Basic, not part
+    // of TotalDeductions.
+    internal static decimal LateUndertimeAmount(Payroll r) => r.LateAmount + r.UnderTimeAmount;
+
+    // Scheduled deductions other than loans. Cash Bond is a separate figure, never inside
+    // OtherDeductions (see EmployeePayrollLineService.ComputeDeductions).
+    internal static decimal OtherDeductionsExcludingLoans(Payroll r) => r.OtherDeductions - r.TotalLoans;
+
+    private enum ColumnKind { Text, Hours, Money }
+
+    // One entry per printed column, in print order. The header, every data row and the TOTAL
+    // row are all built from this list, so a column can't be added to one and missed in the
+    // others. Mirrors the screen's Earnings and Deductions & Net tabs.
+    private sealed record ReportColumn(
+        string Header,
+        float Width,
+        ColumnKind Kind,
+        Func<Payroll, decimal>? Amount = null,
+        Func<Payroll, string>? Label = null,
+        bool Muted = false,
+        bool Emphasis = false);
+
+    internal IReadOnlyList<string> ColumnHeaders => Columns().Select(x => x.Header).ToList();
+
+    private IReadOnlyList<ReportColumn> Columns() => new ReportColumn[]
+    {
+        new("Employee", 2.2f, ColumnKind.Text, Label: r => r.FullName),
+        new("Client", 1.6f, ColumnKind.Text, Label: ClientNameFor, Muted: true),
+        new("Payroll Date", 1.3f, ColumnKind.Text, Label: r => r.PayrollDate.ToString("MMM dd, yyyy"), Muted: true),
+
+        // Earnings
+        new("Basic Hrs", 0.7f, ColumnKind.Hours, BasicHours, Muted: true),
+        new("Basic", 1, ColumnKind.Money, BasicPay),
+        new("OT Hrs", 0.7f, ColumnKind.Hours, OtHours, Muted: true),
+        new("OT", 1, ColumnKind.Money, OtPay),
+        new("ND Hrs", 0.7f, ColumnKind.Hours, NdHours, Muted: true),
+        new("ND", 1, ColumnKind.Money, NdPay),
+        // Always shown, in both OT/ND modes. Under Additive this pay is already folded into the
+        // OT/ND columns above, so it is informational there.
+        new("NDOT", 1, ColumnKind.Money, r => r.NightDifferentialOTPay),
+        new("Holiday Hrs", 0.7f, ColumnKind.Hours, HolidayHours, Muted: true),
+        new("Holiday", 1, ColumnKind.Money, HolidayPay),
+        new("Rest Day", 1, ColumnKind.Money, RestDayPay),
+        new("Paid Leave", 1, ColumnKind.Money, PaidLeavePay),
+        new("COLA", 1, ColumnKind.Money, r => r.Cola),
+        new("Allow.", 1, ColumnKind.Money, r => r.TotalRegularAllowances),
+        new("Bonuses", 1, ColumnKind.Money, r => r.TotalBonuses),
+        new("Commissions", 1, ColumnKind.Money, r => r.TotalCommissions),
+        new("De Minimis", 1, ColumnKind.Money, r => r.TotalDeminimises),
+        new("Other Inc.", 1, ColumnKind.Money, r => r.TotalOtherIncome),
+        new("1x Payout (Co)", 1, ColumnKind.Money, r => r.CompanyFundedLeavePay),
+        new("1x Payout (Gov)", 1, ColumnKind.Money, r => r.GovernmentFundedLeavePay),
+        new("Reimb.", 1, ColumnKind.Money, r => r.Reimbursement),
+        new("Gross", 1.1f, ColumnKind.Money, r => r.GrossIncome, Emphasis: true),
+        // Informational, excluded from Gross and Net.
+        new("Ret. Accrual", 1, ColumnKind.Money, r => r.RetirementAccrual, Muted: true),
+
+        // Deductions & Net
+        new("SSS", 1, ColumnKind.Money, r => r.SSSContribution),
+        new("PhilHealth", 1, ColumnKind.Money, r => r.PhilHealthContribution),
+        new("Pag-IBIG", 1, ColumnKind.Money, r => r.PagIbigContribution),
+        new("W-Tax", 1, ColumnKind.Money, r => r.WithholdingTax),
+        new("Cash Bond", 1, ColumnKind.Money, r => r.CashBondDeduction),
+        new("Loans", 1, ColumnKind.Money, r => r.TotalLoans),
+        new("Other Ded.", 1, ColumnKind.Money, OtherDeductionsExcludingLoans),
+        new("Total Ded.", 1.1f, ColumnKind.Money, r => r.TotalDeductions, Emphasis: true),
+        new("Late/UT", 1, ColumnKind.Money, LateUndertimeAmount, Muted: true),
+        new("Absent", 1, ColumnKind.Money, r => r.AbsencesAmount, Muted: true),
+        // Last Pay only -- the cashed-out Retirement Fund balance, added straight to Net.
+        new("Ret. Payout", 1, ColumnKind.Money, r => r.RetirementPayout),
+        new("Net Pay", 1.2f, ColumnKind.Money, r => r.NetPay, Emphasis: true),
+    };
+
+    private static string Money(decimal v) => v.ToString("N2");
+
+    private static string Format(ReportColumn col, decimal v) =>
+        col.Kind == ColumnKind.Hours ? Hours(v) : Money(v);
+
     void ComposeTable(IContainer c)
     {
-        static string Money(decimal v) => v.ToString("N2");
+        var columns = Columns();
 
         c.Table(table =>
         {
             table.ColumnsDefinition(cols =>
             {
-                cols.RelativeColumn(2.2f); // Employee
-                cols.RelativeColumn(1.6f); // Client
-                cols.RelativeColumn(1.3f); // Payroll Date
-                cols.RelativeColumn(0.8f); // Basic Hrs
-                cols.RelativeColumn(1);    // Basic
-                cols.RelativeColumn(0.8f); // OT Hrs
-                cols.RelativeColumn(1);    // OT
-                cols.RelativeColumn(0.8f); // ND Hrs
-                cols.RelativeColumn(1);    // ND
-                cols.RelativeColumn(1);    // NDOT
-                cols.RelativeColumn(0.8f); // Holiday Hrs
-                cols.RelativeColumn(1);    // Holiday
-                cols.RelativeColumn(1);    // Allowances
-                cols.RelativeColumn(1);    // Other Income
-                cols.RelativeColumn(1);    // One-Time Payout (Company)
-                cols.RelativeColumn(1);    // One-Time Payout (Government)
-                cols.RelativeColumn(1.1f); // Gross
-                cols.RelativeColumn(1);    // SSS
-                cols.RelativeColumn(1);    // PhilHealth
-                cols.RelativeColumn(1);    // Pag-IBIG
-                cols.RelativeColumn(1);    // W-Tax
-                cols.RelativeColumn(1);    // Loans
-                cols.RelativeColumn(1);    // Other Ded
-                cols.RelativeColumn(1.2f); // Net Pay
+                foreach (var col in columns)
+                    cols.RelativeColumn(col.Width);
             });
 
             static IContainer HeaderCell(IContainer c) =>
                 c.Background(TableHeaderBg).Padding(3);
             static IContainer DataCell(IContainer c) =>
                 c.BorderBottom(1).BorderColor("#eeeeee").Padding(3);
+            static IContainer TotalCell(IContainer c) =>
+                c.BorderTop(1).BorderColor(BorderColor).Padding(3);
 
             table.Header(header =>
             {
-                header.Cell().Element(HeaderCell).Text("Employee").Bold();
-                header.Cell().Element(HeaderCell).Text("Client").Bold();
-                header.Cell().Element(HeaderCell).Text("Payroll Date").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Basic Hrs").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Basic").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("OT Hrs").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("OT").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("ND Hrs").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("ND").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("NDOT").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Holiday Hrs").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Holiday").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Allow.").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Other Inc.").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("1x Payout (Co)").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("1x Payout (Gov)").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Gross").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("SSS").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("PhilHealth").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Pag-IBIG").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("W-Tax").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Loans").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Other Ded.").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Net Pay").Bold();
+                foreach (var col in columns)
+                {
+                    var cell = header.Cell().Element(HeaderCell);
+                    if (col.Kind != ColumnKind.Text) cell = cell.AlignRight();
+                    cell.Text(col.Header).Bold();
+                }
             });
 
             foreach (var r in _rows)
             {
-                table.Cell().Element(DataCell).Text(r.FullName);
-                table.Cell().Element(DataCell).Text(ClientNameFor(r)).FontColor(LabelColor);
-                table.Cell().Element(DataCell).Text(r.PayrollDate.ToString("MMM dd, yyyy")).FontColor(LabelColor);
-                table.Cell().Element(DataCell).AlignRight().Text(Hours(BasicHours(r))).FontColor(LabelColor);
-                table.Cell().Element(DataCell).AlignRight().Text(Money(BasicPay(r)));
-                table.Cell().Element(DataCell).AlignRight().Text(Hours(OtHours(r))).FontColor(LabelColor);
-                table.Cell().Element(DataCell).AlignRight().Text(Money(OtPay(r)));
-                table.Cell().Element(DataCell).AlignRight().Text(Hours(NdHours(r))).FontColor(LabelColor);
-                table.Cell().Element(DataCell).AlignRight().Text(Money(NdPay(r)));
-                // Always shown, in both OT/ND modes. Under Additive this pay is already folded into the
-                // OT/ND columns above, so it is informational there.
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.NightDifferentialOTPay));
-                table.Cell().Element(DataCell).AlignRight().Text(Hours(HolidayHours(r))).FontColor(LabelColor);
-                table.Cell().Element(DataCell).AlignRight().Text(Money(HolidayPay(r)));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.TotalRegularAllowances));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.TotalOtherIncome));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.CompanyFundedLeavePay));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.GovernmentFundedLeavePay));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.GrossIncome)).Bold();
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.SSSContribution));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.PhilHealthContribution));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.PagIbigContribution));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.WithholdingTax));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.TotalLoans));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.OtherDeductions - r.TotalLoans));
-                table.Cell().Element(DataCell).AlignRight().Text(Money(r.NetPay)).Bold().FontColor(Primary);
+                foreach (var col in columns)
+                {
+                    var cell = table.Cell().Element(DataCell);
+                    if (col.Kind != ColumnKind.Text) cell = cell.AlignRight();
+                    var text = cell.Text(col.Kind == ColumnKind.Text ? col.Label!(r) : Format(col, col.Amount!(r)));
+                    if (col.Muted) text.FontColor(LabelColor);
+                    if (col.Emphasis) text.Bold().FontColor(Primary);
+                }
             }
 
-            static IContainer TotalCell(IContainer c) =>
-                c.BorderTop(1).BorderColor(BorderColor).Padding(3);
-
-            table.Cell().Element(TotalCell).Text("TOTAL").Bold();
-            table.Cell().Element(TotalCell).Text("");
-            table.Cell().Element(TotalCell).Text("");
-            table.Cell().Element(TotalCell).AlignRight().Text(Hours(_rows.Sum(BasicHours))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(BasicPay))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Hours(_rows.Sum(OtHours))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(OtPay))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Hours(_rows.Sum(NdHours))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(NdPay))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.NightDifferentialOTPay))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Hours(_rows.Sum(HolidayHours))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(HolidayPay))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.TotalRegularAllowances))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.TotalOtherIncome))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.CompanyFundedLeavePay))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.GovernmentFundedLeavePay))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.GrossIncome))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.SSSContribution))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.PhilHealthContribution))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.PagIbigContribution))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.WithholdingTax))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.TotalLoans))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.OtherDeductions - r.TotalLoans))).Bold();
-            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.NetPay))).Bold().FontColor(Primary);
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var col = columns[i];
+                var cell = table.Cell().Element(TotalCell);
+                if (col.Kind == ColumnKind.Text)
+                {
+                    cell.Text(i == 0 ? "TOTAL" : "").Bold();
+                    continue;
+                }
+                cell.AlignRight().Text(Format(col, _rows.Sum(col.Amount!))).Bold().FontColor(Primary);
+            }
         });
     }
 }

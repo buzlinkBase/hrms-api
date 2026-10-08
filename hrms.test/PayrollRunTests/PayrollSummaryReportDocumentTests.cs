@@ -142,4 +142,46 @@ public class PayrollSummaryReportDocumentTests
         PayrollSummaryReportDocument.BasicHours(fixedRow).Should().Be(0);
         PayrollSummaryReportDocument.BasicHours(variableRow).Should().Be(96);
     }
+
+    [Fact]
+    public void RestDayPay_SumsPlainRestDaysFourBuckets_LikeTheScreensRestDayColumn()
+    {
+        var row = new Payroll { RestDayPay = 100m, RestDayOTPay = 20m, RestDayNDPay = 5m, RestDayNDOTPay = 2m };
+
+        PayrollSummaryReportDocument.RestDayPay(row).Should().Be(127m);
+    }
+
+    [Fact]
+    public void PaidLeavePay_ShowsOnlyTheNonCompanySliceForFixed_AndTheFullAmountForVariable()
+    {
+        var fixedRow = new Payroll { SalaryType = SalaryType.FIXED, PaidLeaves = 1000m, NonCompanyPaidLeaves = 300m };
+        var variableRow = new Payroll { SalaryType = SalaryType.VARIABLE, PaidLeaves = 1000m, NonCompanyPaidLeaves = 300m };
+
+        PayrollSummaryReportDocument.PaidLeavePay(fixedRow).Should().Be(300m);
+        PayrollSummaryReportDocument.PaidLeavePay(variableRow).Should().Be(1000m);
+    }
+
+    [Fact]
+    public void OtherDeductions_ExcludeLoans_AndLateUndertimeCombinesBoth()
+    {
+        var row = new Payroll { OtherDeductions = 800m, TotalLoans = 500m, LateAmount = 40m, UnderTimeAmount = 15m };
+
+        PayrollSummaryReportDocument.OtherDeductionsExcludingLoans(row).Should().Be(300m);
+        PayrollSummaryReportDocument.LateUndertimeAmount(row).Should().Be(55m);
+    }
+
+    [Fact]
+    public void Columns_IncludeEveryFigureTheScreenShows()
+    {
+        var doc = new PayrollSummaryReportDocument(new List<Payroll>(), new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15));
+
+        doc.ColumnHeaders.Should().Contain(new[]
+        {
+            "Rest Day", "Paid Leave", "COLA", "Bonuses", "Commissions", "De Minimis", "Reimb.",
+            "Ret. Accrual", "Cash Bond", "Total Ded.", "Late/UT", "Absent", "Ret. Payout",
+        });
+        doc.ColumnHeaders.Should().OnlyHaveUniqueItems();
+        doc.ColumnHeaders[0].Should().Be("Employee");
+        doc.ColumnHeaders[^1].Should().Be("Net Pay");
+    }
 }
