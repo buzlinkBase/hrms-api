@@ -6086,6 +6086,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<double>("MinimumWorkMinutes")
                         .HasColumnType("double");
 
+                    b.Property<double?>("NightDiffThreshold")
+                        .HasColumnType("double");
+
                     b.Property<bool>("OTRequireTimeIn")
                         .HasColumnType("tinyint(1)");
 
