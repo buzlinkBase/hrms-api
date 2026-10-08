@@ -266,8 +266,12 @@ public class MappingProfile : IRegister
         config.NewConfig<UpdateOtherIncome, OtherIncomeType>();
         config.NewConfig<OtherIncomeType, OtherIncomeTypeModel>();
 
-        config.NewConfig<CreateOtherIncomeApplication, OtherIncomeApplication>();
-        config.NewConfig<UpdateOtherIncomeApplication, OtherIncomeApplication>();
+        // Schedule rows are built by IncomeAplMainService (it stamps ApplicationId/IncomeId/
+        // EmployeeId); letting Mapster copy them too inserts duplicate rows with an empty IncomeId.
+        config.NewConfig<CreateOtherIncomeApplication, OtherIncomeApplication>()
+            .Ignore(dest => dest.Schedule);
+        config.NewConfig<UpdateOtherIncomeApplication, OtherIncomeApplication>()
+            .Ignore(dest => dest.Schedule);
         config.NewConfig<OtherIncomeApplication, OtherIncomeApplicationModel>();
 
         config.NewConfig<CreateOtherIncomeSchedule, OtherIncomeSchedules>();
