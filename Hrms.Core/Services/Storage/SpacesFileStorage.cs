@@ -82,6 +82,39 @@ public class SpacesFileStorage : IFileStorage
         // S3 deletes are idempotent: removing a missing object succeeds.
         _s3.DeleteObjectAsync(_options.Bucket, ObjectKey(key), token);
 
+    public async Task<int> DeleteByPrefixAsync(string prefix, CancellationToken token = default)
+    {
+        if (!StorageKeys.IsCompanyFolder(prefix))
+            throw new ArgumentException($"\"{prefix}\" isn't a company folder.", nameof(prefix));
+
+        var objectPrefix = ObjectKey(prefix.TrimEnd('/')) + "/";
+        var deleted = 0;
+        string? continuationToken = null;
+        do
+        {
+            var page = await _s3.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = _options.Bucket,
+                Prefix = objectPrefix,
+                ContinuationToken = continuationToken,
+            }, token);
+
+            // DeleteObjects takes up to 1000 keys, the most a listing page returns.
+            if (page.S3Objects is { Count: > 0 })
+            {
+                await _s3.DeleteObjectsAsync(new DeleteObjectsRequest
+                {
+                    BucketName = _options.Bucket,
+                    Objects = page.S3Objects.Select(o => new KeyVersion { Key = o.Key }).ToList(),
+                    Quiet = true,
+                }, token);
+                deleted += page.S3Objects.Count;
+            }
+            continuationToken = page.IsTruncated == true ? page.NextContinuationToken : null;
+        } while (continuationToken != null);
+        return deleted;
+    }
+
     public async Task<Uri?> GetDownloadUrlAsync(string key, string? downloadFileName = null, CancellationToken token = default)
     {
         var request = new GetPreSignedUrlRequest

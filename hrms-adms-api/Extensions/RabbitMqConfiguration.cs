@@ -17,6 +17,8 @@ public static class RabbitMqConfiguration
             x.AddConsumer<SetEmployeeWorker, DeviceCommandWorkerDefination>();
             // Evicts cached entitlements when an account's subscription changes.
             x.AddConsumer<SubscriptionChangedWorker, SubscriptionChangedWorkerDefinition>();
+            // Removes a locked company's devices, device users and biometric templates -- Tenant Service's data purge.
+            x.AddConsumer<PurgeCompanyDataWorker, PurgeCompanyDataWorkerDefinition>();
             x.AddEntityFrameworkOutbox<AdmsContext>(o =>
             {
                 o.UseMySql();

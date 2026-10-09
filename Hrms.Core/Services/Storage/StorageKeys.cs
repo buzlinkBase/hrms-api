@@ -36,6 +36,36 @@ public static partial class StorageKeys
     public static string TenantPrefix(Guid tenantId) => $"tenants/{tenantId:D}/";
 
     /// <summary>
+    /// Where a company's compliance archive is kept once its data is removed from the live databases.
+    /// Deliberately not under <see cref="TenantPrefix"/>: deleting the company's files must never
+    /// delete its archive.
+    /// </summary>
+    public static string ArchivePrefix(Guid tenantId) => $"archives/{tenantId:D}/";
+
+    /// <summary>A key for a new archive file of <paramref name="tenantId"/>.</summary>
+    public static string ForArchive(Guid tenantId, string fileName)
+    {
+        if (tenantId == Guid.Empty)
+            throw new ArgumentException("An archive must belong to a company.", nameof(tenantId));
+        return $"{ArchivePrefix(tenantId)}{SafeFileName(fileName)}";
+    }
+
+    /// <summary>
+    /// Whether <paramref name="prefix"/> is exactly one company's folder -- <c>tenants/{id}/</c> or
+    /// <c>archives/{id}/</c>. Deleting by prefix is only ever allowed on these, so a bad prefix can
+    /// never empty the whole bucket or another company's folder.
+    /// </summary>
+    public static bool IsCompanyFolder(string? prefix)
+    {
+        if (string.IsNullOrWhiteSpace(prefix) || !prefix.EndsWith('/')) return false;
+        var parts = prefix.TrimEnd('/').Split('/');
+        return parts.Length == 2
+            && parts[0] is "tenants" or "archives"
+            && Guid.TryParseExact(parts[1], "D", out var id)
+            && id != Guid.Empty;
+    }
+
+    /// <summary>
     /// Whether <paramref name="key"/> is a well-formed key of <paramref name="tenantId"/> -- check
     /// this before acting on a key that came from a request, never trust it as-is.
     /// </summary>

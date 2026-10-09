@@ -1,6 +1,7 @@
 ﻿using Hrms.Core.Messaging;
 using Hrms.Core.Messaging.Announcements;
 using Hrms.Core.Messaging.DailyBenefits;
+using Hrms.Core.Messaging.DataPurge;
 using Hrms.Core.Messaging.BenefitWorkers;
 using Hrms.Core.Messaging.Filter;
 using Hrms.Core.Messaging.LeaveWorkers;
@@ -52,6 +53,8 @@ public static class RabbitMqConfiguration
             x.AddConsumer<DailyBenefitsWorker, DailyBenefitsWorkerDefinition>();
             // Calculate DTR "Save Draft" for a whole cutoff, outside the HTTP request -- see DtrDraftSaveService.
             x.AddConsumer<SaveDtrDraftWorker, SaveDtrDraftWorkerDefinition>();
+            // Archives and removes a locked company's data -- asked by Tenant Service's data purge.
+            x.AddConsumer<PurgeCompanyDataWorker, PurgeCompanyDataWorkerDefinition>();
             // Evicts cached entitlements when an account's subscription changes.
             x.AddConsumer<Messaging.Subscriptions.SubscriptionChangedWorker, Messaging.Subscriptions.SubscriptionChangedWorkerDefinition>();
             x.AddEntityFrameworkOutbox<HrmsContext>(o =>

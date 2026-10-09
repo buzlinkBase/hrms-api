@@ -23,6 +23,8 @@ public static class LibServicesRegistrations
         services.AddScoped<Services.Security.ConfidentialAccessScope>();
         services.AddScoped<IConfidentialAccess>(sp => sp.GetRequiredService<Services.Security.ConfidentialAccessScope>());
         Messaging.DailyBenefits.DailyBenefitsRegistration.AddDailyBenefits(services);
+        // Archive-then-delete of a locked company's data -- one ICompanyPurgeStep per link of the chain.
+        Services.DataPurge.CompanyDataPurgeRegistration.AddCompanyDataPurge(services);
         // Subscription plan limits -- one counter per limit this service owns (see PlanLimitGuard).
         services.AddScoped<Services.Subscriptions.ILimitUsageCounter, Services.Subscriptions.ActiveEmployeeCounter>();
         services.AddScoped<Services.Subscriptions.IPlanLimitGuard, Services.Subscriptions.PlanLimitGuard>();

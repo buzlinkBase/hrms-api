@@ -25,6 +25,13 @@ public interface IFileStorage
     Task DeleteAsync(string key, CancellationToken token = default);
 
     /// <summary>
+    /// Removes every file in one company's folder (<see cref="StorageKeys.TenantPrefix"/> or
+    /// <see cref="StorageKeys.ArchivePrefix"/>) and returns how many there were. Refuses any other
+    /// prefix, so it can't be pointed at the whole bucket; does nothing when the folder is empty.
+    /// </summary>
+    Task<int> DeleteByPrefixAsync(string prefix, CancellationToken token = default);
+
+    /// <summary>
     /// A link the browser can download the file from for a short time, saved as
     /// <paramref name="downloadFileName"/> when given. Null when this storage can't hand out links
     /// (local disk) -- stream <see cref="OpenReadAsync"/> from an endpoint instead.

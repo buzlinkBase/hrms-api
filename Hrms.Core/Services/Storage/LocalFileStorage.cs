@@ -57,6 +57,18 @@ public class LocalFileStorage : IFileStorage
         return Task.CompletedTask;
     }
 
+    public Task<int> DeleteByPrefixAsync(string prefix, CancellationToken token = default)
+    {
+        if (!StorageKeys.IsCompanyFolder(prefix))
+            throw new ArgumentException($"\"{prefix}\" isn't a company folder.", nameof(prefix));
+
+        var folder = PathOf(prefix.TrimEnd('/'));
+        if (!Directory.Exists(folder)) return Task.FromResult(0);
+        var count = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Count();
+        Directory.Delete(folder, recursive: true);
+        return Task.FromResult(count);
+    }
+
     public Task<Uri?> GetDownloadUrlAsync(string key, string? downloadFileName = null, CancellationToken token = default) =>
         Task.FromResult<Uri?>(null);
 }
