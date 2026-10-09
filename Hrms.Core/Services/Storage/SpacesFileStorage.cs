@@ -115,6 +115,29 @@ public class SpacesFileStorage : IFileStorage
         return deleted;
     }
 
+    public async Task<long> GetPrefixSizeAsync(string prefix, CancellationToken token = default)
+    {
+        if (!StorageKeys.IsCompanyFolder(prefix))
+            throw new ArgumentException($"\"{prefix}\" isn't a company folder.", nameof(prefix));
+
+        var objectPrefix = ObjectKey(prefix.TrimEnd('/')) + "/";
+        long total = 0;
+        string? continuationToken = null;
+        do
+        {
+            var page = await _s3.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = _options.Bucket,
+                Prefix = objectPrefix,
+                ContinuationToken = continuationToken,
+            }, token);
+
+            total += page.S3Objects?.Sum(o => o.Size ?? 0) ?? 0;
+            continuationToken = page.IsTruncated == true ? page.NextContinuationToken : null;
+        } while (continuationToken != null);
+        return total;
+    }
+
     public async Task<Uri?> GetDownloadUrlAsync(string key, string? downloadFileName = null, CancellationToken token = default)
     {
         var request = new GetPreSignedUrlRequest

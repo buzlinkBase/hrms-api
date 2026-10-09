@@ -44,6 +44,8 @@ public static class StorageServiceCollectionExtensions
         }
         // Shows stored logos and photos (signed links, or inline images on local disk).
         services.AddSingleton<ImageUrlResolver>();
+        // How much each company has stored -- what the plan's storage limit is checked against.
+        services.AddSingleton<IStorageUsageMeter, StorageUsageMeter>();
         return services;
     }
 }

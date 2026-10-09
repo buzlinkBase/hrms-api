@@ -63,6 +63,7 @@ public class CompanyDataPurgeTests : IDisposable
         public Task<bool> ExistsAsync(string key, CancellationToken token = default) => inner.ExistsAsync(key, token);
         public Task DeleteAsync(string key, CancellationToken token = default) => inner.DeleteAsync(key, token);
         public Task<int> DeleteByPrefixAsync(string prefix, CancellationToken token = default) => inner.DeleteByPrefixAsync(prefix, token);
+        public Task<long> GetPrefixSizeAsync(string prefix, CancellationToken token = default) => inner.GetPrefixSizeAsync(prefix, token);
         public Task<Uri?> GetDownloadUrlAsync(string key, string? downloadFileName = null, CancellationToken token = default) =>
             inner.GetDownloadUrlAsync(key, downloadFileName, token);
     }

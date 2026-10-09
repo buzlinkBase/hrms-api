@@ -32,6 +32,13 @@ public interface IFileStorage
     Task<int> DeleteByPrefixAsync(string prefix, CancellationToken token = default);
 
     /// <summary>
+    /// The total size in bytes of every file in one company's folder (<see cref="StorageKeys.TenantPrefix"/>
+    /// or <see cref="StorageKeys.ArchivePrefix"/>); 0 when the folder is empty. Refuses any other prefix.
+    /// What the storage plan limit is measured against -- see <c>StorageUsageMeter</c>.
+    /// </summary>
+    Task<long> GetPrefixSizeAsync(string prefix, CancellationToken token = default);
+
+    /// <summary>
     /// A link the browser can download the file from for a short time, saved as
     /// <paramref name="downloadFileName"/> when given. Null when this storage can't hand out links
     /// (local disk) -- stream <see cref="OpenReadAsync"/> from an endpoint instead.

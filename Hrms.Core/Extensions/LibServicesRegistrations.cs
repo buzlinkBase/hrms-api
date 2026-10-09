@@ -27,6 +27,7 @@ public static class LibServicesRegistrations
         Services.DataPurge.CompanyDataPurgeRegistration.AddCompanyDataPurge(services);
         // Subscription plan limits -- one counter per limit this service owns (see PlanLimitGuard).
         services.AddScoped<Services.Subscriptions.ILimitUsageCounter, Services.Subscriptions.ActiveEmployeeCounter>();
+        services.AddScoped<Services.Subscriptions.IStorageQuotaGuard, Services.Subscriptions.StorageQuotaGuard>();
         services.AddScoped<Services.Subscriptions.IPlanLimitGuard, Services.Subscriptions.PlanLimitGuard>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.
