@@ -14,6 +14,7 @@ public class OrganizationImageService
 {
     public const string LogoArea = "company-logo";
     public const string PhotoArea = "employee-photos";
+    public const string ClientLogoArea = "client-logos";
 
     private readonly IUnitOfWorkService _uow;
     private readonly IFileStorage _storage;
@@ -65,6 +66,25 @@ public class OrganizationImageService
         await DeleteQuietlyAsync(previous, token);
     }
 
+    /// <summary>Stores a new logo for the client and returns a link to show it.</summary>
+    public async Task<string> SetClientLogoAsync(Guid clientId, Stream upload, long? length, string? fileName, CancellationToken token)
+    {
+        var client = await FindClientAsync(clientId, token);
+        var key = await ReplaceAsync(ClientLogoArea, upload, length, fileName ?? "logo", client.LogoKey,
+            newKey => client.LogoKey = newKey, token);
+        return await _urls.DisplayUrlAsync(key, token);
+    }
+
+    public async Task RemoveClientLogoAsync(Guid clientId, CancellationToken token)
+    {
+        var client = await FindClientAsync(clientId, token);
+        if (client.LogoKey == null) return;
+        var previous = client.LogoKey;
+        client.LogoKey = null;
+        await _uow.CommitChangesAsync("", token);
+        await DeleteQuietlyAsync(previous, token);
+    }
+
     // Upload first, then save the key: a failed save deletes the new file again, and the old one
     // is only deleted once nothing points at it any more.
     private async Task<string> ReplaceAsync(
@@ -98,6 +118,10 @@ public class OrganizationImageService
     private async Task<Hrms.Domain.Entities.EmployeeEntities.Employee> FindEmployeeAsync(Guid employeeId, CancellationToken token) =>
         await _uow.Context.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, token)
         ?? throw new NotFoundException("Employee not found.");
+
+    private async Task<Client> FindClientAsync(Guid clientId, CancellationToken token) =>
+        await _uow.Context.Clients.FirstOrDefaultAsync(c => c.Id == clientId, token)
+        ?? throw new NotFoundException("Client not found.");
 
     private async Task<Company> FindOrCreateCompanyAsync(CancellationToken token)
     {

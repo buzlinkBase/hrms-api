@@ -9,6 +9,9 @@ public class Client : BaseEntity
     public string Address { get; set; } = string.Empty;
     public string ContactPerson { get; set; } = string.Empty;
 
+    // File-storage key of the client's logo (tenants/{companyId}/client-logos/…); null = none.
+    public string? LogoKey { get; set; }
+
     // Setup > Client > Settings > Allowances. Null = this client doesn't give the benefit.
     // Directly-targetable fields rather than an open-ended catalog -- there are only ever these
     // two, and each has its own fixed, non-generic behavior (see below), so a generic

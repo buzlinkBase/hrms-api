@@ -1,5 +1,7 @@
 using BuzlinkRepository;
+using Hrms.Core.Services;
 using Hrms.Core.Services.Storage;
+using Hrms.Domain.ValueObjects;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Infrastructure;
@@ -217,6 +219,63 @@ public class OrganizationImageServiceTests : IDisposable
             await new CompanyService(new UnitOfWorkService(context)).SaveAsync(new CreateCompany { Description = "Acme Inc." }, default);
 
         (await StoredLogoAsync()).Should().Be($"tenants/{Company}/company-logo/x.png");
+    }
+
+    private async Task<Client> SeedClientAsync(string? logoKey = null)
+    {
+        var client = new Client { Id = Guid.NewGuid(), Code = "ACME", Name = "Acme", LogoKey = logoKey };
+        await using var seed = _db.NewContext();
+        seed.Clients.Add(client);
+        await seed.SaveChangesAsync();
+        return client;
+    }
+
+    private async Task<string?> StoredClientLogoAsync(Guid clientId)
+    {
+        await using var read = _db.NewContext();
+        return (await read.Clients.AsNoTracking().SingleAsync(c => c.Id == clientId)).LogoKey;
+    }
+
+    [Fact]
+    public async Task AClientLogo_IsStoredReplacedAndRemoved()
+    {
+        var acme = await SeedClientAsync();
+
+        var url = await WithServiceAsync(s => s.SetClientLogoAsync(acme.Id, new MemoryStream(ImageUploadsTests.Png), 12, "acme logo.png", default));
+        var first = await StoredClientLogoAsync(acme.Id);
+        first.Should().StartWith($"tenants/{Company}/client-logos/").And.EndWith("-acme-logo.png");
+        url.Should().StartWith("data:image/png;base64,");
+
+        await WithServiceAsync(s => s.SetClientLogoAsync(acme.Id, new MemoryStream(ImageUploadsTests.Png), 12, "v2.png", default));
+        var second = await StoredClientLogoAsync(acme.Id);
+        File.Exists(FileOf(first!)).Should().BeFalse();
+        File.Exists(FileOf(second!)).Should().BeTrue();
+
+        await WithServiceAsync(async s => { await s.RemoveClientLogoAsync(acme.Id, default); return true; });
+        (await StoredClientLogoAsync(acme.Id)).Should().BeNull();
+        File.Exists(FileOf(second!)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AClientLogo_ForAnUnknownClient_IsNotFound()
+    {
+        var act = () => WithServiceAsync(s => s.SetClientLogoAsync(Guid.NewGuid(), new MemoryStream(ImageUploadsTests.Png), 12, "x.png", default));
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        Directory.Exists(_root).Should().BeFalse("nothing was stored");
+    }
+
+    [Fact]
+    public async Task SavingAClient_KeepsTheLogo()
+    {
+        var key = $"tenants/{Company}/client-logos/2026/10/abc-acme.png";
+        var acme = await SeedClientAsync(key);
+
+        await using (var context = _db.NewContext())
+            await new ClientService(new UnitOfWorkService(context)).UpdateAsync(
+                new UpdateClient { Id = acme.Id, Code = "ACME", Name = "Acme Inc." }, default);
+
+        (await StoredClientLogoAsync(acme.Id)).Should().Be(key);
     }
 
     [Fact]

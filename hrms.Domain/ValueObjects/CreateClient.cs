@@ -21,4 +21,7 @@ public class UpdateClient : CreateClient
 
 public class ClientModel : UpdateClient
 {
+    // Display link resolved from Client.LogoKey. Response-only: it is not on UpdateClient, so a
+    // PUT can never overwrite the stored logo.
+    public string? LogoUrl { get; set; }
 }
