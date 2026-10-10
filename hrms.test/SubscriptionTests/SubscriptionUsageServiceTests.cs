@@ -46,6 +46,33 @@ public class SubscriptionUsageServiceTests
     }
 
     [Fact]
+    public async Task ActiveEmployeeCounter_AddsUpTheAccountsCompanies_AndNoOthers()
+    {
+        var outsider = Guid.NewGuid();
+        using var db = new SqliteHrmsContext();
+        await using (var seed = db.NewContext())
+        {
+            var groupA = new PayrollGroup { Id = Guid.NewGuid(), TenantId = CompanyA, Name = "A" };
+            var groupB = new PayrollGroup { Id = Guid.NewGuid(), TenantId = CompanyB, Name = "B" };
+            var groupO = new PayrollGroup { Id = Guid.NewGuid(), TenantId = outsider, Name = "O" };
+            seed.PayrollGroups.AddRange(groupA, groupB, groupO);
+            seed.Employees.AddRange(
+                new Employee { Id = Guid.NewGuid(), TenantId = CompanyA, PayrollGroupId = groupA.Id, EmploymentStatus = EmploymentStatus.Regular },
+                new Employee { Id = Guid.NewGuid(), TenantId = CompanyA, PayrollGroupId = groupA.Id, EmploymentStatus = EmploymentStatus.Resigned },
+                new Employee { Id = Guid.NewGuid(), TenantId = CompanyA, PayrollGroupId = groupA.Id, EmploymentStatus = EmploymentStatus.Regular, DeletedAt = DateTime.UtcNow },
+                new Employee { Id = Guid.NewGuid(), TenantId = CompanyB, PayrollGroupId = groupB.Id, EmploymentStatus = EmploymentStatus.Contract },
+                new Employee { Id = Guid.NewGuid(), TenantId = outsider, PayrollGroupId = groupO.Id, EmploymentStatus = EmploymentStatus.Regular });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var counter = new ActiveEmployeeCounter(new UnitOfWorkService(context));
+
+        (await counter.CountAsync([CompanyA, CompanyB], CancellationToken.None)).Should().Be(2);
+        (await counter.CountAsync([CompanyA], CancellationToken.None)).Should().Be(1);
+    }
+
+    [Fact]
     public async Task NoCompanies_NothingToCount()
     {
         using var db = new SqliteHrmsContext();

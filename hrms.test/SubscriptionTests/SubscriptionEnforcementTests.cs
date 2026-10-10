@@ -213,8 +213,42 @@ public class PlanLimitGuardTests
     {
         var counter = Substitute.For<ILimitUsageCounter>();
         counter.LimitKey.Returns(EntitlementKeys.EmployeesMax);
-        counter.CountAsync(Arg.Any<CancellationToken>()).Returns(used);
+        counter.CountAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(used);
         return new PlanLimitGuard(Snapshots.Provider(snapshot), Snapshots.Tenant(), [counter]);
+    }
+
+    [Fact]
+    public async Task CountsEveryCompanyOfTheAccount_NotJustTheCurrentOne()
+    {
+        var other = Guid.NewGuid();
+        var counter = Substitute.For<ILimitUsageCounter>();
+        counter.LimitKey.Returns(EntitlementKeys.EmployeesMax);
+        counter.CountAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(100);
+        var snapshot = Snapshots.With(employeesMax: 100) with { AccountTenantIds = [Snapshots.Company, other] };
+
+        var act = () => new PlanLimitGuard(Snapshots.Provider(snapshot), Snapshots.Tenant(), [counter])
+            .EnsureCanAddAsync(EntitlementKeys.EmployeesMax, 1, default);
+
+        await act.Should().ThrowAsync<PlanRestrictionException>();
+        await counter.Received(1).CountAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 2 && ids.Contains(Snapshots.Company) && ids.Contains(other)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TheCurrentCompany_IsCounted_EvenWhenTheSnapshotPredatesIt()
+    {
+        var other = Guid.NewGuid();
+        var counter = Substitute.For<ILimitUsageCounter>();
+        counter.LimitKey.Returns(EntitlementKeys.EmployeesMax);
+        var snapshot = Snapshots.With(employeesMax: 100) with { AccountTenantIds = [other] };
+
+        await new PlanLimitGuard(Snapshots.Provider(snapshot), Snapshots.Tenant(), [counter])
+            .EnsureCanAddAsync(EntitlementKeys.EmployeesMax, 1, default);
+
+        await counter.Received(1).CountAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(Snapshots.Company) && ids.Contains(other)),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -251,7 +285,7 @@ public class PlanLimitGuardTests
 
         await guard.EnsureCanAddAsync(EntitlementKeys.EmployeesMax, 1000, default);
 
-        await counter.DidNotReceive().CountAsync(Arg.Any<CancellationToken>());
+        await counter.DidNotReceive().CountAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
