@@ -48,8 +48,9 @@ public class SubscriptionUsageService
                 .Select(c => c.TenantId), token),
         };
 
-        // Storage is in whole megabytes (storage.max_mb). If it can't be measured the key is left out,
-        // so Tenant Service shows it as unknown rather than as zero.
+        // Storage is in whole megabytes (storage.max_mb), reported per company; Tenant Service adds a
+        // whole account's companies together against its one limit. If it can't be measured the key is
+        // left out, so it shows as unknown rather than as zero.
         var storageMb = await TryMeasureStorageAsync(tenantIds, token);
 
         return tenantIds

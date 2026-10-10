@@ -4,9 +4,10 @@ using Onepunch.Common.Lib.Subscriptions;
 namespace Hrms.Core.Services.Subscriptions;
 
 /// <summary>
-/// Refuses storing a file the company has no room for (throws <see cref="PlanRestrictionException"/>).
+/// Refuses storing a file the account has no room for (throws <see cref="PlanRestrictionException"/>).
 /// Every code path that puts a file into <see cref="IFileStorage"/> asks this first, then reports what
-/// it stored: <c>storage.max_mb</c> is the plan's base capacity plus any storage blocks bought.
+/// it stored. <c>storage.max_mb</c> is the plan's base capacity plus any storage blocks bought, and it is
+/// one pool for the whole account: every company the owner has counts against it together.
 /// </summary>
 public interface IStorageQuotaGuard
 {
@@ -29,12 +30,17 @@ public sealed class StorageQuotaGuard(IEntitlementProvider entitlements, IStorag
         if (snapshot.IsReadOnly) throw PlanRestrictionException.ReadOnly();
         if (snapshot.LimitOf(EntitlementKeys.StorageMaxMb) is not { } limitMb) return;
 
+        // Every company of the account shares the limit; this one is counted even if the snapshot predates it.
+        IReadOnlyCollection<Guid> pool = snapshot.AccountTenantIds.Contains(tenantId)
+            ? snapshot.AccountTenantIds
+            : [.. snapshot.AccountTenantIds, tenantId];
+
         var limitBytes = limitMb * StorageUsageMeter.BytesPerMb;
-        var used = await meter.GetBytesAsync(tenantId, token: token);
+        var used = await meter.GetTotalBytesAsync(pool, token: token);
         if (used + bytes <= limitBytes) return;
 
         // The tally can be stale (another instance stored or deleted files): measure before refusing.
-        used = await meter.GetBytesAsync(tenantId, fresh: true, token: token);
+        used = await meter.GetTotalBytesAsync(pool, fresh: true, token: token);
         if (used + bytes <= limitBytes) return;
 
         throw PlanRestrictionException.LimitReached(
@@ -48,7 +54,7 @@ public sealed class StorageQuotaGuard(IEntitlementProvider entitlements, IStorag
     private static int ToMb(long bytes) => (int)Math.Min(int.MaxValue, (bytes + StorageUsageMeter.BytesPerMb - 1) / StorageUsageMeter.BytesPerMb);
 
     private static string Message(long limitBytes, long usedBytes, long adding) =>
-        $"This file needs {Size(adding)}, but your company has only {Size(Math.Max(0, limitBytes - usedBytes))} of storage left " +
+        $"This file needs {Size(adding)}, but your account has only {Size(Math.Max(0, limitBytes - usedBytes))} of storage left across all your companies " +
         $"({Size(usedBytes)} of {Size(limitBytes)} used). Buy additional storage blocks in Billing, or delete files you no longer need, to continue.";
 
     private static string Size(long bytes) => bytes switch

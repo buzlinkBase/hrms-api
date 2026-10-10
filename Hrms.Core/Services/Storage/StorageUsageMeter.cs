@@ -8,7 +8,10 @@ public interface IStorageUsageMeter
     /// <summary>The company's stored bytes. A recent measurement is reused unless <paramref name="fresh"/>.</summary>
     Task<long> GetBytesAsync(Guid tenantId, bool fresh = false, CancellationToken token = default);
 
-    /// <summary>Whole megabytes (rounded up) for each company, as the plan limit counts them.</summary>
+    /// <summary>Several companies' bytes added together -- what an account's one storage pool is measured by.</summary>
+    Task<long> GetTotalBytesAsync(IReadOnlyCollection<Guid> tenantIds, bool fresh = false, CancellationToken token = default);
+
+    /// <summary>Whole megabytes (rounded up) for each company; Tenant Service adds them up per account.</summary>
     Task<Dictionary<Guid, int>> GetMegabytesAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken token = default);
 
     /// <summary>A file of <paramref name="bytes"/> was just stored for the company.</summary>
@@ -42,6 +45,14 @@ public sealed class StorageUsageMeter(IFileStorage storage, TimeProvider? clock 
         var bytes = await storage.GetPrefixSizeAsync(StorageKeys.TenantPrefix(tenantId), token);
         _cache[tenantId] = (bytes, Now);
         return bytes;
+    }
+
+    public async Task<long> GetTotalBytesAsync(IReadOnlyCollection<Guid> tenantIds, bool fresh = false, CancellationToken token = default)
+    {
+        long total = 0;
+        foreach (var tenantId in tenantIds.Distinct())
+            total += await GetBytesAsync(tenantId, fresh, token);
+        return total;
     }
 
     public async Task<Dictionary<Guid, int>> GetMegabytesAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken token = default)

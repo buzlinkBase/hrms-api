@@ -31,9 +31,10 @@ public class StorageQuotaTests : IDisposable
     private async Task StoreAsync(string key, long bytes) =>
         await Storage.UploadAsync(new FileUpload(key, new MemoryStream(new byte[bytes]), "application/octet-stream"));
 
-    private static EntitlementSnapshot SnapshotWith(int? storageMb, bool readOnly = false) => new()
+    private static EntitlementSnapshot SnapshotWith(int? storageMb, bool readOnly = false, params Guid[] accountCompanies) => new()
     {
         TenantId = Company,
+        AccountTenantIds = accountCompanies.Length == 0 ? [Company] : [.. accountCompanies],
         Status = readOnly ? "Expired" : "Active",
         AccessMode = readOnly ? SubscriptionAccessMode.ReadOnly : SubscriptionAccessMode.Full,
         Limits = EntitlementKeys.Limits.ToDictionary(k => k, k => k == EntitlementKeys.StorageMaxMb ? storageMb ?? EntitlementKeys.Unlimited : EntitlementKeys.Unlimited),
@@ -198,13 +199,59 @@ public class StorageQuotaTests : IDisposable
     public async Task ARefusal_IsDoubleCheckedAgainstAFreshMeasurement()
     {
         var meter = Substitute.For<IStorageUsageMeter>();
-        meter.GetBytesAsync(Company, false, Arg.Any<CancellationToken>()).Returns(9 * Mb);   // stale: files were deleted elsewhere
-        meter.GetBytesAsync(Company, true, Arg.Any<CancellationToken>()).Returns(1 * Mb);
+        meter.GetTotalBytesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), false, Arg.Any<CancellationToken>()).Returns(9 * Mb);   // stale: files were deleted elsewhere
+        meter.GetTotalBytesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), true, Arg.Any<CancellationToken>()).Returns(1 * Mb);
         var guard = GuardFor(SnapshotWith(10), meter);
 
         await guard.EnsureCanStoreAsync(Company, 5 * Mb, default);
 
-        await meter.Received(1).GetBytesAsync(Company, true, Arg.Any<CancellationToken>());
+        await meter.Received(1).GetTotalBytesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Storage_IsOnePool_ForEveryCompanyOfTheAccount()
+    {
+        await StoreAsync($"tenants/{Company}/x/1.bin", 4 * Mb);
+        await StoreAsync($"tenants/{Other}/x/2.bin", 5 * Mb);
+        var guard = GuardFor(SnapshotWith(10, accountCompanies: [Company, Other]), new StorageUsageMeter(Storage));
+
+        await guard.EnsureCanStoreAsync(Company, Mb, default);
+
+        var tooBig = () => guard.EnsureCanStoreAsync(Company, Mb + 1, default);
+        var error = (await tooBig.Should().ThrowAsync<PlanRestrictionException>()).Which;
+        error.Extensions["used"].Should().Be(9, "4 MB here plus 5 MB in the account's other company");
+        error.Message.Should().Contain("across all your companies");
+    }
+
+    [Fact]
+    public async Task AnotherAccountsFiles_DoNotCountAgainstThePool()
+    {
+        var stranger = Guid.NewGuid();
+        await StoreAsync($"tenants/{stranger}/x/1.bin", 50 * Mb);
+        var guard = GuardFor(SnapshotWith(10), new StorageUsageMeter(Storage));
+
+        await guard.EnsureCanStoreAsync(Company, 9 * Mb, default);
+    }
+
+    [Fact]
+    public async Task TheCurrentCompany_IsCounted_EvenWhenTheSnapshotPredatesIt()
+    {
+        await StoreAsync($"tenants/{Company}/x/1.bin", 9 * Mb);
+        var snapshot = SnapshotWith(10) with { AccountTenantIds = [Other] };
+        var guard = GuardFor(snapshot, new StorageUsageMeter(Storage));
+
+        var act = () => guard.EnsureCanStoreAsync(Company, 2 * Mb, default);
+
+        await act.Should().ThrowAsync<PlanRestrictionException>();
+    }
+
+    [Fact]
+    public async Task Meter_AddsSeveralCompaniesTogether()
+    {
+        await StoreAsync($"tenants/{Company}/x/1.bin", 2 * Mb);
+        await StoreAsync($"tenants/{Other}/x/2.bin", 3 * Mb);
+
+        (await new StorageUsageMeter(Storage).GetTotalBytesAsync([Company, Other, Company])).Should().Be(5 * Mb, "a company is counted once");
     }
 
     [Fact]
