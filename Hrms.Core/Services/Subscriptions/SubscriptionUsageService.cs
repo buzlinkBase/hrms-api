@@ -1,3 +1,4 @@
+using Hrms.Core.Services.Storage;
 using Onepunch.Common.Lib.Subscriptions;
 
 namespace Hrms.Core.Services.Subscriptions;
@@ -11,10 +12,12 @@ namespace Hrms.Core.Services.Subscriptions;
 public class SubscriptionUsageService
 {
     private readonly IUnitOfWorkService _uow;
+    private readonly IStorageUsageMeter? _storage;
 
-    public SubscriptionUsageService(IUnitOfWorkService uow)
+    public SubscriptionUsageService(IUnitOfWorkService uow, IStorageUsageMeter? storage = null)
     {
         _uow = uow;
+        _storage = storage;
     }
 
     public async Task<List<CompanyUsage>> GetUsageAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken token)
@@ -45,13 +48,33 @@ public class SubscriptionUsageService
                 .Select(c => c.TenantId), token),
         };
 
+        // Storage is in whole megabytes (storage.max_mb), reported per company; Tenant Service adds a
+        // whole account's companies together against its one limit. If it can't be measured the key is
+        // left out, so it shows as unknown rather than as zero.
+        var storageMb = await TryMeasureStorageAsync(tenantIds, token);
+
         return tenantIds
-            .Select(tenantId => new CompanyUsage
+            .Select(tenantId =>
             {
-                TenantId = tenantId,
-                Used = counts.ToDictionary(kv => kv.Key, kv => kv.Value.GetValueOrDefault(tenantId)),
+                var used = counts.ToDictionary(kv => kv.Key, kv => kv.Value.GetValueOrDefault(tenantId));
+                if (storageMb != null) used[EntitlementKeys.StorageMaxMb] = storageMb.GetValueOrDefault(tenantId);
+                return new CompanyUsage { TenantId = tenantId, Used = used };
             })
             .ToList();
+    }
+
+    private async Task<Dictionary<Guid, int>?> TryMeasureStorageAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken token)
+    {
+        if (_storage == null) return null;
+        try
+        {
+            return await _storage.GetMegabytesAsync(tenantIds, token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Warning(ex, "Couldn't measure file storage for {Count} company(ies)", tenantIds.Count);
+            return null;
+        }
     }
 
     private static Task<Dictionary<Guid, int>> CountAsync(IQueryable<Guid> tenantIdsPerRow, CancellationToken token) =>

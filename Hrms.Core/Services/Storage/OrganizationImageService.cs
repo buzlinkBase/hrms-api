@@ -1,3 +1,4 @@
+using Hrms.Core.Services.Subscriptions;
 using Hrms.Domain.Entities;
 using Onepunch.Common.Lib.Exceptions;
 
@@ -20,13 +21,17 @@ public class OrganizationImageService
     private readonly IFileStorage _storage;
     private readonly ITenantProvider _tenantProvider;
     private readonly ImageUrlResolver _urls;
+    private readonly IStorageQuotaGuard? _quota;
 
-    public OrganizationImageService(IUnitOfWorkService uow, IFileStorage storage, ITenantProvider tenantProvider, ImageUrlResolver urls)
+    public OrganizationImageService(
+        IUnitOfWorkService uow, IFileStorage storage, ITenantProvider tenantProvider, ImageUrlResolver urls,
+        IStorageQuotaGuard? quota = null)
     {
         _uow = uow;
         _storage = storage;
         _tenantProvider = tenantProvider;
         _urls = urls;
+        _quota = quota;
     }
 
     /// <summary>Stores a new photo for the employee and returns a link to show it.</summary>
@@ -99,7 +104,13 @@ public class OrganizationImageService
         {
             var name = Path.GetFileNameWithoutExtension(fileName) + ImageUploads.ExtensionFor(contentType);
             var key = StorageKeys.ForNewFile(tenantId, area, name);
+            // The plan's storage limit: refuse here, before anything is stored, with a message that
+            // says to buy storage blocks. (The previous file is only deleted afterwards, so a swap
+            // briefly needs room for both.)
+            var size = content.CanSeek ? content.Length : length ?? 0;
+            if (_quota != null) await _quota.EnsureCanStoreAsync(tenantId, size, token);
             await _storage.UploadAsync(new FileUpload(key, content, contentType), token);
+            _quota?.Stored(tenantId, size);
             try
             {
                 point(key);
@@ -143,6 +154,7 @@ public class OrganizationImageService
         try
         {
             await _storage.DeleteAsync(key!, token);
+            _quota?.Removed(_tenantProvider.TenantId);
         }
         catch (Exception ex)
         {

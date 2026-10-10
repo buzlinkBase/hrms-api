@@ -69,6 +69,17 @@ public class LocalFileStorage : IFileStorage
         return Task.FromResult(count);
     }
 
+    public Task<long> GetPrefixSizeAsync(string prefix, CancellationToken token = default)
+    {
+        if (!StorageKeys.IsCompanyFolder(prefix))
+            throw new ArgumentException($"\"{prefix}\" isn't a company folder.", nameof(prefix));
+
+        var folder = PathOf(prefix.TrimEnd('/'));
+        if (!Directory.Exists(folder)) return Task.FromResult(0L);
+        var size = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
+        return Task.FromResult(size);
+    }
+
     public Task<Uri?> GetDownloadUrlAsync(string key, string? downloadFileName = null, CancellationToken token = default) =>
         Task.FromResult<Uri?>(null);
 }
