@@ -29,6 +29,7 @@ public static class LibServicesRegistrations
         services.AddScoped<Services.Subscriptions.ILimitUsageCounter, Services.Subscriptions.ActiveEmployeeCounter>();
         services.AddScoped<Services.Subscriptions.IStorageQuotaGuard, Services.Subscriptions.StorageQuotaGuard>();
         services.AddScoped<Services.Subscriptions.IPlanLimitGuard, Services.Subscriptions.PlanLimitGuard>();
+        services.AddScoped<Services.Subscriptions.IAttendanceSourceGuard, Services.Subscriptions.AttendanceSourceGuard>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.
         services.AddSingleton<ICalculator<AllowancePipeData, PayrollContext>, AllowancesCalculator>();

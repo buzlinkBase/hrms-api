@@ -2,14 +2,20 @@
 using DTR.Core;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Core.Services.Subscriptions;
 using Polly;
 
 namespace Hrms.Core.Services;
 
 public class AttendanceService : BaseService<Attendance>
 {
-    public AttendanceService(IUnitOfWorkService uow) : base(uow)
+    private readonly IAttendanceSourceGuard? _sourceGuard;
+
+    /// <param name="sourceGuard">Refuses logs from a source the company's plan doesn't include (mobile
+    /// attendance). Supplied by DI; omitted only where a plan check is not wanted (unit tests).</param>
+    public AttendanceService(IUnitOfWorkService uow, IAttendanceSourceGuard? sourceGuard = null) : base(uow)
     {
+        _sourceGuard = sourceGuard;
     }
 
     public async Task Update(UpdateAttendance model, CancellationToken token)
@@ -28,6 +34,10 @@ public class AttendanceService : BaseService<Attendance>
         {
             return;
         }
+
+        // Before anything is deleted or stored: a batch holding a log from a source the plan lacks is refused whole.
+        if (_sourceGuard != null)
+            await _sourceGuard.EnsureAllowedAsync(attendances.Select(x => x.LogSource), token);
 
         var uniqueRecordKeys = attendances
              .GroupBy(x => new { x.BioId, x.EmployeeId, x.WorkDateTime })
