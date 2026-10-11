@@ -186,6 +186,37 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
             .ToList();
     }
 
+    // Payroll Summary's per-type "Other Income" columns, for many payrolls in one query. Same
+    // source and bypasses as GetPayslipLinesAsync, but only the IncomeClassType.Others types:
+    // the other classes have their own Payroll Summary columns (Allowances, Bonuses, ...), and
+    // the "Other Income" column is Payroll.TotalOtherIncome.
+    public async Task<Dictionary<Guid, List<PayrollBreakdownItem>>> GetOtherIncomeItemsAsync(
+        List<Guid> payrollIds, CancellationToken token)
+    {
+        if (payrollIds.Count == 0) return new();
+
+        var rows = await (
+            from row in Context.IgnoringConfidentiality<OtherIncomeSchedules>()
+            join income in Context.Allowances.IgnoreQueryFilters()
+                on row.IncomeId equals income.Id into incomeJoin
+            from income in incomeJoin.DefaultIfEmpty()
+            where row.ConsumedByPayrollId != null && payrollIds.Contains(row.ConsumedByPayrollId.Value)
+                && (income == null || income.IncomeClass == IncomeClassType.Others)
+            select new { PayrollId = row.ConsumedByPayrollId!.Value, row.IncomeId, Name = income != null ? income.Name : null, row.Amount })
+            .AsNoTracking()
+            .ToListAsync(token);
+
+        return rows
+            .GroupBy(x => x.PayrollId)
+            .ToDictionary(g => g.Key, g => g
+                .GroupBy(x => x.IncomeId)
+                .Select(t => new PayrollBreakdownItem(
+                    t.Key,
+                    string.IsNullOrWhiteSpace(t.First().Name) ? "Other Income" : t.First().Name!,
+                    t.Sum(x => x.Amount)))
+                .ToList());
+    }
+
     // Loads the specific rows HR confirmed in the Last Pay review step — re-checks
     // ConsumedByPayrollId == null so a row consumed by something else between the review
     // screen loading and Generate being clicked is silently skipped rather than re-applied.

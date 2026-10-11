@@ -1,9 +1,11 @@
 using BuzlinkRepository;
+using Hrms.Domain.ValueObjects;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Hrms.Domain.Entities;
 
 [DisableSoftDelete]
-public class Payroll : BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, ICompensationRecord
+public class Payroll: BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, ICompensationRecord
 {
     public string BatchCode { get; set; } = string.Empty;
     public DateOnly PayPeriodStart { get; set; }
@@ -267,6 +269,11 @@ public class Payroll : BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, I
     // Balance by these amounts. A draft that's regenerated or deleted before posting never
     // touches Balance.
     public virtual List<PayrollDeductionDetail> DeductionCollection { get; set; } = new();
+    // Read-side only (never persisted, never a Mapster source/target by name): this payroll's
+    // withheld deductions and paid Other Income per type, attached by
+    // PayrollService.AttachBreakdownsAsync for the Payroll Summary list and print-out.
+    [NotMapped] public List<PayrollBreakdownItem> DeductionItems { get; set; } = new();
+    [NotMapped] public List<PayrollBreakdownItem> IncomeItems { get; set; } = new();
     public bool IsPosted { get; set; }
     // Setup > Payslip/13th Month/Last Pay > Received by Employee — set once the employee
     // confirms receipt of this row's document in the Employee Portal (MeController.

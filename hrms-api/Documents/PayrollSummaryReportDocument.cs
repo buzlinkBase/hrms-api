@@ -1,5 +1,6 @@
 using Hrms.Api.Documents.Shared;
 using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -44,8 +45,8 @@ public class PayrollSummaryReportDocument : IDocument
         container.Page(page =>
         {
             // A1 landscape (rather than A3) at 8pt -- every Earnings and Deductions figure the
-            // Payroll Summary screen shows is printed (see Columns), 37 columns in all, too wide
-            // for A3 to stay legible.
+            // Payroll Summary screen shows is printed (see Columns), 37+ columns (more with a
+            // column per deduction / Other Income type), too wide for A3 to stay legible.
             page.Size(PageSizes.A1.Landscape());
             page.MarginTop(1.2f, Unit.Centimetre);
             page.MarginBottom(1.2f, Unit.Centimetre);
@@ -229,8 +230,38 @@ public class PayrollSummaryReportDocument : IDocument
 
     internal IReadOnlyList<string> ColumnHeaders => Columns().Select(x => x.Header).ToList();
 
-    private IReadOnlyList<ReportColumn> Columns() => new ReportColumn[]
+    // Per-type columns for one breakdown (deduction or Other Income types): the union of types
+    // across every printed row, A-Z by name, one column each, followed by a "(Adj.)" column for
+    // whatever the row's total holds beyond its itemized types (Salary Adjustments, or payrolls
+    // saved before items were recorded) -- only when some row has such a remainder, so a clean
+    // run prints no empty column. The caller adds the subtotal column that follows.
+    private IEnumerable<ReportColumn> ItemColumns(
+        Func<Payroll, List<PayrollBreakdownItem>> items,
+        Func<PayrollBreakdownItem, bool> include,
+        Func<Payroll, decimal> total,
+        string remainderHeader)
     {
+        var types = _rows
+            .SelectMany(r => items(r).Where(include))
+            .GroupBy(x => x.ItemId)
+            .Select(g => (Id: g.Key, g.First().Label))
+            .OrderBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var (id, label) in types)
+        {
+            var itemId = id;
+            yield return new(label, 1, ColumnKind.Money,
+                r => items(r).Where(x => x.ItemId == itemId && include(x)).Sum(x => x.Amount));
+        }
+
+        decimal Remainder(Payroll r) => total(r) - items(r).Where(include).Sum(x => x.Amount);
+        if (_rows.Any(r => Math.Abs(Remainder(r)) >= 0.005m))
+            yield return new(remainderHeader, 1, ColumnKind.Money, Remainder, Muted: true);
+    }
+
+    private IReadOnlyList<ReportColumn> Columns() =>
+    [
         new("Employee", 2.2f, ColumnKind.Text, Label: r => r.FullName),
         new("Client", 1.6f, ColumnKind.Text, Label: ClientNameFor, Muted: true),
         new("Payroll Date", 1.3f, ColumnKind.Text, Label: r => r.PayrollDate.ToString("MMM dd, yyyy"), Muted: true),
@@ -254,6 +285,8 @@ public class PayrollSummaryReportDocument : IDocument
         new("Bonuses", 1, ColumnKind.Money, r => r.TotalBonuses),
         new("Commissions", 1, ColumnKind.Money, r => r.TotalCommissions),
         new("De Minimis", 1, ColumnKind.Money, r => r.TotalDeminimises),
+        // One column per Other Income type, then the total -- mirrors the screen's expanded group.
+        .. ItemColumns(r => r.IncomeItems, _ => true, r => r.TotalOtherIncome, "Other Inc. (Adj.)"),
         new("Other Inc.", 1, ColumnKind.Money, r => r.TotalOtherIncome),
         new("1x Payout (Co)", 1, ColumnKind.Money, r => r.CompanyFundedLeavePay),
         new("1x Payout (Gov)", 1, ColumnKind.Money, r => r.GovernmentFundedLeavePay),
@@ -268,7 +301,10 @@ public class PayrollSummaryReportDocument : IDocument
         new("Pag-IBIG", 1, ColumnKind.Money, r => r.PagIbigContribution),
         new("W-Tax", 1, ColumnKind.Money, r => r.WithholdingTax),
         new("Cash Bond", 1, ColumnKind.Money, r => r.CashBondDeduction),
+        // One column per loan type and per other-deduction type, each followed by its total.
+        .. ItemColumns(r => r.DeductionItems, x => x.IsLoan, r => r.TotalLoans, "Loans (Adj.)"),
         new("Loans", 1, ColumnKind.Money, r => r.TotalLoans),
+        .. ItemColumns(r => r.DeductionItems, x => !x.IsLoan, OtherDeductionsExcludingLoans, "Other Ded. (Adj.)"),
         new("Other Ded.", 1, ColumnKind.Money, OtherDeductionsExcludingLoans),
         new("Total Ded.", 1.1f, ColumnKind.Money, r => r.TotalDeductions, Emphasis: true),
         new("Late/UT", 1, ColumnKind.Money, LateUndertimeAmount, Muted: true),
@@ -276,7 +312,7 @@ public class PayrollSummaryReportDocument : IDocument
         // Last Pay only -- the cashed-out Retirement Fund balance, added straight to Net.
         new("Ret. Payout", 1, ColumnKind.Money, r => r.RetirementPayout),
         new("Net Pay", 1.2f, ColumnKind.Money, r => r.NetPay, Emphasis: true),
-    };
+    ];
 
     private static string Money(decimal v) => v.ToString("N2");
 

@@ -170,6 +170,67 @@ public class PayrollSummaryReportDocumentTests
         PayrollSummaryReportDocument.LateUndertimeAmount(row).Should().Be(55m);
     }
 
+    private static PayrollSummaryReportDocument DocFor(params Payroll[] rows) =>
+        new(rows.ToList(), new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15));
+
+    [Fact]
+    public void Columns_AddOnePerDeductionAndOtherIncomeType_AcrossEmployees_BeforeEachTotal()
+    {
+        var sssLoan = Guid.NewGuid();
+        var dues = Guid.NewGuid();
+        var bonus = Guid.NewGuid();
+        var ana = new Payroll
+        {
+            TotalLoans = 500m, OtherDeductions = 500m, TotalOtherIncome = 100m,
+            DeductionItems = [new(sssLoan, "SSS Loan", 500m, IsLoan: true)],
+            IncomeItems = [new(bonus, "Perfect Attendance", 100m)],
+        };
+        var ben = new Payroll
+        {
+            TotalLoans = 0m, OtherDeductions = 80m, TotalOtherIncome = 0m,
+            DeductionItems = [new(dues, "Union Dues", 80m)],
+        };
+
+        var headers = DocFor(ana, ben).ColumnHeaders;
+
+        // Union across employees, each type once, sitting just before its subtotal; no remainder column.
+        headers.Should().ContainInOrder("SSS Loan", "Loans", "Union Dues", "Other Ded.");
+        headers.Should().ContainInOrder("Perfect Attendance", "Other Inc.");
+        headers.Should().NotContain(h => h.EndsWith("(Adj.)"));
+        headers.Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public void Columns_AddAnAdjustmentsColumn_OnlyWhenATotalExceedsItsItems()
+    {
+        var dues = Guid.NewGuid();
+        // 80 itemized + 20 from a Salary Adjustment deduction, which has no per-type item.
+        var row = new Payroll
+        {
+            OtherDeductions = 100m, TotalLoans = 0m,
+            DeductionItems = [new(dues, "Union Dues", 80m)],
+        };
+
+        DocFor(row).ColumnHeaders.Should().ContainInOrder("Union Dues", "Other Ded. (Adj.)", "Other Ded.");
+        DocFor(row).ColumnHeaders.Should().NotContain("Loans (Adj.)");
+    }
+
+    [Fact]
+    public void Columns_SplitLoansFromOtherDeductions_ByIsLoan()
+    {
+        var row = new Payroll
+        {
+            TotalLoans = 300m, OtherDeductions = 380m,
+            DeductionItems =
+            [
+                new(Guid.NewGuid(), "Pag-IBIG Loan", 300m, IsLoan: true),
+                new(Guid.NewGuid(), "Union Dues", 80m),
+            ],
+        };
+
+        DocFor(row).ColumnHeaders.Should().ContainInOrder("Pag-IBIG Loan", "Loans", "Union Dues", "Other Ded.");
+    }
+
     [Fact]
     public void Columns_IncludeEveryFigureTheScreenShows()
     {

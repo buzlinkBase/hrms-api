@@ -60,6 +60,15 @@ namespace Hrms.Api.Controllers
             _clientService = clientService;
         }
 
+        // The Payroll Summary's per-item Deductions / Other Income columns (list response and
+        // print-out share it, so screen and PDF can't drift).
+        private async Task AttachBreakdownsAsync(List<Payroll> data, IncomeAplDtlService otherIncomeService, CancellationToken token)
+        {
+            await _payrollService.AttachDeductionItemsAsync(data, token);
+            PayrollService.AttachIncomeItems(
+                data, await otherIncomeService.GetOtherIncomeItemsAsync(data.Select(x => x.Id).ToList(), token));
+        }
+
         // Looks up batchId's actual run type and checks the caller holds "{run type}:{action}"
         // -- mirrors WorkSchedulePlansController.ValidateTeamScopeAsync's shape (internal, takes
         // an explicit ClaimsPrincipal, returns null on success or the IActionResult to
@@ -275,6 +284,7 @@ namespace Hrms.Api.Controllers
             [FromQuery] Guid? clientId,
             [FromQuery] Guid? payrollGroupId,
             [FromQuery] Guid? payrollBatchId,
+            [FromServices] IncomeAplDtlService otherIncomeService,
             CancellationToken token)
         {
             if (payrollBatchId == null && (from == null || to == null))
@@ -283,6 +293,7 @@ namespace Hrms.Api.Controllers
             var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : (DateOnly?)null;
             var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : (DateOnly?)null;
             var data = await _payrollService.GetForListAsync(fromDate, toDate, employeeId, clientId, payrollGroupId, payrollBatchId, token);
+            await AttachBreakdownsAsync(data, otherIncomeService, token);
             return Ok(new { data, total = data.Count });
         }
 
@@ -300,6 +311,7 @@ namespace Hrms.Api.Controllers
             [FromQuery] Guid? payrollGroupId,
             [FromQuery] Guid? payrollBatchId,
             [FromQuery] ApprovalStatus? status,
+            [FromServices] IncomeAplDtlService otherIncomeService,
             CancellationToken token)
         {
             if (payrollBatchId == null && (from == null || to == null))
@@ -309,6 +321,7 @@ namespace Hrms.Api.Controllers
                 from.HasValue ? DateOnly.FromDateTime(from.Value) : null,
                 to.HasValue ? DateOnly.FromDateTime(to.Value) : null,
                 employeeId, clientId, payrollGroupId, payrollBatchId, token, status);
+            await AttachBreakdownsAsync(data, otherIncomeService, token);
             // Header period: the query dates when given, otherwise the selected batch's own period
             // read off its rows.
             var fromDate = from.HasValue

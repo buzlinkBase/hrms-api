@@ -493,5 +493,61 @@ public class PayrollService : BaseService<Payroll>
         Uow.Context.ChangeTracker.LazyLoadingEnabled = false;
         return data;
     }
+
+    /// <summary>
+    /// Fills each payroll's <see cref="Payroll.DeductionItems"/> from the installments it
+    /// withheld (PayrollDeductionDetails), one row per deduction type, for the Payroll Summary's
+    /// per-item Loans / Other Deductions columns. One query for the whole list. A deduction type
+    /// deleted since still prints its name; a payroll with no detail rows (older runs, or only
+    /// Salary Adjustments) keeps an empty list and the totals on the row cover it.
+    /// </summary>
+    public async Task AttachDeductionItemsAsync(List<Payroll> payrolls, CancellationToken token)
+    {
+        if (payrolls.Count == 0) return;
+        var ids = payrolls.Select(x => x.Id).ToList();
+
+        var rows = await (
+            from detail in Context.PayrollDeductionDetails.AsNoTracking()
+            join deduction in Context.Deductions.IgnoreQueryFilters().AsNoTracking()
+                on detail.DeductionId equals deduction.Id into deductionJoin
+            from deduction in deductionJoin.DefaultIfEmpty()
+            join category in Context.DeductionTypes.IgnoreQueryFilters().AsNoTracking()
+                on deduction!.CategoryId equals category.Id into categoryJoin
+            from category in categoryJoin.DefaultIfEmpty()
+            where ids.Contains(detail.PayrollId)
+            select new
+            {
+                detail.PayrollId,
+                detail.DeductionId,
+                Name = deduction != null ? deduction.Name : null,
+                CategoryCode = category != null ? category.Code : null,
+                detail.Amount,
+            })
+            .ToListAsync(token);
+
+        var byPayroll = rows
+            .GroupBy(x => x.PayrollId)
+            .ToDictionary(g => g.Key, g => g
+                .GroupBy(x => x.DeductionId)
+                .Select(t => new PayrollBreakdownItem(
+                    t.Key,
+                    string.IsNullOrWhiteSpace(t.First().Name) ? "Deduction" : t.First().Name!,
+                    t.Sum(x => x.Amount),
+                    // Same rule as DeductionAplDtlService.LoadAsync -- "LOAN"-coded categories.
+                    t.First().CategoryCode?.Contains("LOAN") == true))
+                .ToList());
+
+        foreach (var payroll in payrolls)
+            payroll.DeductionItems = byPayroll.GetValueOrDefault(payroll.Id) ?? new();
+    }
+
+    // Companion to AttachDeductionItemsAsync for Other Income, whose rows come from
+    // IncomeAplDtlService.GetOtherIncomeItemsAsync (a different aggregate/service).
+    public static void AttachIncomeItems(
+        List<Payroll> payrolls, Dictionary<Guid, List<PayrollBreakdownItem>> itemsByPayroll)
+    {
+        foreach (var payroll in payrolls)
+            payroll.IncomeItems = itemsByPayroll.GetValueOrDefault(payroll.Id) ?? new();
+    }
 }
 
