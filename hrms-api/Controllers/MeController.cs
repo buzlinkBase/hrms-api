@@ -6,6 +6,7 @@ using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Documents.Shared;
 using Hrms.Api.Extensions;
+using Hrms.Core.Services.Attachments;
 using Hrms.Domain;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
@@ -44,6 +45,7 @@ namespace Hrms.Api.Controllers
         private readonly DeductionApplicationService _deductionApplicationService;
         private readonly PayrollReportService _payrollReportService;
         private readonly IMapper _mapper;
+        private readonly AttachmentService? _attachments;
 
         public MeController(
             EmployeeService employeeService,
@@ -60,8 +62,10 @@ namespace Hrms.Api.Controllers
             ChangeRestDayService changeRestDayService,
             DeductionApplicationService deductionApplicationService,
             PayrollReportService payrollReportService,
-            IMapper mapper)
+            IMapper mapper,
+            AttachmentService? attachments = null)
         {
+            _attachments = attachments;
             _employeeService = employeeService;
             _payrollService = payrollService;
             _companyService = companyService;
@@ -233,7 +237,8 @@ namespace Hrms.Api.Controllers
 
             payload.EmployeeId = employeeId.Value;
             payload.ApprovalStatus = ApprovalStatus.ForApproval;
-            await _leaveApplicationService.AddAsync(payload, token, isSelfService: true);
+            var intake = _attachments == null ? null : new AttachmentIntake(_attachments, User.ToAttachmentCaller(employeeId));
+            await _leaveApplicationService.AddAsync(payload, token, isSelfService: true, attachments: intake);
             await _leaveApplicationService.CommitChangesAsync(token);
             return Ok();
         }
@@ -363,7 +368,8 @@ namespace Hrms.Api.Controllers
             payload.Cost = 0;
             var entity = _mapper.Map<TravelOrderApplication>(payload);
             entity.ApprovalStatus = ApprovalStatus.ForApproval;
-            await _travelOrderApplicationService.AddAsync(entity, token);
+            var intake = _attachments == null ? null : new AttachmentIntake(_attachments, User.ToAttachmentCaller(employeeId));
+            await _travelOrderApplicationService.AddAsync(entity, token, intake, payload.AttachmentIds);
             return Ok();
         }
 
@@ -421,7 +427,8 @@ namespace Hrms.Api.Controllers
 
             payload.EmployeeId = employeeId.Value;
             var entity = _mapper.Map<PassSlipApplication>(payload);
-            await _passSlipApplicationService.AddAsync(entity, token);
+            var intake = _attachments == null ? null : new AttachmentIntake(_attachments, User.ToAttachmentCaller(employeeId));
+            await _passSlipApplicationService.AddAsync(entity, token, intake, payload.AttachmentIds);
             return Ok();
         }
 

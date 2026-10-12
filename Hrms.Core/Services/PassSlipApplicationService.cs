@@ -1,6 +1,8 @@
 using Hrms.Core.Services.Applications;
 using Hrms.Core.Services.Approvals;
+using Hrms.Core.Services.Attachments;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Attachments;
 using Hrms.Domain.ValueObjects;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +20,18 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         _approvalEngine = approvalEngine;
     }
 
-    public async Task AddAsync(PassSlipApplication model, CancellationToken token)
+    public async Task AddAsync(
+        PassSlipApplication model, CancellationToken token,
+        AttachmentIntake? attachments = null, List<Guid>? attachmentIds = null)
     {
         if (string.IsNullOrWhiteSpace(model.Remarks))
             throw new InvalidOperationException("Remarks explaining this pass slip is required.");
 
         model.ApprovalStatus = ApprovalStatus.ForApproval;
         await CreateAsync(model, token);
+        // Files the form uploaded before the pass slip existed now belong to it.
+        if (attachments != null)
+            await attachments.Service.LinkAsync(AttachmentOwnerType.PassSlip, model.Id, attachmentIds, attachments.Caller, token);
         await _approvalEngine.StartAsync(ApprovalApplicationType.PassSlip, model.Id, model.EmployeeId, token);
         await CommitChangesAsync(token);
     }

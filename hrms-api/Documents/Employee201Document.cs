@@ -1,5 +1,6 @@
 using Hrms.Api.Documents.Shared;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Attachments;
 using Hrms.Domain.ValueObjects;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -407,6 +408,7 @@ public class Employee201Document : IDocument
                     cols.ConstantColumn(50);
                     cols.ConstantColumn(70);
                     cols.ConstantColumn(70);
+                    cols.RelativeColumn(2);
                 });
                 table.Header(header =>
                 {
@@ -416,6 +418,7 @@ public class Employee201Document : IDocument
                     header.Cell().Background(TableHeaderBg).Padding(3).Text("Qty").Bold();
                     header.Cell().Background(TableHeaderBg).Padding(3).Text("Issued").Bold();
                     header.Cell().Background(TableHeaderBg).Padding(3).Text("Status").Bold();
+                    header.Cell().Background(TableHeaderBg).Padding(3).Text("Photos").Bold();
                 });
                 foreach (var a in _e.Assets!)
                 {
@@ -426,9 +429,22 @@ public class Employee201Document : IDocument
                     table.Cell().BorderBottom(1).BorderColor("#eeeeee").Padding(3).Text(
                         a.IssuanceDate != default ? a.IssuanceDate.ToString("MM/dd/yyyy") : "—");
                     table.Cell().BorderBottom(1).BorderColor("#eeeeee").Padding(3).Text(a.Status ?? "—");
+                    table.Cell().BorderBottom(1).BorderColor("#eeeeee").Padding(3).Text(
+                        FilesAndReference(AttachmentOwnerType.AssignAsset, a.Id, null));
                 }
             });
         });
+    }
+
+    // The uploaded files' names, one per line, followed by the older typed reference if there is one.
+    string FilesAndReference(AttachmentOwnerType type, Guid ownerId, string? reference)
+    {
+        var lines = (_e.Attachments ?? [])
+            .Where(a => a.OwnerType == type && a.OwnerId == ownerId)
+            .Select(a => a.FileName)
+            .ToList();
+        if (!string.IsNullOrWhiteSpace(reference)) lines.Add(reference);
+        return lines.Count == 0 ? "—" : string.Join("\n", lines);
     }
 
     void ComposeDocuments(IContainer c)
@@ -448,13 +464,14 @@ public class Employee201Document : IDocument
                 {
                     header.Cell().Background(TableHeaderBg).Padding(3).Text("Record Type").Bold();
                     header.Cell().Background(TableHeaderBg).Padding(3).Text("Description").Bold();
-                    header.Cell().Background(TableHeaderBg).Padding(3).Text("File / Reference").Bold();
+                    header.Cell().Background(TableHeaderBg).Padding(3).Text("Files / Reference").Bold();
                 });
                 foreach (var r in _e.EmployeeRecords!)
                 {
                     table.Cell().BorderBottom(1).BorderColor("#eeeeee").Padding(3).Text(r.RecordType ?? "—");
                     table.Cell().BorderBottom(1).BorderColor("#eeeeee").Padding(3).Text(r.Description ?? "—");
-                    table.Cell().BorderBottom(1).BorderColor("#eeeeee").Padding(3).Text(r.File ?? "—");
+                    table.Cell().BorderBottom(1).BorderColor("#eeeeee").Padding(3).Text(
+                        FilesAndReference(AttachmentOwnerType.EmployeeRecord, r.Id, r.File));
                 }
             });
         });

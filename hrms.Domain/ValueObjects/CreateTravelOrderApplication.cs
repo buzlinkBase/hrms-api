@@ -15,6 +15,9 @@ public class CreateTravelOrderApplication
     public string Purpose { get; set; } = string.Empty;
     public double Cost { get; set; } = 0;
     public string? ApplicationRemarks { get; set; }
+    // Files uploaded by the filing form before the application existed (see AttachmentService.LinkAsync).
+    // Not a column: the files are attached to the application once it is saved.
+    public List<Guid>? AttachmentIds { get; set; }
 }
 
 public class UpdateTravelOrderApplication : CreateTravelOrderApplication

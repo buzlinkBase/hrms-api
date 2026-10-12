@@ -178,8 +178,16 @@ public partial class EmployeeModel : EmployeePackModel, IEmployeePayView
     [IgnoreMember] public string? AreaName { get; set; }
     [IgnoreMember] public string Status { get; set; }
 }
+/// <summary>A file attached to one of an employee's document records or assets, as the 201 file lists it.</summary>
+public sealed record EmployeeFileSummary(
+    Guid Id, Hrms.Domain.Entities.Attachments.AttachmentOwnerType OwnerType, Guid OwnerId, string FileName, long SizeBytes);
+
 public class EmployeeFullModel : IEmployeePayView
 {
+    // Filled in by EmployeeService.GetFullByIdAsync (not a column): the uploaded files of this
+    // employee's document records and assets, so the 201 file can list them.
+    public List<EmployeeFileSummary> Attachments { get; set; } = [];
+
     public Guid Id { get; set; }
     public int? BioId { get; set; }
     public string EmployeeNo { get; set; } = string.Empty;

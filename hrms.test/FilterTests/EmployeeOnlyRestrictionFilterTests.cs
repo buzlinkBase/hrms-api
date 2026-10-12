@@ -72,6 +72,21 @@ public class EmployeeOnlyRestrictionFilterTests
         ((ObjectResult)context.Result!).StatusCode.Should().Be(403);
     }
 
+    [Theory]
+    [InlineData("POST", "/api/v1/attachments/LeaveApplication")]
+    [InlineData("DELETE", "/api/v1/attachments/3f2504e0-4f89-11d3-9a0c-0305e82c3301")]
+    public async Task AllowsAttachmentUploadsAndRemovals_ForEmployeeOnlyCaller(string method, string path)
+    {
+        var (context, _) = BuildContext(method, path, "Employee");
+        var nextCalled = false;
+        var filter = new EmployeeOnlyRestrictionFilter();
+
+        await filter.OnActionExecutionAsync(context, NextSpy(context, () => nextCalled = true));
+
+        nextCalled.Should().BeTrue();
+        context.Result.Should().BeNull();
+    }
+
     [Fact]
     public async Task AllowsWriteUnderMe_ForEmployeeOnlyCaller()
     {

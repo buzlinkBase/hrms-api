@@ -9,6 +9,9 @@ public class CreatePassSlipApplication
     public string Destination { get; set; } = string.Empty;
     public string Purpose { get; set; } = string.Empty;
     public string? Remarks { get; set; }
+    // Files uploaded by the filing form before the pass slip existed (see AttachmentService.LinkAsync).
+    // Not a column: the files are attached to the pass slip once it is saved.
+    public List<Guid>? AttachmentIds { get; set; }
 }
 
 public class UpdatePassSlipApplication : CreatePassSlipApplication

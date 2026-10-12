@@ -46,7 +46,12 @@ public class EmployeeOnlyRestrictionFilter : IAsyncActionFilter
         return next();
     }
 
+    // /attachments is self-service too: the Employee Portal's filing forms upload supporting files.
+    // It's safe to leave open because AttachmentService decides per record who may touch it -- an
+    // employee-only account only reaches records that are their own and that allow self-service --
+    // and saving the settings needs a permission employee-only accounts never hold.
     private static bool IsSelfServicePath(PathString path) =>
         path.Value?.Contains("/me/", StringComparison.OrdinalIgnoreCase) == true ||
-        path.Value?.EndsWith("/me", StringComparison.OrdinalIgnoreCase) == true;
+        path.Value?.EndsWith("/me", StringComparison.OrdinalIgnoreCase) == true ||
+        path.Value?.Contains("/attachments/", StringComparison.OrdinalIgnoreCase) == true;
 }

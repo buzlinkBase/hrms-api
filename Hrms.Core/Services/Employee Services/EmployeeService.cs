@@ -1,4 +1,5 @@
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Attachments;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MassTransit;
@@ -538,7 +539,25 @@ public class EmployeeService : BaseService<Employee>
             .AsSplitQuery()
             .ProjectToType<EmployeeFullModel>(_config)
             .FirstOrDefaultAsync(token);
-        return employee == null ? null : HidePayIfNotCleared(employee);
+        if (employee == null) return null;
+        await LoadAttachmentsAsync(employee, token);
+        return HidePayIfNotCleared(employee);
+    }
+
+    // The files uploaded to the employee's document records and assets (Attachments), by name.
+    private async Task LoadAttachmentsAsync(EmployeeFullModel employee, CancellationToken token)
+    {
+        var recordIds = employee.EmployeeRecords?.Select(r => r.Id).ToList() ?? [];
+        var assetIds = employee.Assets?.Select(a => a.Id).ToList() ?? [];
+        if (recordIds.Count + assetIds.Count == 0) return;
+
+        employee.Attachments = await Context.Attachments.AsNoTracking()
+            .Where(a => a.OwnerId != null && (
+                (a.OwnerType == AttachmentOwnerType.EmployeeRecord && recordIds.Contains(a.OwnerId.Value)) ||
+                (a.OwnerType == AttachmentOwnerType.AssignAsset && assetIds.Contains(a.OwnerId.Value))))
+            .OrderBy(a => a.CreatedAt)
+            .Select(a => new EmployeeFileSummary(a.Id, a.OwnerType, a.OwnerId!.Value, a.FileName, a.SizeBytes))
+            .ToListAsync(token);
     }
     // Resolves the calling user's own Employee record for the self-service portal. UserId is
     // the primary match (backfilled by UserOnboardedWorker when an invitation names an

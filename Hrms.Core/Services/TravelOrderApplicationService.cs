@@ -1,6 +1,8 @@
 using Hrms.Core.Services.Applications;
 using Hrms.Core.Services.Approvals;
+using Hrms.Core.Services.Attachments;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Attachments;
 using Mapster;
 
 namespace Hrms.Core.Services;
@@ -14,10 +16,15 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         _approvalEngine = approvalEngine;
     }
 
-    public async Task AddAsync(TravelOrderApplication model, CancellationToken token)
+    public async Task AddAsync(
+        TravelOrderApplication model, CancellationToken token,
+        AttachmentIntake? attachments = null, List<Guid>? attachmentIds = null)
     {
         model.ApplicationDate = DateTime.UtcNow;
         await CreateAsync(model, token);
+        // Files the form uploaded before the application existed now belong to it.
+        if (attachments != null)
+            await attachments.Service.LinkAsync(AttachmentOwnerType.TravelOrder, model.Id, attachmentIds, attachments.Caller, token);
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
             await _approvalEngine.StartAsync(ApprovalApplicationType.OfficialBusiness, model.Id, model.EmployeeId, token);
         await CommitChangesAsync(token);

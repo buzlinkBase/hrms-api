@@ -2,7 +2,9 @@ using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.Attachments;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Attachments;
 using Mapster;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,12 +23,24 @@ namespace Hrms.Api.Controllers
         private readonly LeaveApplicationService _service;
         private readonly EmployeeService _employeeService;
         private readonly IMapper _mapper;
+        private readonly AttachmentService? _attachments;
 
-        public LeaveApplicationsController(LeaveApplicationService service, EmployeeService employeeService, IMapper mapper)
+        public LeaveApplicationsController(
+            LeaveApplicationService service, EmployeeService employeeService, IMapper mapper,
+            AttachmentService? attachments = null)
         {
             _service = service;
             _employeeService = employeeService;
             _mapper = mapper;
+            _attachments = attachments;
+        }
+
+        private async Task<AttachmentIntake?> AttachmentIntakeAsync(CancellationToken token)
+        {
+            if (_attachments == null) return null;
+            var employeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return new AttachmentIntake(_attachments, User.ToAttachmentCaller(employeeId));
         }
 
         [HttpGet("range")]
@@ -71,7 +85,7 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Post([FromBody] CreateLeaveApplication payload, CancellationToken token)
         {
             payload.ApprovalStatus = ApprovalStatus.ForApproval;
-            await _service.AddAsync(payload, token);
+            await _service.AddAsync(payload, token, attachments: await AttachmentIntakeAsync(token));
             return Ok();
         }
 
@@ -129,6 +143,9 @@ namespace Hrms.Api.Controllers
         {
             await _service.Delete(id, token);
             await _service.CommitChangesAsync(token);
+            // The application's files go with it, so they stop counting towards the storage plan.
+            if (_attachments != null)
+                await _attachments.DeleteForOwnerAsync(AttachmentOwnerType.LeaveApplication, id, token);
             return Ok();
         }
 

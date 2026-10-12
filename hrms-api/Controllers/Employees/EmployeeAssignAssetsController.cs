@@ -21,13 +21,16 @@ namespace Hrms.Api.Controllers
         private readonly ICacheService _cache;
         private readonly ITenantProvider _tenantProvider;
         private readonly Hrms.Core.Services.Security.ConfidentialAccessScope _access;
+        private readonly Hrms.Core.Services.Attachments.AttachmentService? _attachments;
 
         public EmployeeAssignAssetsController(EmployeeAssignAssetService service,
             IMapper mapper,
             ICacheService cache,
             ITenantProvider tenantProvider,
-            Hrms.Core.Services.Security.ConfidentialAccessScope access)
+            Hrms.Core.Services.Security.ConfidentialAccessScope access,
+            Hrms.Core.Services.Attachments.AttachmentService? attachments = null)
         {
+            _attachments = attachments;
             _service = service;
             _mapper = mapper;
             _cache = cache;
@@ -99,6 +102,9 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.DeleteAsync(id, token);
+            // The asset's photos go with it, so they stop counting towards the storage plan.
+            if (_attachments != null)
+                await _attachments.DeleteForOwnerAsync(Hrms.Domain.Entities.Attachments.AttachmentOwnerType.AssignAsset, id, token);
             // The employee list key isn't known here; its 30s TTL covers it.
             await _cache.RemoveAsync(ItemKey(id));
             return Ok();

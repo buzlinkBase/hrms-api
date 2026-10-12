@@ -22,6 +22,9 @@ public class CreateLeaveApplication
     public int? TotalMinutes { get; set; }
     public string? ApplicationRemarks { get; set; }
     public string? SupportingDocumentUrl { get; set; }
+    // Files uploaded by the filing form before the application existed (see AttachmentService.LinkAsync).
+    // Not a column: the files are attached to the application once it is saved.
+    public List<Guid>? AttachmentIds { get; set; }
     public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.ForApproval;
 }
 

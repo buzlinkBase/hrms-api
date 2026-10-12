@@ -1,4 +1,6 @@
 using Asp.Versioning;
+using Hrms.Core.Services.Attachments;
+using Hrms.Domain.Entities.Attachments;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,11 +16,14 @@ namespace Hrms.Api.Controllers
     {
         private readonly EmployeeRecordService _service;
         private readonly IMapper _mapper;
+        private readonly AttachmentService? _attachments;
 
-        public EmployeeDocRecordsController(EmployeeRecordService service, IMapper mapper)
+        public EmployeeDocRecordsController(
+            EmployeeRecordService service, IMapper mapper, AttachmentService? attachments = null)
         {
             _service = service;
             _mapper = mapper;
+            _attachments = attachments;
         }
 
         [HttpGet("employee")]
@@ -61,6 +66,9 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.Delete(id, token);
+            // The record's files go with it, so they stop counting towards the storage plan.
+            if (_attachments != null)
+                await _attachments.DeleteForOwnerAsync(AttachmentOwnerType.EmployeeRecord, id, token);
             return Ok();
         }
     }

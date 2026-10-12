@@ -2,7 +2,9 @@ using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.Attachments;
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.Attachments;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -20,12 +22,24 @@ namespace Hrms.Api.Controllers
         private readonly TravelOrderApplicationService _service;
         private readonly EmployeeService _employeeService;
         private readonly IMapper _mapper;
+        private readonly AttachmentService? _attachments;
 
-        public TravelOrderApplicationsController(TravelOrderApplicationService service, EmployeeService employeeService, IMapper mapper)
+        public TravelOrderApplicationsController(
+            TravelOrderApplicationService service, EmployeeService employeeService, IMapper mapper,
+            AttachmentService? attachments = null)
         {
             _service = service;
             _employeeService = employeeService;
             _mapper = mapper;
+            _attachments = attachments;
+        }
+
+        private async Task<AttachmentIntake?> AttachmentIntakeAsync(CancellationToken token)
+        {
+            if (_attachments == null) return null;
+            var employeeId = await _employeeService.ResolveEmployeeIdAsync(
+                User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+            return new AttachmentIntake(_attachments, User.ToAttachmentCaller(employeeId));
         }
 
         [HttpGet]
@@ -62,7 +76,7 @@ namespace Hrms.Api.Controllers
         {
             var data = _mapper.Map<TravelOrderApplication>(payload);
             data.ApprovalStatus = ApprovalStatus.ForApproval;
-            await _service.AddAsync(data, token);
+            await _service.AddAsync(data, token, await AttachmentIntakeAsync(token), payload.AttachmentIds);
             return Ok(_mapper.Map<TravelOrderApplicationModel>(data));
         }
 
@@ -120,6 +134,9 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
             await _service.Delete(id, token);
+            // The order's files go with it, so they stop counting towards the storage plan.
+            if (_attachments != null)
+                await _attachments.DeleteForOwnerAsync(AttachmentOwnerType.TravelOrder, id, token);
             return Ok();
         }
     }

@@ -1,5 +1,7 @@
 ﻿using Hrms.Core.Messaging.LeaveWorkers;
 using Hrms.Core.Services.Applications;
+using Hrms.Core.Services.Attachments;
+using Hrms.Domain.Entities.Attachments;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
@@ -43,12 +45,17 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         return base.CreateValidatorAsync(model, token);
     }
 
-    public async Task<LeaveApplicationModel?> AddAsync(CreateLeaveApplication payload, CancellationToken token, bool isSelfService = false)
+    public async Task<LeaveApplicationModel?> AddAsync(
+        CreateLeaveApplication payload, CancellationToken token, bool isSelfService = false, AttachmentIntake? attachments = null)
     {
-        await EnsurePolicyAsync(payload, isSelfService, token);
+        await EnsurePolicyAsync(payload, isSelfService, attachments, token);
         var model = _mapper.Map<LeaveApplication>(payload);
         if (model == null) return null;
         await CreateAsync(model, token);
+
+        // Files the form uploaded before the application existed now belong to it.
+        if (attachments != null)
+            await attachments.Service.LinkAsync(AttachmentOwnerType.LeaveApplication, model.Id, payload.AttachmentIds, attachments.Caller, token);
 
         // A leave application can be filed directly in a non-default status (e.g. backfilling
         // an already-approved leave) — apply the same credit/DTR side effects that would fire
@@ -87,7 +94,9 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         await CommitChangesAsync(token);
     }
 
-    private async Task EnsurePolicyAsync(CreateLeaveApplication payload, bool isSelfService, CancellationToken token)
+    private async Task EnsurePolicyAsync(
+        CreateLeaveApplication payload, bool isSelfService, AttachmentIntake? attachments, CancellationToken token,
+        Guid? existingApplicationId = null)
     {
         var leave = await _uow.Repository
             .Find<Leave>(x => x.Id == payload.LeaveId)
@@ -142,7 +151,9 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
             }
         }
 
-        if (leave.RequiresSupportingDocument && string.IsNullOrWhiteSpace(payload.SupportingDocumentUrl))
+        // Either an uploaded file (when the company turned Leave attachments on) or the older pasted link.
+        if (leave.RequiresSupportingDocument && string.IsNullOrWhiteSpace(payload.SupportingDocumentUrl)
+            && !await HasUploadedDocumentAsync(payload, attachments, existingApplicationId, token))
             throw new InvalidOperationException(
                 $"\"{leave.Description}\" requires a supporting document to be attached.");
 
@@ -236,6 +247,18 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         }
     }
 
+    // A new filing counts the files its form uploaded; an edit counts the files already on the application.
+    private async Task<bool> HasUploadedDocumentAsync(
+        CreateLeaveApplication payload, AttachmentIntake? attachments, Guid? existingApplicationId, CancellationToken token)
+    {
+        if (existingApplicationId is { } id &&
+            await Context.Attachments.AnyAsync(a => a.OwnerType == AttachmentOwnerType.LeaveApplication && a.OwnerId == id, token))
+            return true;
+        return attachments != null
+            && await attachments.Service.CountStagedAsync(
+                AttachmentOwnerType.LeaveApplication, payload.AttachmentIds, attachments.Caller, token) > 0;
+    }
+
     private static double ComputeDays(
         DurationType durationType,
         DateOnly from,
@@ -277,7 +300,7 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("Only applications still awaiting approval can be edited.");
 
-        await EnsurePolicyAsync(payload, isSelfService: true, token);
+        await EnsurePolicyAsync(payload, isSelfService: true, attachments: null, token, existingApplicationId: payload.Id);
         await UpdateAsync(payload, token);
     }
 

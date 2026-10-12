@@ -28,7 +28,13 @@ public static class LibServicesRegistrations
         // Subscription plan limits -- one counter per limit this service owns (see PlanLimitGuard).
         services.AddScoped<Services.Subscriptions.ILimitUsageCounter, Services.Subscriptions.ActiveEmployeeCounter>();
         services.AddScoped<Services.Subscriptions.IStorageQuotaGuard, Services.Subscriptions.StorageQuotaGuard>();
-        services.AddScoped<Services.Subscriptions.IPlanLimitGuard, Services.Subscriptions.PlanLimitGuard>();
+        // Record-attached files -- one handler per feature that can carry attachments (see AttachmentService).
+        services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.EmployeeRecordAttachmentHandler>();
+        services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.AssignAssetAttachmentHandler>();
+        services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.LeaveApplicationAttachmentHandler>();
+        services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.TravelOrderAttachmentHandler>();
+        services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.PassSlipAttachmentHandler>();
+        services.AddScoped<Services.Subscriptions.IPlanLimitGuard,Services.Subscriptions.PlanLimitGuard>();
         services.AddScoped<Services.Subscriptions.IAttendanceSourceGuard, Services.Subscriptions.AttendanceSourceGuard>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.
