@@ -51,6 +51,7 @@
         <ProjectReference Include="..\Hrms.Core\Hrms.Core.csproj" />
         <ProjectReference Include="..\hrms.Domain\hrms.Domain.csproj" />
         <ProjectReference Include="..\hrms.Infrastructure\hrms.Infrastructure.csproj" />
+        <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.Common.Web\Onepunch.Common.Web.csproj" />
     </ItemGroup>
     <ItemGroup>
       <Folder Include="wwwroot\Templates\" />

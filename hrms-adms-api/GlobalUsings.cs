@@ -1,4 +1,4 @@
-﻿global using BuzlinkRepository;
+global using BuzlinkRepository;
 global using Hrms.adms.Insfrastructure;
 global using Hrms.adms.Models;
 global using Hrms.adms.Models.Entities;
@@ -7,4 +7,6 @@ global using Microsoft.EntityFrameworkCore;
 global using Onepunch.Common.Lib;
 global using Onepunch.Common.Lib.DTO;
 global using Onepunch.Common.Lib.Interfaces;
+global using Onepunch.Common.Lib.Security;
+global using Onepunch.Common.Web.Authorization;
 global using Serilog;

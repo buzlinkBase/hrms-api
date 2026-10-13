@@ -1,4 +1,4 @@
-﻿global using BuzlinkRepository;
+global using BuzlinkRepository;
 global using DTR.Core;
 global using Hrms.Core;
 global using Hrms.Core.Services;
@@ -6,3 +6,5 @@ global using Hrms.Domain;
 global using Hrms.Domain.ValueObjects;
 global using MapsterMapper;
 global using Onepunch.Common.Lib;
+global using Onepunch.Common.Lib.Security;
+global using Onepunch.Common.Web.Authorization;

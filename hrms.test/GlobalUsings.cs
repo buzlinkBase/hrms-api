@@ -12,3 +12,5 @@ global using Hrms.Domain.Entities;
 global using Hrms.Domain.ValueObjects;
 global using Xunit;
 global using FluentAssertions;
+global using Onepunch.Common.Lib.Security;
+global using Onepunch.Common.Web.Authorization;

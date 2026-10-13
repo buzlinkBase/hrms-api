@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 	<PropertyGroup>
 		<TargetFramework>net9.0</TargetFramework>
 		<Nullable>enable</Nullable>
@@ -69,5 +69,6 @@
 	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.AuditEngine.EntityFrameworkCore\Onepunch.AuditEngine.EntityFrameworkCore.csproj" />
 	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.AuditEngine.AspNetCore\Onepunch.AuditEngine.AspNetCore.csproj" />
 	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.AuditEngine.MassTransit\Onepunch.AuditEngine.MassTransit.csproj" />
+	  <ProjectReference Include="..\tenantstore\Services\Shared\Onepunch.Common.Web\Onepunch.Common.Web.csproj" />
 	</ItemGroup>
 </Project>

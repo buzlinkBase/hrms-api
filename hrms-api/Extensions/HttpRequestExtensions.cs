@@ -59,21 +59,8 @@ public static class HttpRequestExtensions
         return GetUserClaim(user, claim);
     }
 
-    // Mirrors EmployeeOnlyRestrictionFilter's own ClaimTypes.Role reads off the same principal --
-    // AuthApi's JwtService embeds one "permission" claim per granted permission code (e.g.
-    // "Work Rotation:ManageOwnTeam"), alongside the existing role claims.
-    //
-    // IsOwnerOrAdmin() short-circuits this -- RequirePermissionAttribute (and everything else
-    // that calls this) otherwise 403s a caller whose token has a role claim but no permission
-    // claims yet, e.g. the brief window right after workspace creation before the async
-    // membership/permission rows exist (see WorkspaceService.Create in tenantstore). Owner/Admin
-    // are guaranteed every permission in the catalog anyway (PermissionCatalogSeederService), so
-    // this isn't a real bypass -- it's the same answer the claims would eventually give, sooner.
-    public static bool HasPermission(this ClaimsPrincipal user, string code) =>
-        user.IsOwnerOrAdmin() || user.FindAll("permission").Any(c => c.Value == code);
-
-    public static bool HasAnyPermission(this ClaimsPrincipal user, params string[] codes) =>
-        codes.Any(user.HasPermission);
+    // HasPermission / HasAnyPermission / IsOwnerOrAdmin live in Onepunch.Common.Lib.Security
+    // (PermissionClaims), shared with every API behind AuthApi's token.
 
     // The approval-workflow engine's escape hatch: Owner/Admin may act on any pending approval
     // step regardless of assignment (Person/Department/Position/Applicant's Manager/Applicant's
@@ -95,7 +82,4 @@ public static class HttpRequestExtensions
             granted.Contains(Hrms.Core.Services.Security.ConfidentialAccessScope.OperationsPermission),
             granted.Contains(Hrms.Core.Services.Security.ConfidentialAccessScope.EntriesPermission));
     }
-
-    public static bool IsOwnerOrAdmin(this ClaimsPrincipal user) =>
-        user.FindAll(ClaimTypes.Role).Any(c => c.Value is "Owner" or "Admin");
 }
