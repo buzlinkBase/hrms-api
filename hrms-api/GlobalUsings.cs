@@ -8,3 +8,4 @@ global using MapsterMapper;
 global using Onepunch.Common.Lib;
 global using Onepunch.Common.Lib.Security;
 global using Onepunch.Common.Web.Authorization;
+global using Onepunch.Common.Web.Subscriptions;
