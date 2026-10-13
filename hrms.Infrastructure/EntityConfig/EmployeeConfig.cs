@@ -173,6 +173,10 @@ public class EmployeeSettingConfig : IEntityTypeConfiguration<EmployeeSetting>
         .WithOne(x => x.Settings)
         .HasForeignKey<EmployeeSetting>(x => x.EmployeeId);
 
+        builder.Property(x => x.NoDtrCategory)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
         //builder.HasData(
         //    new EmployeeSetting
         //    {

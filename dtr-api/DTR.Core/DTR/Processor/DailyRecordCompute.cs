@@ -27,6 +27,10 @@ public class DailyRecordCompute
                 {
                     token.ThrowIfCancellationRequested();
                 }
+                // Payroll-only employee (owner/shareholder/...): no DTR in their window, so no
+                // absent row is ever produced for them.
+                if (NoDtrWindow.IsActiveOn(employee.IsNoDTRNotRequired, employee.NoDtrEffectiveFrom,
+                        employee.NoDtrEffectiveUntil, curDate)) continue;
                 counter += 1;
                 var TotalCount = (counter / totalCount);
                 var dtrPayload = CurrentDayDTRPayload.SetPayload(_dtrContext, employee, curDate, processOnlyPairedAtt);

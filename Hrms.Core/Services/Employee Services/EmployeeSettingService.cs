@@ -19,6 +19,16 @@ public class EmployeeSettingService(IUnitOfWorkService uow)
         {
             throw new NotFoundException("Record not found");
         }
+        var salaryType = await Context.Employees
+            .Where(x => x.Id == existing.EmployeeId)
+            .Select(x => x.SalaryType)
+            .FirstOrDefaultAsync(token);
+        var noDtrError = NoDtrWindow.Validate(
+            payload.IsNoDTRNotRequired, payload.NoDtrCategory, payload.NoDtrEffectiveFrom, payload.NoDtrEffectiveUntil, salaryType);
+        if (noDtrError != null)
+        {
+            throw new ValidationException(noDtrError);
+        }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

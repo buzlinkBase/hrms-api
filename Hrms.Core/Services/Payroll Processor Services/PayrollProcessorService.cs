@@ -30,6 +30,7 @@ public class PayrollProcessorService
     private readonly YearLockService _yearLockService;
     private readonly ApprovalEngineService _approvalEngine;
     private readonly DTRBatchService _dtrBatchService;
+    private readonly EmployeeService _employeeService;
 
     public PayrollProcessorService(
         PayrollRangeContextComposerService payloadComposer,
@@ -48,8 +49,10 @@ public class PayrollProcessorService
         PayrollInputConsumptionService consumptionService,
         YearLockService yearLockService,
         ApprovalEngineService approvalEngine,
-        DTRBatchService dtrBatchService)
+        DTRBatchService dtrBatchService,
+        EmployeeService employeeService)
     {
+        _employeeService = employeeService;
         _dtrServie = dtrServie;
         _payloadComposer = payloadComposer;
         _payrollService = payrollService;
@@ -275,6 +278,28 @@ public class PayrollProcessorService
                 : e.PendingDays > 0 ? "Pending"
                 : "Paid";
         }
+
+        // Payroll-only (no DTR) employees have no DTR days, so the DTR-based list never contains
+        // them; a cutoff run does pay them, so show them as Ready (or already paid).
+        var payrollOnly = (await _employeeService.GetNoDtrForPayrollRunAsync(new CutoffScope(from, to, payrollGroupId), token))
+            .Where(x => result.All(r => r.EmployeeId != x.Id))
+            .ToList();
+        if (payrollOnly.Count > 0)
+        {
+            var paid = await _payrollService.GetEmployeeIdsWithRegularPayrollInRangeAsync(
+                payrollOnly.Select(x => x.Id).ToList(), from, to, token);
+            result.AddRange(payrollOnly.Select(x => new PayrollReadinessEmployee
+            {
+                EmployeeId = x.Id,
+                EmployeeNo = x.EmployeeNo,
+                FullName = x.FullName,
+                PayrollGroupId = x.PayrollGroupId,
+                ClientId = x.ClientId,
+                SalaryType = x.SalaryType,
+                IsPayrollOnly = true,
+                Status = paid.Contains(x.Id) ? "FixedSalaryAlreadyPaid" : "Ready",
+            }));
+        }
         return result;
     }
 
@@ -297,19 +322,32 @@ public class PayrollProcessorService
         var dtrRecords = payload.IsCutoffMode
             ? await _dtrServie.LoadForPayrollRunByCutoffAsync(payload.ToCutoffScope(), token)
             : await _dtrServie.LoadForPayrollRunAsync(payload.BatchCodes!, token);
-        if (dtrRecords.Records == null || !dtrRecords.Records.Any()) return noRun;
+        var records = dtrRecords.Records ?? [];
+
+        // Payroll-only (no DTR) employees -- owners, shareholders, officers... -- are paid from their
+        // fixed rate for the part of the cutoff their window covers, never from DTR days. They are
+        // pulled out of the DTR-derived set (a flagged employee's leftover DTR rows are not paid) and
+        // added through their own loader; only cutoff mode has a date range to test the window against.
+        var payrollOnly = payload.IsCutoffMode
+            ? await _employeeService.GetNoDtrForPayrollRunAsync(payload.ToCutoffScope(), token)
+            : [];
+        var payrollOnlyIds = payrollOnly.Select(x => x.Id).ToHashSet();
+
+        if (!records.Any() && payrollOnly.Count == 0) return noRun;
         var leaveInfoByEmployee = payload.IsCutoffMode
             ? await _dtrServie.LoadLeaveInfoForPayrollRunByCutoffAsync(payload.ToCutoffScope(), token)
             : await _dtrServie.LoadLeaveInfoForPayrollRunAsync(payload.BatchCodes!, token);
         var dateRange = new DateRangePayload(dtrRecords.FromDate, dtrRecords.ToDate);
         var period = BuildPayrollPeriod(dateRange);
 
-        var employees = dtrRecords.Records.Values
+        var employees = records.Values
             .SelectMany(x => x.Select(y => y.Employee))
             .DistinctBy(x => x.Id)
+            .Where(x => !payrollOnlyIds.Contains(x.Id))
             .ToList();
+        employees.AddRange(payrollOnly);
 
-        if (employees == null || employees.Count() == 0)
+        if (employees.Count == 0)
         {
             return noRun;
         }
@@ -348,7 +386,12 @@ public class PayrollProcessorService
         foreach (var employee in employees)
         {
             if (employee == null) continue;
-            if (!dtrRecords.Records.TryGetValue(new EmployeeKey(employee.Id), out var empDtr))
+            List<DailyRecordRunModel>? empDtr;
+            if (payrollOnlyIds.Contains(employee.Id))
+            {
+                empDtr = [];
+            }
+            else if (!records.TryGetValue(new EmployeeKey(employee.Id), out empDtr))
             {
                 continue;
             }
@@ -363,7 +406,8 @@ public class PayrollProcessorService
 
         // Only the days of employees this run actually paid (a skipped FIXED employee's stay unpaid).
         var allDays = employees
-            .SelectMany(e => dtrRecords.Records.TryGetValue(new EmployeeKey(e!.Id), out var days) ? days : new List<DailyRecordRunModel>())
+            .Where(e => !payrollOnlyIds.Contains(e!.Id))
+            .SelectMany(e => records.TryGetValue(new EmployeeKey(e!.Id), out var days) ? days : new List<DailyRecordRunModel>())
             .ToList();
         var paidDayIds = allDays.Select(x => x.Id).ToList();
         var dtrBatchCodes = allDays

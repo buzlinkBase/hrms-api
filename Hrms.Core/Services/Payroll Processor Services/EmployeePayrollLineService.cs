@@ -230,7 +230,11 @@ public class EmployeePayrollLineService
         payrollLine.IsRegularHolidayIncluded = employee.IsRegularHolidayIncluded;
         payrollLine.IsSpecialNonWorkingIncluded = employee.IsSpecialNonWorkingIncluded;
         var oneTimeLeaveDays = CountOneTimeLeaveCalendarDays(rangePayload, employee.Id, payload.FromDate, payload.ToDate);
-        GetBasicPay(payrollLine, employeeBasicCalc, employee, oneTimeLeaveDays);
+        // Payroll-only employees have no DTR: proration is the only adjustment to the flat rate.
+        // An employee whose window doesn't touch the cutoff came in through DTR: no proration.
+        var coverage = NoDtrWindow.CoverageFactor(employee.Settings, payload.FromDate, payload.ToDate);
+        var payrollOnlyFactor = coverage > 0m ? coverage : 1m;
+        GetBasicPay(payrollLine, employeeBasicCalc, employee, oneTimeLeaveDays, payrollOnlyFactor);
         payrollLine.GrossIncome += payrollLine.BasicPay + employeeBasicCalc.Sum(x => x.TotalExcludingBasic);
         payrollLine.LateAmount = employeeBasicCalc.Sum(x => x.LateAmount);
         payrollLine.OvertimePay = employeeBasicCalc.Sum(x => x.TotalOT);
@@ -445,7 +449,7 @@ public class EmployeePayrollLineService
     // this directly without a DB — matches ComputeThirteenthMonthTaxSplit/
     // ApplyOneTimeLeavePayoutsToGross's established pattern.
     internal static void GetBasicPay(PayrollSummaryLine payrollLine, List<DTRPayModel> TimeCalcResult,
-        EmployeeModelPayrollRun employee, int oneTimeLeaveDays)
+        EmployeeModelPayrollRun employee, int oneTimeLeaveDays, decimal payrollOnlyFactor = 1m)
     {
         if (employee.SalaryType != SalaryType.FIXED)
         {
@@ -453,7 +457,10 @@ public class EmployeePayrollLineService
             return;
         }
         var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
+        // payrollOnlyFactor < 1 only for a payroll-only (no DTR) employee whose window starts or ends
+        // inside the cutoff: they earn the share of the period the window covers.
         var basicTotal = employee.MonthlyRate / divisor;
+        if (payrollOnlyFactor < 1m) basicTotal = Math.Round(basicTotal * payrollOnlyFactor, 2);
         // Snapshot of the contractual period share before any cut -- the Fixed payslip shows it
         // as "Basic Salary" with the cuts below it, so Basic - cuts reconciles to BasicPay.
         payrollLine.FixedBasicSalary = basicTotal;

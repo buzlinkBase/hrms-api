@@ -2779,6 +2779,16 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<bool>("IsNoDTRNotRequired")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("NoDtrCategory")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateOnly?>("NoDtrEffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("NoDtrEffectiveUntil")
+                        .HasColumnType("date");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("longtext");

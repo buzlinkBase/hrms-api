@@ -186,7 +186,13 @@ public class EmployeeSetting : BaseEntity, IEmployeeOwned
     public bool IsEligibleForNightDifferential { get; set; }
     public bool IsEligibleForLeaveCredits { get; set; }
     public bool IsEligibleFor13thMonth { get; set; }
+    // Payroll-only employee (owner / shareholder / officer ...): paid through payroll without a DTR.
+    // Despite the name this is "DTR not required" -- true means exempt from DTR. The window below
+    // bounds it; a null Until means open-ended. See Hrms.Core\Specs\NoDtrWindow.cs.
     public bool IsNoDTRNotRequired { get; set; } = false;
+    public NoDtrCategory? NoDtrCategory { get; set; }
+    public DateOnly? NoDtrEffectiveFrom { get; set; }
+    public DateOnly? NoDtrEffectiveUntil { get; set; }
 
     //public bool IsEligibleForHazardPay { get; set; }
     //public bool IsEligibleForHealthInsurance { get; set; }

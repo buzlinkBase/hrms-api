@@ -188,6 +188,15 @@ public class EmployeeService : BaseService<Employee>
                 return new EvaluationResult("Invalid Manager");
             }
         }
+        if (model.Settings is { } s)
+        {
+            var noDtrError = NoDtrWindow.Validate(
+                s.IsNoDTRNotRequired, s.NoDtrCategory, s.NoDtrEffectiveFrom, s.NoDtrEffectiveUntil, model.SalaryType);
+            if (noDtrError != null)
+            {
+                return new EvaluationResult(noDtrError);
+            }
+        }
         return await base.CreateValidatorAsync(model, token);
     }
 
@@ -277,6 +286,17 @@ public class EmployeeService : BaseService<Employee>
         if (IsHiddenFromEmployeeScreens(payload.Id))
         {
             throw new NotFoundException("Record not found");
+        }
+
+        if (payload.Settings is { } incomingSettings)
+        {
+            var noDtrError = NoDtrWindow.Validate(
+                incomingSettings.IsNoDTRNotRequired, incomingSettings.NoDtrCategory,
+                incomingSettings.NoDtrEffectiveFrom, incomingSettings.NoDtrEffectiveUntil, payload.SalaryType);
+            if (noDtrError != null)
+            {
+                throw new ValidationException(noDtrError);
+            }
         }
 
         // Re-hiring a separated employee takes a place under the plan's employee limit again --
@@ -695,12 +715,38 @@ public class EmployeeService : BaseService<Employee>
                 PayrollGroupId = x.PayrollGroupId,
                 DepartmentId = x.DepartmentId,
                 DepartmentName = x.Department != null ? x.Department.Name : null,
+                IsNoDTRNotRequired = x.Settings != null && x.Settings.IsNoDTRNotRequired,
+                NoDtrEffectiveFrom = x.Settings != null ? x.Settings.NoDtrEffectiveFrom : null,
+                NoDtrEffectiveUntil = x.Settings != null ? x.Settings.NoDtrEffectiveUntil : null,
                 RestDays = x.RestDays.Select(r => new RestDayModel
                 {
                     DayName = r.DayName,
                     Id = r.Id,
                 }).ToList()
             }).ToListAsync(token);
+    }
+
+    // Payroll-only (no DTR) employees whose window overlaps the cutoff, for the payroll run. They
+    // have no DailyRecord rows, so the DTR-driven selection never sees them. Same optional
+    // narrowing as CutoffScope; separated employees are left to the Last Pay run.
+    public async Task<List<EmployeeModelPayrollRun>> GetNoDtrForPayrollRunAsync(CutoffScope scope, CancellationToken token)
+    {
+        var windowEmployeeIds = Context.EmployeeSettings
+            .Where(NoDtrWindow.OverlapsRange(scope.From, scope.To))
+            .Select(s => s.EmployeeId);
+        var employees = await GetQueryable(x =>
+                windowEmployeeIds.Contains(x.Id) &&
+                !SeparatedStatuses.Contains(x.EmploymentStatus) &&
+                (scope.PayrollGroupId == null || x.PayrollGroupId == scope.PayrollGroupId) &&
+                (scope.EmployeeIds == null || scope.EmployeeIds.Count == 0 || scope.EmployeeIds.Contains(x.Id)) &&
+                (scope.DepartmentIds == null || scope.DepartmentIds.Count == 0 || (x.DepartmentId != null && scope.DepartmentIds.Contains(x.DepartmentId.Value))) &&
+                (scope.ClientIds == null || scope.ClientIds.Count == 0 || (x.ClientId != null && scope.ClientIds.Contains(x.ClientId.Value))))
+            .Where(x => x.SalaryType == SalaryType.FIXED)
+            .Include(x => x.PayrollGroup)
+            .Include(x => x.TaxRate)
+            .Include(x => x.Settings)
+            .ToListAsync(token);
+        return _mapper.Map<List<EmployeeModelPayrollRun>>(employees);
     }
 
 

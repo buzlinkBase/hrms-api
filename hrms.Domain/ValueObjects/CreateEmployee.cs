@@ -394,6 +394,10 @@ public class CreateEmployeeSetting
     public bool IsEligibleForNightDifferential { get; set; }
     public bool IsEligibleForLeaveCredits { get; set; }
     public bool IsEligibleFor13thMonth { get; set; }
+    public bool IsNoDTRNotRequired { get; set; }
+    public NoDtrCategory? NoDtrCategory { get; set; }
+    public DateOnly? NoDtrEffectiveFrom { get; set; }
+    public DateOnly? NoDtrEffectiveUntil { get; set; }
     //public bool IsEligibleForHazardPay { get; set; }
     //public bool IsEligibleForHealthInsurance { get; set; }
     //public bool IsEligibleForRetirementBenefits { get; set; }
@@ -453,6 +457,10 @@ public class EmployeeDTRRun
     public string MiddleName { get; set; } = string.Empty;
     public string Suffix { get; set; } = string.Empty;
     public List<RestDayModel> RestDays { get; set; } = new();
+    // Payroll-only window (see NoDtrWindow): the DTR run skips these days for the employee.
+    public bool IsNoDTRNotRequired { get; set; }
+    public DateOnly? NoDtrEffectiveFrom { get; set; }
+    public DateOnly? NoDtrEffectiveUntil { get; set; }
 }
 
 public class EmployeeSettingsRun

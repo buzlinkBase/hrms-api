@@ -52,6 +52,18 @@ public enum SalaryType
 }
 
 /// <summary>
+/// Why an employee is paid through payroll without a DTR (see EmployeeSetting.IsNoDTRNotRequired).
+/// </summary>
+public enum NoDtrCategory
+{
+    OWNER_SHAREHOLDER,
+    DIRECTOR,
+    OFFICER,
+    CONSULTANT_RETAINER,
+    OTHER
+}
+
+/// <summary>
 /// How a FIXED-salary employee's Daily Rate is established.
 /// Manual: the stored DailyRate is entered and used as-is.
 /// CalculatedEDR: DailyRate = (MonthlyRate * 12) / FactorDays, recomputed by DailyRateResolver.

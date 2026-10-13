@@ -231,6 +231,8 @@ public class PayrollReadinessEmployee
     // "Pending" (only pending days), "Paid" (every day in the range already in a run) or
     // "FixedSalaryAlreadyPaid" (FIXED salary whose period pay an earlier run covered -- a run skips them).
     public string Status { get; set; } = "Ready";
+    // Payroll-only (no DTR) employee: paid from the fixed rate, so the day counts above stay 0.
+    public bool IsPayrollOnly { get; set; }
 }
 
 public class TardinessReportModel
