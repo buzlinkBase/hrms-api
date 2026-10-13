@@ -398,4 +398,16 @@ public class SubscriptionFeatureConventionTests
     [InlineData(nameof(DailyRecordsController.Details))]
     public void ReadOnlyPosts_AreAllowedWhileReadOnly(string action) =>
         typeof(DailyRecordsController).GetMethod(action)!.GetCustomAttribute<AllowWhenReadOnlyAttribute>().Should().NotBeNull();
+
+    [Theory]
+    [InlineData(nameof(PayrollsController.Calculate))]
+    [InlineData(nameof(PayrollsController.PreviewYearEndAdjustment))]
+    public void PayrollPreviews_AreAllowedWhileReadOnly(string action) =>
+        typeof(PayrollsController).GetMethod(action)!.GetCustomAttribute<AllowWhenReadOnlyAttribute>().Should().NotBeNull();
+
+    [Theory]
+    [InlineData(nameof(PayrollsController.Generate))]
+    [InlineData(nameof(PayrollsController.GenerateYearEndAdjustment))]
+    public void PayrollGenerates_StayRefusedWhileReadOnly(string action) =>
+        typeof(PayrollsController).GetMethod(action)!.GetCustomAttribute<AllowWhenReadOnlyAttribute>().Should().BeNull();
 }

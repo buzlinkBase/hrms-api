@@ -112,6 +112,8 @@ namespace Hrms.Api.Controllers
         //    return Ok(await _service.GetRunCandidatesAsync(query, token));
         //}
 
+        // POST verb, but a pure preview (Generate is what persists) -- open to a read-only company.
+        [AllowWhenReadOnly]
         [HttpPost("calculate")]
         [RequirePermission("Payroll Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
@@ -176,6 +178,7 @@ namespace Hrms.Api.Controllers
         // annual tax due vs. tax withheld YTD without persisting anything, so HR can review
         // before Generate is called. MWE-excluded and already-generated employees are returned
         // flagged, not omitted, so it's clear why they show no (or zero) adjustment.
+        [AllowWhenReadOnly]
         [HttpPost("preview-year-end-adjustment")]
         [RequirePermission("Year-End Adjustment Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
