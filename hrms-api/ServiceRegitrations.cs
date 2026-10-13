@@ -107,6 +107,7 @@ public static class ServiceRegistrationsExt
         {
             options.Filters.Add<ResponseWrapperFilter>();
             options.Filters.Add<EmployeeOnlyRestrictionFilter>();
+            options.Filters.Add<HrmsProductGateFilter>();
             options.RespectBrowserAcceptHeader = true;
         })
          .AddNewtonsoftJson(options =>
