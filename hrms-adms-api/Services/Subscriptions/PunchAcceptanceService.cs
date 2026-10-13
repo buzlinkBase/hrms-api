@@ -25,6 +25,14 @@ public class PunchAcceptanceService
         _clock = clock;
     }
 
+    /// <summary>
+    /// Whether the company's plan includes the HRMS system. Without it nothing a device pushes is
+    /// kept: the controller acknowledges the upload so the device clears its memory and stops
+    /// retrying, but nothing is stored or processed.
+    /// </summary>
+    public async Task<bool> HasHrmsAsync(Guid tenantId, CancellationToken token) =>
+        (await _entitlements.GetAsync(tenantId, token)).HasFeature(EntitlementKeys.HrmsCore);
+
     public async Task<bool> AcceptsPunchesAsync(Guid tenantId, string serialNumber, CancellationToken token)
     {
         var snapshot = await _entitlements.GetAsync(tenantId, token);

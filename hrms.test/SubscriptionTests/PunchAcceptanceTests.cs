@@ -41,6 +41,26 @@ public class PunchAcceptanceTests
     public async Task RefusedAfterTheWindow() =>
         (await AcceptsOnDayAsync(61, Lapsed())).Should().BeFalse();
 
+    private static Task<bool> HasHrmsAsync(bool hrms)
+    {
+        var snapshot = new EntitlementSnapshot
+        {
+            Features = new() { [EntitlementKeys.HrmsCore] = hrms },
+        };
+        var entitlements = Substitute.For<IEntitlementProvider>();
+        entitlements.GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(snapshot);
+        var service = new PunchAcceptanceService(entitlements, new FixedClock(Lock));
+        return service.HasHrmsAsync(Guid.NewGuid(), CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task HrmsOn_KeepsWhatTheDevicePushes() =>
+        (await HasHrmsAsync(true)).Should().BeTrue();
+
+    [Fact]
+    public async Task HrmsOff_DropsWhatTheDevicePushes() =>
+        (await HasHrmsAsync(false)).Should().BeFalse();
+
     [Fact]
     public async Task AlwaysStoredForAnActiveCompany() =>
         (await AcceptsOnDayAsync(400, new EntitlementSnapshot { Status = "Active", AccessMode = SubscriptionAccessMode.Full }))

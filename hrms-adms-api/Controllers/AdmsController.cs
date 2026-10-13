@@ -163,6 +163,13 @@ public class AdmsController : ControllerBase
 
         _tenantProvider.SetTenantId(deviceInfo.TenantId);
 
+        // A company whose plan doesn't include HRMS has no use for the data: acknowledge it so the
+        // device clears its memory and stops retrying, but store and process nothing.
+        if (!await _punches.HasHrmsAsync(deviceInfo.TenantId, token))
+        {
+            return Content("OK", "text/plain");
+        }
+
         // Punches for a company whose subscription lapsed long enough ago (or whose account is no
         // longer valid) are refused, not dropped: anything but "OK" makes the device keep them and
         // send them again later.
