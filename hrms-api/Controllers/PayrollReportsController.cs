@@ -129,9 +129,10 @@ namespace Hrms.Api.Controllers
         [OperationsData]
         [HttpGet("leave-ledger")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> LeaveLedger([FromQuery] int year, CancellationToken token)
+        public async Task<IActionResult> LeaveLedger(
+            [FromQuery] int year, [FromQuery] EmployeeScopeFilter scope, CancellationToken token)
         {
-            var data = await _reportService.GetLeaveLedgerAsync(year, token);
+            var data = await _reportService.GetLeaveLedgerAsync(year, scope, token);
             return Ok(new { data, total = data.Count });
         }
 

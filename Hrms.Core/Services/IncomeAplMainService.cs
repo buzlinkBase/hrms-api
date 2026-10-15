@@ -1,4 +1,5 @@
-﻿using Hrms.Core.Services.Schedules;
+﻿using Hrms.Core.Policies.OtherIncome.Eligibility;
+using Hrms.Core.Services.Schedules;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using System.Linq.Expressions;
@@ -29,7 +30,27 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
         var employee = await _employeeService.FineOneAsync(model.EmployeeId, token);
         Guard.ThrowIfNull<Employee>(employee, "Invalid employee");
         model.IsTaxable = otherIncome.IsTaxable;
+        ValidateRules(model);
         return true;
+    }
+
+    // The attendance rule has to make sense for the chosen pay mode.
+    private static void ValidateRules(OtherIncomeApplication model)
+    {
+        Guard.EnsureTrue(model.EndDate >= model.StartDate, "End date can't be before the start date");
+        if (model.PayMode == OtherIncomePayMode.FixedSchedule) return;
+
+        Guard.EnsureTrue(model.AttendanceBasis != OtherIncomeAttendanceBasis.None,
+            "Choose what counts as present for an attendance-based income");
+        Guard.EnsureTrue(model.MinHours is null or (> 0 and <= 24), "Minimum hours must be between 0 and 24");
+        Guard.EnsureTrue(model.MaxLateMinutes is null or >= 0, "Late limit can't be negative");
+        Guard.EnsureTrue(model.MaxUndertimeMinutes is null or >= 0, "Undertime limit can't be negative");
+        Guard.EnsureTrue((model.ApplicableDays & (int)OtherIncomeWeekdays.All) != 0, "Select at least one applicable day");
+        Guard.EnsureTrue((model.DayTypes & (int)OtherIncomeDayTypes.All) != 0, "Select at least one day type");
+        Guard.EnsureTrue(model.MinQualifyingDays is null or > 0, "Minimum qualifying days must be at least 1");
+        if (model.PayMode == OtherIncomePayMode.PeriodicGated)
+            Guard.EnsureTrue(model.FrequencyOfPayment is AllowanceFrequency.Weekly or AllowanceFrequency.Monthly,
+                "A periodic attendance-gated income must be weekly or monthly");
     }
 
     // Rows are only ever added through the Schedule navigation: the parent's Id is still
@@ -41,7 +62,13 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
     {
         var model = _mapper.Map<OtherIncomeApplication>(payload);
         await ValidateAsync(model, token);
-        var rows = (payload.Schedule ?? []).Select(x => new UpdateOtherIncomeSchedule { Date = x.Date, Amount = x.Amount });
+        var rows = (payload.Schedule ?? []).Select(x => new UpdateOtherIncomeSchedule
+        {
+            Date = x.Date,
+            Amount = x.Amount,
+            PeriodStart = x.PeriodStart,
+            PeriodEnd = x.PeriodEnd,
+        });
         OtherIncomeScheduleReconciler.Instance.Reconcile(model, model.Schedule, rows, _ => { });
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
@@ -147,6 +174,13 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
             })
             .ToListAsync(token);
 
+        // Attendance-mode rows (per qualifying day / periodic gate) are paid only if the DTR
+        // qualifies them; the rest are left out here and stamped as skipped when the run is saved.
+        var skipped = await OtherIncomeEligibilityEvaluator.FindSkippedAsync(
+            Context, employeeIds, fromDate, toDate, token);
+        if (skipped.Count > 0)
+            rows = rows.Where(x => !skipped.ContainsKey(x.Id)).ToList();
+
         return rows
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionary(g => g.Key, g => g
@@ -172,7 +206,7 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
             join income in Context.Allowances.IgnoreQueryFilters()
                 on row.IncomeId equals income.Id into incomeJoin
             from income in incomeJoin.DefaultIfEmpty()
-            where row.ConsumedByPayrollId == payrollId
+            where row.ConsumedByPayrollId == payrollId && !row.IsSkipped
             select new { row.IncomeId, Name = income != null ? income.Name : null, row.Amount })
             .AsNoTracking()
             .ToListAsync(token);
@@ -201,6 +235,7 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                 on row.IncomeId equals income.Id into incomeJoin
             from income in incomeJoin.DefaultIfEmpty()
             where row.ConsumedByPayrollId != null && payrollIds.Contains(row.ConsumedByPayrollId.Value)
+                && !row.IsSkipped
                 && (income == null || income.IncomeClass == IncomeClassType.Others)
             select new { PayrollId = row.ConsumedByPayrollId!.Value, row.IncomeId, Name = income != null ? income.Name : null, row.Amount })
             .AsNoTracking()

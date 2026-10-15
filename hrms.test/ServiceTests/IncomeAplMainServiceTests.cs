@@ -70,7 +70,6 @@ public class IncomeAplMainServiceTests : IDisposable
         StartDate = Start,
         EndDate = Start.AddMonths(payments),
         Amount = amount,
-        IsProrated = true,
         Schedule = Enumerable.Range(0, payments)
             .Select(i => new CreateOtherIncomeSchedule { Date = Start.AddMonths(i), Amount = amount })
             .ToList(),
@@ -86,7 +85,6 @@ public class IncomeAplMainServiceTests : IDisposable
         StartDate = stored.StartDate,
         EndDate = stored.EndDate,
         Amount = stored.Amount,
-        IsProrated = stored.IsProrated,
         Schedule = schedule.ToList(),
     };
 
@@ -124,7 +122,7 @@ public class IncomeAplMainServiceTests : IDisposable
         var rows = await AllRowsAsync();
         rows.Should().OnlyContain(x =>
             x.OtherIncomeApplicationId == app.Id && x.EmployeeId == _employeeId && x.IncomeId == _incomeId &&
-            x.IsTaxable && x.IsProrated);
+            x.IsTaxable);
     }
 
     [Fact]
@@ -213,5 +211,81 @@ public class IncomeAplMainServiceTests : IDisposable
 
         await RunAsync(s => s.Invoking(x => x.DeleteParent(app.Id, CancellationToken.None)).Should().ThrowAsync<Exception>().WithMessage("*already paid*"));
         (await AllRowsAsync()).Should().OnlyContain(x => x.DeletedAt == null);
+    }
+
+    [Fact]
+    public async Task AddAsync_PersistsTheAttendanceRuleAndEachRowsPeriod()
+    {
+        var form = CreateForm(payments: 2);
+        form.PayMode = OtherIncomePayMode.PeriodicGated;
+        form.FrequencyOfPayment = AllowanceFrequency.Weekly;
+        form.AttendanceBasis = OtherIncomeAttendanceBasis.Worked;
+        form.MinHours = 8m;
+        form.MaxLateMinutes = 0;
+        form.ApplicableDays = (int)(OtherIncomeWeekdays.Monday | OtherIncomeWeekdays.Tuesday);
+        form.DayTypes = (int)OtherIncomeDayTypes.Regular;
+        form.MinQualifyingDays = 2;
+        foreach (var row in form.Schedule)
+        {
+            row.PeriodStart = row.Date.AddDays(-6);
+            row.PeriodEnd = row.Date;
+        }
+
+        var app = await RunAsync(s => s.AddAsync(form, CancellationToken.None));
+        var stored = (await RunAsync(s => s.FineOneAsync(app.Id, CancellationToken.None)))!;
+
+        stored.PayMode.Should().Be(OtherIncomePayMode.PeriodicGated);
+        stored.AttendanceBasis.Should().Be(OtherIncomeAttendanceBasis.Worked);
+        stored.MinHours.Should().Be(8m);
+        stored.MaxLateMinutes.Should().Be(0);
+        stored.ApplicableDays.Should().Be(3);
+        stored.DayTypes.Should().Be((int)OtherIncomeDayTypes.Regular);
+        stored.MinQualifyingDays.Should().Be(2);
+        stored.Schedule.Should().OnlyContain(x => x.PeriodStart == x.Date.AddDays(-6) && x.PeriodEnd == x.Date);
+    }
+
+    [Fact]
+    public async Task AddAsync_AnAttendanceModeWithoutABasis_IsRefused()
+    {
+        var form = CreateForm();
+        form.PayMode = OtherIncomePayMode.PerQualifyingDay;
+        form.AttendanceBasis = OtherIncomeAttendanceBasis.None;
+
+        await RunAsync(s => s.Invoking(x => x.AddAsync(form, CancellationToken.None))
+            .Should().ThrowAsync<Exception>().WithMessage("*what counts as present*"));
+        (await AllRowsAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddAsync_APeriodicGateThatIsNotWeeklyOrMonthly_IsRefused()
+    {
+        var form = CreateForm();
+        form.PayMode = OtherIncomePayMode.PeriodicGated;
+        form.AttendanceBasis = OtherIncomeAttendanceBasis.Worked;
+        form.FrequencyOfPayment = AllowanceFrequency.Daily;
+
+        await RunAsync(s => s.Invoking(x => x.AddAsync(form, CancellationToken.None))
+            .Should().ThrowAsync<Exception>().WithMessage("*weekly or monthly*"));
+    }
+
+    [Fact]
+    public async Task AddAsync_AnEndDateBeforeTheStartDate_IsRefused()
+    {
+        var form = CreateForm();
+        form.EndDate = form.StartDate.AddDays(-1);
+
+        await RunAsync(s => s.Invoking(x => x.AddAsync(form, CancellationToken.None))
+            .Should().ThrowAsync<Exception>().WithMessage("*End date*"));
+    }
+
+    [Fact]
+    public async Task AddAsync_AFixedScheduleKeepsTheOriginalBehaviour()
+    {
+        var app = await RunAsync(s => s.AddAsync(CreateForm(), CancellationToken.None));
+
+        app.PayMode.Should().Be(OtherIncomePayMode.FixedSchedule);
+        app.AttendanceBasis.Should().Be(OtherIncomeAttendanceBasis.None);
+        app.ApplicableDays.Should().Be((int)OtherIncomeWeekdays.All);
+        app.DayTypes.Should().Be((int)OtherIncomeDayTypes.All);
     }
 }

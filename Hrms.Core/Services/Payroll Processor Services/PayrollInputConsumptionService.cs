@@ -1,3 +1,4 @@
+using Hrms.Core.Policies.OtherIncome.Eligibility;
 using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Services;
@@ -31,12 +32,55 @@ public class PayrollInputConsumptionService : BaseService<SalaryAdjustment>
                             x.ConsumedByPayrollId == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.ConsumedByPayrollId, payroll.Id), token);
 
+            // Attendance-mode rows that didn't qualify are flagged BEFORE the stamp below, while
+            // they're still unconsumed (the evaluator only looks at unconsumed rows). They get
+            // stamped with the rest, so a skipped day never carries into a later run.
+            var skipped = await OtherIncomeEligibilityEvaluator.FindSkippedAsync(
+                Context, [payroll.EmployeeId], payroll.PayPeriodStart, payroll.PayPeriodEnd, token);
+            foreach (var group in skipped.GroupBy(x => x.Value, x => x.Key))
+            {
+                var ids = group.ToList();
+                var reason = group.Key;
+                await Context.OtherIncomeApplicationDetails
+                    .Where(x => ids.Contains(x.Id))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(x => x.IsSkipped, true)
+                        .SetProperty(x => x.SkipReason, reason), token);
+            }
+
             await Context.OtherIncomeApplicationDetails
                 .Where(x => x.EmployeeId == payroll.EmployeeId &&
                             x.Date >= payroll.PayPeriodStart &&
                             x.Date <= payroll.PayPeriodEnd &&
                             x.ConsumedByPayrollId == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.ConsumedByPayrollId, payroll.Id), token);
+
+            await FlagDeductionMissesAsync(payroll, token);
+        }
+    }
+
+    // Deduction installments that failed their attendance rule in this run (the same verdicts
+    // DeductionAplDtlService.LoadAsync left them out for). Unlike Other Income there is no
+    // "consumed" stamp to set -- a deduction is paid down at Post -- so the verdict itself is the
+    // record: Skip rows never come back, Defer rows are charged by the next run without being
+    // judged again. The run's id lets deleting its batch release them (ReleaseAsync).
+    private async Task FlagDeductionMissesAsync(Payroll payroll, CancellationToken token)
+    {
+        var misses = await DeductionEligibilityEvaluator.FindMissesAsync(
+            Context, [payroll.EmployeeId], payroll.PayPeriodEnd, token);
+
+        foreach (var group in misses.GroupBy(x => (x.Value.Action, x.Value.Reason), x => x.Key))
+        {
+            var ids = group.ToList();
+            var (action, reason) = group.Key;
+            var skip = action == AttendanceMissAction.Skip;
+            await Context.DeductionApplicationDetails
+                .Where(x => ids.Contains(x.Id))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.IsSkipped, skip)
+                    .SetProperty(x => x.IsDeferred, !skip)
+                    .SetProperty(x => x.SkipReason, reason)
+                    .SetProperty(x => x.SkippedByPayrollId, (Guid?)payroll.Id), token);
         }
     }
 
@@ -75,6 +119,19 @@ public class PayrollInputConsumptionService : BaseService<SalaryAdjustment>
 
         await Context.IgnoringConfidentiality<OtherIncomeSchedules>()
             .Where(x => x.ConsumedByPayrollId != null && payrollIds.Contains(x.ConsumedByPayrollId.Value))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ConsumedByPayrollId, (Guid?)null), token);
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.ConsumedByPayrollId, (Guid?)null)
+                // A skipped day is re-judged by the next run, so its verdict is cleared too.
+                .SetProperty(x => x.IsSkipped, false)
+                .SetProperty(x => x.SkipReason, (string?)null), token);
+
+        // Same for a deduction installment this run skipped or deferred.
+        await Context.DeductionApplicationDetails
+            .Where(x => x.SkippedByPayrollId != null && payrollIds.Contains(x.SkippedByPayrollId.Value))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.IsSkipped, false)
+                .SetProperty(x => x.IsDeferred, false)
+                .SetProperty(x => x.SkipReason, (string?)null)
+                .SetProperty(x => x.SkippedByPayrollId, (Guid?)null), token);
     }
 }

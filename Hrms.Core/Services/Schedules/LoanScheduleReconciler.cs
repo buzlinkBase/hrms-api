@@ -24,13 +24,16 @@ public sealed class LoanScheduleReconciler
 
     // DeductionId == Guid.Empty marks a stray row Mapster used to copy in alongside the real ones
     // (Balance 0, no employee/deduction); payroll never read it, so it isn't "paid".
+    // A row an attendance rule already skipped or deferred was judged by a saved payroll run, so it
+    // is as final as a paid one.
     protected override bool IsLocked(DeductionApplicationDetail row) =>
-        _usedByPayroll.Contains(row.Id) ||
+        _usedByPayroll.Contains(row.Id) || row.IsSkipped || row.IsDeferred ||
         (row.DeductionId != Guid.Empty && (row.Balance != row.Amount || row.Status == "Paid"));
 
     protected override bool IsUnchanged(DeductionApplicationDetail row, UpdateDeductionApplicationDetail input) =>
         row.Date == input.Date && row.Principal == input.Principal &&
-        row.Interest == input.Interest && row.Amount == input.Amount;
+        row.Interest == input.Interest && row.Amount == input.Amount &&
+        row.PeriodStart == input.PeriodStart && row.PeriodEnd == input.PeriodEnd;
 
     protected override void Apply(DeductionApplication parent, DeductionApplicationDetail row,
         UpdateDeductionApplicationDetail input, int position)
@@ -40,6 +43,8 @@ public sealed class LoanScheduleReconciler
         row.Interest = input.Interest;
         row.Amount = input.Amount;
         row.Balance = input.Amount;
+        row.PeriodStart = input.PeriodStart;
+        row.PeriodEnd = input.PeriodEnd;
         row.RecordOrder = position + 1;
         row.EmployeeId = parent.EmployeeId;
         row.DeductionId = parent.DeductionId;

@@ -18,6 +18,19 @@ public class DeductionApplication : BaseEntity, IEmployeeOwned, IEntryRecord, IA
     public string ProcessBy { get; set; }
     public string Note { get; set; }
     public string Remarks { get; set; }
+
+    // --- Attendance rule. Reuses the Other Income pay-mode enums; FixedSchedule (the default) is a
+    // classic installment schedule and carries none of the rules below. ---
+    public OtherIncomePayMode PayMode { get; set; } = OtherIncomePayMode.FixedSchedule;
+    public OtherIncomeAttendanceBasis AttendanceBasis { get; set; } = OtherIncomeAttendanceBasis.None;
+    public decimal? MinHours { get; set; }
+    public int? MaxLateMinutes { get; set; }
+    public int? MaxUndertimeMinutes { get; set; }
+    public int ApplicableDays { get; set; } = (int)OtherIncomeWeekdays.All;
+    public int DayTypes { get; set; } = (int)OtherIncomeDayTypes.All;
+    public int? MinQualifyingDays { get; set; }
+    public AttendanceMissAction OnMiss { get; set; } = AttendanceMissAction.Skip;
+
     public virtual ICollection<DeductionApplicationDetail> Breakdown { get; set; }
     // Legacy default only -- every creation path (admin DeductionApplicationsController.Post and
     // self-service MeController.CreateMyLoanApplication) now sets ForApproval explicitly, and
@@ -55,6 +68,16 @@ public class DeductionApplicationDetail : BaseEntity, IEmployeeOwned, IEntryReco
     public decimal Amount { get; set; }
     public decimal Balance { get; set; }
     public string Notes { get; set; } = string.Empty;
+    // PeriodicGated rows: the attendance window the charge covers (inclusive).
+    public DateOnly? PeriodStart { get; set; }
+    public DateOnly? PeriodEnd { get; set; }
+    // Set when a payroll run is saved and the row failed its attendance rule. Skipped = never
+    // charged; Deferred = held out of that run, charged unconditionally by the next. Both carry
+    // the run's id so deleting that batch can release the row (PayrollInputConsumptionService).
+    public bool IsSkipped { get; set; }
+    public bool IsDeferred { get; set; }
+    public string? SkipReason { get; set; }
+    public Guid? SkippedByPayrollId { get; set; }
     public DeductionApplicationDetail()
     {
         Status = "Unpaid";

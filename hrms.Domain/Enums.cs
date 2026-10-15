@@ -100,6 +100,69 @@ public enum AllowanceFrequency
     Monthly,
 }
 
+// How an Other Income application is given. FixedSchedule is the original behaviour: every
+// schedule row is paid on its date, no attendance check.
+public enum OtherIncomePayMode
+{
+    FixedSchedule,
+    PerQualifyingDay,  // one row per applicable day; each is paid only if that day's DTR qualifies
+    PeriodicGated,     // weekly/monthly row; paid in full only if the window's attendance gate is met
+}
+
+// Deduction applications: what happens to a day/period that fails its attendance rule.
+public enum AttendanceMissAction
+{
+    Skip,   // never charged, never carried over
+    Defer,  // held out of this run and charged, unconditionally, by the next one
+}
+
+public enum OtherIncomeAttendanceBasis
+{
+    None,               // no attendance condition
+    Worked,             // the employee actually worked (punched in / has worked hours)
+    WorkedOrPaidLeave,  // worked, or the day is paid leave
+}
+
+// Bit values for OtherIncomeApplication.ApplicableDays (Monday = 1 ... Sunday = 64).
+[Flags]
+public enum OtherIncomeWeekdays
+{
+    None = 0,
+    Monday = 1,
+    Tuesday = 2,
+    Wednesday = 4,
+    Thursday = 8,
+    Friday = 16,
+    Saturday = 32,
+    Sunday = 64,
+    All = 127,
+}
+
+// Bit values for OtherIncomeApplication.DayTypes -- which kinds of day the allowance applies to.
+[Flags]
+public enum OtherIncomeDayTypes
+{
+    None = 0,
+    Regular = 1,
+    RestDay = 2,
+    LegalHoliday = 4,
+    SpecialHoliday = 8,
+    All = 15,
+}
+
+// Why a schedule row was not paid. Stored as a string code on OtherIncomeSchedules.SkipReason.
+public static class OtherIncomeSkipReasons
+{
+    public const string NotApplicableDay = "NotApplicableDay";
+    public const string DayTypeExcluded = "DayTypeExcluded";
+    public const string NoDtr = "NoDtr";
+    public const string NotWorked = "NotWorked";
+    public const string BelowMinHours = "BelowMinHours";
+    public const string TooLate = "TooLate";
+    public const string TooMuchUndertime = "TooMuchUndertime";
+    public const string GateNotMet = "GateNotMet";
+}
+
 // Client.UniformAllowanceBasis — how the future Uniform Allowance accrual worker will count an
 // employee's elapsed service, mirroring the same two counting methods Leave Types already use
 // for eligibility (see LeaveEligibilityBasis below). Kept as its own enum rather than reusing

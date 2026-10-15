@@ -15,6 +15,17 @@ public class OtherIncomeApplicationConfig : IEntityTypeConfiguration<OtherIncome
                 v => EnumParserConfig.SafeParseEnum(v, AllowanceFrequency.SemiMonthly)
             );
 
+        builder.Property(x => x.PayMode)
+            .HasConversion(
+                v => v.ToString(),
+                v => EnumParserConfig.SafeParseEnum(v, OtherIncomePayMode.FixedSchedule)
+            );
+        builder.Property(x => x.AttendanceBasis)
+            .HasConversion(
+                v => v.ToString(),
+                v => EnumParserConfig.SafeParseEnum(v, OtherIncomeAttendanceBasis.None)
+            );
+
         // One FK only. Without this, EF invented a shadow OtherIncomeApplicationId next to the
         // plain ApplicationId column and the two drifted apart. Restrict: rows are deleted
         // explicitly by IncomeAplMainService and the parent is only ever soft-deleted. No back

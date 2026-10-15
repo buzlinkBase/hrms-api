@@ -67,7 +67,8 @@ public class PayrollReportService : BaseService<Payroll>
     {
         // The latest open installment per schedule is picked in SQL (no later open row exists),
         // reading only the columns used -- instead of loading every open installment row.
-        var details = Context.DeductionApplicationDetails.AsNoTracking();
+        // A skipped attendance installment is forgiven, not owed, so it never counts as open.
+        var details = Context.DeductionApplicationDetails.AsNoTracking().Where(x => !x.IsSkipped);
         var latestCandidates = await details
             .Where(x => x.Date <= asOf && x.Balance > 0 &&
                 !details.Any(y =>
@@ -239,11 +240,27 @@ public class PayrollReportService : BaseService<Payroll>
     // Leave credits balances — LeaveCredits already holds the authoritative per-employee,
     // per-leave-type, per-period balance (Granted/Used/Balance/Reserved/AvailableToFile),
     // so this reads it directly rather than re-deriving from the LeaveLedger transaction log.
-    public async Task<List<LeaveCreditsBalanceModel>> GetLeaveLedgerAsync(int year, CancellationToken token)
+    public Task<List<LeaveCreditsBalanceModel>> GetLeaveLedgerAsync(int year, CancellationToken token) =>
+        GetLeaveLedgerAsync(year, null, token);
+
+    // The optional scope narrows the ledger to employees of a client / area / payroll group /
+    // department / branch. Applied in SQL as an employee-id subquery, so an empty scope costs nothing.
+    public async Task<List<LeaveCreditsBalanceModel>> GetLeaveLedgerAsync(
+        int year, EmployeeScopeFilter? scope, CancellationToken token)
     {
-        var rows = await Context.LeaveCredits.AsNoTracking()
-            .Where(x => x.PeriodYear == year)
-            .ToListAsync(token);
+        var credits = Context.LeaveCredits.AsNoTracking().Where(x => x.PeriodYear == year);
+        if (scope is { IsEmpty: false })
+        {
+            var employees = _uow.Repository.FindAll<Employee>().AsNoTracking();
+            if (scope.ClientId.HasValue) employees = employees.Where(x => x.ClientId == scope.ClientId);
+            if (scope.AreaId.HasValue) employees = employees.Where(x => x.AreaId == scope.AreaId);
+            if (scope.PayrollGroupId.HasValue) employees = employees.Where(x => x.PayrollGroupId == scope.PayrollGroupId.Value);
+            if (scope.DepartmentId.HasValue) employees = employees.Where(x => x.DepartmentId == scope.DepartmentId);
+            if (scope.BranchId.HasValue) employees = employees.Where(x => x.BranchId == scope.BranchId);
+            var scopedIds = employees.Select(x => x.Id);
+            credits = credits.Where(x => scopedIds.Contains(x.EmployeeId));
+        }
+        var rows = await credits.ToListAsync(token);
 
         var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
 
@@ -782,7 +799,7 @@ public class PayrollReportService : BaseService<Payroll>
         var hazardPayByEmployee = hazardPayIncomeIds.Count == 0
             ? new Dictionary<Guid, decimal>()
             : await Context.OtherIncomeApplicationDetails.AsNoTracking()
-                .Where(x => hazardPayIncomeIds.Contains(x.IncomeId) && x.Date >= from && x.Date <= to)
+                .Where(x => hazardPayIncomeIds.Contains(x.IncomeId) && !x.IsSkipped && x.Date >= from && x.Date <= to)
                 .GroupBy(x => x.EmployeeId)
                 .Select(g => new { EmployeeId = g.Key, Amount = g.Sum(x => x.Amount) })
                 .ToDictionaryAsync(x => x.EmployeeId, x => x.Amount, token);

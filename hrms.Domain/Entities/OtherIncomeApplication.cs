@@ -13,9 +13,25 @@ public class OtherIncomeApplication : BaseEntity, IEmployeeOwned, IEntryRecord
     public decimal Amount { get; set; }
     public string ProcessBy { get; set; }
     public virtual ICollection<OtherIncomeSchedules> Schedule { get; set; }
+    // Retired: no payroll code ever read it and the UI no longer writes it. The column stays so
+    // existing data isn't lost.
     public bool IsProrated { get; set; }
     public bool IsTaxable { get; set; }
     public string Remarks { get; set; }
+
+    // --- How the income is given (FixedSchedule rows have none of the rules below) ---
+    public OtherIncomePayMode PayMode { get; set; } = OtherIncomePayMode.FixedSchedule;
+    public OtherIncomeAttendanceBasis AttendanceBasis { get; set; } = OtherIncomeAttendanceBasis.None;
+    // The day must have at least this many worked hours. Null = no minimum.
+    public decimal? MinHours { get; set; }
+    // Late / undertime limits in minutes. 0 = must be punctual, null = not checked.
+    public int? MaxLateMinutes { get; set; }
+    public int? MaxUndertimeMinutes { get; set; }
+    // OtherIncomeWeekdays / OtherIncomeDayTypes bit masks.
+    public int ApplicableDays { get; set; } = (int)OtherIncomeWeekdays.All;
+    public int DayTypes { get; set; } = (int)OtherIncomeDayTypes.All;
+    // PeriodicGated only: qualifying days needed in a window. Null = every applicable day.
+    public int? MinQualifyingDays { get; set; }
 
     public OtherIncomeApplication()
     {
@@ -46,6 +62,13 @@ public class OtherIncomeSchedules : BaseEntity, IEmployeeOwned, IEntryRecord
     public bool IsTaxable { get; set; }
     public bool IsProrated { get; set; }
     public string Notes { get; set; } = string.Empty;
+    // PeriodicGated rows: the attendance window this payment covers (inclusive).
+    public DateOnly? PeriodStart { get; set; }
+    public DateOnly? PeriodEnd { get; set; }
+    // Set at payroll save when the attendance rule wasn't met; the row is still consumed so it
+    // never carries over. SkipReason is an OtherIncomeSkipReasons code.
+    public bool IsSkipped { get; set; }
+    public string? SkipReason { get; set; }
     // Null = available to be picked up by a payroll run. Stamped with the Payroll.Id that
     // actually applied it once that run is SAVED (not merely calculated/previewed) — see
     // PayrollInputConsumptionService.MarkConsumedAsync. Nulled back out if that batch is

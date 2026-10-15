@@ -6,6 +6,7 @@ public class CreateDeduction
     public string Name { get; set; } = string.Empty;
     public string Status { get; set; }
     public bool AllowEmployeeFiling { get; set; } = true;
+    public bool AllowAttendanceRules { get; set; }
     public Guid? DeductionTypeId { get; set; }
 }
 

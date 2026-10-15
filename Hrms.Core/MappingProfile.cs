@@ -275,7 +275,11 @@ public class MappingProfile : IRegister
         config.NewConfig<OtherIncomeApplication, OtherIncomeApplicationModel>();
 
         config.NewConfig<CreateOtherIncomeSchedule, OtherIncomeSchedules>();
-        config.NewConfig<UpdateOtherIncomeSchedule, OtherIncomeSchedules>();
+        // Skip state and the payroll stamp are written by payroll only, never by the client.
+        config.NewConfig<UpdateOtherIncomeSchedule, OtherIncomeSchedules>()
+            .Ignore(dest => dest.IsSkipped)
+            .Ignore(dest => dest.SkipReason!)
+            .Ignore(dest => dest.ConsumedByPayrollId!);
 
         // Installments are built by DeductionApplicationService (LoanScheduleReconciler); letting
         // Mapster copy Breakdown by name too inserted stray rows with no employee/deduction, and

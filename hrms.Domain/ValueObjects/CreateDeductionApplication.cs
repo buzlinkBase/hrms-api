@@ -14,6 +14,15 @@ public class CreateDeductionApplication
     public decimal TotalAmount { get; set; }
     public string Note { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
+    public OtherIncomePayMode PayMode { get; set; } = OtherIncomePayMode.FixedSchedule;
+    public OtherIncomeAttendanceBasis AttendanceBasis { get; set; } = OtherIncomeAttendanceBasis.None;
+    public decimal? MinHours { get; set; }
+    public int? MaxLateMinutes { get; set; }
+    public int? MaxUndertimeMinutes { get; set; }
+    public int ApplicableDays { get; set; } = (int)OtherIncomeWeekdays.All;
+    public int DayTypes { get; set; } = (int)OtherIncomeDayTypes.All;
+    public int? MinQualifyingDays { get; set; }
+    public AttendanceMissAction OnMiss { get; set; } = AttendanceMissAction.Skip;
     public List<CreateDeductionApplicationDetail> Breakdown { get; set; }
 }
 
@@ -57,6 +66,15 @@ public class DeductionApplicationModel
     public string Note { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
     public ApprovalStatus ApprovalStatus { get; set; }
+    public OtherIncomePayMode PayMode { get; set; } = OtherIncomePayMode.FixedSchedule;
+    public OtherIncomeAttendanceBasis AttendanceBasis { get; set; } = OtherIncomeAttendanceBasis.None;
+    public decimal? MinHours { get; set; }
+    public int? MaxLateMinutes { get; set; }
+    public int? MaxUndertimeMinutes { get; set; }
+    public int ApplicableDays { get; set; } = (int)OtherIncomeWeekdays.All;
+    public int DayTypes { get; set; } = (int)OtherIncomeDayTypes.All;
+    public int? MinQualifyingDays { get; set; }
+    public AttendanceMissAction OnMiss { get; set; } = AttendanceMissAction.Skip;
     public List<DeductionApplicationDetailModel> Breakdown { get; set; } = [];
 }
 
@@ -71,6 +89,12 @@ public class DeductionApplicationDetailModel
     public string Status { get; set; } = string.Empty;
     public int RecordOrder { get; set; }
     public string Notes { get; set; } = string.Empty;
+    public DateOnly? PeriodStart { get; set; }
+    public DateOnly? PeriodEnd { get; set; }
+    // Set by payroll, echoed back so the detail page can show Skipped / Deferred.
+    public bool IsSkipped { get; set; }
+    public bool IsDeferred { get; set; }
+    public string? SkipReason { get; set; }
 }
 
 public class CreateDeductionApplicationDetail
@@ -79,6 +103,8 @@ public class CreateDeductionApplicationDetail
     public decimal Principal { get; set; }
     public decimal Interest { get; set; }
     public decimal Amount { get; set; }
+    public DateOnly? PeriodStart { get; set; }
+    public DateOnly? PeriodEnd { get; set; }
 }
 
 public class UpdateDeductionApplicationDetail
@@ -88,4 +114,6 @@ public class UpdateDeductionApplicationDetail
     public decimal Principal { get; set; }
     public decimal Interest { get; set; }
     public decimal Amount { get; set; }
+    public DateOnly? PeriodStart { get; set; }
+    public DateOnly? PeriodEnd { get; set; }
 }

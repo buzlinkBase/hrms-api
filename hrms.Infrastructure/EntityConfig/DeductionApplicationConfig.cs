@@ -15,6 +15,22 @@ public class DeductionApplicationConfig : IEntityTypeConfiguration<DeductionAppl
                 v => EnumParserConfig.SafeParseEnum(v, DeductionFrequency.SemiMonthly)
             );
 
+        builder.Property(x => x.PayMode)
+            .HasConversion(
+                v => v.ToString(),
+                v => EnumParserConfig.SafeParseEnum(v, OtherIncomePayMode.FixedSchedule)
+            );
+        builder.Property(x => x.AttendanceBasis)
+            .HasConversion(
+                v => v.ToString(),
+                v => EnumParserConfig.SafeParseEnum(v, OtherIncomeAttendanceBasis.None)
+            );
+        builder.Property(x => x.OnMiss)
+            .HasConversion(
+                v => v.ToString(),
+                v => EnumParserConfig.SafeParseEnum(v, AttendanceMissAction.Skip)
+            );
+
         // One FK only (same story as OtherIncomeApplicationConfig): the plain ApplicationId column
         // and EF's shadow DeductionApplicationId drifted apart. Restrict: installments are deleted
         // explicitly by DeductionApplicationService and the loan is only ever soft-deleted.

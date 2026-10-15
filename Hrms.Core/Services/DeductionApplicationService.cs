@@ -1,4 +1,5 @@
-﻿using Hrms.Core.Services.Approvals;
+﻿using Hrms.Core.Policies.OtherIncome.Eligibility;
+using Hrms.Core.Services.Approvals;
 using Hrms.Core.Services.Schedules;
 using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
@@ -76,6 +77,7 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         var rows = (payload.Breakdown ?? []).Select(x => new UpdateDeductionApplicationDetail
         {
             Date = x.Date, Principal = x.Principal, Interest = x.Interest, Amount = x.Amount,
+            PeriodStart = x.PeriodStart, PeriodEnd = x.PeriodEnd,
         });
         LoanScheduleReconciler.ForNewLoan.Reconcile(model, model.Breakdown, rows, _ => { });
         await CreateAsync(model, token);
@@ -273,6 +275,7 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
             join application in Context.DeductionApplications.AsNoTracking()
                 on detail.DeductionApplicationId equals application.Id
             where detail.Date <= toDate && employeeIds.Contains(detail.EmployeeId) && detail.Balance > 0
+                && !detail.IsSkipped
                 && application.ApprovalStatus == ApprovalStatus.Approved
             select new
             {
@@ -285,6 +288,13 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
                 DeductionTypeCode = category != null ? category.Code : null,
             })
             .ToListAsync(token);
+
+        // Attendance-mode installments that don't qualify are left out of this run. Which of them
+        // are then skipped for good or deferred to the next run is decided when the run is saved
+        // (PayrollInputConsumptionService); a deferred row is never judged again, so it comes back.
+        var misses = await DeductionEligibilityEvaluator.FindMissesAsync(Context, employeeIds, toDate, token);
+        if (misses.Count > 0)
+            rows = rows.Where(x => !misses.ContainsKey(x.Id)).ToList();
 
         return rows
             .GroupBy(x => new EmployeeKey(x.EmployeeId))

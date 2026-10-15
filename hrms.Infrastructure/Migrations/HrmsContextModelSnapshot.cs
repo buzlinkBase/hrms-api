@@ -1800,6 +1800,9 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<bool>("AllowAttendanceRules")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("AllowEmployeeFiling")
                         .HasColumnType("tinyint(1)");
 
@@ -1848,11 +1851,21 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<int>("ApplicableDays")
+                        .HasColumnType("int");
+
                     b.Property<int>("ApprovalStatus")
                         .HasColumnType("int");
 
+                    b.Property<string>("AttendanceBasis")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DayTypes")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("DeductionId")
                         .HasColumnType("char(36)");
@@ -1876,7 +1889,27 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("InterestRate")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<int?>("MaxLateMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxUndertimeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MinHours")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<int?>("MinQualifyingDays")
+                        .HasColumnType("int");
+
                     b.Property<string>("Note")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("OnMiss")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PayMode")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -1950,15 +1983,33 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("Interest")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<bool>("IsDeferred")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsSkipped")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<DateOnly?>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("PeriodStart")
+                        .HasColumnType("date");
 
                     b.Property<decimal>("Principal")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<int>("RecordOrder")
                         .HasColumnType("int");
+
+                    b.Property<string>("SkipReason")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("SkippedByPayrollId")
+                        .HasColumnType("char(36)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -4163,8 +4214,18 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<int>("ApplicableDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AttendanceBasis")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DayTypes")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
@@ -4190,6 +4251,22 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<bool>("IsTaxable")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("MaxLateMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxUndertimeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MinHours")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<int?>("MinQualifyingDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PayMode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ProcessBy")
                         .IsRequired()
@@ -4249,6 +4326,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<bool>("IsProrated")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsSkipped")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsTaxable")
                         .HasColumnType("tinyint(1)");
 
@@ -4258,6 +4338,15 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<Guid>("OtherIncomeApplicationId")
                         .HasColumnType("char(36)");
+
+                    b.Property<DateOnly?>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<string>("SkipReason")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Status")
                         .IsRequired()
