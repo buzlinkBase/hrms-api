@@ -10,7 +10,7 @@ public class DeductionApplicationValidator : AbstractValidator<DeductionApplicat
     {
 
         RuleFor(x => x.EndDate)
-            .GreaterThan(x => x.StartDate).WithMessage("End date must be greater than start date")
+            .GreaterThanOrEqualTo(x => x.StartDate).WithMessage("End date must not be earlier than start date")
             .NotEmpty().WithMessage("End Date is required")
             .NotNull().WithMessage("End Date is required")
             ;
