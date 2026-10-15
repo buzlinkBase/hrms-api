@@ -7,6 +7,7 @@ using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Onepunch.Common.Lib.DTO;
 using Refit;
 
 namespace hrms.test.ControllerTests;
@@ -82,6 +83,88 @@ public class CompanySettingsControllerTests
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*nothing was saved*");
         (await SavedNameAsync(db)).Should().Be("My Space");
+    }
+
+    [Fact]
+    public async Task Put_ChangedAddressOrContact_SyncsTheConsoleCopy()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+        await using var context = db.NewContext();
+        var controller = new CompanySettingsController(
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!);
+
+        await controller.Put(
+            new CreateCompany { Description = "My Space", Address = "1 Main St", Contact = "555" },
+            CancellationToken.None);
+
+        await tenantClient.Received(1).UpdateCurrentProfileAsync(
+            Arg.Is<TenantProfileUpdate>(p => p.Address == "1 Main St" && p.Contact == "555"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Put_UnchangedAddressAndContact_DoesNotSyncTheConsoleCopy()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+
+        await PutAsync(db, tenantClient, "My Space");
+
+        await tenantClient.DidNotReceive().UpdateCurrentProfileAsync(Arg.Any<TenantProfileUpdate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SeedDefaultAsync_WithProfile_SeedsEveryEnteredField()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+        var service = new CompanyService(new UnitOfWorkService(context));
+
+        await service.SeedDefaultAsync("Acme", new CompanyProfile
+        {
+            Address = "1 Main St",
+            Contact = "555",
+            Email = "hr@acme.test",
+            Tin = "000-111",
+            RdoCode = "044",
+            SssNumber = "11",
+            PhilHealthNumber = "22",
+            PagIbigNumber = "33",
+            AuthorizedSignatoryName = "Jane",
+            AuthorizedSignatoryTitle = "HR Head",
+        }, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        var company = await verify.Companies.SingleAsync();
+        company.Description.Should().Be("Acme");
+        company.Address.Should().Be("1 Main St");
+        company.Contact.Should().Be("555");
+        company.Email.Should().Be("hr@acme.test");
+        company.TIN.Should().Be("000-111");
+        company.RDOCode.Should().Be("044");
+        company.SSSNumber.Should().Be("11");
+        company.PhilHealthNumber.Should().Be("22");
+        company.PagIbigNumber.Should().Be("33");
+        company.AuthorizedSignatoryName.Should().Be("Jane");
+        company.AuthorizedSignatoryTitle.Should().Be("HR Head");
+    }
+
+    [Fact]
+    public async Task SeedDefaultAsync_NoProfile_SeedsNameOnly()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+        var service = new CompanyService(new UnitOfWorkService(context));
+
+        await service.SeedDefaultAsync("Acme", null, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        var company = await verify.Companies.SingleAsync();
+        company.Description.Should().Be("Acme");
+        company.Address.Should().BeEmpty();
+        company.TIN.Should().BeEmpty();
     }
 
     [Fact]

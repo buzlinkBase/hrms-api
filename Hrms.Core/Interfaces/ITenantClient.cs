@@ -10,4 +10,11 @@ public interface ITenantClient
     // (tenant row, memberships, access-token claim, invitations). See TenantsController.RenameCurrent.
     [Put("/api/v1/tenants/current/name")]
     Task RenameCurrentAsync([Query] string name, CancellationToken token = default);
+
+    // Keeps the console-facing contact details (address, contact number) Tenant Service holds in
+    // line with Company Info. See TenantsController.UpdateCurrentProfile.
+    [Put("/api/v1/tenants/current/profile")]
+    Task UpdateCurrentProfileAsync([Body] TenantProfileUpdate profile, CancellationToken token = default);
 }
+
+public sealed record TenantProfileUpdate(string? Address, string? Contact);

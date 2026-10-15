@@ -2,6 +2,7 @@ using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.ClientPortal;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
@@ -28,13 +29,16 @@ public class DailyRecordsController : ControllerBase
     private readonly EmployeeService _employeeService;
     private readonly IMapper _mapper;
     private readonly DtrDraftSaveService _draftSaver;
+    private readonly ClientPortalSyncRequestService _portalSync;
     public DailyRecordsController(DailyRecordService service,
         DTRCalcService dTRCalcService,
         RosterReportService rosterReportService,
         EmployeeService employeeService,
         IMapper mapper,
-        DtrDraftSaveService draftSaver)
+        DtrDraftSaveService draftSaver,
+        ClientPortalSyncRequestService portalSync)
     {
+        _portalSync = portalSync;
         _service = service;
         _dTRCalcService = dTRCalcService;
         _rosterReportService = rosterReportService;
@@ -93,6 +97,16 @@ public class DailyRecordsController : ControllerBase
     public async Task<IActionResult> ApproveBatch(Guid batchId, [FromBody] ApprovalActionRequest? body, CancellationToken token)
     {
         var (approverEmployeeId, hasOverride) = await ResolveApproverAsync(token);
+        // Staged before the approval so it leaves with the approval's single commit (or not at all if the approval fails).
+        // A broken portal connection must never stop a DTR being approved, so a failure here is only logged.
+        try
+        {
+            await _portalSync.StageAsync(batchId, token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Serilog.Log.Warning(ex, "Could not queue the client portal push for DTR batch {BatchId}", batchId);
+        }
         await _service.ApproveBatchAsync(batchId, approverEmployeeId, hasOverride, body?.Note, token);
         return Ok("success");
     }

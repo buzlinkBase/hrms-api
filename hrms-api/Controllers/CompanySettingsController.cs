@@ -93,6 +93,23 @@ public class CompanySettingsController : ControllerBase
             }
         }
 
+        // Address and contact number are also shown in the platform console, which reads them from
+        // Tenant Service -- same rule as the name: sync first so a refusal saves nothing.
+        var addressChanged = !string.Equals(current?.Address?.Trim() ?? "", payload.Address?.Trim() ?? "", StringComparison.Ordinal);
+        var contactChanged = !string.Equals(current?.Contact?.Trim() ?? "", payload.Contact?.Trim() ?? "", StringComparison.Ordinal);
+        if (addressChanged || contactChanged)
+        {
+            try
+            {
+                await _tenantClient.UpdateCurrentProfileAsync(new TenantProfileUpdate(payload.Address, payload.Contact), token);
+            }
+            catch (ApiException ex)
+            {
+                throw new InvalidOperationException(
+                    $"The company details couldn't be updated ({(int)ex.StatusCode} from the company service), so nothing was saved. Please try again.", ex);
+            }
+        }
+
         await _service.SaveAsync(payload, token);
         return Ok("success");
     }
