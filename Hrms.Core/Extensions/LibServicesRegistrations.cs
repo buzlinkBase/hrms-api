@@ -30,6 +30,8 @@ public static class LibServicesRegistrations
         services.AddScoped<Services.Subscriptions.IStorageQuotaGuard, Services.Subscriptions.StorageQuotaGuard>();
         // Pushes posted DTRs to the Client Portal. Address and key are per company, so they are set on each request.
         services.AddHttpClient<Services.ClientPortal.IClientPortalClient, Services.ClientPortal.ClientPortalClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+        // Sends the company's name and logo to the portal when they change (best effort; see ClientPortalBrandingService).
+        services.AddScoped<Services.ClientPortal.IClientPortalBrandingPublisher, Services.ClientPortal.ClientPortalBrandingService>();
         // Record-attached files -- one handler per feature that can carry attachments (see AttachmentService).
         services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.EmployeeRecordAttachmentHandler>();
         services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.AssignAssetAttachmentHandler>();

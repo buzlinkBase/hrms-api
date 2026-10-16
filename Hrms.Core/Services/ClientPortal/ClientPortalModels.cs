@@ -43,6 +43,9 @@ public sealed record PortalPayload(
     IReadOnlyList<PortalScheduleRow> Schedules,
     IReadOnlyList<PortalDtrRow> Records);
 
+/// <summary>The company's name and logo (base64 of the image file; null for none), as the portal's ingest endpoint takes them.</summary>
+public sealed record PortalBrandingRow(string Name, string? LogoBase64);
+
 public sealed record PortalRowError(string ExternalId, string Error);
 
 public sealed record PortalIngestResult(int Accepted, int Rejected, IReadOnlyList<PortalRowError> Errors);

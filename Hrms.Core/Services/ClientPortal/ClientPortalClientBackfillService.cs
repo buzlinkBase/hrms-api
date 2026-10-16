@@ -10,12 +10,15 @@ public class ClientPortalClientBackfillService
     private readonly ClientService _clients;
     private readonly ClientPortalClientChangeService _changes;
     private readonly ClientPortalSettingsService _settings;
+    private readonly IClientPortalBrandingPublisher? _branding;
 
-    public ClientPortalClientBackfillService(ClientService clients, ClientPortalClientChangeService changes, ClientPortalSettingsService settings)
+    public ClientPortalClientBackfillService(
+        ClientService clients, ClientPortalClientChangeService changes, ClientPortalSettingsService settings, IClientPortalBrandingPublisher? branding = null)
     {
         _clients = clients;
         _changes = changes;
         _settings = settings;
+        _branding = branding;
     }
 
     /// <summary>Queues every client and commits once. Returns how many were queued.</summary>
@@ -27,6 +30,9 @@ public class ClientPortalClientBackfillService
         var clients = await _clients.FindAllAsync(token);
         var queued = await _changes.StageManyAsync(clients, ClientPortalClientChangeService.Updated, token);
         await _settings.CommitChangesAsync(token);
+        // The company's own name and logo go along, so a portal connected for the first time shows the agency right away.
+        if (_branding != null)
+            await _branding.PublishAsync(token);
         return queued;
     }
 }
