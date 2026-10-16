@@ -17,11 +17,14 @@ public class ClientPortalController : ControllerBase
 
     private readonly ClientPortalSettingsService _settings;
     private readonly ClientPortalSyncRequestService _sync;
+    private readonly ClientPortalClientBackfillService _backfill;
 
-    public ClientPortalController(ClientPortalSettingsService settings, ClientPortalSyncRequestService sync)
+    public ClientPortalController(
+        ClientPortalSettingsService settings, ClientPortalSyncRequestService sync, ClientPortalClientBackfillService backfill)
     {
         _settings = settings;
         _sync = sync;
+        _backfill = backfill;
     }
 
     [HttpGet("settings")]
@@ -33,8 +36,31 @@ public class ClientPortalController : ControllerBase
     [HttpPut("settings")]
     [RequirePermission(ManagePermission)]
     [ProducesResponseType(typeof(ResponseModel<ClientPortalSettingsModel>), 200)]
-    public async Task<IActionResult> SaveSettings([FromBody] ClientPortalSettingsRequest request, CancellationToken token) =>
-        Ok(await _settings.SaveAsync(request, token));
+    public async Task<IActionResult> SaveSettings([FromBody] ClientPortalSettingsRequest request, CancellationToken token)
+    {
+        var wasOn = (await _settings.GetAsync(token)).Enabled;
+        var saved = await _settings.SaveAsync(request, token);
+
+        // Switching the connection on for the first time: the clients that already exist have never been sent, so send them now.
+        if (!wasOn && saved.Enabled)
+        {
+            try
+            {
+                await _backfill.SendAllAsync(token);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The connection is saved; "Send all clients" can be pressed again.
+            }
+        }
+        return Ok(saved);
+    }
+
+    /// <summary>Sends every client to the portal (for clients that existed before the connection was switched on, or after the portal was down).</summary>
+    [HttpPost("sync-clients")]
+    [RequirePermission(ManagePermission)]
+    [ProducesResponseType(typeof(ResponseModel<int>), 200)]
+    public async Task<IActionResult> SendAllClients(CancellationToken token) => Ok(await _backfill.SendAllAsync(token));
 
     /// <summary>Sends a posted DTR batch to the portal again (for example after the portal was down for a long time).</summary>
     [HttpPost("sync/{dtrBatchId:guid}")]

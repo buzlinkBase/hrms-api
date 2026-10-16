@@ -6,10 +6,13 @@ using Hrms.Core.Services;
 using Hrms.Core.Services.ClientPortal;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Domain.ValueObjects;
 using hrms.test.TestSupport;
 using MassTransit;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace hrms.test.ServiceTests;
@@ -332,6 +335,167 @@ public class ClientPortalSyncTests
             (await requests.StageAsync(batchId, CancellationToken.None)).Should().BeTrue("staging is allowed before the approval posts the batch");
         }
         await publisher.Received(1).Publish(Arg.Is<ClientPortalSyncRequested>(m => m.DtrBatchId == batchId && m.BatchCode == batchCode), Arg.Any<CancellationToken>());
+    }
+
+    // ---- telling the portal a client changed ---------------------------------------------------------------------
+
+    private static ClientService ClientsFor(UnitOfWorkService uow, EphemeralDataProtectionProvider protection, IPublishEndpoint publisher, Guid tenantId)
+    {
+        var services = new ServiceCollection().AddSingleton(publisher).BuildServiceProvider();
+        var tenant = Substitute.For<ITenantProvider>();
+        tenant.TenantId.Returns(tenantId);
+        var change = new ClientPortalClientChangeService(
+            new ClientPortalSettingsService(uow, protection), tenant, services, NullLogger<ClientPortalClientChangeService>.Instance);
+        return new ClientService(uow, change);
+    }
+
+    [Fact]
+    public async Task A_client_change_is_staged_for_the_portal_only_when_the_connection_is_on_and_is_committed_with_the_save()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        var publisher = Substitute.For<IPublishEndpoint>();
+        var tenantId = Guid.NewGuid();
+
+        await using (var ctx = db.NewContext())
+            await ClientsFor(new UnitOfWorkService(ctx), protection, publisher, tenantId).AddAsync(new Client { Code = "000001", Name = "Off Corp" }, CancellationToken.None);
+        await publisher.DidNotReceiveWithAnyArgs().Publish<Onepunch.Common.Lib.DTO.ClientChanged>(default!, default);
+
+        await EnableAsync(db, protection);
+        Guid id;
+        await using (var ctx = db.NewContext())
+        {
+            var client = new Client { Code = "000002", Name = "On Corp" };
+            await ClientsFor(new UnitOfWorkService(ctx), protection, publisher, tenantId).AddAsync(client, CancellationToken.None);
+            id = client.Id;
+        }
+        await publisher.Received(1).Publish(
+            Arg.Is<Onepunch.Common.Lib.DTO.ClientChanged>(m => m.ClientId == id && m.TenantId == tenantId && m.Code == "000002" && m.Name == "On Corp" && m.ChangeType == "Created"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Editing_and_deleting_a_client_tell_the_portal_with_its_status()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        var publisher = Substitute.For<IPublishEndpoint>();
+        var id = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            seed.Clients.Add(new Client { Id = id, Code = "000003", Name = "Acme" });
+            await seed.SaveChangesAsync();
+        }
+        await EnableAsync(db, protection);
+
+        await using (var ctx = db.NewContext())
+            await ClientsFor(new UnitOfWorkService(ctx), protection, publisher, Guid.NewGuid())
+                .UpdateAsync(new UpdateClient { Id = id, Code = "000003", Name = "Acme Renamed", Status = "INACTIVE" }, CancellationToken.None);
+        await publisher.Received(1).Publish(
+            Arg.Is<Onepunch.Common.Lib.DTO.ClientChanged>(m => m.ClientId == id && m.Name == "Acme Renamed" && m.Status == "INACTIVE" && m.ChangeType == "Updated"),
+            Arg.Any<CancellationToken>());
+
+        await using (var ctx = db.NewContext())
+            await ClientsFor(new UnitOfWorkService(ctx), protection, publisher, Guid.NewGuid()).DeleteAsync(id, CancellationToken.None);
+        await publisher.Received(1).Publish(
+            Arg.Is<Onepunch.Common.Lib.DTO.ClientChanged>(m => m.ClientId == id && m.ChangeType == "Deleted"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_portal_message_that_cannot_be_queued_never_blocks_saving_the_client()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        await EnableAsync(db, protection);
+        var publisher = Substitute.For<IPublishEndpoint>();
+        publisher.Publish(Arg.Any<Onepunch.Common.Lib.DTO.ClientChanged>(), Arg.Any<CancellationToken>()).Returns(_ => throw new InvalidOperationException("bus down"));
+
+        await using (var ctx = db.NewContext())
+            await ClientsFor(new UnitOfWorkService(ctx), protection, publisher, Guid.NewGuid()).AddAsync(new Client { Code = "000004", Name = "Saved Anyway" }, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.Clients.AnyAsync(c => c.Name == "Saved Anyway")).Should().BeTrue();
+    }
+
+    // ---- sending every existing client ---------------------------------------------------------------------------
+
+    private static (ClientPortalClientBackfillService Backfill, ClientPortalSettingsService Settings, ClientPortalClientChangeService Changes) BackfillFor(
+        UnitOfWorkService uow, EphemeralDataProtectionProvider protection, IPublishEndpoint publisher, Guid tenantId)
+    {
+        var services = new ServiceCollection().AddSingleton(publisher).BuildServiceProvider();
+        var tenant = Substitute.For<ITenantProvider>();
+        tenant.TenantId.Returns(tenantId);
+        var settings = new ClientPortalSettingsService(uow, protection);
+        var changes = new ClientPortalClientChangeService(settings, tenant, services, NullLogger<ClientPortalClientChangeService>.Instance);
+        return (new ClientPortalClientBackfillService(new ClientService(uow), changes, settings), settings, changes);
+    }
+
+    private static async Task<(Guid A, Guid B)> SeedTwoClientsAsync(SqliteHrmsContext db)
+    {
+        var a = new Client { Id = Guid.NewGuid(), Code = "000001", Name = "Alpha", Status = "Active" };
+        var b = new Client { Id = Guid.NewGuid(), Code = "000002", Name = "Beta", Status = "INACTIVE" };
+        await using var seed = db.NewContext();
+        seed.Clients.AddRange(a, b);
+        await seed.SaveChangesAsync();
+        return (a.Id, b.Id);
+    }
+
+    [Fact]
+    public async Task Sending_all_clients_queues_each_one_with_its_status_and_is_refused_while_the_connection_is_off()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        var publisher = Substitute.For<IPublishEndpoint>();
+        var tenantId = Guid.NewGuid();
+        var (a, b) = await SeedTwoClientsAsync(db);
+
+        await using (var ctx = db.NewContext())
+            await FluentActions.Awaiting(() => BackfillFor(new UnitOfWorkService(ctx), protection, publisher, tenantId).Backfill.SendAllAsync(CancellationToken.None))
+                .Should().ThrowAsync<ValidationException>();
+        await publisher.DidNotReceiveWithAnyArgs().Publish<Onepunch.Common.Lib.DTO.ClientChanged>(default!, default);
+
+        await EnableAsync(db, protection);
+        await using (var ctx = db.NewContext())
+            (await BackfillFor(new UnitOfWorkService(ctx), protection, publisher, tenantId).Backfill.SendAllAsync(CancellationToken.None)).Should().Be(2);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<Onepunch.Common.Lib.DTO.ClientChanged>(m => m.ClientId == a && m.Name == "Alpha" && m.Status == "Active" && m.TenantId == tenantId && m.ChangeType == "Updated"),
+            Arg.Any<CancellationToken>());
+        await publisher.Received(1).Publish(
+            Arg.Is<Onepunch.Common.Lib.DTO.ClientChanged>(m => m.ClientId == b && m.Status == "INACTIVE"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Switching_the_connection_on_for_the_first_time_sends_the_clients_that_already_exist_but_saving_it_again_does_not()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        var publisher = Substitute.For<IPublishEndpoint>();
+        await SeedTwoClientsAsync(db);
+        var request = new ClientPortalSettingsRequest(true, "https://portal.example.com", "cpk_abcd.secret");
+
+        await using (var ctx = db.NewContext())
+        {
+            var uow = new UnitOfWorkService(ctx);
+            var (backfill, settings, _) = BackfillFor(uow, protection, publisher, Guid.NewGuid());
+            var controller = new Hrms.Api.Controllers.ClientPortalController(
+                settings, new ClientPortalSyncRequestService(settings, new DTRBatchService(uow), publisher), backfill);
+
+            await controller.SaveSettings(request, CancellationToken.None);
+        }
+        await publisher.Received(2).Publish(Arg.Any<Onepunch.Common.Lib.DTO.ClientChanged>(), Arg.Any<CancellationToken>());
+
+        publisher.ClearReceivedCalls();
+        await using (var ctx = db.NewContext())
+        {
+            var uow = new UnitOfWorkService(ctx);
+            var (backfill, settings, _) = BackfillFor(uow, protection, publisher, Guid.NewGuid());
+            var controller = new Hrms.Api.Controllers.ClientPortalController(
+                settings, new ClientPortalSyncRequestService(settings, new DTRBatchService(uow), publisher), backfill);
+
+            await controller.SaveSettings(request with { PortalUrl = "https://other.example.com" }, CancellationToken.None);
+        }
+        await publisher.DidNotReceiveWithAnyArgs().Publish<Onepunch.Common.Lib.DTO.ClientChanged>(default!, default);
     }
 
     [Fact]
