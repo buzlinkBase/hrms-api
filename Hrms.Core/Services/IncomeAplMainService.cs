@@ -89,9 +89,34 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
 
         _mapper.Map(payload, model);
         await ValidateAsync(model, token);
+        // A fixed schedule has no attendance rule, so a skip verdict left over from when it was
+        // attendance-based is released first: the row is then unlocked and payroll can pay it.
+        if (model.PayMode == OtherIncomePayMode.FixedSchedule)
+            await ReleaseStaleSkipsAsync(model.Id, token);
         reconciler.Reconcile(model, model.Schedule, payload.Schedule ?? [], row => _uow.Repository.Remove(row));
         await CommitChangesAsync(token);
         return (await FineOneAsync(model.Id, token))!;
+    }
+
+    // Rows an unposted (draft) payroll run stamped as skipped. Posted runs keep their verdict.
+    // Done in SQL, so the tracked rows are refreshed to match before the reconcile reads them.
+    private async Task ReleaseStaleSkipsAsync(Guid applicationId, CancellationToken token)
+    {
+        var released = await Context.IgnoringConfidentiality<OtherIncomeSchedules>()
+            .Where(x => x.OtherIncomeApplicationId == applicationId
+                        && x.IsSkipped
+                        && x.ConsumedByPayrollId != null
+                        && !Context.Payrolls.IgnoreQueryFilters()
+                            .Any(p => p.Id == x.ConsumedByPayrollId && p.IsPosted))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.ConsumedByPayrollId, (Guid?)null)
+                .SetProperty(x => x.IsSkipped, false)
+                .SetProperty(x => x.SkipReason, (string?)null), token);
+        if (released == 0) return;
+
+        foreach (var entry in Context.ChangeTracker.Entries<OtherIncomeSchedules>()
+                     .Where(e => e.Entity.OtherIncomeApplicationId == applicationId).ToList())
+            await entry.ReloadAsync(token);
     }
 
     private Task<OtherIncomeApplication?> LoadTrackedAsync(Guid id, CancellationToken token)
