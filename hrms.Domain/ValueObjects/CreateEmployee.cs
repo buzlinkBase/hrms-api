@@ -234,6 +234,10 @@ public class EmployeeFullModel : IEmployeePayView
     public bool UseEmployeeOverride { get; set; } = true;
 
     public DateTime? DOB { get; set; }
+    // Read-only here: the employee changes it themselves via PUT me/birthday-sharing.
+    public bool ShareBirthday { get; set; }
+    // Read-only here: the employee changes it themselves via PUT me/contact-sharing.
+    public bool ShareContact { get; set; }
     public string BloodType { get; set; } = string.Empty;
 
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;

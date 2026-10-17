@@ -577,6 +577,11 @@ public enum SettingKey
     // Company-wide only. What the daily rate is divided by to get the hourly rate — see the
     // HourlyRateDivisor enum and RateHelper.GetHourlyRate.
     HourlyRateDivisor,
+    // Company-wide portal Coworkers widgets (all default off) -- see CoworkerWidgetSettings.
+    CoworkerShowNewHires,
+    CoworkerShowAnniversaries,
+    CoworkerShowWhosOut,
+    CoworkerShowDirectory,
 }
 
 // What a day's daily rate is divided by to get the hourly rate that every payroll hour bucket

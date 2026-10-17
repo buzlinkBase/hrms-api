@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using BuzlinkRepository;
+using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Mvc;
@@ -13,10 +14,14 @@ namespace Hrms.Api.Controllers;
 public class DashboardController : ControllerBase
 {
     private readonly IUnitOfWorkService _uow;
+    private readonly DashboardWorkforceService _workforce;
+    private readonly BirthdayService _birthdays;
 
-    public DashboardController(IUnitOfWorkService uow)
+    public DashboardController(IUnitOfWorkService uow, DashboardWorkforceService workforce, BirthdayService birthdays)
     {
         _uow = uow;
+        _workforce = workforce;
+        _birthdays = birthdays;
     }
 
     [HttpGet("overview")]
@@ -98,6 +103,12 @@ public class DashboardController : ControllerBase
             .OrderByDescending(x => x.Count)
             .Take(8)
             .ToListAsync(token);
+
+        // ── Workforce mix (status / branch / tenure) ──────────────────────────
+        var workforce = await _workforce.GetMixAsync(today, token);
+
+        // ── Upcoming Birthdays (next 30 days) ─────────────────────────────────
+        var upcomingBirthdays = await _birthdays.GetUpcomingAsync(today, 30, 10, token);
 
         // ── Upcoming Holidays ─────────────────────────────────────────────────
         var holidays = await _uow.Repository
@@ -255,6 +266,17 @@ public class DashboardController : ControllerBase
                 departmentId = d.DepartmentId.ToString(),
                 departmentName = d.DeptName,
                 headcount = d.Count,
+            }),
+            workforce,
+            upcomingBirthdays = upcomingBirthdays.Select(b => new
+            {
+                id = b.Id.ToString(),
+                name = b.FullName,
+                departmentName = b.DepartmentName,
+                month = b.Month,
+                day = b.Day,
+                daysUntil = b.DaysUntil,
+                shareBirthday = b.ShareBirthday,
             }),
             upcomingHolidays = holidays.Select(h => new
             {

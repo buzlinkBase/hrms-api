@@ -100,6 +100,83 @@ namespace Hrms.Api.Controllers
             return Ok(employee);
         }
 
+        // Coworkers celebrating today who opted in to being greeted (no DOB/age is exposed).
+        [HttpGet("birthdays/today")]
+        [ProducesResponseType(typeof(List<CoworkerBirthdayModel>), 200)]
+        public async Task<IActionResult> GetTodayBirthdays([FromServices] BirthdayService birthdays, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila")));
+            var data = await birthdays.GetTodayAsync(today, token);
+            return Ok(data.Where(c => c.Id != employeeId.Value).ToList());
+        }
+
+        public record BirthdaySharingRequest(bool Share);
+
+        // The employee's own opt-in; the id is always resolved from the JWT, never the client.
+        [HttpPut("birthday-sharing")]
+        public async Task<IActionResult> SetBirthdaySharing(
+            [FromBody] BirthdaySharingRequest request, [FromServices] BirthdayService birthdays, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+            return await birthdays.SetShareAsync(employeeId.Value, request.Share, token) ? NoContent() : NotFound();
+        }
+
+        private static DateOnly PhToday() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila")));
+
+        // Which Coworkers widgets the company switched on, so the page only shows those tabs.
+        [HttpGet("coworkers/settings")]
+        public async Task<IActionResult> GetCoworkerSettings([FromServices] CoworkerService coworkers)
+        {
+            var w = await coworkers.GetWidgetsAsync();
+            return Ok(new CoworkerSettingsModel
+            {
+                ShowNewHires = w.ShowNewHires,
+                ShowAnniversaries = w.ShowAnniversaries,
+                ShowWhosOut = w.ShowWhosOut,
+                ShowDirectory = w.ShowDirectory,
+            });
+        }
+
+        [HttpGet("coworkers/new-hires")]
+        public async Task<IActionResult> GetNewHires([FromServices] CoworkerService coworkers, CancellationToken token) =>
+            Ok(await coworkers.GetNewHiresAsync(PhToday(), token));
+
+        [HttpGet("coworkers/anniversaries")]
+        public async Task<IActionResult> GetAnniversaries([FromServices] CoworkerService coworkers, CancellationToken token) =>
+            Ok(await coworkers.GetAnniversariesAsync(PhToday(), token));
+
+        [HttpGet("coworkers/out-today")]
+        public async Task<IActionResult> GetOutToday([FromServices] CoworkerService coworkers, CancellationToken token) =>
+            Ok(await coworkers.GetOutTodayAsync(PhToday(), token));
+
+        [HttpGet("coworkers/directory")]
+        public async Task<IActionResult> GetDirectory(
+            [FromServices] CoworkerService coworkers, [FromQuery] string? q, [FromQuery] Guid? departmentId,
+            [FromQuery] int page = 1, CancellationToken token = default) =>
+            Ok(await coworkers.SearchDirectoryAsync(q, departmentId, page, token));
+
+        [HttpGet("coworkers/org-chart")]
+        public async Task<IActionResult> GetOrgChart([FromServices] CoworkerService coworkers, CancellationToken token) =>
+            Ok(await coworkers.GetOrgChartAsync(token));
+
+        public record ContactSharingRequest(bool Share);
+
+        // The employee's own opt-in to show their email/contact in the directory.
+        [HttpPut("contact-sharing")]
+        public async Task<IActionResult> SetContactSharing(
+            [FromBody] ContactSharingRequest request, [FromServices] CoworkerService coworkers, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+            return await coworkers.SetShareContactAsync(employeeId.Value, request.Share, token) ? NoContent() : NotFound();
+        }
+
         [RequireFeature(EntitlementKeys.PayrollCore)]
         [HttpGet("payrolls")]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]

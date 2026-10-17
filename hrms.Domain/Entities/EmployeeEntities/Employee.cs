@@ -62,6 +62,11 @@ public class Employee : BaseEntity, Hrms.Domain.ValueObjects.IEmployeePayFields
     public bool UseEmployeeOverride { get; set; } = true;
 
     public DateTime? DOB { get; set; }
+    // Opt-in, set only by the employee themselves (portal): when true, coworkers are told it's
+    // their birthday. Off by default so a birthday is never announced without consent.
+    public bool ShareBirthday { get; set; }
+    // Opt-in, employee-set: show Email/Contact to coworkers in the portal directory.
+    public bool ShareContact { get; set; }
     public string BloodType { get; set; } = string.Empty;
 
     public PaymentMethod ModeOfPayment { get; set; } = PaymentMethod.ATM;

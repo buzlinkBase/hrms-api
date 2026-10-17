@@ -51,6 +51,11 @@ public class GeneralSettingsController : ControllerBase
             OtNdCalculationMethod = policy.OtNdCalculationMethod.ToString(),
             HourlyRateDivisor = policy.HourlyRateDivisor.ToString(),
         };
+        var coworkers = CoworkerWidgetSettings.From(settings);
+        response.CoworkerShowNewHires = coworkers.ShowNewHires;
+        response.CoworkerShowAnniversaries = coworkers.ShowAnniversaries;
+        response.CoworkerShowWhosOut = coworkers.ShowWhosOut;
+        response.CoworkerShowDirectory = coworkers.ShowDirectory;
         return Ok(response);
     }
 
@@ -81,6 +86,10 @@ public class GeneralSettingsController : ControllerBase
             new() { IdentityType = "Company", Description = SettingKey.RequiredTakehomePercentage.ToString(), Value = request.RequiredTakehomePercentage.ToString() },
             new() { IdentityType = "Company", Description = SettingKey.OtNdCalculationMethod.ToString(), Value = request.OtNdCalculationMethod },
             new() { IdentityType = "Company", Description = SettingKey.HourlyRateDivisor.ToString(), Value = request.HourlyRateDivisor },
+            new() { IdentityType = "Company", Description = SettingKey.CoworkerShowNewHires.ToString(), Value = request.CoworkerShowNewHires.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.CoworkerShowAnniversaries.ToString(), Value = request.CoworkerShowAnniversaries.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.CoworkerShowWhosOut.ToString(), Value = request.CoworkerShowWhosOut.ToString().ToLower() },
+            new() { IdentityType = "Company", Description = SettingKey.CoworkerShowDirectory.ToString(), Value = request.CoworkerShowDirectory.ToString().ToLower() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync("Company", settings, null, token);
@@ -159,6 +168,10 @@ public class UpdateCompanyPolicyRequest
     public double RequiredTakehomePercentage { get; set; } = 10;
     public string OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default.ToString();
     public string HourlyRateDivisor { get; set; } = HourlyRateDivisorDefaults.Default.ToString();
+    public bool CoworkerShowNewHires { get; set; }
+    public bool CoworkerShowAnniversaries { get; set; }
+    public bool CoworkerShowWhosOut { get; set; }
+    public bool CoworkerShowDirectory { get; set; }
 }
 public class CompanyPolicyResponse
 {
@@ -181,6 +194,10 @@ public class CompanyPolicyResponse
     public required double RequiredTakehomePercentage { get; set; }
     public required string OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default.ToString();
     public required string HourlyRateDivisor { get; set; } = HourlyRateDivisorDefaults.Default.ToString();
+    public bool CoworkerShowNewHires { get; set; }
+    public bool CoworkerShowAnniversaries { get; set; }
+    public bool CoworkerShowWhosOut { get; set; }
+    public bool CoworkerShowDirectory { get; set; }
 }
 public class ClientPolicyDto
 {

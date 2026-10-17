@@ -2537,6 +2537,12 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid?>("SectionId")
                         .HasColumnType("char(36)");
 
+                    b.Property<bool>("ShareBirthday")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("ShareContact")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("longtext");
