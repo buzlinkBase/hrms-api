@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Hrms.Api.Filters;
 using Hrms.Api.RateLimiting;
 using Hrms.Core.Services;
+using Hrms.Core.Services.ClientPortal;
 using Hrms.Core.Services.Storage;
 using Microsoft.AspNetCore.RateLimiting;
 using Hrms.Domain.ValueObjects;
@@ -24,10 +25,12 @@ public class CompanySettingsController : ControllerBase
     private readonly ITenantClient _tenantClient;
     private readonly OrganizationImageService _images;
     private readonly ImageUrlResolver _imageUrls;
+    private readonly IClientPortalBrandingPublisher? _portalBranding;
 
     public CompanySettingsController(CompanyService service, IMapper mapper, ITenantClient tenantClient,
-        OrganizationImageService images, ImageUrlResolver imageUrls)
+        OrganizationImageService images, ImageUrlResolver imageUrls, IClientPortalBrandingPublisher? portalBranding = null)
     {
+        _portalBranding = portalBranding;
         _service = service;
         _mapper = mapper;
         _tenantClient = tenantClient;
@@ -57,6 +60,7 @@ public class CompanySettingsController : ControllerBase
     {
         await using var upload = file.OpenReadStream();
         var url = await _images.SetCompanyLogoAsync(upload, file.Length, file.FileName, token);
+        await PublishBrandingAsync(token);
         return Ok(new ImageUploadResult(url));
     }
 
@@ -66,6 +70,7 @@ public class CompanySettingsController : ControllerBase
     public async Task<IActionResult> RemoveLogo(CancellationToken token)
     {
         await _images.RemoveCompanyLogoAsync(token);
+        await PublishBrandingAsync(token);
         return Ok();
     }
 
@@ -93,7 +98,32 @@ public class CompanySettingsController : ControllerBase
             }
         }
 
+        // Address and contact number are also shown in the platform console, which reads them from
+        // Tenant Service -- same rule as the name: sync first so a refusal saves nothing.
+        var addressChanged = !string.Equals(current?.Address?.Trim() ?? "", payload.Address?.Trim() ?? "", StringComparison.Ordinal);
+        var contactChanged = !string.Equals(current?.Contact?.Trim() ?? "", payload.Contact?.Trim() ?? "", StringComparison.Ordinal);
+        if (addressChanged || contactChanged)
+        {
+            try
+            {
+                await _tenantClient.UpdateCurrentProfileAsync(new TenantProfileUpdate(payload.Address, payload.Contact), token);
+            }
+            catch (ApiException ex)
+            {
+                throw new InvalidOperationException(
+                    $"The company details couldn't be updated ({(int)ex.StatusCode} from the company service), so nothing was saved. Please try again.", ex);
+            }
+        }
+
         await _service.SaveAsync(payload, token);
+        await PublishBrandingAsync(token);
         return Ok("success");
+    }
+
+    /// <summary>The Client Portal shows the company's name and logo to its clients; it hears of a change here. Never fails the edit.</summary>
+    private async Task PublishBrandingAsync(CancellationToken token)
+    {
+        if (_portalBranding != null)
+            await _portalBranding.PublishAsync(token);
     }
 }

@@ -84,7 +84,7 @@ public class InstanceProvisioner : ITenantProvisioner
 
         // Seed the tenant's Company record — defaults the company name from the tenant
         // name entered at signup, editable later via Setup > Company Settings.
-        await _companyService.SeedDefaultAsync(message.TenantName, context.CancellationToken);
+        await _companyService.SeedDefaultAsync(message.TenantName, message.Profile, context.CancellationToken);
 
         // Publish completion event (Flow C: consumed by Auth's HrDbCreatedWorker to push the
         // "tenant-added" SignalR notification back to the waiting client)
@@ -164,7 +164,7 @@ public class DedicatedProvisioner : ITenantProvisioner
             // Seed the tenant's Company record — defaults the company name from the tenant
             // name entered at signup, editable later via Setup > Company Settings. Must run
             // after the migration above, since the Companies table doesn't exist until then.
-            await _companyService.SeedDefaultAsync(message.TenantName, context.CancellationToken);
+            await _companyService.SeedDefaultAsync(message.TenantName, message.Profile, context.CancellationToken);
 
             // Publish domain events via ConsumeContext pipeline
             await context.Publish(new ConnectionStringPayload

@@ -88,7 +88,10 @@ public class CompanyService : BaseService<Company>
     // failure), so this must be safe to run more than once for the same tenant. Skipping
     // when a row already exists both prevents a duplicate Company and avoids clobbering
     // any Company Info the tenant may have already saved before a delayed retry fires.
-    public async Task SeedDefaultAsync(string? tenantName, CancellationToken token)
+    //
+    // Any optional details the owner entered when creating the company seed the rest of the
+    // record, so they don't have to retype them in Company Settings.
+    public async Task SeedDefaultAsync(string? tenantName, CompanyProfile? profile, CancellationToken token)
     {
         var existing = await FineOneAsync(token);
         if (existing != null) return;
@@ -97,6 +100,16 @@ public class CompanyService : BaseService<Company>
         {
             Code = "MAIN",
             Description = tenantName ?? "My Workspace",
+            Address = profile?.Address ?? string.Empty,
+            Contact = profile?.Contact ?? string.Empty,
+            Email = profile?.Email ?? string.Empty,
+            TIN = profile?.Tin ?? string.Empty,
+            RDOCode = profile?.RdoCode ?? string.Empty,
+            SSSNumber = profile?.SssNumber ?? string.Empty,
+            PhilHealthNumber = profile?.PhilHealthNumber ?? string.Empty,
+            PagIbigNumber = profile?.PagIbigNumber ?? string.Empty,
+            AuthorizedSignatoryName = profile?.AuthorizedSignatoryName ?? string.Empty,
+            AuthorizedSignatoryTitle = profile?.AuthorizedSignatoryTitle ?? string.Empty,
         }, token);
     }
 }
