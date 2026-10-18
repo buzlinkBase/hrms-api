@@ -88,6 +88,11 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
             "The employee or income type can't be changed: part of this schedule was already paid in a saved payroll run.");
 
         _mapper.Map(payload, model);
+        // A pre-migration row stores '' in these columns, which the converter reads as the default,
+        // so EF saw "no change" when the form sent that default and never repaired the column.
+        var entry = Context.Entry(model);
+        entry.Property(x => x.PayMode).IsModified = true;
+        entry.Property(x => x.AttendanceBasis).IsModified = true;
         await ValidateAsync(model, token);
         // A fixed schedule has no attendance rule, so a skip verdict left over from when it was
         // attendance-based is released first: the row is then unlocked and payroll can pay it.

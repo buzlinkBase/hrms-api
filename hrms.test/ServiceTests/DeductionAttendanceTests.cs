@@ -408,4 +408,64 @@ public class DeductionAttendanceTests : IDisposable
 
         app.PayMode.Should().Be(OtherIncomePayMode.FixedSchedule);
     }
+
+    // ------------------------------------------------------------------ pre-migration applications
+
+    // An application created before the attendance-rule migration: the new string columns came in
+    // as '' and the masks as 0. The converter reads '' as the default, but SQL sees the raw ''.
+    private async Task BlankRuleColumnsAsync(Guid applicationId)
+    {
+        await using var context = _db.NewContext();
+        await context.Database.ExecuteSqlAsync(
+            $"UPDATE DeductionApplications SET PayMode = '', AttendanceBasis = '', OnMiss = '', ApplicableDays = 0, DayTypes = 0 WHERE Id = {applicationId}");
+    }
+
+    [Fact]
+    public async Task FindMisses_LegacyBlankPayMode_IsTreatedAsFixed()
+    {
+        var s = await SeedAsync(OtherIncomePayMode.FixedSchedule);
+        await BlankRuleColumnsAsync(s.ApplicationId);
+        await AddAsync(s, [Row(s, Monday, 1), Row(s, Tuesday, 2)], Absent(Monday), Absent(Tuesday));
+
+        (await MissesAsync(s, Sunday)).Should().BeEmpty("a blank pay mode is a fixed schedule");
+        (await LoadedIdsAsync(s, Sunday)).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RepairsALegacyBlankPayMode()
+    {
+        var s = await SeedAsync();
+        var form = Form(s);
+        form.PayMode = OtherIncomePayMode.FixedSchedule;
+        form.AttendanceBasis = OtherIncomeAttendanceBasis.None;
+        form.OnMiss = AttendanceMissAction.Skip;
+        var app = await AddAsync(form);
+        await BlankRuleColumnsAsync(app.Id);
+
+        await using (var context = _db.NewProductionLikeContext())
+        {
+            await BuildService(new UnitOfWorkService(context)).UpdateAsync(new UpdateDeductionApplication
+            {
+                Id = app.Id, EmployeeId = s.EmployeeId, DeductionId = s.DeductionId,
+                EncodeDate = Monday, StartDate = Monday, EndDate = Sunday,
+                FrequencyOfPayment = DeductionFrequency.Daily, Terms = 2, TotalPrincipal = 100m, TotalAmount = 100m,
+                PayMode = OtherIncomePayMode.FixedSchedule,
+                AttendanceBasis = OtherIncomeAttendanceBasis.None,
+                OnMiss = AttendanceMissAction.Skip,
+                Details = app.Breakdown
+                    .Select(x => new UpdateDeductionApplicationDetail
+                    {
+                        Id = x.Id, Date = x.Date, Principal = x.Principal, Amount = x.Amount,
+                    })
+                    .ToList(),
+            }, CancellationToken.None);
+        }
+
+        await using var check = _db.NewContext();
+        var stored = await check.Database
+            .SqlQuery<string>(
+                $"SELECT PayMode || '|' || AttendanceBasis || '|' || OnMiss AS Value FROM DeductionApplications WHERE Id = {app.Id}")
+            .ToListAsync();
+        stored.Should().Equal("FixedSchedule|None|Skip");
+    }
 }

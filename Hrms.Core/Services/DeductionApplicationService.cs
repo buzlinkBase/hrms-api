@@ -111,6 +111,12 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
             "The employee or deduction can't be changed: part of this schedule was already deducted in a payroll run.");
 
         _mapper.Map(payload, model);
+        // A pre-migration row stores '' in these columns, which the converter reads as the default,
+        // so EF saw "no change" when the form sent that default and never repaired the column.
+        var entry = Context.Entry(model);
+        entry.Property(x => x.PayMode).IsModified = true;
+        entry.Property(x => x.AttendanceBasis).IsModified = true;
+        entry.Property(x => x.OnMiss).IsModified = true;
         await Guard.ModelGuardAsync<DeductionApplication>(CreateValidatorAsync, model, token);
         reconciler.Reconcile(model, model.Breakdown, payload.Details ?? [], row => _uow.Repository.Remove(row));
 

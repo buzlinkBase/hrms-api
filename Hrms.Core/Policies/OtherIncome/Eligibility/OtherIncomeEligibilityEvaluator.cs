@@ -25,7 +25,8 @@ public static class OtherIncomeEligibilityEvaluator
                   && row.ConsumedByPayrollId == null
                   && row.Date >= fromDate && row.Date <= toDate
                   && employeeIds.Contains(row.EmployeeId)
-                  && app.PayMode != OtherIncomePayMode.FixedSchedule
+                  && (app.PayMode == OtherIncomePayMode.PerQualifyingDay
+                      || app.PayMode == OtherIncomePayMode.PeriodicGated)
             select new
             {
                 row.Id,

@@ -30,6 +30,9 @@ public static class AttendanceEligibilityJudge
 
         foreach (var candidate in candidates)
         {
+            // A fixed schedule is paid on its date; it has no attendance rule to fail.
+            if (candidate.Rule.PayMode == OtherIncomePayMode.FixedSchedule) continue;
+
             records.TryGetValue(candidate.EmployeeId, out var byDate);
             byDate ??= new Dictionary<DateOnly, DailyRecord>();
 

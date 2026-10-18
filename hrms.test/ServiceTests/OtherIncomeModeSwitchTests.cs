@@ -4,6 +4,7 @@ using Hrms.Domain.ValueObjects;
 using hrms.test.TestSupport;
 using Mapster;
 using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 
 namespace hrms.test.ServiceTests;
@@ -94,6 +95,25 @@ public class OtherIncomeModeSwitchTests : IDisposable
         row!.IsSkipped.Should().BeFalse();
         row.SkipReason.Should().BeNull();
         row.ConsumedByPayrollId.Should().BeNull();
+    }
+
+    // A pre-migration application stores '' as its pay mode. The converter reads that as
+    // FixedSchedule, so re-saving it as FixedSchedule used to look like "no change" and never fix it.
+    [Fact]
+    public async Task SavingALegacyBlankPayModeAsFixed_WritesTheColumn()
+    {
+        var s = await SeedSkippedRowAsync(postedRun: false);
+        await using (var raw = _db.NewContext())
+            await raw.Database.ExecuteSqlRawAsync(
+                "UPDATE OtherIncomeApplications SET PayMode = '', AttendanceBasis = ''");
+
+        await SwitchToFixedAsync(s);
+
+        await using var check = _db.NewContext();
+        var stored = await check.Database
+            .SqlQueryRaw<string>("SELECT PayMode || '|' || AttendanceBasis AS Value FROM OtherIncomeApplications")
+            .ToListAsync();
+        stored.Should().Equal("FixedSchedule|None");
     }
 
     [Fact]

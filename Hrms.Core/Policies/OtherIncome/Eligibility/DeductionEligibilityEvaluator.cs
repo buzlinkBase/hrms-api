@@ -29,7 +29,10 @@ public static class DeductionEligibilityEvaluator
                   && !row.IsSkipped && !row.IsDeferred
                   && employeeIds.Contains(row.EmployeeId)
                   && app.ApprovalStatus == ApprovalStatus.Approved
-                  && app.PayMode != OtherIncomePayMode.FixedSchedule
+                  // A positive match, never "!= FixedSchedule": that runs on the raw column, and a
+                  // pre-migration row stores '' there, which the converter reads as FixedSchedule.
+                  && (app.PayMode == OtherIncomePayMode.PerQualifyingDay
+                      || app.PayMode == OtherIncomePayMode.PeriodicGated)
             select new
             {
                 row.Id,

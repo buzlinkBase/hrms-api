@@ -278,6 +278,61 @@ public class OtherIncomeEligibilityTests
         skipped.Should().BeEmpty("a fixed schedule is paid on its date, no DTR involved");
     }
 
+    // An application created before the attendance-rule migration: the new string columns came in
+    // as '' and the masks as 0. The converter reads '' as FixedSchedule, but SQL sees the raw ''.
+    private static async Task<Seeded> SeedLegacyAsync(SqliteHrmsContext db)
+    {
+        var s = await SeedAsync(db, OtherIncomePayMode.FixedSchedule, OtherIncomeAttendanceBasis.None);
+        await using var context = db.NewContext();
+        await context.Database.ExecuteSqlRawAsync(
+            "UPDATE OtherIncomeApplications SET PayMode = '', AttendanceBasis = '', ApplicableDays = 0, DayTypes = 0");
+        return s;
+    }
+
+    [Fact]
+    public async Task FindSkipped_LegacyBlankPayMode_IsTreatedAsFixed()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedLegacyAsync(db);
+        await AddAsync(db, s, [Row(s, Monday), Row(s, Tuesday)]);
+
+        await using var context = db.NewContext();
+        var skipped = await OtherIncomeEligibilityEvaluator.FindSkippedAsync(
+            context, [s.EmployeeId], Monday, Sunday, CancellationToken.None);
+
+        skipped.Should().BeEmpty("a blank pay mode is a fixed schedule");
+    }
+
+    [Fact]
+    public async Task LoadAsync_PaysLegacyBlankPayModeRows()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedLegacyAsync(db);
+        var rows = new[] { Row(s, Monday), Row(s, Tuesday) };
+        await AddAsync(db, s, rows);
+
+        await using var context = db.NewContext();
+        var result = await new IncomeAplDtlService(new UnitOfWorkService(context))
+            .LoadAsync([s.EmployeeId], Monday, Sunday, CancellationToken.None);
+
+        result[new EmployeeKey(s.EmployeeId)].Select(x => x.Id).Should().BeEquivalentTo(rows.Select(x => x.Id));
+    }
+
+    [Fact]
+    public async Task MarkConsumed_DoesNotFlagLegacyBlankPayModeRows()
+    {
+        using var db = new SqliteHrmsContext();
+        var s = await SeedLegacyAsync(db);
+        await AddAsync(db, s, [Row(s, Monday), Row(s, Tuesday)]);
+        var payroll = new Payroll { Id = Guid.NewGuid(), EmployeeId = s.EmployeeId, PayPeriodStart = Monday, PayPeriodEnd = Sunday };
+
+        await SaveRunAsync(db, payroll);
+
+        await using var check = db.NewContext();
+        var stored = await check.OtherIncomeApplicationDetails.AsNoTracking().ToListAsync();
+        stored.Should().OnlyContain(x => x.ConsumedByPayrollId == payroll.Id && !x.IsSkipped);
+    }
+
     [Fact]
     public async Task FindSkipped_IgnoresUnpostedDtr()
     {
