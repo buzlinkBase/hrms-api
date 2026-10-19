@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
+using Onepunch.AuditEngine.EntityFrameworkCore;
 using Onepunch.Common.Lib.DTO;
 using Onepunch.Common.Lib.Subscriptions;
 
@@ -17,6 +18,9 @@ namespace Hrms.adms.Messages;
 /// <c>CompanyDataPurged</c> is the one answer Tenant Service waits for).
 /// Does nothing for a company that is not read-only. Tenant Service asks again each day until the whole
 /// purge is done, so a skipped or failed run is retried.
+/// An operator's erasure of a (test) account (<see cref="CompanyPurgeStage.HardDelete"/>, approved by two
+/// operators) skips the read-only check -- the company may still be live -- and takes the company's
+/// audit trail too.
 /// </summary>
 public class PurgeCompanyDataWorker(
     AdmsContext db,
@@ -27,22 +31,31 @@ public class PurgeCompanyDataWorker(
     public async Task Consume(ConsumeContext<PurgeCompanyData> context)
     {
         var request = context.Message;
-        if (request.Stage != CompanyPurgeStage.ArchiveAndPurge) return;
+        if (request.Stage is not (CompanyPurgeStage.ArchiveAndPurge or CompanyPurgeStage.HardDelete)) return;
+        var erasing = request.Stage == CompanyPurgeStage.HardDelete;
         if (request.TenantId == Guid.Empty || request.TenantId != tenantProvider.TenantId)
         {
             logger.LogWarning("Data purge for {Tenant} ignored: it doesn't match the tenant header", request.TenantId);
             return;
         }
 
-        var snapshot = await entitlements.GetAsync(request.TenantId, context.CancellationToken);
-        if (!snapshot.IsReadOnly)
+        if (!erasing)
         {
-            logger.LogWarning("Data purge for {Tenant} skipped: the company isn't read-only (status {Status})", request.TenantId, snapshot.Status);
-            return;
+            var snapshot = await entitlements.GetAsync(request.TenantId, context.CancellationToken);
+            if (!snapshot.IsReadOnly)
+            {
+                logger.LogWarning("Data purge for {Tenant} skipped: the company isn't read-only (status {Status})", request.TenantId, snapshot.Status);
+                return;
+            }
         }
 
         var deleted = await AdmsCompanyData.DeleteAsync(db, request.TenantId, context.CancellationToken);
-        logger.LogInformation("Data purge [{Tenant}]: {Rows} device-service rows deleted", request.TenantId, deleted);
+        if (erasing)
+        {
+            deleted += await AdmsCompanyData.DeleteAuditTrailAsync(db, request.TenantId, context.CancellationToken);
+            await entitlements.InvalidateAsync([request.TenantId]);
+        }
+        logger.LogInformation("Data purge [{Tenant}] {Stage}: {Rows} device-service rows deleted", request.TenantId, request.Stage, deleted);
     }
 }
 
@@ -92,6 +105,14 @@ public static class AdmsCompanyData
             await database.CloseConnectionAsync();
         }
         return total;
+    }
+
+    /// <summary>The company's audit trail (an erasure only; the hash chain is per company, so no other
+    /// company's chain is touched).</summary>
+    public static Task<int> DeleteAuditTrailAsync(AdmsContext db, Guid tenantId, CancellationToken token)
+    {
+        var organization = tenantId.ToString();
+        return db.Set<AuditEventRecord>().Where(a => a.OrganizationId == organization).ExecuteDeleteAsync(token);
     }
 }
 

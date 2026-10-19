@@ -1,21 +1,25 @@
 using System.Security.Cryptography;
+using Hrms.Core.Services.Announcements.Lifecycle;
 using Hrms.Core.Services.Storage;
+using Hrms.Domain.Entities.Announcements;
 using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Onepunch.AuditEngine.EntityFrameworkCore;
 using Onepunch.Common.Lib.Subscriptions;
 
 namespace Hrms.Core.Services.DataPurge;
 
 /// <summary>What the purge steps share: the company, the catalog of its tables, and what each step reports.</summary>
-public sealed class CompanyPurgeContext(HrmsContext db, Guid tenantId, DateTime nowUtc)
+public sealed class CompanyPurgeContext(HrmsContext db, Guid tenantId, DateTime nowUtc, CompanyPurgeStage stage = CompanyPurgeStage.ArchiveAndPurge)
 {
     public HrmsContext Db { get; } = db;
     public Guid TenantId { get; } = tenantId;
     public DateTime NowUtc { get; } = nowUtc;
+    public CompanyPurgeStage Stage { get; } = stage;
     public CompanyDataCatalog Catalog { get; set; } = null!;
 
     /// <summary>Set by a step that can't go on; nothing after it runs. A failure before the delete step
@@ -37,19 +41,25 @@ public sealed class CompanyPurgeContext(HrmsContext db, Guid tenantId, DateTime 
 /// <summary>
 /// One link of the purge chain. Run in <see cref="Order"/>; a step that calls
 /// <see cref="CompanyPurgeContext.Fail"/> stops the chain, so the order is also the safety: nothing is
-/// deleted unless the company is locked and its records are archived and verified.
+/// deleted unless the company is locked and its records are archived and verified. Each step says which
+/// stages it belongs to: the yearly purge (<see cref="CompanyPurgeStage.ArchiveAndPurge"/>) keeps the
+/// company row and archives first; an operator's erasure (<see cref="CompanyPurgeStage.HardDelete"/>)
+/// takes everything at once.
 /// </summary>
 public interface ICompanyPurgeStep
 {
     int Order { get; }
+    bool RunsFor(CompanyPurgeStage stage) => stage is CompanyPurgeStage.ArchiveAndPurge or CompanyPurgeStage.HardDelete;
     Task RunAsync(CompanyPurgeContext context, CancellationToken token);
 }
 
 /// <summary>Refuses to touch a company that is not read-only -- one that paid in the meantime, or whose
-/// status couldn't be confirmed.</summary>
+/// status couldn't be confirmed. Not for an erasure: two operators approved it, and a test company may
+/// still be live.</summary>
 public sealed class RequireLockedStep(IEntitlementProvider entitlements) : ICompanyPurgeStep
 {
     public int Order => 10;
+    public bool RunsFor(CompanyPurgeStage stage) => stage == CompanyPurgeStage.ArchiveAndPurge;
 
     public async Task RunAsync(CompanyPurgeContext context, CancellationToken token)
     {
@@ -60,13 +70,36 @@ public sealed class RequireLockedStep(IEntitlementProvider entitlements) : IComp
 }
 
 /// <summary>
+/// Stops the company's scheduled announcement jobs (publish / expire / purge) before their rows go, so
+/// the scheduler isn't left firing at records that no longer exist. Erasure only: the yearly purge
+/// leaves them to fail harmlessly.
+/// </summary>
+public sealed class CancelScheduledJobsStep(IAnnouncementJobScheduler scheduler) : ICompanyPurgeStep
+{
+    public int Order => 15;
+    public bool RunsFor(CompanyPurgeStage stage) => stage == CompanyPurgeStage.HardDelete;
+
+    public async Task RunAsync(CompanyPurgeContext context, CancellationToken token)
+    {
+        var jobs = await context.Db.Set<Announcement>().IgnoreQueryFilters().AsNoTracking()
+            .Where(a => a.TenantId == context.TenantId)
+            .Select(a => new { a.PublishJobToken, a.ExpireJobToken, a.PurgeJobToken })
+            .ToListAsync(token);
+        foreach (var jobToken in jobs.SelectMany(j => new[] { j.PublishJobToken, j.ExpireJobToken, j.PurgeJobToken }).OfType<Guid>())
+            await scheduler.CancelAsync(jobToken, token);
+    }
+}
+
+/// <summary>
 /// Writes the company's records to a zip in the archive folder of the file storage, reads it back and
 /// checks its SHA-256, then checks the database still holds exactly the rows that went in. Any
-/// mismatch removes the new archive and fails the run -- the next attempt starts clean.
+/// mismatch removes the new archive and fails the run -- the next attempt starts clean. Not for an
+/// erasure: nothing of an erased account is kept.
 /// </summary>
 public sealed class ArchiveRecordsStep(IFileStorage storage, CompanyArchiveWriter writer) : ICompanyPurgeStep
 {
     public int Order => 20;
+    public bool RunsFor(CompanyPurgeStage stage) => stage == CompanyPurgeStage.ArchiveAndPurge;
 
     public async Task RunAsync(CompanyPurgeContext context, CancellationToken token)
     {
@@ -142,8 +175,9 @@ public sealed class ArchiveRecordsStep(IFileStorage storage, CompanyArchiveWrite
 }
 
 /// <summary>
-/// Deletes the company's rows, children before parents, in batches. The company's own row stays.
-/// Won't run for a company that had records but has no verified archive of them.
+/// Deletes the company's rows, children before parents, in batches. The yearly purge keeps the
+/// company's own row and won't run for a company that had records but has no verified archive of
+/// them; an erasure deletes the company row too.
 /// </summary>
 public sealed class DeleteRecordsStep : ICompanyPurgeStep
 {
@@ -161,13 +195,14 @@ public sealed class DeleteRecordsStep : ICompanyPurgeStep
 
         var database = context.Db.Database;
         var mysql = database.ProviderName?.Contains("MySql", StringComparison.OrdinalIgnoreCase) == true;
+        var tables = context.Stage == CompanyPurgeStage.HardDelete ? context.Catalog.ToErase : context.Catalog.ToDelete;
         await database.OpenConnectionAsync(token);
         try
         {
             // MySQL checks a foreign key as each row goes, so a table that refers to itself can't be
             // emptied in one pass; the whole company is going anyway.
             if (mysql) await database.ExecuteSqlRawAsync("SET FOREIGN_KEY_CHECKS = 0", token);
-            foreach (var table in context.Catalog.ToDelete)
+            foreach (var table in tables)
             {
                 var sql = CompanyDataCatalog.ForEf(table.DeleteSql);
                 int deleted;
@@ -186,20 +221,55 @@ public sealed class DeleteRecordsStep : ICompanyPurgeStep
     }
 }
 
-/// <summary>Deletes the company's uploaded files (logos, photos, documents). The archive lives elsewhere.</summary>
+/// <summary>
+/// The company's audit trail (its own events and the copies of Auth/Tenant Service's). The hash chain
+/// is per company, so no other company's chain is touched. Erasure only: the yearly purge keeps it.
+/// </summary>
+public sealed class DeleteAuditTrailStep : ICompanyPurgeStep
+{
+    public int Order => 35;
+    public bool RunsFor(CompanyPurgeStage stage) => stage == CompanyPurgeStage.HardDelete;
+
+    public async Task RunAsync(CompanyPurgeContext context, CancellationToken token)
+    {
+        var organization = context.TenantId.ToString();
+        context.RowsDeleted += await context.Db.Set<AuditEventRecord>()
+            .Where(a => a.OrganizationId == organization)
+            .ExecuteDeleteAsync(token);
+    }
+}
+
+/// <summary>Deletes the company's uploaded files (logos, photos, documents). The yearly purge keeps the
+/// archive (it lives elsewhere); an erasure removes any archive an earlier purge left too.</summary>
 public sealed class DeleteFilesStep(IFileStorage storage) : ICompanyPurgeStep
 {
     public int Order => 40;
 
-    public async Task RunAsync(CompanyPurgeContext context, CancellationToken token) =>
+    public async Task RunAsync(CompanyPurgeContext context, CancellationToken token)
+    {
         context.FilesDeleted = await storage.DeleteByPrefixAsync(StorageKeys.TenantPrefix(context.TenantId), token);
+        if (context.Stage == CompanyPurgeStage.HardDelete)
+            context.FilesDeleted += await storage.DeleteByPrefixAsync(StorageKeys.ArchivePrefix(context.TenantId), token);
+    }
+}
+
+/// <summary>Drops the cached entitlements of an erased company, so nothing keeps answering for it.</summary>
+public sealed class ForgetCompanyCachesStep(IEntitlementProvider entitlements) : ICompanyPurgeStep
+{
+    public int Order => 50;
+    public bool RunsFor(CompanyPurgeStage stage) => stage == CompanyPurgeStage.HardDelete;
+
+    public Task RunAsync(CompanyPurgeContext context, CancellationToken token) =>
+        entitlements.InvalidateAsync([context.TenantId]);
 }
 
 /// <summary>
 /// Removes a locked company's data from the live database and file storage after archiving what must
 /// be kept (<see cref="CompanyPurgeStage.ArchiveAndPurge"/>), and later destroys the archive itself
-/// (<see cref="CompanyPurgeStage.DestroyArchive"/>). Never throws for a failed run: it returns the
-/// failure for Tenant Service to record and ask again tomorrow. Safe to run twice.
+/// (<see cref="CompanyPurgeStage.DestroyArchive"/>). An operator's erasure of a (test) account
+/// (<see cref="CompanyPurgeStage.HardDelete"/>) takes everything at once, the company row and audit
+/// trail included. Never throws for a failed run: it returns the failure for Tenant Service to record
+/// and ask again. Safe to run twice.
 /// </summary>
 public sealed class CompanyDataPurgeService(
     HrmsContext db,
@@ -209,7 +279,7 @@ public sealed class CompanyDataPurgeService(
 {
     public async Task<CompanyDataPurged> RunAsync(PurgeCompanyData request, CancellationToken token)
     {
-        var context = new CompanyPurgeContext(db, request.TenantId, DateTime.UtcNow);
+        var context = new CompanyPurgeContext(db, request.TenantId, DateTime.UtcNow, request.Stage);
         try
         {
             if (request.TenantId == Guid.Empty) context.Fail("A purge needs a company.");
@@ -251,7 +321,7 @@ public sealed class CompanyDataPurgeService(
     private async Task RunStepsAsync(CompanyPurgeContext context, CancellationToken token)
     {
         context.Catalog = CompanyDataCatalog.Build(db.Model, db.GetService<ISqlGenerationHelper>());
-        foreach (var step in steps.OrderBy(s => s.Order))
+        foreach (var step in steps.Where(s => s.RunsFor(context.Stage)).OrderBy(s => s.Order))
         {
             await step.RunAsync(context, token);
             if (context.Failed) return;
@@ -266,8 +336,11 @@ public static class CompanyDataPurgeRegistration
     {
         services.AddSingleton<CompanyArchiveWriter>();
         services.AddScoped<ICompanyPurgeStep, RequireLockedStep>();
+        services.AddScoped<ICompanyPurgeStep, CancelScheduledJobsStep>();
         services.AddScoped<ICompanyPurgeStep, ArchiveRecordsStep>();
         services.AddScoped<ICompanyPurgeStep, DeleteRecordsStep>();
+        services.AddScoped<ICompanyPurgeStep, DeleteAuditTrailStep>();
         services.AddScoped<ICompanyPurgeStep, DeleteFilesStep>();
+        services.AddScoped<ICompanyPurgeStep, ForgetCompanyCachesStep>();
     }
 }

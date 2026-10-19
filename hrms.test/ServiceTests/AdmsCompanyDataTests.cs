@@ -1,9 +1,14 @@
 using Hrms.adms.Insfrastructure;
+using MassTransit;
 using Hrms.adms.Messages;
 using Hrms.adms.Models.Entities;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using Onepunch.AuditEngine.EntityFrameworkCore;
+using Onepunch.Common.Lib.DTO;
+using Onepunch.Common.Lib.Subscriptions;
 
 namespace hrms.test.ServiceTests;
 
@@ -91,5 +96,75 @@ public class AdmsCompanyDataTests : IDisposable
         (await AdmsCompanyData.DeleteAsync(db, CompanyA, CancellationToken.None)).Should().Be(0);
 
         Devices(CompanyB).Should().Be(1);
+    }
+
+    // ── The worker ───────────────────────────────────────────────────────────
+
+    private async Task ConsumeAsync(Guid tenantId, CompanyPurgeStage stage, bool readOnly, IEntitlementProvider? entitlements = null)
+    {
+        if (entitlements == null)
+        {
+            entitlements = Substitute.For<IEntitlementProvider>();
+            entitlements.GetAsync(tenantId, Arg.Any<CancellationToken>()).Returns(new EntitlementSnapshot
+            {
+                TenantId = tenantId,
+                Status = readOnly ? "Expired" : "Active",
+                AccessMode = readOnly ? SubscriptionAccessMode.ReadOnly : SubscriptionAccessMode.Full,
+            });
+        }
+        var tenantProvider = Substitute.For<ITenantProvider>();
+        tenantProvider.TenantId.Returns(tenantId);
+        await using var db = NewContext(tenantId);
+        var worker = new PurgeCompanyDataWorker(db, entitlements, tenantProvider, NullLogger<PurgeCompanyDataWorker>.Instance);
+        var context = Substitute.For<ConsumeContext<PurgeCompanyData>>();
+        context.Message.Returns(new PurgeCompanyData { TenantId = tenantId, Stage = stage });
+        context.CancellationToken.Returns(CancellationToken.None);
+        await worker.Consume(context);
+    }
+
+    private void SeedAudit(Guid tenantId)
+    {
+        using var db = NewContext(tenantId);
+        db.Set<AuditEventRecord>().Add(new AuditEventRecord
+        {
+            Id = Guid.NewGuid(), OccurredAtUtc = DateTime.UtcNow, EventType = "Update", OrganizationId = tenantId.ToString(),
+        });
+        db.SaveChanges();
+    }
+
+    private int AuditRows(Guid tenantId)
+    {
+        using var db = NewContext(Guid.Empty);
+        var organization = tenantId.ToString();
+        return db.Set<AuditEventRecord>().Count(a => a.OrganizationId == organization);
+    }
+
+    [Fact]
+    public async Task ThePurge_LeavesALiveCompanyAlone()
+    {
+        SeedDevice(CompanyA, "A-1");
+
+        await ConsumeAsync(CompanyA, CompanyPurgeStage.ArchiveAndPurge, readOnly: false);
+
+        Devices(CompanyA).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AnErasure_TakesALiveCompanysDevicesAndAuditTrail_AndNoOneElses()
+    {
+        SeedDevice(CompanyA, "A-1");
+        SeedDevice(CompanyB, "B-1");
+        SeedAudit(CompanyA);
+        SeedAudit(CompanyB);
+        var entitlements = Substitute.For<IEntitlementProvider>();
+
+        await ConsumeAsync(CompanyA, CompanyPurgeStage.HardDelete, readOnly: false, entitlements);
+
+        Devices(CompanyA).Should().Be(0);
+        AuditRows(CompanyA).Should().Be(0);
+        Devices(CompanyB).Should().Be(1);
+        AuditRows(CompanyB).Should().Be(1);
+        await entitlements.DidNotReceive().GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await entitlements.Received(1).InvalidateAsync(Arg.Is<IEnumerable<Guid>>(ids => ids.Single() == CompanyA));
     }
 }

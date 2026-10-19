@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using hrms.test.TestSupport;
+using Hrms.Core.Services.Announcements.Lifecycle;
 using Hrms.Core.Services.DataPurge;
 using Hrms.Core.Services.Storage;
 using Hrms.Domain.Entities.Announcements;
@@ -8,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
+using Onepunch.AuditEngine.EntityFrameworkCore;
 using Onepunch.Common.Lib.DTO;
 using Onepunch.Common.Lib.Subscriptions;
 
@@ -43,6 +45,8 @@ public class CompanyDataPurgeTests : IDisposable
 
     private sealed class FakeEntitlements(bool readOnly) : IEntitlementProvider
     {
+        public List<Guid> Invalidated { get; } = new();
+
         public Task<EntitlementSnapshot> GetAsync(Guid tenantId, CancellationToken token = default) =>
             Task.FromResult(new EntitlementSnapshot
             {
@@ -51,8 +55,29 @@ public class CompanyDataPurgeTests : IDisposable
                 AccessMode = readOnly ? SubscriptionAccessMode.ReadOnly : SubscriptionAccessMode.Full,
             });
 
-        public Task InvalidateAsync(IEnumerable<Guid> tenantIds) => Task.CompletedTask;
+        public Task InvalidateAsync(IEnumerable<Guid> tenantIds)
+        {
+            Invalidated.AddRange(tenantIds);
+            return Task.CompletedTask;
+        }
     }
+
+    private sealed class FakeJobScheduler : IAnnouncementJobScheduler
+    {
+        public List<Guid> Canceled { get; } = new();
+
+        public Task<Guid> ScheduleAsync(Guid announcementId, AnnouncementLifecycleWork work, DateTime dueUtc, CancellationToken token) =>
+            Task.FromResult(Guid.NewGuid());
+
+        public Task CancelAsync(Guid jobToken, CancellationToken token)
+        {
+            Canceled.Add(jobToken);
+            return Task.CompletedTask;
+        }
+    }
+
+    private readonly FakeJobScheduler _scheduler = new();
+    private readonly FakeEntitlements _liveEntitlements = new(readOnly: false);
 
     /// <summary>Hands back different bytes than were stored, as a failing disk or network would.</summary>
     private sealed class CorruptingStorage(IFileStorage inner) : IFileStorage
@@ -74,9 +99,12 @@ public class CompanyDataPurgeTests : IDisposable
         ICompanyPurgeStep[] steps =
         [
             new RequireLockedStep(new FakeEntitlements(readOnly)),
+            new CancelScheduledJobsStep(_scheduler),
             new ArchiveRecordsStep(storage, new CompanyArchiveWriter()),
             new DeleteRecordsStep(),
+            new DeleteAuditTrailStep(),
             new DeleteFilesStep(storage),
+            new ForgetCompanyCachesStep(_liveEntitlements),
         ];
         return new CompanyDataPurgeService(db, storage, steps, NullLogger<CompanyDataPurgeService>.Instance);
     }
@@ -346,6 +374,114 @@ public class CompanyDataPurgeTests : IDisposable
         destroyed.FilesDeleted.Should().Be(1);
         (await _storage.ExistsAsync(a.ArchiveKey!)).Should().BeFalse();
         (await _storage.ExistsAsync(b.ArchiveKey!)).Should().BeTrue();
+    }
+
+    // ── An operator's erasure ────────────────────────────────────────────────
+
+    private async Task<CompanyDataPurged> EraseAsync(Guid tenantId)
+    {
+        await using var db = _sqlite.NewContext();
+        // A test company may still be live: the erasure doesn't wait for it to be read-only.
+        return await ServiceFor(db, readOnly: false).RunAsync(Request(tenantId, CompanyPurgeStage.HardDelete), CancellationToken.None);
+    }
+
+    private void SeedAudit(Guid tenantId)
+    {
+        using var db = _sqlite.NewContext();
+        db.Set<AuditEventRecord>().Add(new AuditEventRecord
+        {
+            Id = Guid.NewGuid(), OccurredAtUtc = DateTime.UtcNow, EventType = "Update", OrganizationId = tenantId.ToString(),
+        });
+        db.SaveChanges();
+    }
+
+    private int AuditRows(Guid tenantId)
+    {
+        using var db = _sqlite.NewContext();
+        var organization = tenantId.ToString();
+        return db.Set<AuditEventRecord>().Count(a => a.OrganizationId == organization);
+    }
+
+    [Fact]
+    public async Task Erase_DeletesEverything_TheCompanyRowIncluded_WithoutAnArchive_EvenWhileLive()
+    {
+        Seed(CompanyA, "A");
+
+        var result = await EraseAsync(CompanyA);
+
+        result.Succeeded.Should().BeTrue(result.Error);
+        result.Stage.Should().Be(CompanyPurgeStage.HardDelete);
+        result.ArchiveKey.Should().BeNull();
+        result.RowsArchived.Should().Be(0);
+        Counts(CompanyA).Should().Be((0, 0, 0, 0, 0));
+        Directory.Exists(Path.Combine(_root, "archives")).Should().BeFalse("nothing of an erased account is kept");
+    }
+
+    [Fact]
+    public async Task Erase_OnlyEverTouchesTheCompanyItWasAskedAbout()
+    {
+        Seed(CompanyA, "A");
+        Seed(CompanyB, "B");
+        SeedAudit(CompanyA);
+        SeedAudit(CompanyB);
+
+        await EraseAsync(CompanyA);
+
+        Counts(CompanyB).Should().Be((1, 1, 1, 1, 1));
+        AuditRows(CompanyA).Should().Be(0);
+        AuditRows(CompanyB).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Erase_DeletesTheCompanysFiles_AndAnyArchiveAnEarlierPurgeLeft()
+    {
+        Seed(CompanyA, "A");
+        var purged = await PurgeAsync(CompanyA);
+        var logoA = StorageKeys.ForNewFile(CompanyA, "company-logo", "logo.png");
+        var logoB = StorageKeys.ForNewFile(CompanyB, "company-logo", "logo.png");
+        foreach (var key in new[] { logoA, logoB })
+            await _storage.UploadAsync(new FileUpload(key, new MemoryStream([9, 9]), "image/png"));
+
+        var result = await EraseAsync(CompanyA);
+
+        result.FilesDeleted.Should().Be(2, "the logo and the earlier archive");
+        (await _storage.ExistsAsync(logoA)).Should().BeFalse();
+        (await _storage.ExistsAsync(purged.ArchiveKey!)).Should().BeFalse();
+        (await _storage.ExistsAsync(logoB)).Should().BeTrue();
+        Counts(CompanyA).Companies.Should().Be(0, "the yearly purge kept it; the erasure doesn't");
+    }
+
+    [Fact]
+    public async Task Erase_CancelsTheCompanysScheduledAnnouncementJobs_AndForgetsItsEntitlements()
+    {
+        var publishJob = Guid.NewGuid();
+        var expireJob = Guid.NewGuid();
+        using (var db = _sqlite.NewContext())
+        {
+            db.Set<Announcement>().AddRange(
+                new Announcement { Id = Guid.NewGuid(), TenantId = CompanyA, Title = "Soon", PublishJobToken = publishJob, ExpireJobToken = expireJob },
+                new Announcement { Id = Guid.NewGuid(), TenantId = CompanyB, Title = "Other", PublishJobToken = Guid.NewGuid() });
+            db.SaveChanges();
+        }
+
+        var result = await EraseAsync(CompanyA);
+
+        result.Succeeded.Should().BeTrue(result.Error);
+        _scheduler.Canceled.Should().BeEquivalentTo([publishJob, expireJob]);
+        _liveEntitlements.Invalidated.Should().Equal(CompanyA);
+    }
+
+    [Fact]
+    public async Task TheYearlyPurge_RunsNoneOfTheErasureSteps()
+    {
+        Seed(CompanyA, "A");
+        SeedAudit(CompanyA);
+
+        await PurgeAsync(CompanyA);
+
+        AuditRows(CompanyA).Should().Be(1, "the audit trail outlives the yearly purge");
+        _scheduler.Canceled.Should().BeEmpty();
+        _liveEntitlements.Invalidated.Should().BeEmpty();
     }
 
     [Fact]

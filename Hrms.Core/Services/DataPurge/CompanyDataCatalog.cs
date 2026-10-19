@@ -67,6 +67,12 @@ public sealed class CompanyDataCatalog
         .OrderByDescending(t => t.Depth)
         .ThenBy(t => t.Name, StringComparer.Ordinal);
 
+    /// <summary>Every table, the kept company row included (last, as everything refers to it) -- for an
+    /// operator's erasure, which leaves nothing behind.</summary>
+    public IEnumerable<CompanyTable> ToErase => Tables
+        .OrderByDescending(t => t.Depth)
+        .ThenBy(t => t.Name, StringComparer.Ordinal);
+
     public static CompanyDataCatalog Build(IModel model, ISqlGenerationHelper sql)
     {
         var groups = model.GetEntityTypes()
