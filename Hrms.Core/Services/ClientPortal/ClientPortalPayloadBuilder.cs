@@ -81,6 +81,40 @@ public static class ClientPortalPayloadBuilder
         return new PortalPayload(clients, sites, posts, guards, schedules, records);
     }
 
+    /// <summary>
+    /// Cuts a payload into bus messages of at most <see cref="ClientPortalAttendanceUpserted.MaxRecords"/> records. Each message carries only
+    /// the clients, sites, posts, guards and schedules its own records use, so the portal can apply any of them on its own and in any order.
+    /// Nothing worked means nothing to send.
+    /// </summary>
+    public static List<ClientPortalAttendanceUpserted> Split(PortalPayload payload, Guid tenantId, string batchCode, string reason, int maxRecords = ClientPortalAttendanceUpserted.MaxRecords)
+    {
+        var chunks = payload.Records.Chunk(maxRecords).ToList();
+        var messages = new List<ClientPortalAttendanceUpserted>(chunks.Count);
+        foreach (var records in chunks)
+        {
+            var clients = records.Select(r => r.ClientExternalId).ToHashSet();
+            var sites = records.Select(r => r.SiteExternalId).ToHashSet();
+            var posts = records.Select(r => r.PostExternalId).ToHashSet();
+            var guards = records.Select(r => r.GuardExternalId).ToHashSet();
+            messages.Add(new ClientPortalAttendanceUpserted
+            {
+                TenantId = tenantId,
+                BatchCode = batchCode,
+                Reason = reason,
+                Part = messages.Count + 1,
+                Parts = chunks.Count,
+                Clients = payload.Clients.Where(c => clients.Contains(c.ExternalId)).ToList(),
+                Sites = payload.Sites.Where(s => sites.Contains(s.ExternalId)).ToList(),
+                Posts = payload.Posts.Where(p => posts.Contains(p.ExternalId)).ToList(),
+                Guards = payload.Guards.Where(g => guards.Contains(g.ExternalId)).ToList(),
+                Schedules = payload.Schedules.Where(s => posts.Contains(s.PostExternalId)).ToList(),
+                Records = records.ToList(),
+                OccurredAtUtc = DateTime.UtcNow,
+            });
+        }
+        return messages;
+    }
+
     private static PortalDtrRow ToRow(DailyRecord r, PortalSourceData data, Dictionary<Guid, List<Attendance>> punchesByEmployee)
     {
         var siteExt = Ext(r.AreaId!.Value);

@@ -1,65 +1,80 @@
 using Hrms.Domain.Entities;
+using MassTransit;
 
 namespace Hrms.Core.Services.ClientPortal;
 
 /// <summary>
-/// Sends one posted DTR batch to the Client Portal: its clients, sites, guards, scheduled headcount and daily records, parents
-/// first. A rejected row is reported back in the summary rather than failing the batch (resending the same bad row would only
-/// be rejected again); a portal that cannot be reached throws so the message is retried.
+/// Sends posted DTR rows to the Client Portal over the message bus: their clients, sites, guards, scheduled headcount and the daily
+/// records themselves, split into messages the portal applies one by one (<see cref="ClientPortalAttendanceUpserted"/>). The portal answers
+/// each message with what it accepted and refused (<see cref="ClientPortalAttendanceResult"/>), which is what the settings screen shows.
 /// </summary>
 public class ClientPortalSyncService : BaseService<DailyRecord>
 {
     private readonly ClientPortalSettingsService _settings;
-    private readonly IClientPortalClient _client;
+    private readonly IPublishEndpoint _publisher;
+    private readonly ITenantProvider _tenant;
 
-    public ClientPortalSyncService(IUnitOfWorkService uow, ClientPortalSettingsService settings, IClientPortalClient client) : base(uow)
+    public ClientPortalSyncService(IUnitOfWorkService uow, ClientPortalSettingsService settings, IPublishEndpoint publisher, ITenantProvider tenant) : base(uow)
     {
         _settings = settings;
-        _client = client;
+        _publisher = publisher;
+        _tenant = tenant;
     }
 
-    /// <summary>Null when the connection is off, or the batch is gone or not posted (nothing to send).</summary>
-    public async Task<ClientPortalSyncSummary?> SyncBatchAsync(Guid dtrBatchId, CancellationToken token)
+    /// <summary>A whole posted batch. Null when the connection is off, or the batch is gone or not posted (nothing to send).</summary>
+    public async Task<ClientPortalSyncSummary?> SyncBatchAsync(Guid dtrBatchId, string reason, CancellationToken token)
     {
-        var credentials = await _settings.GetCredentialsAsync(token);
-        if (credentials is null)
+        if (!await _settings.IsEnabledAsync(token))
             return null;
 
         var batch = await Context.DTRBatches.AsNoTracking().FirstOrDefaultAsync(x => x.Id == dtrBatchId, token);
         if (batch is null || !batch.IsPosted)
             return null;
 
-        try
-        {
-            var payload = ClientPortalPayloadBuilder.Build(await LoadAsync(batch.BatchCode, token));
-            var results = new[]
-            {
-                await _client.PutAsync(credentials, "clients", payload.Clients, token),
-                await _client.PutAsync(credentials, "sites", payload.Sites, token),
-                await _client.PutAsync(credentials, "posts", payload.Posts, token),
-                await _client.PutAsync(credentials, "guards", payload.Guards, token),
-                await _client.PutAsync(credentials, "schedules", payload.Schedules, token),
-                await _client.PutAsync(credentials, "dtr", payload.Records, token),
-            };
-
-            var errors = results.SelectMany(r => r.Errors).Take(50).ToList();
-            var dtr = results[^1];
-            var summary = new ClientPortalSyncSummary(batch.BatchCode, DateTime.UtcNow, payload.Records.Count, dtr.Accepted, results.Sum(r => r.Rejected),
-                Succeeded: errors.Count == 0, Message: errors.Count == 0 ? null : "Some rows were refused by the portal.", Errors: errors);
-            await _settings.RecordSyncAsync(summary, token);
-            return summary;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            await _settings.RecordSyncAsync(new ClientPortalSyncSummary(batch.BatchCode, DateTime.UtcNow, 0, 0, 0, false, "The portal could not be reached. It will be retried.", null), token);
-            throw;
-        }
+        var records = await Context.IgnoringConfidentiality<DailyRecord>().AsNoTracking().Where(r => r.BatchCode == batch.BatchCode).ToListAsync(token);
+        return await SendAsync(batch.BatchCode, records, reason, token);
     }
 
-    private async Task<PortalSourceData> LoadAsync(string batchCode, CancellationToken token)
+    /// <summary>
+    /// Only some rows, for example the posted days a changed punch belongs to. Rows that are no longer posted are skipped (their removal
+    /// was sent when they were unposted). Null when the connection is off or none of the rows is posted.
+    /// </summary>
+    public async Task<ClientPortalSyncSummary?> SyncRecordsAsync(IReadOnlyCollection<Guid> dailyRecordIds, string reason, CancellationToken token)
     {
-        var records = await Context.DailyTimeRecords.AsNoTracking().Where(r => r.BatchCode == batchCode).ToListAsync(token);
+        if (dailyRecordIds.Count == 0 || !await _settings.IsEnabledAsync(token))
+            return null;
 
+        var records = await Context.IgnoringConfidentiality<DailyRecord>().AsNoTracking()
+            .Where(r => dailyRecordIds.Contains(r.Id) && r.Posted)
+            .ToListAsync(token);
+        if (records.Count == 0)
+            return null;
+
+        var codes = records.Select(r => r.BatchCode).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+        return await SendAsync(codes.Count == 1 ? codes[0]! : string.Join(", ", codes), records, reason, token);
+    }
+
+    private async Task<ClientPortalSyncSummary?> SendAsync(string batchCode, List<DailyRecord> records, string reason, CancellationToken token)
+    {
+        var payload = ClientPortalPayloadBuilder.Build(await LoadAsync(records, token));
+        var messages = ClientPortalPayloadBuilder.Split(payload, _tenant.TenantId, batchCode, reason);
+        foreach (var message in messages)
+            await _publisher.Publish(message, token);
+
+        var summary = new ClientPortalSyncSummary(batchCode, DateTime.UtcNow, payload.Records.Count, 0, 0,
+            Succeeded: true,
+            Message: messages.Count == 0 ? "Nothing to send: no worked days with a client and site." : "Sent to the portal. Waiting for its answer.",
+            Errors: null,
+            Operation: ClientPortalAttendanceResult.Upsert,
+            Waiting: messages.Count > 0,
+            PartsReceived: 0,
+            Parts: messages.Count);
+        await _settings.RecordSyncAsync(summary, token);
+        return summary;
+    }
+
+    private async Task<PortalSourceData> LoadAsync(List<DailyRecord> records, CancellationToken token)
+    {
         var clientIds = records.Where(r => r.ClientId != null).Select(r => r.ClientId!.Value).Distinct().ToList();
         var areaIds = records.Where(r => r.AreaId != null).Select(r => r.AreaId!.Value).Distinct().ToList();
         var employeeIds = records.Select(r => r.EmployeeId).Distinct().ToList();

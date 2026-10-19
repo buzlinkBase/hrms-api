@@ -28,7 +28,7 @@ public static class LibServicesRegistrations
         // Subscription plan limits -- one counter per limit this service owns (see PlanLimitGuard).
         services.AddScoped<Services.Subscriptions.ILimitUsageCounter, Services.Subscriptions.ActiveEmployeeCounter>();
         services.AddScoped<Services.Subscriptions.IStorageQuotaGuard, Services.Subscriptions.StorageQuotaGuard>();
-        // Pushes posted DTRs to the Client Portal. Address and key are per company, so they are set on each request.
+        // The Client Portal's HTTP ingest API (branding only; attendance goes over the bus). Address and key are per company, so they are set on each request.
         services.AddHttpClient<Services.ClientPortal.IClientPortalClient, Services.ClientPortal.ClientPortalClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
         // Sends the company's name and logo to the portal when they change (best effort; see ClientPortalBrandingService).
         services.AddScoped<Services.ClientPortal.IClientPortalBrandingPublisher, Services.ClientPortal.ClientPortalBrandingService>();

@@ -35,6 +35,16 @@ public class ClientPortalSettingsService : BaseService<GeneralSetting>
             LastSync: rows.TryGetValue(LastSyncKey, out var last) ? ParseSummary(last.Value) : null);
     }
 
+    /// <summary>
+    /// Whether the connection is switched on. Attendance travels over the message bus, so it needs nothing else; the address and key are
+    /// only for what still goes over HTTP (branding).
+    /// </summary>
+    public async Task<bool> IsEnabledAsync(CancellationToken token)
+    {
+        var rows = await LoadAsync(asTracking: false, token);
+        return rows.TryGetValue(EnabledKey, out var enabled) && bool.TryParse(enabled.Value, out var on) && on;
+    }
+
     /// <summary>The address and key to push with, or null when the connection is switched off or incomplete.</summary>
     public async Task<ClientPortalCredentials?> GetCredentialsAsync(CancellationToken token)
     {
@@ -81,6 +91,56 @@ public class ClientPortalSettingsService : BaseService<GeneralSetting>
         var rows = await LoadAsync(asTracking: true, token);
         Upsert(rows, LastSyncKey, JsonSerializer.Serialize(summary, Json));
         await CommitChangesAsync(token);
+    }
+
+    /// <summary>Folds one of the portal's answers into the last sync shown on the settings screen and saves it.</summary>
+    public async Task RecordResultAsync(ClientPortalAttendanceResult result, CancellationToken token)
+    {
+        var last = (await GetAsync(token)).LastSync;
+        await RecordSyncAsync(Merge(last, result), token);
+    }
+
+    /// <summary>
+    /// A send split into several messages gets one answer per message; they are added up while they belong to the same send (same batch,
+    /// operation and number of parts, not all answered yet). Anything else starts a new summary. For an upsert the row count is the one
+    /// recorded when it was sent; removals are never recorded when sent, so theirs is added up from the answers.
+    /// </summary>
+    public static ClientPortalSyncSummary Merge(ClientPortalSyncSummary? last, ClientPortalAttendanceResult result)
+    {
+        var errors = result.Errors ?? [];
+        var sameSend = last is not null
+            && last.BatchCode == result.BatchCode
+            && last.Operation == result.Operation
+            && last.Parts == result.Parts
+            && last.PartsReceived < last.Parts;
+
+        int records, accepted, rejected, received;
+        List<PortalRowError> allErrors;
+        if (sameSend)
+        {
+            records = result.Operation == ClientPortalAttendanceResult.Remove ? last!.Records + result.Records : last!.Records;
+            accepted = last.Accepted + result.Accepted;
+            rejected = last.Rejected + result.Rejected;
+            received = last.PartsReceived + 1;
+            allErrors = (last.Errors ?? []).Concat(errors).Take(50).ToList();
+        }
+        else
+        {
+            records = result.Records;
+            accepted = result.Accepted;
+            rejected = result.Rejected;
+            received = 1;
+            allErrors = errors.Take(50).ToList();
+        }
+
+        var parts = Math.Max(result.Parts, 1);
+        var waiting = received < parts;
+        var message = waiting ? $"Waiting for the portal ({received} of {parts} parts answered)."
+            : rejected > 0 ? "Some rows were refused by the portal."
+            : null;
+        return new ClientPortalSyncSummary(result.BatchCode, result.AtUtc, records, accepted, rejected,
+            Succeeded: rejected == 0, Message: message, Errors: allErrors.Count == 0 ? null : allErrors,
+            Operation: result.Operation, Waiting: waiting, PartsReceived: received, Parts: parts);
     }
 
     /// <summary>Only https is accepted, except for a portal running on this machine while developing.</summary>

@@ -6,6 +6,7 @@ using hrms.test.TestSupport;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Onepunch.Common.Lib.DTO;
 
 namespace hrms.test.ServiceTests;
 

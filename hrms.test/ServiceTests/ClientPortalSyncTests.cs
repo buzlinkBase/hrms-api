@@ -14,31 +14,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using Onepunch.Common.Lib.DTO;
 
 namespace hrms.test.ServiceTests;
 
-/// <summary>Pushing posted DTR batches to the Client Portal: the row mapping, the saved connection, and the push itself.</summary>
+/// <summary>Sending posted DTR rows to the Client Portal: the row mapping, the saved connection, the bus messages and the portal's answers.</summary>
 public class ClientPortalSyncTests
 {
     private static readonly DateOnly Day = new(2026, 10, 1);
     private static readonly DateTime Start = new(2026, 10, 1, 6, 0, 0);
     private static readonly DateTime End = new(2026, 10, 1, 18, 0, 0);
-
-    private sealed class FakePortalClient : IClientPortalClient
-    {
-        public List<(string Resource, int Rows)> Calls { get; } = [];
-        public List<object> Sent { get; } = [];
-        public bool Fail { get; set; }
-        public Func<string, PortalIngestResult>? Answer { get; set; }
-
-        public Task<PortalIngestResult> PutAsync<T>(ClientPortalCredentials credentials, string resource, IReadOnlyList<T> rows, CancellationToken token)
-        {
-            if (Fail) throw new HttpRequestException("portal down");
-            Calls.Add((resource, rows.Count));
-            Sent.AddRange(rows.Cast<object>());
-            return Task.FromResult(Answer?.Invoke(resource) ?? new PortalIngestResult(rows.Count, 0, []));
-        }
-    }
 
     private static ClientPortalSettingsService Settings(IUnitOfWorkService uow) => new(uow, new EphemeralDataProtectionProvider());
 
@@ -222,27 +207,36 @@ public class ClientPortalSyncTests
             .SaveAsync(new ClientPortalSettingsRequest(true, "https://portal.example.com", "cpk_abcd.secret"), CancellationToken.None);
     }
 
+    private static ClientPortalSyncService SyncFor(UnitOfWorkService uow, EphemeralDataProtectionProvider protection, IPublishEndpoint publisher, Guid tenantId)
+    {
+        var tenant = Substitute.For<ITenantProvider>();
+        tenant.TenantId.Returns(tenantId);
+        return new ClientPortalSyncService(uow, new ClientPortalSettingsService(uow, protection), publisher, tenant);
+    }
+
     [Fact]
-    public async Task Sync_sends_parents_before_records_and_remembers_the_result()
+    public async Task Sync_publishes_the_batch_with_its_parents_over_the_bus_and_remembers_it_is_waiting_for_the_portal()
     {
         using var db = new SqliteHrmsContext();
         var protection = new EphemeralDataProtectionProvider();
         var (batchId, batchCode) = await SeedBatchAsync(db);
         await EnableAsync(db, protection);
-        var fake = new FakePortalClient();
+        var publisher = Substitute.For<IPublishEndpoint>();
+        var tenantId = Guid.NewGuid();
 
         await using (var ctx = db.NewContext())
         {
-            var uow = new UnitOfWorkService(ctx);
-            var summary = await new ClientPortalSyncService(uow, new ClientPortalSettingsService(uow, protection), fake).SyncBatchAsync(batchId, CancellationToken.None);
-            summary.Should().Match<ClientPortalSyncSummary>(s => s.Succeeded && s.Records == 1 && s.Accepted == 1 && s.BatchCode == batchCode);
+            var summary = await SyncFor(new UnitOfWorkService(ctx), protection, publisher, tenantId).SyncBatchAsync(batchId, ClientPortalSyncRequested.Approved, CancellationToken.None);
+            summary.Should().Match<ClientPortalSyncSummary>(s => s.Records == 1 && s.Waiting && s.Parts == 1 && s.BatchCode == batchCode && s.Operation == "Upsert");
         }
 
-        fake.Calls.Select(c => c.Resource).Should().Equal("clients", "sites", "posts", "guards", "schedules", "dtr");
+        await publisher.Received(1).Publish(
+            Arg.Is<ClientPortalAttendanceUpserted>(m => m.TenantId == tenantId && m.BatchCode == batchCode && m.Reason == "Approved" && m.Part == 1 && m.Parts == 1
+                && m.Clients.Count == 1 && m.Sites.Count == 1 && m.Posts.Count == 1 && m.Guards.Count == 1 && m.Records.Count == 1),
+            Arg.Any<CancellationToken>());
         await using var verify = db.NewContext();
         var last = await new ClientPortalSettingsService(new UnitOfWorkService(verify), protection).GetAsync(CancellationToken.None);
-        last.LastSync.Should().NotBeNull();
-        last.LastSync!.Succeeded.Should().BeTrue();
+        last.LastSync!.Waiting.Should().BeTrue();
     }
 
     [Fact]
@@ -251,62 +245,126 @@ public class ClientPortalSyncTests
         using var db = new SqliteHrmsContext();
         var protection = new EphemeralDataProtectionProvider();
         var (posted, _) = await SeedBatchAsync(db);
-        var fake = new FakePortalClient();
+        var publisher = Substitute.For<IPublishEndpoint>();
 
         await using (var off = db.NewContext())
-        {
-            var uow = new UnitOfWorkService(off);
-            (await new ClientPortalSyncService(uow, new ClientPortalSettingsService(uow, protection), fake).SyncBatchAsync(posted, CancellationToken.None)).Should().BeNull();
-        }
+            (await SyncFor(new UnitOfWorkService(off), protection, publisher, Guid.NewGuid()).SyncBatchAsync(posted, ClientPortalSyncRequested.Approved, CancellationToken.None)).Should().BeNull();
 
         await EnableAsync(db, protection);
         await using (var unposted = db.NewContext())
+            (await SyncFor(new UnitOfWorkService(unposted), protection, publisher, Guid.NewGuid()).SyncBatchAsync(Guid.NewGuid(), ClientPortalSyncRequested.Approved, CancellationToken.None)).Should().BeNull();
+
+        await publisher.DidNotReceiveWithAnyArgs().Publish<ClientPortalAttendanceUpserted>(default!, default);
+    }
+
+    [Fact]
+    public async Task Sync_of_single_rows_sends_only_the_ones_still_posted()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        var (_, batchCode) = await SeedBatchAsync(db);
+        Guid posted, unposted;
+        await using (var seed = db.NewContext())
         {
-            var uow = new UnitOfWorkService(unposted);
-            (await new ClientPortalSyncService(uow, new ClientPortalSettingsService(uow, protection), fake).SyncBatchAsync(Guid.NewGuid(), CancellationToken.None)).Should().BeNull();
+            var first = await seed.DailyTimeRecords.FirstAsync(r => r.BatchCode == batchCode);
+            first.Posted = true;
+            var copy = Record(first.EmployeeId, first.ClientId!.Value, first.AreaId!.Value, batchCode, r => r.WorkDate = Day.AddDays(1));
+            seed.DailyTimeRecords.Add(copy);
+            await seed.SaveChangesAsync();
+            (posted, unposted) = (first.Id, copy.Id);
         }
-        fake.Calls.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task Refused_rows_are_reported_but_do_not_fail_the_batch()
-    {
-        using var db = new SqliteHrmsContext();
-        var protection = new EphemeralDataProtectionProvider();
-        var (batchId, _) = await SeedBatchAsync(db);
         await EnableAsync(db, protection);
-        var fake = new FakePortalClient
-        {
-            Answer = resource => resource == "dtr" ? new PortalIngestResult(0, 1, [new PortalRowError("x", "This date falls in a period that was already verified and locked.")]) : new PortalIngestResult(1, 0, []),
-        };
-
-        await using var ctx = db.NewContext();
-        var uow = new UnitOfWorkService(ctx);
-        var summary = await new ClientPortalSyncService(uow, new ClientPortalSettingsService(uow, protection), fake).SyncBatchAsync(batchId, CancellationToken.None);
-
-        summary!.Succeeded.Should().BeFalse();
-        summary.Rejected.Should().Be(1);
-        summary.Errors.Should().ContainSingle(e => e.Error.Contains("locked"));
-    }
-
-    [Fact]
-    public async Task An_unreachable_portal_is_recorded_and_rethrown_so_the_bus_retries()
-    {
-        using var db = new SqliteHrmsContext();
-        var protection = new EphemeralDataProtectionProvider();
-        var (batchId, _) = await SeedBatchAsync(db);
-        await EnableAsync(db, protection);
+        var publisher = Substitute.For<IPublishEndpoint>();
 
         await using (var ctx = db.NewContext())
-        {
-            var uow = new UnitOfWorkService(ctx);
-            var sync = new ClientPortalSyncService(uow, new ClientPortalSettingsService(uow, protection), new FakePortalClient { Fail = true });
-            await FluentActions.Awaiting(() => sync.SyncBatchAsync(batchId, CancellationToken.None)).Should().ThrowAsync<HttpRequestException>();
-        }
+            await SyncFor(new UnitOfWorkService(ctx), protection, publisher, Guid.NewGuid()).SyncRecordsAsync([posted, unposted], ClientPortalSyncRequested.PunchChanged, CancellationToken.None);
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ClientPortalAttendanceUpserted>(m => m.Reason == "PunchChanged" && m.Records.Count == 1 && m.Records[0].ExternalId == posted.ToString()),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void A_large_payload_is_split_into_parts_that_each_carry_only_their_own_parents()
+    {
+        var clientA = new Client { Id = Guid.NewGuid(), Code = "A", Name = "A" };
+        var clientB = new Client { Id = Guid.NewGuid(), Code = "B", Name = "B" };
+        var areaA = new CostCenters { Id = Guid.NewGuid(), Code = "SA", Name = "Site A" };
+        var areaB = new CostCenters { Id = Guid.NewGuid(), Code = "SB", Name = "Site B" };
+        var empA = Guid.NewGuid();
+        var empB = Guid.NewGuid();
+        var records = new[] { Record(empA, clientA.Id, areaA.Id, "b"), Record(empA, clientA.Id, areaA.Id, "b"), Record(empB, clientB.Id, areaB.Id, "b") };
+        var payload = ClientPortalPayloadBuilder.Build(new PortalSourceData(
+            records, new Dictionary<Guid, Client> { [clientA.Id] = clientA, [clientB.Id] = clientB },
+            new Dictionary<Guid, CostCenters> { [areaA.Id] = areaA, [areaB.Id] = areaB },
+            new Dictionary<Guid, Employee>(), new Dictionary<Guid, double>(), [],
+            [new ScheduledHeadcount(clientA.Id, areaA.Id, Day, "Day", 2), new ScheduledHeadcount(clientB.Id, areaB.Id, Day, "Day", 1)]));
+
+        var parts = ClientPortalPayloadBuilder.Split(payload, Guid.NewGuid(), "b", "Approved", maxRecords: 2);
+
+        parts.Should().HaveCount(2);
+        parts.Select(p => (p.Part, p.Parts)).Should().Equal((1, 2), (2, 2));
+        parts[0].Records.Should().HaveCount(2);
+        parts[0].Clients.Should().ContainSingle(c => c.Code == "A");
+        parts[0].Schedules.Should().ContainSingle(s => s.RequiredHeadcount == 2);
+        parts[1].Clients.Should().ContainSingle(c => c.Code == "B");
+        parts[1].Sites.Should().ContainSingle(s => s.Name == "Site B");
+        parts[1].Guards.Should().ContainSingle(g => g.ExternalId == empB.ToString());
+    }
+
+    [Fact]
+    public void Nothing_worked_means_no_message()
+    {
+        var payload = new PortalPayload([], [], [], [], [], []);
+        ClientPortalPayloadBuilder.Split(payload, Guid.NewGuid(), "b", "Approved").Should().BeEmpty();
+    }
+
+    // ---- the portal's answers ------------------------------------------------------------------------------------
+
+    private static ClientPortalAttendanceResult Answer(string operation, int part, int parts, int records, int accepted, params PortalRowError[] errors) => new()
+    {
+        TenantId = Guid.NewGuid(), BatchCode = "b", Operation = operation, Part = part, Parts = parts,
+        Records = records, Accepted = accepted, Rejected = errors.Length, Errors = errors.ToList(),
+    };
+
+    [Fact]
+    public void Answers_to_the_parts_of_one_send_add_up_and_stop_waiting_when_all_are_in()
+    {
+        var sent = new ClientPortalSyncSummary("b", DateTime.UtcNow, 3, 0, 0, true, "Sent", null, "Upsert", Waiting: true, PartsReceived: 0, Parts: 2);
+
+        var afterFirst = ClientPortalSettingsService.Merge(sent, Answer("Upsert", 1, 2, 2, 2));
+        afterFirst.Should().Match<ClientPortalSyncSummary>(s => s.Waiting && s.PartsReceived == 1 && s.Accepted == 2 && s.Records == 3);
+
+        var afterSecond = ClientPortalSettingsService.Merge(afterFirst, Answer("Upsert", 2, 2, 1, 0, new PortalRowError("r3", "This record is verified and locked; it can no longer be changed.")));
+        afterSecond.Should().Match<ClientPortalSyncSummary>(s => !s.Waiting && !s.Succeeded && s.Accepted == 2 && s.Rejected == 1 && s.Records == 3);
+        afterSecond.Errors.Should().ContainSingle(e => e.ExternalId == "r3");
+    }
+
+    [Fact]
+    public void Removal_answers_count_their_own_rows_and_a_different_send_starts_over()
+    {
+        var removed = ClientPortalSettingsService.Merge(null, Answer("Remove", 1, 2, 1000, 1000));
+        removed = ClientPortalSettingsService.Merge(removed, Answer("Remove", 2, 2, 5, 5));
+        removed.Should().Match<ClientPortalSyncSummary>(s => s.Records == 1005 && s.Accepted == 1005 && s.Succeeded && !s.Waiting && s.Operation == "Remove");
+
+        var next = ClientPortalSettingsService.Merge(removed, Answer("Upsert", 1, 1, 4, 4));
+        next.Should().Match<ClientPortalSyncSummary>(s => s.Records == 4 && s.Accepted == 4 && s.Operation == "Upsert" && s.PartsReceived == 1);
+    }
+
+    [Fact]
+    public async Task The_result_worker_saves_the_answer_as_the_last_sync()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        var context = Substitute.For<ConsumeContext<ClientPortalAttendanceResult>>();
+        context.Message.Returns(Answer("Remove", 1, 1, 2, 1, new PortalRowError("x", "This date falls in a period that was already verified and locked.")));
+
+        await using (var ctx = db.NewContext())
+            await new ClientPortalAttendanceResultWorker(new ClientPortalSettingsService(new UnitOfWorkService(ctx), protection)).Consume(context);
 
         await using var verify = db.NewContext();
-        var state = await new ClientPortalSettingsService(new UnitOfWorkService(verify), protection).GetAsync(CancellationToken.None);
-        state.LastSync!.Succeeded.Should().BeFalse();
+        var last = (await new ClientPortalSettingsService(new UnitOfWorkService(verify), protection).GetAsync(CancellationToken.None)).LastSync;
+        last.Should().Match<ClientPortalSyncSummary>(s => s.Operation == "Remove" && s.Rejected == 1 && !s.Succeeded);
     }
 
     // ---- requesting a push ---------------------------------------------------------------------------------------

@@ -53,8 +53,10 @@ public static class RabbitMqConfiguration
             x.AddConsumer<DailyBenefitsWorker, DailyBenefitsWorkerDefinition>();
             // Calculate DTR "Save Draft" for a whole cutoff, outside the HTTP request -- see DtrDraftSaveService.
             x.AddConsumer<SaveDtrDraftWorker, SaveDtrDraftWorkerDefinition>();
-            // Pushes a posted DTR batch to the Client Portal -- see ClientPortalSyncService.
+            // Sends posted DTR rows to the Client Portal over the bus -- see ClientPortalSyncService.
             x.AddConsumer<ClientPortalSyncWorker, ClientPortalSyncWorkerDefinition>();
+            // The portal's answer (accepted/refused rows) to attendance sent or removed -- kept for the settings screen.
+            x.AddConsumer<ClientPortalAttendanceResultWorker, ClientPortalAttendanceResultWorkerDefinition>();
             // Archives and removes a locked company's data -- asked by Tenant Service's data purge.
             x.AddConsumer<PurgeCompanyDataWorker, PurgeCompanyDataWorkerDefinition>();
             // Evicts cached entitlements when an account's subscription changes.

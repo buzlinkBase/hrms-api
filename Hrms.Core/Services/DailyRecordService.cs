@@ -17,6 +17,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     private readonly PayrollBatchService _payrollBatchService;
     private readonly DTRBatchService _dtrBatchService;
     private readonly ApprovalEngineService _approvalEngine;
+    private readonly ClientPortal.ClientPortalAttendanceRemovalService? _portalRemoval;
 
     public DailyRecordService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
@@ -25,7 +26,8 @@ public class DailyRecordService : BaseService<DailyRecord>
         LeaveDtrReconciliationService reconciliation,
         PayrollBatchService payrollBatchService,
         DTRBatchService dtrBatchService,
-        ApprovalEngineService approvalEngine) : base(uow)
+        ApprovalEngineService approvalEngine,
+        ClientPortal.ClientPortalAttendanceRemovalService? portalRemoval = null) : base(uow)
     {
         _config = config;
         _mapper = mapper;
@@ -34,6 +36,16 @@ public class DailyRecordService : BaseService<DailyRecord>
         _payrollBatchService = payrollBatchService;
         _dtrBatchService = dtrBatchService;
         _approvalEngine = approvalEngine;
+        _portalRemoval = portalRemoval;
+    }
+
+    // Posted rows are the only ones the Client Portal ever received, so they are the ones it must drop. Staged in the
+    // caller's unit of work (outbox), so the message leaves only if the delete/unpost commits.
+    private async Task StagePortalRemovalAsync(IReadOnlyCollection<Guid> postedIds, string batchCode, string reason, CancellationToken token)
+    {
+        if (_portalRemoval is null || postedIds.Count == 0)
+            return;
+        await _portalRemoval.StageAsync(postedIds, batchCode, reason, token);
     }
     // Posted attendance/DTR days for this employee in (fromDate, toDate] — used by
     // LastPayrollService's safety check: days worked after their last regular payroll's
@@ -331,6 +343,9 @@ public class DailyRecordService : BaseService<DailyRecord>
         // Deduction entries outlive the DTR and those days stay charged forever. Same
         // transaction as the delete; a no-op for an unposted draft (nothing was consumed).
         await _reconciliation.ReverseConsumptionAsync(batchCode, token);
+        // Captured before the rows go -- afterwards there is nothing left to say which ones the portal holds.
+        var postedIds = await BatchRecords(batchCode).Where(x => x.Posted).Select(x => x.Id).ToListAsync(token);
+        await StagePortalRemovalAsync(postedIds, batchCode, ClientPortal.ClientPortalAttendanceRemovalService.BatchDeleted, token);
         await SaveChangesAsync(token);
         // Every row of the batch, including confidential employees the caller can't see -- the
         // batch header goes too, so none may be left behind (see BatchRecords).
@@ -766,6 +781,7 @@ public class DailyRecordService : BaseService<DailyRecord>
 
         // Reverse Phase 2 credit deductions; restores reservations for still-approved leaves
         await _reconciliation.ReverseConsumptionAsync(batchCode, token);
+        await StagePortalRemovalAsync(records.Select(r => r.Id).ToList(), batchCode, ClientPortal.ClientPortalAttendanceRemovalService.Unposted, token);
 
         if (commit) await CommitChangesAsync(token);
         else await SaveChangesAsync(token);
@@ -791,6 +807,9 @@ public class DailyRecordService : BaseService<DailyRecord>
             r.Posted = false;
             r.PaidLeaveHours = 0;
         }
+
+        var batchCodes = string.Join(", ", records.Select(r => r.BatchCode).Where(c => !string.IsNullOrEmpty(c)).Distinct());
+        await StagePortalRemovalAsync(records.Select(r => r.Id).ToList(), batchCodes, ClientPortal.ClientPortalAttendanceRemovalService.LeaveChanged, token);
 
         // Caller is responsible for CommitChangesAsync so this can be batched
         // with other changes in the same unit of work.

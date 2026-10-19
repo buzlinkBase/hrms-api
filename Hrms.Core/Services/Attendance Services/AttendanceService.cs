@@ -10,22 +10,42 @@ namespace Hrms.Core.Services;
 public class AttendanceService : BaseService<Attendance>
 {
     private readonly IAttendanceSourceGuard? _sourceGuard;
+    private readonly ClientPortal.ClientPortalPunchChangeService? _portalPunches;
 
     /// <param name="sourceGuard">Refuses logs from a source the company's plan doesn't include (mobile
     /// attendance). Supplied by DI; omitted only where a plan check is not wanted (unit tests).</param>
-    public AttendanceService(IUnitOfWorkService uow, IAttendanceSourceGuard? sourceGuard = null) : base(uow)
+    /// <param name="portalPunches">Re-sends the posted days an edited or deleted punch belongs to, to the
+    /// Client Portal. Supplied by DI; omitted in unit tests that don't care about the portal.</param>
+    public AttendanceService(IUnitOfWorkService uow, IAttendanceSourceGuard? sourceGuard = null, ClientPortal.ClientPortalPunchChangeService? portalPunches = null) : base(uow)
     {
         _sourceGuard = sourceGuard;
+        _portalPunches = portalPunches;
     }
 
     public async Task Update(UpdateAttendance model, CancellationToken token)
     {
+        var before = await Context.Attendances.AsNoTracking()
+            .Where(x => x.Id == model.Id)
+            .Select(x => new { x.EmployeeId, x.WorkDateTime })
+            .FirstOrDefaultAsync(token);
+
         await Context.Attendances
             .Where(x => x.Id == model.Id)
             .ExecuteUpdateAsync(x => x
                 .SetProperty(xx => xx.WorkDateTime, model.WorkTime)
                 .SetProperty(xx => xx.EditRemarks, model.Remarks), token)
             ;
+
+        // The punch may have moved to another day, so both the old and the new day are sent again.
+        if (before != null)
+            await StagePortalRefreshAsync([(before.EmployeeId, before.WorkDateTime), (before.EmployeeId, model.WorkTime)], token);
+    }
+
+    // Staged in the caller's unit of work: leaves with its commit (see ClientPortalPunchChangeService).
+    private async Task StagePortalRefreshAsync(IReadOnlyCollection<(Guid? EmployeeId, DateTime At)> punches, CancellationToken token)
+    {
+        if (_portalPunches != null && punches.Count > 0)
+            await _portalPunches.StageAsync(punches, token);
     }
 
     public async Task AddRangeAsync(List<Attendance> attendances, CancellationToken token = default)
@@ -352,15 +372,21 @@ public class AttendanceService : BaseService<Attendance>
             throw new ValidationException("Only manually entered attendance logs can be deleted.");
 
         await RemoveAsync(Id, token);
-
+        await StagePortalRefreshAsync([(attendance.EmployeeId, attendance.WorkDateTime)], token);
     }
     // Manual entries only (pass-slip logs are manual too) -- uploaded, biometric and synced logs
     // in a batch with the same code are never deleted this way, same rule as Remove(Guid) above.
     public async Task RemoveBatch(string batch, CancellationToken token)
     {
-        await Context.Attendances
-             .Where(x => x.BatchCode == batch && x.BatchCode != "" && x.LogSource == LOGSOURCE.MANUAL)
-             .ExecuteDeleteAsync(token);
+        var query = Context.Attendances
+            .Where(x => x.BatchCode == batch && x.BatchCode != "" && x.LogSource == LOGSOURCE.MANUAL);
+        // Read before the delete: afterwards nothing says which posted days these punches backed.
+        var removed = (await query.AsNoTracking().Select(x => new { x.EmployeeId, x.WorkDateTime }).ToListAsync(token))
+            .Select(x => (x.EmployeeId, At: x.WorkDateTime))
+            .ToList();
+
+        await query.ExecuteDeleteAsync(token);
+        await StagePortalRefreshAsync(removed, token);
     }
     public async Task Remove(List<Guid> Ids)
     {

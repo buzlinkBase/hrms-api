@@ -1,38 +1,7 @@
 namespace Hrms.Core.Services.ClientPortal;
 
-// Wire shapes of the Client Portal's /ingest API (camelCase JSON). Every row is keyed by this system's own
-// ids ("external ids"), so re-sending a row updates it instead of duplicating it.
-public sealed record PortalClientRow(string ExternalId, string Code, string Name);
-
-public sealed record PortalSiteRow(string ExternalId, string ClientExternalId, string Code, string Name);
-
-public sealed record PortalPostRow(string ExternalId, string SiteExternalId, string Code, string Name);
-
-public sealed record PortalGuardRow(string ExternalId, string ClientExternalId, string Code, string FullName);
-
-public sealed record PortalScheduleRow(string PostExternalId, DateOnly WorkDate, string ShiftName, int RequiredHeadcount);
-
-public sealed record PortalPunchRow(DateTime At, string Kind);
-
-public sealed record PortalDtrRow(
-    string ExternalId,
-    string ClientExternalId,
-    string SiteExternalId,
-    string PostExternalId,
-    string GuardExternalId,
-    DateOnly WorkDate,
-    string ShiftName,
-    DateTime? TimeIn,
-    DateTime? TimeOut,
-    int BreakMinutes,
-    int LateMinutes,
-    int UndertimeMinutes,
-    decimal RegularHours,
-    decimal OvertimeHours,
-    decimal NightDiffHours,
-    decimal HolidayHours,
-    bool OvertimeApproved,
-    IReadOnlyList<PortalPunchRow> Punches);
+// The row shapes (PortalClientRow ... PortalDtrRow, PortalRowError) are shared with the portal through the message contracts in
+// Onepunch.Common.Lib.DTO.ClientPortalAttendance.
 
 /// <summary>Everything one approved DTR batch contributes to the portal, in the order the portal needs it (parents first).</summary>
 public sealed record PortalPayload(
@@ -46,13 +15,15 @@ public sealed record PortalPayload(
 /// <summary>The company's name and logo (base64 of the image file; null for none), as the portal's ingest endpoint takes them.</summary>
 public sealed record PortalBrandingRow(string Name, string? LogoBase64);
 
-public sealed record PortalRowError(string ExternalId, string Error);
-
 public sealed record PortalIngestResult(int Accepted, int Rejected, IReadOnlyList<PortalRowError> Errors);
 
-/// <summary>What the last sync did, kept for the settings screen.</summary>
+/// <summary>
+/// What the last sync did, kept for the settings screen. <paramref name="Operation"/> is Upsert or Remove (null on summaries saved before
+/// removals were sent); <paramref name="Waiting"/> means the rows were handed to the message bus and the portal hasn't answered yet.
+/// </summary>
 public sealed record ClientPortalSyncSummary(
-    string BatchCode, DateTime AtUtc, int Records, int Accepted, int Rejected, bool Succeeded, string? Message, IReadOnlyList<PortalRowError>? Errors);
+    string BatchCode, DateTime AtUtc, int Records, int Accepted, int Rejected, bool Succeeded, string? Message, IReadOnlyList<PortalRowError>? Errors,
+    string? Operation = null, bool Waiting = false, int PartsReceived = 0, int Parts = 0);
 
 public sealed record ClientPortalSettingsModel(bool Enabled, string PortalUrl, bool HasApiKey, ClientPortalSyncSummary? LastSync);
 
@@ -60,9 +31,18 @@ public sealed record ClientPortalSettingsRequest(bool Enabled, string PortalUrl,
 
 public sealed record ClientPortalCredentials(string PortalUrl, string ApiKey);
 
-/// <summary>Published once a DTR batch is posted; carries only what the sync needs to find the rows again.</summary>
+/// <summary>
+/// Internal to HRIS: asks the sync worker to send posted DTR rows to the portal. Carries only what the worker needs to find the rows
+/// again: a whole batch (<see cref="DtrBatchId"/>), or just some rows (<see cref="DailyRecordIds"/>, after a punch they use changed).
+/// </summary>
 public record ClientPortalSyncRequested
 {
+    public const string Approved = "Approved";
+    public const string PunchChanged = "PunchChanged";
+    public const string Resend = "Resend";
+
     public Guid DtrBatchId { get; init; }
     public string BatchCode { get; init; } = string.Empty;
+    public List<Guid>? DailyRecordIds { get; init; }
+    public string Reason { get; init; } = Approved;
 }
