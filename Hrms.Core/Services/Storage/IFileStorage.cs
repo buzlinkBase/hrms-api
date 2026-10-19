@@ -6,6 +6,9 @@ public sealed record FileUpload(string Key, Stream Content, string ContentType);
 /// <summary>A stored file's key, size and type -- what a record keeps to find it again.</summary>
 public sealed record StoredFile(string Key, long Size, string ContentType);
 
+/// <summary>A file found by listing a folder: its key, size and when it was last written.</summary>
+public sealed record StoredObject(string Key, long Size, DateTime LastModifiedUtc);
+
 /// <summary>
 /// Where the app keeps files (documents, photos, exports). Files are private: a browser gets one
 /// through <see cref="GetDownloadUrlAsync"/> (a short-lived link) or through an API endpoint that
@@ -37,6 +40,16 @@ public interface IFileStorage
     /// What the storage plan limit is measured against -- see <c>StorageUsageMeter</c>.
     /// </summary>
     Task<long> GetPrefixSizeAsync(string prefix, CancellationToken token = default);
+
+    /// <summary>
+    /// Every file in one company's folder (<see cref="StorageKeys.TenantPrefix"/> or
+    /// <see cref="StorageKeys.ArchivePrefix"/>) with its size and date; empty when the folder is
+    /// empty. Refuses any other prefix. What the Storage Manager screen groups by category and year.
+    /// </summary>
+    Task<IReadOnlyList<StoredObject>> ListAsync(string prefix, CancellationToken token = default);
+
+    /// <summary>Removes several files at once; keys that are already gone are skipped. Returns how many were asked for.</summary>
+    Task<int> DeleteManyAsync(IReadOnlyCollection<string> keys, CancellationToken token = default);
 
     /// <summary>
     /// A link the browser can download the file from for a short time, saved as

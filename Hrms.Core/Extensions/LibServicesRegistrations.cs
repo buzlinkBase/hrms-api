@@ -38,6 +38,12 @@ public static class LibServicesRegistrations
         services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.LeaveApplicationAttachmentHandler>();
         services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.TravelOrderAttachmentHandler>();
         services.AddScoped<Services.Attachments.IAttachmentOwnerHandler, Services.Attachments.Handlers.PassSlipAttachmentHandler>();
+        // Storage Manager -- one IStoredFileCategory per kind of stored file besides attachments
+        // (each attachment handler becomes a category of its own); see StoredFileCategoryChain.
+        services.AddScoped<Services.StorageManager.IStoredFileCategory, Services.StorageManager.EmployeePhotoCategory>();
+        services.AddScoped<Services.StorageManager.IStoredFileCategory, Services.StorageManager.CompanyLogoCategory>();
+        services.AddScoped<Services.StorageManager.IStoredFileCategory, Services.StorageManager.ClientLogoCategory>();
+        services.AddScoped<Services.StorageManager.StoredFileCategoryChain>();
         services.AddScoped<Services.Subscriptions.IPlanLimitGuard,Services.Subscriptions.PlanLimitGuard>();
         services.AddScoped<Services.Subscriptions.IAttendanceSourceGuard, Services.Subscriptions.AttendanceSourceGuard>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never

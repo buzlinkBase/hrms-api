@@ -138,6 +138,51 @@ public class SpacesFileStorage : IFileStorage
         return total;
     }
 
+    public async Task<IReadOnlyList<StoredObject>> ListAsync(string prefix, CancellationToken token = default)
+    {
+        if (!StorageKeys.IsCompanyFolder(prefix))
+            throw new ArgumentException($"\"{prefix}\" isn't a company folder.", nameof(prefix));
+
+        var objectPrefix = ObjectKey(prefix.TrimEnd('/')) + "/";
+        // The caller's keys don't carry the root prefix: strip it from what the Space returns.
+        var rootLength = objectPrefix.Length - prefix.Length;
+        var files = new List<StoredObject>();
+        string? continuationToken = null;
+        do
+        {
+            var page = await _s3.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = _options.Bucket,
+                Prefix = objectPrefix,
+                ContinuationToken = continuationToken,
+            }, token);
+
+            foreach (var o in page.S3Objects ?? [])
+            {
+                var modified = o.LastModified ?? DateTime.UtcNow;
+                files.Add(new StoredObject(o.Key[rootLength..], o.Size ?? 0, modified.ToUniversalTime()));
+            }
+            continuationToken = page.IsTruncated == true ? page.NextContinuationToken : null;
+        } while (continuationToken != null);
+        return files;
+    }
+
+    public async Task<int> DeleteManyAsync(IReadOnlyCollection<string> keys, CancellationToken token = default)
+    {
+        var objectKeys = keys.Distinct().Select(ObjectKey).ToList();
+        // DeleteObjects takes up to 1000 keys per request.
+        foreach (var batch in objectKeys.Chunk(1000))
+        {
+            await _s3.DeleteObjectsAsync(new DeleteObjectsRequest
+            {
+                BucketName = _options.Bucket,
+                Objects = batch.Select(k => new KeyVersion { Key = k }).ToList(),
+                Quiet = true,
+            }, token);
+        }
+        return objectKeys.Count;
+    }
+
     public async Task<Uri?> GetDownloadUrlAsync(string key, string? downloadFileName = null, CancellationToken token = default)
     {
         var request = new GetPreSignedUrlRequest

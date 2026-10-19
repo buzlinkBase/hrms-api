@@ -80,6 +80,34 @@ public class LocalFileStorage : IFileStorage
         return Task.FromResult(size);
     }
 
+    public Task<IReadOnlyList<StoredObject>> ListAsync(string prefix, CancellationToken token = default)
+    {
+        if (!StorageKeys.IsCompanyFolder(prefix))
+            throw new ArgumentException($"\"{prefix}\" isn't a company folder.", nameof(prefix));
+
+        var folder = PathOf(prefix.TrimEnd('/'));
+        if (!Directory.Exists(folder)) return Task.FromResult<IReadOnlyList<StoredObject>>([]);
+        IReadOnlyList<StoredObject> files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+            .Select(path => new FileInfo(path))
+            .Select(info => new StoredObject(
+                Path.GetRelativePath(_root, info.FullName).Replace(Path.DirectorySeparatorChar, '/'),
+                info.Length,
+                info.LastWriteTimeUtc))
+            .ToList();
+        return Task.FromResult(files);
+    }
+
+    public Task<int> DeleteManyAsync(IReadOnlyCollection<string> keys, CancellationToken token = default)
+    {
+        var distinct = keys.Distinct().ToList();
+        foreach (var key in distinct)
+        {
+            var path = PathOf(key);
+            if (File.Exists(path)) File.Delete(path);
+        }
+        return Task.FromResult(distinct.Count);
+    }
+
     public Task<Uri?> GetDownloadUrlAsync(string key, string? downloadFileName = null, CancellationToken token = default) =>
         Task.FromResult<Uri?>(null);
 }
