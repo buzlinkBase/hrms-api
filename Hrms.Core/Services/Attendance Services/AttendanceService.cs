@@ -59,16 +59,7 @@ public class AttendanceService : BaseService<Attendance>
         if (_sourceGuard != null)
             await _sourceGuard.EnsureAllowedAsync(attendances.Select(x => x.LogSource), token);
 
-        var uniqueRecordKeys = attendances
-             .GroupBy(x => new { x.BioId, x.EmployeeId, x.WorkDateTime })
-             .Select(group => group.Key)
-             .ToList();
-        foreach (var key in uniqueRecordKeys)
-        {
-            await GetQueryable()
-                .Where(x => x.BioId == key.BioId && x.EmployeeId == key.EmployeeId && x.WorkDateTime == key.WorkDateTime)
-                .ExecuteDeleteAsync(token);
-        }
+        await RemoveExistingDuplicatesAsync(attendances, token);
 
         // 4. Prepare the incoming records for clean insertions
         foreach (var attendance in attendances)
@@ -80,6 +71,43 @@ public class AttendanceService : BaseService<Attendance>
         }
         await CreateRangeAsync(attendances, token);
     }
+
+    // Ids per DELETE ... WHERE Id IN (...) -- keeps each statement's parameter list bounded.
+    private const int DeleteChunkSize = 1000;
+
+    /// <summary>
+    /// An incoming log replaces any stored log with the same (BioId, EmployeeId, WorkDateTime).
+    /// Set-based on purpose: one ranged lookup + a few Id deletes. A per-key DELETE (one round
+    /// trip and one table scan per log) took past the client's timeout on a ~1600-row upload.
+    /// </summary>
+    private async Task RemoveExistingDuplicatesAsync(List<Attendance> attendances, CancellationToken token)
+    {
+        var incomingKeys = attendances
+            .Select(x => (x.BioId, x.EmployeeId, x.WorkDateTime))
+            .ToHashSet();
+        var bioIds = incomingKeys.Select(x => x.BioId).Distinct().ToList();
+        var from = incomingKeys.Min(x => x.WorkDateTime);
+        var to = incomingKeys.Max(x => x.WorkDateTime);
+
+        var candidates = await GetQueryable()
+            .Where(x => bioIds.Contains(x.BioId) && x.WorkDateTime >= from && x.WorkDateTime <= to)
+            .Select(x => new { x.Id, x.BioId, x.EmployeeId, x.WorkDateTime })
+            .ToListAsync(token);
+
+        // Matched in memory so a null EmployeeId (unregistered Bio ID) only matches null.
+        var staleIds = candidates
+            .Where(x => incomingKeys.Contains((x.BioId, x.EmployeeId, x.WorkDateTime)))
+            .Select(x => x.Id)
+            .ToList();
+
+        foreach (var chunk in staleIds.Chunk(DeleteChunkSize))
+        {
+            await GetQueryable()
+                .Where(x => chunk.Contains(x.Id))
+                .ExecuteDeleteAsync(token);
+        }
+    }
+
     /// <summary>
     /// Attendance Manual Entry (and a time log added from the DTR). Every entry must be for an
     /// employee the caller may see -- a hidden confidential employee, or one of another company,

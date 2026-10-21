@@ -21,5 +21,9 @@ internal class AttendanceConfig : IEntityTypeConfiguration<Attendance>
         builder.HasIndex(e => new { e.BranchId, e.DepartmentId, e.OperationAreaId, e.ClientId })
         .HasDatabaseName("IX_Att_BRId_DepId_Area_ClId_LS");
 
+        // Duplicate lookup on every insert path (AttendanceService.AddRangeAsync).
+        builder.HasIndex(e => new { e.BioId, e.WorkDateTime })
+            .HasDatabaseName("IX_Attendance_BioId_WorkDateTime");
+
     }
 }

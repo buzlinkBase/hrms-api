@@ -813,6 +813,9 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("OperationAreaId");
 
+                    b.HasIndex("BioId", "WorkDateTime")
+                        .HasDatabaseName("IX_Attendance_BioId_WorkDateTime");
+
                     b.HasIndex("LogSource", "BatchCode")
                         .HasDatabaseName("IX_Attendance_LogSource_BatchCode");
 
