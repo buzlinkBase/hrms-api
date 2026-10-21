@@ -57,25 +57,130 @@ public class ClientPortalSyncTests
     }
 
     [Fact]
-    public void Absent_days_and_rows_without_a_client_or_site_are_not_sent()
+    public void Rows_without_a_client_or_site_are_not_sent_and_without_deployment_setup_each_site_gets_a_default_post()
     {
         var client = new Client { Id = Guid.NewGuid(), Code = "LGU", Name = "LGU" };
         var area = new CostCenters { Id = Guid.NewGuid(), Code = "HALL", Name = "City Hall" };
         var emp = Guid.NewGuid();
         var ok = Record(emp, client.Id, area.Id, "b");
-        var absent = Record(emp, client.Id, area.Id, "b", r => { r.StartTime = null; r.EndTime = null; });
         var noClient = Record(emp, client.Id, area.Id, "b", r => r.ClientId = null);
         var noArea = Record(emp, client.Id, area.Id, "b", r => r.AreaId = null);
 
         var payload = ClientPortalPayloadBuilder.Build(new PortalSourceData(
-            [ok, absent, noClient, noArea], new Dictionary<Guid, Client> { [client.Id] = client }, new Dictionary<Guid, CostCenters> { [area.Id] = area },
+            [ok, noClient, noArea], new Dictionary<Guid, Client> { [client.Id] = client }, new Dictionary<Guid, CostCenters> { [area.Id] = area },
             new Dictionary<Guid, Employee>(), new Dictionary<Guid, double>(), [], []));
 
         payload.Records.Should().ContainSingle().Which.ExternalId.Should().Be(ok.Id.ToString());
         payload.Clients.Should().ContainSingle();
         payload.Sites.Should().ContainSingle().Which.Name.Should().Be("City Hall");
-        payload.Posts.Should().ContainSingle().Which.SiteExternalId.Should().Be(payload.Sites[0].ExternalId);
+        payload.Posts.Should().ContainSingle().Which.Should().Match<PortalPostRow>(p => p.SiteExternalId == payload.Sites[0].ExternalId && p.Code == "MAIN");
         payload.Guards.Should().ContainSingle();
+        payload.Records[0].DeploymentRole.Should().BeNull();
+    }
+
+    [Fact]
+    public void Days_not_worked_are_sent_as_absent_leave_or_rest_day()
+    {
+        var client = new Client { Id = Guid.NewGuid(), Code = "LGU", Name = "LGU" };
+        var area = new CostCenters { Id = Guid.NewGuid(), Code = "HALL", Name = "City Hall" };
+        var emp = Guid.NewGuid();
+        void NoTimes(DailyRecord r) { r.StartTime = null; r.EndTime = null; r.RegularNetHours = 0; }
+        var absent = Record(emp, client.Id, area.Id, "b", r => { NoTimes(r); r.AbsentCount = 1; r.WorkTypeEnum = WorkType.Absent; });
+        var leave = Record(emp, client.Id, area.Id, "b", r =>
+        {
+            NoTimes(r); r.WorkDate = Day.AddDays(1); r.WorkTypeEnum = WorkType.PaidLeave; r.PaidLeaveHours = 8;
+            r.LeavesInfo = [new DtrLeaveMetaData { Name = "Vacation Leave", Hours = 8 }];
+        });
+        var rest = Record(emp, client.Id, area.Id, "b", r => { NoTimes(r); r.WorkDate = Day.AddDays(2); r.WorkTypeEnum = WorkType.RestDay; });
+
+        var payload = ClientPortalPayloadBuilder.Build(new PortalSourceData(
+            [absent, leave, rest], new Dictionary<Guid, Client> { [client.Id] = client }, new Dictionary<Guid, CostCenters> { [area.Id] = area },
+            new Dictionary<Guid, Employee>(), new Dictionary<Guid, double>(), [], []));
+
+        payload.Records.Should().HaveCount(3);
+        payload.Records.Single(r => r.ExternalId == absent.Id.ToString()).Should().Match<PortalDtrRow>(r => r.Absent && r.LeaveHours == 0 && r.Punches.Count == 0);
+        payload.Records.Single(r => r.ExternalId == leave.Id.ToString())
+            .Should().Match<PortalDtrRow>(r => !r.Absent && r.LeaveHours == 8 && r.LeaveType == "Vacation Leave" && r.LeavePaid);
+        payload.Records.Single(r => r.ExternalId == rest.Id.ToString()).Should().Match<PortalDtrRow>(r => r.DayType == "RestDay" && !r.Absent);
+    }
+
+    [Fact]
+    public void Day_types_holidays_scheduled_times_and_night_shifts_are_sent_with_four_decimal_hours()
+    {
+        var client = new Client { Id = Guid.NewGuid(), Code = "LGU", Name = "LGU" };
+        var area = new CostCenters { Id = Guid.NewGuid(), Code = "HALL", Name = "City Hall" };
+        var night = Record(Guid.NewGuid(), client.Id, area.Id, "b", r =>
+        {
+            r.WorkTypeEnum = WorkType.LegalHolidayDuty; r.ShiftName = "NS"; r.ShiftStartTime = Start.AddHours(12); r.ShiftEndTime = End.AddHours(12);
+            r.RegularNetHours = 0; r.LegalHolHours = 7.9833333; r.LegalHolOTHours = 4; r.RestDayHours = 0;
+        });
+        var special = Record(Guid.NewGuid(), client.Id, area.Id, "b", r => { r.WorkTypeEnum = WorkType.RestDaySpecialHolidayDuty; r.RestSpecialDayHours = 8; });
+
+        var payload = ClientPortalPayloadBuilder.Build(new PortalSourceData(
+            [night, special], new Dictionary<Guid, Client> { [client.Id] = client }, new Dictionary<Guid, CostCenters> { [area.Id] = area },
+            new Dictionary<Guid, Employee>(), new Dictionary<Guid, double>(), [], []));
+
+        var n = payload.Records.Single(r => r.ExternalId == night.Id.ToString());
+        n.Should().Match<PortalDtrRow>(r => r.DayType == "Legal" && r.ShiftKind == "Night" && r.LegalHolidayHours == 7.9833m
+            && r.HolidayHours == 7.9833m && r.HolidayOvertimeHours == 4 && r.OvertimeHours == 4 && r.ScheduledStart == Start.AddHours(12));
+        var s = payload.Records.Single(r => r.ExternalId == special.Id.ToString());
+        s.Should().Match<PortalDtrRow>(r => r.DayType == "RestSpecial" && r.ShiftKind == "Day" && r.SpecialHolidayHours == 8 && r.LegalHolidayHours == 0);
+    }
+
+    [Fact]
+    public void A_day_is_billed_to_the_site_where_the_person_punched_not_their_home_site()
+    {
+        var home = new Client { Id = Guid.NewGuid(), Code = "HOME", Name = "Home Client" };
+        var other = new Client { Id = Guid.NewGuid(), Code = "PORT", Name = "Port" };
+        var homeArea = new CostCenters { Id = Guid.NewGuid(), Code = "H", Name = "Home Site" };
+        var otherArea = new CostCenters { Id = Guid.NewGuid(), Code = "P", Name = "Pier 4" };
+        var emp = Guid.NewGuid();
+        var record = Record(emp, home.Id, homeArea.Id, "b");
+        var punches = new[]
+        {
+            new Attendance { EmployeeId = emp, WorkDateTime = Start, ClientId = other.Id, OperationAreaId = otherArea.Id },
+            new Attendance { EmployeeId = emp, WorkDateTime = End, ClientId = other.Id, OperationAreaId = otherArea.Id },
+        };
+
+        var payload = ClientPortalPayloadBuilder.Build(new PortalSourceData(
+            [record], new Dictionary<Guid, Client> { [home.Id] = home, [other.Id] = other },
+            new Dictionary<Guid, CostCenters> { [homeArea.Id] = homeArea, [otherArea.Id] = otherArea },
+            new Dictionary<Guid, Employee>(), new Dictionary<Guid, double>(), punches, []));
+
+        payload.Records.Single().ClientExternalId.Should().Be(other.Id.ToString());
+        payload.Sites.Should().ContainSingle().Which.Name.Should().Be("Pier 4");
+        payload.Guards.Single().ClientExternalId.Should().Be(other.Id.ToString());
+    }
+
+    [Fact]
+    public void A_deployed_person_is_sent_under_the_real_site_and_post_with_its_role_and_the_post_manning()
+    {
+        var client = new Client { Id = Guid.NewGuid(), Code = "WF", Name = "Waterfront" };
+        var area = new CostCenters { Id = Guid.NewGuid(), Code = "WFA", Name = "Waterfront Area" };
+        var site = new ClientSite { Id = Guid.NewGuid(), ClientId = client.Id, AreaId = area.Id, Code = "AGWA", Name = "AGWA Building" };
+        var post = new ClientPost { Id = Guid.NewGuid(), ClientSiteId = site.Id, Code = "G1", Name = "Main Gate", Position = "Regular guard" };
+        var emp = Guid.NewGuid();
+        var regular = new Deployment { Id = Guid.NewGuid(), EmployeeId = emp, PostId = post.Id, Role = DeploymentRole.Regular, StartDate = Day.AddDays(-30) };
+        var augmentation = new Deployment
+        {
+            Id = Guid.NewGuid(), EmployeeId = emp, PostId = post.Id, Role = DeploymentRole.Augmentation, StartDate = Day, EndDate = Day, EventTag = "CWE 2026",
+        };
+        var requirement = new PostRequirement { Id = Guid.NewGuid(), PostId = post.Id, ShiftLabel = "Day", RequiredHeadcount = 2, EffectiveFrom = Day.AddDays(-30) };
+        var notOnSunday = new PostRequirement
+        {
+            Id = Guid.NewGuid(), PostId = post.Id, ShiftLabel = "Night", RequiredHeadcount = 1, DaysOfWeek = "Sun", EffectiveFrom = Day.AddDays(-30),
+        };
+
+        var payload = ClientPortalPayloadBuilder.Build(new PortalSourceData(
+            [Record(emp, client.Id, area.Id, "b")], new Dictionary<Guid, Client> { [client.Id] = client }, new Dictionary<Guid, CostCenters> { [area.Id] = area },
+            new Dictionary<Guid, Employee>(), new Dictionary<Guid, double>(), [], [new ScheduledHeadcount(client.Id, area.Id, Day, "Day", 9)],
+            [site], new Dictionary<Guid, ClientPost> { [post.Id] = post }, [requirement, notOnSunday], [regular, augmentation]));
+
+        payload.Sites.Should().ContainSingle().Which.Should().Match<PortalSiteRow>(s => s.ExternalId == site.Id.ToString() && s.Code == "AGWA");
+        payload.Posts.Should().ContainSingle().Which.Should().Match<PortalPostRow>(p => p.ExternalId == post.Id.ToString() && p.Position == "Regular guard");
+        payload.Records.Single().Should().Match<PortalDtrRow>(r => r.PostExternalId == post.Id.ToString() && r.DeploymentRole == "Augmentation" && r.EventTag == "CWE 2026");
+        payload.Schedules.Should().ContainSingle("the 1st of October 2026 is a Thursday, and the work schedule only counts for default posts")
+            .Which.Should().Match<PortalScheduleRow>(s => s.PostExternalId == post.Id.ToString() && s.RequiredHeadcount == 2 && s.ShiftName == "Day");
     }
 
     [Fact]

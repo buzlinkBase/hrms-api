@@ -91,6 +91,10 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     public DbSet<RateTable> PremiumRates { get; set; }
     public DbSet<ClientRateTable> ClientRateTables { get; set; }
     public DbSet<ClientBillingInfo> ClientBillingInfos { get; set; }
+    public DbSet<ClientSite> ClientSites { get; set; }
+    public DbSet<ClientPost> ClientPosts { get; set; }
+    public DbSet<PostRequirement> PostRequirements { get; set; }
+    public DbSet<Deployment> Deployments { get; set; }
     public DbSet<EmployeeSetting> EmployeeSettings { get; set; }
 
     public DbSet<DailyRecord> DailyTimeRecords { get; set; }

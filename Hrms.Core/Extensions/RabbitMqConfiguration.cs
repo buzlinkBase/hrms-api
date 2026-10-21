@@ -133,6 +133,15 @@ public static class QuartzConfiguration
                     .InTimeZone(TimeZoneInfo.Utc)
                     .WithMisfireHandlingInstructionFireAndProceed()));
 
+            // Deployments starting today move their employees' client and site: daily at 16:05 UTC = 00:05 in Manila.
+            q.AddJob<Hrms.Core.Messaging.Deployments.DeploymentSyncJob>(Hrms.Core.Messaging.Deployments.DeploymentSyncJob.Key, job => job.StoreDurably());
+            q.AddTrigger(trigger => trigger
+                .ForJob(Hrms.Core.Messaging.Deployments.DeploymentSyncJob.Key)
+                .WithIdentity(Hrms.Core.Messaging.Deployments.DeploymentSyncJob.TriggerKey)
+                .WithCronSchedule("0 5 16 * * ?", cron => cron
+                    .InTimeZone(TimeZoneInfo.Utc)
+                    .WithMisfireHandlingInstructionFireAndProceed()));
+
             // Old notification-bell entries (Notifications:RetentionDays), daily at 02:00 UTC.
             q.AddJob<NotificationRetentionJob>(NotificationRetentionJob.Key, job => job.StoreDurably());
             q.AddTrigger(trigger => trigger

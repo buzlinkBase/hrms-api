@@ -1,9 +1,14 @@
+using Hrms.Core.Services.Deployments;
+using Hrms.Domain;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace Hrms.Core.Services.ClientPortal;
 
-/// <summary>What the builder needs besides the DTR rows themselves: names, break lengths, punches and the schedule.</summary>
+/// <summary>
+/// What the builder needs besides the DTR rows themselves: names, break lengths, punches, the schedule and, when the company keeps them,
+/// its client sites, posts, contracted manning and deployments (Setup &gt; Deployment).
+/// </summary>
 public sealed record PortalSourceData(
     IReadOnlyList<DailyRecord> Records,
     IReadOnlyDictionary<Guid, Client> Clients,
@@ -11,14 +16,24 @@ public sealed record PortalSourceData(
     IReadOnlyDictionary<Guid, Employee> Employees,
     IReadOnlyDictionary<Guid, double> BreakMinutesByShift,
     IReadOnlyList<Attendance> Punches,
-    IReadOnlyList<ScheduledHeadcount> Scheduled);
+    IReadOnlyList<ScheduledHeadcount> Scheduled,
+    IReadOnlyList<ClientSite>? ClientSites = null,
+    IReadOnlyDictionary<Guid, ClientPost>? Posts = null,
+    IReadOnlyList<PostRequirement>? Requirements = null,
+    IReadOnlyList<Deployment>? Deployments = null);
 
 /// <summary>How many employees were scheduled to a site's shift on a day (from the work schedule plan).</summary>
 public sealed record ScheduledHeadcount(Guid ClientId, Guid AreaId, DateOnly WorkDate, string ShiftName, int Count);
 
 /// <summary>
 /// Turns an approved DTR batch into the portal's rows. Pure: no database, no HTTP, so every mapping rule is testable.
-/// A client's "site" is an area (project site) and each site has one default post, because HRIS has no post concept.
+/// <list type="bullet">
+/// <item>Where a day is billed: the client and project site of the device the person punched on, when that differs from their home
+/// assignment (relievers and augmentation); otherwise the DTR row's own client and site.</item>
+/// <item>The portal's site is the company's client site for that client and project site (Setup &gt; Deployment), else the project site.</item>
+/// <item>The post is the one the person was deployed to that day, else a default post per site.</item>
+/// <item>Days not worked (absent, on leave, rest day) are sent too, so the client's manning and the billing attachments show them.</item>
+/// </list>
 /// </summary>
 public static class ClientPortalPayloadBuilder
 {
@@ -27,56 +42,31 @@ public static class ClientPortalPayloadBuilder
 
     public static PortalPayload Build(PortalSourceData data)
     {
-        // A day with no time in and no time out is an absence or leave: nothing to review or bill.
-        var worked = data.Records
-            .Where(r => r.ClientId is not null && r.AreaId is not null && (r.StartTime is not null || r.EndTime is not null))
+        var context = new BuildContext(data);
+        var located = data.Records
+            .Select(r => (Record: r, Place: context.Locate(r)))
+            .Where(x => x.Place is not null && data.Clients.ContainsKey(x.Place.ClientId) && data.Areas.ContainsKey(x.Place.AreaId))
+            .Select(x => (x.Record, Place: x.Place!))
             .ToList();
 
-        var clientIds = worked.Select(r => r.ClientId!.Value).Distinct().ToList();
-        var areaKeys = worked.Select(r => (Client: r.ClientId!.Value, Area: r.AreaId!.Value)).Distinct().ToList();
+        var clients = located.Select(x => x.Place.ClientId).Distinct().Select(id => PortalPlaces.ClientRow(data.Clients[id])).ToList();
 
-        var clients = clientIds
-            .Where(data.Clients.ContainsKey)
-            .Select(id => new PortalClientRow(Ext(id), Code(data.Clients[id].Code, id), Name(data.Clients[id].Name, "Client")))
+        var sites = located.Select(x => x.Place).DistinctBy(p => p.SiteExternalId)
+            .Select(p => new PortalSiteRow(p.SiteExternalId, Ext(p.ClientId), p.SiteCode, p.SiteName))
             .ToList();
 
-        var sites = areaKeys
-            .Where(k => data.Areas.ContainsKey(k.Area) && data.Clients.ContainsKey(k.Client))
-            .Select(k => new PortalSiteRow(Ext(k.Area), Ext(k.Client), Code(data.Areas[k.Area].Code, k.Area), Name(data.Areas[k.Area].Name, "Site")))
-            .DistinctBy(s => s.ExternalId)
+        var posts = located.Select(x => x.Place).DistinctBy(p => p.PostExternalId)
+            .Select(p => new PortalPostRow(p.PostExternalId, p.SiteExternalId, p.PostCode, p.PostName, p.Position))
             .ToList();
 
-        var posts = sites
-            .Select(s => new PortalPostRow(PostExt(s.ExternalId), s.ExternalId, "MAIN", s.Name))
-            .ToList();
-
-        var guards = worked
-            .Select(r => (r.EmployeeId, Client: r.ClientId!.Value, r.FullName))
+        var guards = located
+            .Select(x => (x.Record.EmployeeId, x.Place.ClientId, x.Record.FullName))
             .DistinctBy(g => g.EmployeeId)
-            .Where(g => data.Clients.ContainsKey(g.Client))
-            .Select(g =>
-            {
-                data.Employees.TryGetValue(g.EmployeeId, out var employee);
-                var name = !string.IsNullOrWhiteSpace(g.FullName) ? g.FullName! : employee is null ? "Guard" : $"{employee.LastName}, {employee.FirstName}".Trim(' ', ',');
-                return new PortalGuardRow(Ext(g.EmployeeId), Ext(g.Client), Code(employee?.EmployeeNo, g.EmployeeId), name);
-            })
+            .Select(g => PortalPlaces.GuardRow(g.EmployeeId, g.ClientId, data.Employees.GetValueOrDefault(g.EmployeeId), g.FullName))
             .ToList();
 
-        var knownSites = sites.Select(s => s.ExternalId).ToHashSet();
-        var schedules = data.Scheduled
-            .Where(s => knownSites.Contains(Ext(s.AreaId)) && !string.IsNullOrWhiteSpace(s.ShiftName))
-            .Select(s => new PortalScheduleRow(PostExt(Ext(s.AreaId)), s.WorkDate, s.ShiftName.Trim(), s.Count))
-            .ToList();
-
-        var punchesByEmployee = data.Punches
-            .Where(p => p.EmployeeId is not null)
-            .GroupBy(p => p.EmployeeId!.Value)
-            .ToDictionary(g => g.Key, g => g.OrderBy(p => p.WorkDateTime).ToList());
-
-        var records = worked
-            .Where(r => data.Clients.ContainsKey(r.ClientId!.Value) && data.Areas.ContainsKey(r.AreaId!.Value))
-            .Select(r => ToRow(r, data, punchesByEmployee))
-            .ToList();
+        var records = located.Select(x => ToRow(x.Record, x.Place, data, context)).ToList();
+        var schedules = Schedules(data, located.Select(x => x.Place).ToList(), located.Select(x => x.Record.WorkDate).ToList());
 
         return new PortalPayload(clients, sites, posts, guards, schedules, records);
     }
@@ -84,7 +74,7 @@ public static class ClientPortalPayloadBuilder
     /// <summary>
     /// Cuts a payload into bus messages of at most <see cref="ClientPortalAttendanceUpserted.MaxRecords"/> records. Each message carries only
     /// the clients, sites, posts, guards and schedules its own records use, so the portal can apply any of them on its own and in any order.
-    /// Nothing worked means nothing to send.
+    /// Nothing to send means no messages.
     /// </summary>
     public static List<ClientPortalAttendanceUpserted> Split(PortalPayload payload, Guid tenantId, string batchCode, string reason, int maxRecords = ClientPortalAttendanceUpserted.MaxRecords)
     {
@@ -115,16 +105,68 @@ public static class ClientPortalPayloadBuilder
         return messages;
     }
 
-    private static PortalDtrRow ToRow(DailyRecord r, PortalSourceData data, Dictionary<Guid, List<Attendance>> punchesByEmployee)
+    // ---- where a day belongs -------------------------------------------------------------------------------------
+
+    private sealed class BuildContext
     {
-        var siteExt = Ext(r.AreaId!.Value);
+        private readonly PortalSourceData _data;
+        private readonly PortalPlaces _places;
+
+        public Dictionary<Guid, List<Attendance>> PunchesByEmployee { get; }
+
+        public BuildContext(PortalSourceData data)
+        {
+            _data = data;
+            _places = new PortalPlaces(data.Areas, data.ClientSites, data.Posts, data.Deployments);
+            PunchesByEmployee = data.Punches
+                .Where(p => p.EmployeeId is not null)
+                .GroupBy(p => p.EmployeeId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(p => p.WorkDateTime).ToList());
+        }
+
+        public IReadOnlyList<Attendance> PunchesOf(DailyRecord r)
+        {
+            if (!PunchesByEmployee.TryGetValue(r.EmployeeId, out var all))
+                return [];
+            var from = Earliest(r.ShiftStartTime, r.StartTime) - PunchMargin;
+            var to = Latest(r.ShiftEndTime, r.EndTime) + PunchMargin;
+            return all.Where(p => p.WorkDateTime >= from && p.WorkDateTime <= to).Take(MaxPunchesPerRecord).ToList();
+        }
+
+        public PortalPlace? Locate(DailyRecord r)
+        {
+            var (clientId, areaId) = (r.ClientId, r.AreaId);
+
+            // Punched on a device of another client or site (a reliever, augmentation): the day belongs where the person actually was.
+            var located = PunchesOf(r)
+                .Where(p => p.ClientId is not null && p.OperationAreaId is not null)
+                .GroupBy(p => (Client: p.ClientId!.Value, Area: p.OperationAreaId!.Value))
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault();
+            if (located != default && _data.Clients.ContainsKey(located.Client) && _data.Areas.ContainsKey(located.Area))
+                (clientId, areaId) = (located.Client, located.Area);
+
+            if (clientId is not { } client || areaId is not { } area)
+                return null;
+            return _places.Resolve(r.EmployeeId, r.WorkDate, client, area);
+        }
+    }
+
+    // ---- the rows ------------------------------------------------------------------------------------------------
+
+    private static PortalDtrRow ToRow(DailyRecord r, PortalPlace place, PortalSourceData data, BuildContext context)
+    {
         var breakMinutes = r.ShiftId is { } shift && data.BreakMinutesByShift.TryGetValue(shift, out var b) ? (int)Math.Round(b) : 0;
+        var leaveHours = r.PaidLeaveHours + r.UnpaidLeaveHours;
+        var leave = r.LeavesInfo?.FirstOrDefault();
+        var worked = r.StartTime is not null || r.EndTime is not null;
 
         return new PortalDtrRow(
             ExternalId: Ext(r.Id),
-            ClientExternalId: Ext(r.ClientId!.Value),
-            SiteExternalId: siteExt,
-            PostExternalId: PostExt(siteExt),
+            ClientExternalId: Ext(place.ClientId),
+            SiteExternalId: place.SiteExternalId,
+            PostExternalId: place.PostExternalId,
             GuardExternalId: Ext(r.EmployeeId),
             WorkDate: r.WorkDate,
             ShiftName: string.IsNullOrWhiteSpace(r.ShiftName) ? "Shift" : r.ShiftName.Trim(),
@@ -139,10 +181,60 @@ public static class ClientPortalPayloadBuilder
             HolidayHours: Hours(HolidayHours(r)),
             // The batch only reaches the portal once it is approved, and approval covers the overtime in it.
             OvertimeApproved: true,
-            Punches: PunchesFor(r, punchesByEmployee));
+            Punches: PunchesFor(r, context),
+            DayType: DayType(r.WorkTypeEnum),
+            RestDayHours: Hours(r.RestDayHours),
+            LegalHolidayHours: Hours(LegalHolidayHours(r)),
+            SpecialHolidayHours: Hours(SpecialHolidayHours(r)),
+            HolidayOvertimeHours: Hours(HolidayOvertimeHours(r)),
+            Absent: !worked && (r.AbsentCount > 0 || r.WorkTypeEnum == WorkType.Absent),
+            LeaveHours: Hours(leaveHours),
+            LeaveType: leaveHours > 0 ? Trimmed(leave?.Name, 100) ?? LeaveName(r.WorkTypeEnum) : null,
+            LeavePaid: r.PaidLeaveHours > 0 || r.WorkTypeEnum is WorkType.PaidLeave or WorkType.GovFundedLeave,
+            ScheduledStart: r.ShiftStartTime == default ? null : r.ShiftStartTime,
+            ScheduledEnd: r.ShiftEndTime == default ? null : r.ShiftEndTime,
+            ShiftKind: IsNight(r) ? "Night" : "Day",
+            DeploymentRole: place.Deployment?.Role.ToString(),
+            EventTag: place.Deployment?.EventTag);
     }
 
-    /// <summary>Base hours on an ordinary day. Rest-day work counts here too: the portal has no separate rest-day bucket.</summary>
+    /// <summary>
+    /// Required headcount per post and shift for the days sent: the contracted manning of real posts, else (for a site's default post) the
+    /// number of people the work schedule put on the site's shift.
+    /// </summary>
+    private static List<PortalScheduleRow> Schedules(PortalSourceData data, IReadOnlyList<PortalPlace> places, IReadOnlyList<DateOnly> dates)
+    {
+        var rows = new List<PortalScheduleRow>();
+        if (dates.Count == 0)
+            return rows;
+        var from = dates.Min();
+        var to = dates.Max();
+
+        var realPosts = places.Where(p => p.IsRealPost).Select(p => p.PostExternalId).ToHashSet();
+        foreach (var requirement in data.Requirements ?? [])
+        {
+            var post = Ext(requirement.PostId);
+            if (!realPosts.Contains(post))
+                continue;
+            for (var day = from; day <= to; day = day.AddDays(1))
+            {
+                if (PostRequirementRules.AppliesOn(requirement, day))
+                    rows.Add(new PortalScheduleRow(post, day, requirement.ShiftLabel.Trim(), requirement.RequiredHeadcount));
+            }
+        }
+
+        var defaultPosts = places.Where(p => !p.IsRealPost).Select(p => (p.ClientId, p.AreaId, p.PostExternalId)).Distinct().ToList();
+        foreach (var s in data.Scheduled.Where(s => !string.IsNullOrWhiteSpace(s.ShiftName)))
+        {
+            var post = defaultPosts.FirstOrDefault(p => p.ClientId == s.ClientId && p.AreaId == s.AreaId);
+            if (post != default)
+                rows.Add(new PortalScheduleRow(post.PostExternalId, s.WorkDate, s.ShiftName.Trim(), s.Count));
+        }
+
+        return rows.DistinctBy(r => (r.PostExternalId, r.WorkDate, r.ShiftName.ToUpperInvariant())).ToList();
+    }
+
+    /// <summary>Base hours on an ordinary day. Rest-day work counts here too (also sent apart as <c>RestDayHours</c>).</summary>
     public static double RegularHours(DailyRecord r) => r.RegularNetHours + r.RestDayHours;
 
     public static double OvertimeHours(DailyRecord r) =>
@@ -161,19 +253,50 @@ public static class ClientPortalPayloadBuilder
         + r.RestDoubleLegalNDHours + r.RestDoubleLegalNDOTHours;
 
     /// <summary>Base hours worked on a legal or special holiday, alone or combined with a rest day.</summary>
-    public static double HolidayHours(DailyRecord r) =>
-        r.LegalHolHours + r.SpecialHolHours + r.RestLegalDayHours + r.RestSpecialDayHours + r.DoubleLegalHours + r.RestDoubleLegalHours;
+    public static double HolidayHours(DailyRecord r) => LegalHolidayHours(r) + SpecialHolidayHours(r);
 
-    private static List<PortalPunchRow> PunchesFor(DailyRecord r, Dictionary<Guid, List<Attendance>> punchesByEmployee)
+    public static double LegalHolidayHours(DailyRecord r) => r.LegalHolHours + r.RestLegalDayHours + r.DoubleLegalHours + r.RestDoubleLegalHours;
+
+    public static double SpecialHolidayHours(DailyRecord r) => r.SpecialHolHours + r.RestSpecialDayHours;
+
+    /// <summary>The part of the overtime worked on a holiday.</summary>
+    public static double HolidayOvertimeHours(DailyRecord r) =>
+        r.LegalHolOTHours + r.SpecialHolOTHours + r.RestLegalDayOTHours + r.RestSpecialDayOTHours + r.DoubleLegalOTHours + r.RestDoubleLegalOTHours;
+
+    public static string DayType(WorkType type) => type switch
     {
-        if (punchesByEmployee.TryGetValue(r.EmployeeId, out var all))
-        {
-            var from = Earliest(r.ShiftStartTime, r.StartTime) - PunchMargin;
-            var to = Latest(r.ShiftEndTime, r.EndTime) + PunchMargin;
-            var inWindow = all.Where(p => p.WorkDateTime >= from && p.WorkDateTime <= to).Take(MaxPunchesPerRecord).ToList();
-            if (inWindow.Count > 0)
-                return inWindow.Select(p => new PortalPunchRow(p.WorkDateTime, "punch")).ToList();
-        }
+        WorkType.RestDay or WorkType.RestDayDuty => "RestDay",
+        WorkType.LegalHoliday or WorkType.LegalHolidayDuty => "Legal",
+        WorkType.SpecialNonWorkingHoliday or WorkType.SpecialHolidayDuty => "Special",
+        WorkType.RestDayLegalHoliday or WorkType.RestDayLegalHolidayDuty => "RestLegal",
+        WorkType.RestDaySpecialHoliday or WorkType.RestDaySpecialHolidayDuty => "RestSpecial",
+        WorkType.DoubleLegal or WorkType.DoubleLegalDuty => "DoubleLegal",
+        WorkType.RestDayDoubleLegal or WorkType.RestDayDoubleLegalDuty => "RestDoubleLegal",
+        _ => "Regular",
+    };
+
+    private static string? LeaveName(WorkType type) => type switch
+    {
+        WorkType.PaidLeave => "Paid leave",
+        WorkType.UnpaidLeave => "Unpaid leave",
+        WorkType.GovFundedLeave => "Government-funded leave",
+        _ => "Leave",
+    };
+
+    /// <summary>A night shift: named so, or starting in the evening or before dawn.</summary>
+    public static bool IsNight(DailyRecord r)
+    {
+        if (!string.IsNullOrWhiteSpace(r.ShiftName) && r.ShiftName.Contains("night", StringComparison.OrdinalIgnoreCase))
+            return true;
+        var start = r.ShiftStartTime != default ? r.ShiftStartTime : r.StartTime ?? default;
+        return start != default && (start.Hour >= 17 || start.Hour < 4);
+    }
+
+    private static List<PortalPunchRow> PunchesFor(DailyRecord r, BuildContext context)
+    {
+        var inWindow = context.PunchesOf(r);
+        if (inWindow.Count > 0)
+            return inWindow.Select(p => new PortalPunchRow(p.WorkDateTime, "punch")).ToList();
 
         // Entered or corrected by hand, so no device punches exist: the recorded in/out are the evidence.
         var synthetic = new List<PortalPunchRow>();
@@ -188,14 +311,11 @@ public static class ClientPortalPayloadBuilder
 
     private static int Minutes(double value) => value <= 0 ? 0 : (int)Math.Round(value);
 
-    private static decimal Hours(double value) => value <= 0 ? 0m : Math.Round((decimal)value, 2);
+    /// <summary>Four decimals: hours come from minutes (1 min = 0.0167 h), and billing must reproduce them to the centavo.</summary>
+    private static decimal Hours(double value) => value <= 0 ? 0m : Math.Round((decimal)value, 4);
 
-    private static string Ext(Guid id) => id.ToString("D");
+    private static string Ext(Guid id) => PortalPlaces.Ext(id);
 
-    private static string PostExt(string siteExternalId) => $"post-{siteExternalId}";
-
-    private static string Name(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-
-    // The portal requires a code; fall back to a short slice of the id when HRIS has none.
-    private static string Code(string? value, Guid id) => string.IsNullOrWhiteSpace(value) ? id.ToString("N")[..8].ToUpperInvariant() : value.Trim();
+    private static string? Trimmed(string? value, int max) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().Length <= max ? value.Trim() : value.Trim()[..max];
 }

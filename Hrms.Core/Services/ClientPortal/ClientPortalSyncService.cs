@@ -63,7 +63,7 @@ public class ClientPortalSyncService : BaseService<DailyRecord>
 
         var summary = new ClientPortalSyncSummary(batchCode, DateTime.UtcNow, payload.Records.Count, 0, 0,
             Succeeded: true,
-            Message: messages.Count == 0 ? "Nothing to send: no worked days with a client and site." : "Sent to the portal. Waiting for its answer.",
+            Message: messages.Count == 0 ? "Nothing to send: no days with a client and site." : "Sent to the portal. Waiting for its answer.",
             Errors: null,
             Operation: ClientPortalAttendanceResult.Upsert,
             Waiting: messages.Count > 0,
@@ -75,30 +75,44 @@ public class ClientPortalSyncService : BaseService<DailyRecord>
 
     private async Task<PortalSourceData> LoadAsync(List<DailyRecord> records, CancellationToken token)
     {
-        var clientIds = records.Where(r => r.ClientId != null).Select(r => r.ClientId!.Value).Distinct().ToList();
-        var areaIds = records.Where(r => r.AreaId != null).Select(r => r.AreaId!.Value).Distinct().ToList();
         var employeeIds = records.Select(r => r.EmployeeId).Distinct().ToList();
         var shiftIds = records.Where(r => r.ShiftId != null).Select(r => r.ShiftId!.Value).Distinct().ToList();
 
-        var clients = await Context.Clients.AsNoTracking().Where(c => clientIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, token);
-        var areas = await Context.Areas.AsNoTracking().Where(a => areaIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, token);
-        var employees = await Context.Employees.AsNoTracking().Where(e => employeeIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, token);
-        var breaks = await Context.TimeShifts.AsNoTracking().Where(s => shiftIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.BreakDurationMinutes, token);
-
         var worked = records.Where(r => r.StartTime != null || r.EndTime != null).ToList();
         var punches = new List<Attendance>();
-        var scheduled = new List<ScheduledHeadcount>();
+        DateOnly from = default, to = default;
         if (records.Count > 0)
         {
-            var from = records.Min(r => r.WorkDate);
-            var to = records.Max(r => r.WorkDate);
+            from = records.Min(r => r.WorkDate);
+            to = records.Max(r => r.WorkDate);
             var fromTime = from.ToDateTime(TimeOnly.MinValue).AddDays(-1);
             var toTime = to.ToDateTime(TimeOnly.MaxValue).AddDays(2);
             var workedEmployees = worked.Select(r => r.EmployeeId).Distinct().ToList();
             punches = await Context.Attendances.AsNoTracking()
                 .Where(p => p.EmployeeId != null && workedEmployees.Contains(p.EmployeeId.Value) && p.WorkDateTime >= fromTime && p.WorkDateTime <= toTime)
                 .ToListAsync(token);
+        }
 
+        // A day can be billed where the person punched, so the punches' clients and project sites are needed too.
+        var clientIds = records.Where(r => r.ClientId != null).Select(r => r.ClientId!.Value)
+            .Concat(punches.Where(p => p.ClientId != null).Select(p => p.ClientId!.Value))
+            .Distinct().ToList();
+        var areaIds = records.Where(r => r.AreaId != null).Select(r => r.AreaId!.Value)
+            .Concat(punches.Where(p => p.OperationAreaId != null).Select(p => p.OperationAreaId!.Value))
+            .Distinct().ToList();
+
+        var clients = await Context.Clients.AsNoTracking().Where(c => clientIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, token);
+        var areas = await Context.Areas.AsNoTracking().Where(a => areaIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, token);
+        var employees = await Context.Employees.AsNoTracking().Where(e => employeeIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, token);
+        var breaks = await Context.TimeShifts.AsNoTracking().Where(s => shiftIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.BreakDurationMinutes, token);
+
+        var scheduled = new List<ScheduledHeadcount>();
+        var sites = new List<ClientSite>();
+        var posts = new Dictionary<Guid, ClientPost>();
+        var requirements = new List<PostRequirement>();
+        var deployments = new List<Deployment>();
+        if (records.Count > 0)
+        {
             var plans = await Context.WorkSchedulePlans.AsNoTracking()
                 .Where(p => p.PayrollDate >= from && p.PayrollDate <= to && p.Employee.ClientId != null && p.Employee.AreaId != null && clientIds.Contains(p.Employee.ClientId.Value))
                 .Select(p => new { ClientId = p.Employee.ClientId!.Value, AreaId = p.Employee.AreaId!.Value, p.PayrollDate, ShiftName = p.TimeShift.ShiftName })
@@ -106,8 +120,19 @@ public class ClientPortalSyncService : BaseService<DailyRecord>
             scheduled = plans.GroupBy(p => (p.ClientId, p.AreaId, p.PayrollDate, p.ShiftName))
                 .Select(g => new ScheduledHeadcount(g.Key.ClientId, g.Key.AreaId, g.Key.PayrollDate, g.Key.ShiftName, g.Count()))
                 .ToList();
+
+            sites = await Context.ClientSites.AsNoTracking().Where(s => clientIds.Contains(s.ClientId)).ToListAsync(token);
+            var siteIds = sites.Select(s => s.Id).ToList();
+            posts = await Context.ClientPosts.AsNoTracking().Where(p => siteIds.Contains(p.ClientSiteId)).ToDictionaryAsync(p => p.Id, token);
+            var postIds = posts.Keys.ToList();
+            requirements = await Context.PostRequirements.AsNoTracking()
+                .Where(r => postIds.Contains(r.PostId) && r.EffectiveFrom <= to && (r.EffectiveTo == null || r.EffectiveTo >= from))
+                .ToListAsync(token);
+            deployments = await Context.Deployments.AsNoTracking()
+                .Where(d => employeeIds.Contains(d.EmployeeId) && postIds.Contains(d.PostId) && d.StartDate <= to && (d.EndDate == null || d.EndDate >= from))
+                .ToListAsync(token);
         }
 
-        return new PortalSourceData(records, clients, areas, employees, breaks, punches, scheduled);
+        return new PortalSourceData(records, clients, areas, employees, breaks, punches, scheduled, sites, posts, requirements, deployments);
     }
 }

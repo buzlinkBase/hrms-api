@@ -1,6 +1,8 @@
 ﻿using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Core.Services.ClientPortal;
 using MassTransit;
+using Microsoft.Extensions.Logging;
 namespace OnePunch.Auth.Core.Messaging;
 
 public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
@@ -8,14 +10,21 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
     private readonly AttendanceService _attService;
     private readonly IUnitOfWorkService _uow;
     private readonly IPublishEndpoint _publish;
+    private readonly ClientPortalLiveService? _live;
+    private readonly ILogger<CreateAttendanceWorker>? _logger;
+
     public CreateAttendanceWorker(
         AttendanceService attService,
         IUnitOfWorkService uow,
-        IPublishEndpoint publish)
+        IPublishEndpoint publish,
+        ClientPortalLiveService? live = null,
+        ILogger<CreateAttendanceWorker>? logger = null)
     {
         _attService = attService;
         _uow = uow;
         _publish = publish;
+        _live = live;
+        _logger = logger;
     }
 
     public async Task Consume(ConsumeContext<AttendancePayloadWrapper> context)
@@ -32,6 +41,18 @@ public class CreateAttendanceWorker : IConsumer<AttendancePayloadWrapper>
         });
         await _attService.CommitChangesAsync(context.CancellationToken);
 
+        // Live monitoring in the Client Portal: the punches are saved either way, so a failure here is only logged.
+        if (_live is not null)
+        {
+            try
+            {
+                await _live.PublishPunchesAsync(atts, context.CancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger?.LogWarning(ex, "Could not send {Count} punch(es) of batch {Batch} to the Client Portal", atts.Count, messages[0].BatchId);
+            }
+        }
     }
 }
 
