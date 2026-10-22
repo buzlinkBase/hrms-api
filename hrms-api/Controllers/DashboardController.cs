@@ -27,14 +27,13 @@ public class DashboardController : ControllerBase
     [HttpGet("overview")]
     public async Task<IActionResult> GetOverview(CancellationToken token)
     {
-        TimeZoneInfo phZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
-        DateTime phNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, phZone);
-        DateOnly today = DateOnly.FromDateTime(phNow);
+        // Days are Philippine calendar days; CreatedAt is UTC, so its cutoffs are PH midnights in UTC.
+        DateOnly today = PhTime.Today(DateTime.UtcNow);
         DateOnly monthStart = new DateOnly(today.Year, today.Month, 1);
         DateOnly next7days = today.AddDays(7);
         DateOnly sevenDaysAgo = today.AddDays(-6);
-        DateTime thirtyDaysAgo = phNow.AddDays(-30);
-        DateTime sevenDaysAgoUtc = phNow.AddDays(-7);
+        DateTime recentSinceUtc = PhTime.StartOfDayUtc(sevenDaysAgo);
+        DateTime newHireSinceUtc = PhTime.StartOfDayUtc(today.AddDays(-29));
 
         // ── Stats ────────────────────────────────────────────────────────────────
         var totalEmployees = await _uow.Context.Employees.CountAsync(token);
@@ -175,7 +174,7 @@ public class DashboardController : ControllerBase
 
         // ── Recent Activity ───────────────────────────────────────────────────
         var recentLeaveApps = await _uow.Repository
-            .Find<LeaveApplication>(l => l.CreatedAt >= sevenDaysAgoUtc)
+            .Find<LeaveApplication>(l => l.CreatedAt >= recentSinceUtc)
             .AsNoTracking()
             .OrderByDescending(l => l.CreatedAt)
             .Take(5)
@@ -183,7 +182,7 @@ public class DashboardController : ControllerBase
             .ToListAsync(token);
 
         var recentOTApps = await _uow.Repository
-            .Find<OverTimeApplication>(o => o.CreatedAt >= sevenDaysAgoUtc)
+            .Find<OverTimeApplication>(o => o.CreatedAt >= recentSinceUtc)
             .AsNoTracking()
             .OrderByDescending(o => o.CreatedAt)
             .Take(5)
@@ -191,7 +190,7 @@ public class DashboardController : ControllerBase
             .ToListAsync(token);
 
         var recentNewHires = await _uow.Repository
-            .Find<Employee>(e => e.CreatedAt >= thirtyDaysAgo)
+            .Find<Employee>(e => e.CreatedAt >= newHireSinceUtc)
             .AsNoTracking()
             .OrderByDescending(e => e.CreatedAt)
             .Take(3)
@@ -291,14 +290,14 @@ public class DashboardController : ControllerBase
                 type = a.Type,
                 employeeName = a.EmployeeName,
                 description = a.Description,
-                timestamp = a.Timestamp,
+                timestamp = PhTime.AsUtc(a.Timestamp),
             }),
             pendingRequests = pendingRequestDetails.Select(p => new
             {
                 id = p.Id,
                 type = p.Type,
                 employeeName = p.EmployeeName,
-                submittedAt = p.SubmittedAt,
+                submittedAt = PhTime.AsUtc(p.SubmittedAt),
                 status = p.Status,
             }),
         });
