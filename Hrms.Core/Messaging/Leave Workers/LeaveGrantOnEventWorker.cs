@@ -1,3 +1,4 @@
+using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 using MassTransit;
 using Microsoft.Extensions.Logging;
@@ -34,7 +35,8 @@ public class LeaveGrantOnEventWorker : IConsumer<LeaveApplicationCreated>
         if (leave == null || leave.AccrualBasis != AccrualBasis.PerEvent) return;
         if (leave.PaySource == PaySource.Government) return;
 
-        var today = DateTime.UtcNow;
+        // Philippine calendar date, so a filing at 9am Jan 1 Manila (still Dec 31 in UTC) is a new-year grant.
+        var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PhTime.Zone);
         var year  = today.Year;
 
         // Pre-check — fast exit on redelivery

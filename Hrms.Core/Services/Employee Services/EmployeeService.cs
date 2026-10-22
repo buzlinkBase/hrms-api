@@ -20,6 +20,7 @@ public class EmployeeService : BaseService<Employee>
     private readonly Security.ConfidentialAccessScope? _access;
     private readonly Subscriptions.IPlanLimitGuard? _limits;
     private readonly IPublishEndpoint? _publisher;
+    private readonly EmployeeNumberAllocator _numbers;
 
     // accountLinks, access, limits and publisher are optional so the many direct constructions in
     // tests stay valid; the container always supplies them.
@@ -39,6 +40,7 @@ public class EmployeeService : BaseService<Employee>
         ) : base(uow)
     {
         _publisher = publisher;
+        _numbers = new EmployeeNumberAllocator(uow);
         _mapper = mapper;
         _config = config;
         _departmentService = departmentService;
@@ -134,6 +136,19 @@ public class EmployeeService : BaseService<Employee>
             }
         }
 
+        // With automatic numbering on, an employee number identifies one employee (free text, Off,
+        // is left exactly as it was). Every employee counts, confidential ones included.
+        if (!string.IsNullOrWhiteSpace(model.EmployeeNo) && await _numbers.IsAutoAsync(token))
+        {
+            var number = model.EmployeeNo.Trim().ToLower();
+            var clash = EmployeesForIntegrityChecks()
+                .Any(x => x.Id != model.Id && x.EmployeeNo.ToLower() == number);
+            if (clash)
+            {
+                return new EvaluationResult("Employee number is already used by another employee");
+            }
+        }
+
         // Email uniquely identifies an employee for login resolution (ResolveEmployeeIdAsync
         // matches by Email when UserId isn't set, and the approval engine resolves an approver's
         // own Employee the same way) -- a duplicate email within the tenant would make that
@@ -212,6 +227,11 @@ public class EmployeeService : BaseService<Employee>
         var branch = _uow.Repository.FindOne<Branch>(model.BranchId ?? Guid.Empty);
         model.BranchId = branch?.Id;
         await EnsureWithinEmployeeLimitAsync(EmployeeService.SeparatedStatuses.Contains(model.EmploymentStatus) ? 0 : 1, token);
+        // Automatic numbering: a blank number gets the next one; a typed number is kept (the validator checks it's unused).
+        if (string.IsNullOrWhiteSpace(model.EmployeeNo))
+        {
+            model.EmployeeNo = await _numbers.ReserveOneAsync(token) ?? model.EmployeeNo;
+        }
         await CreateAsync(model, token);
         await CommitChangesAsync(token);
     }
@@ -260,6 +280,13 @@ public class EmployeeService : BaseService<Employee>
         await ModifyRangeAsync(old, token);
         foreach (var employee in old.Where(x => !previouslySeparated.Contains(x.Id)))
             await RevokeAccessIfSeparatedAsync(employee, token);
+        // Automatic numbering: new rows without a number (an import) get theirs from one block.
+        var unnumbered = newemps.Where(x => string.IsNullOrWhiteSpace(x.EmployeeNo)).ToList();
+        if (unnumbered.Count > 0)
+        {
+            var numbers = await _numbers.ReserveAsync(unnumbered.Count, token);
+            for (var i = 0; i < numbers.Count; i++) unnumbered[i].EmployeeNo = numbers[i];
+        }
         await CreateRangeAsync(newemps, token);
         //var empBios = GetQueryable().Select(x => x.BioId).ToList();
         //var existingBioIds = new HashSet<int>(empBios);
@@ -353,8 +380,14 @@ public class EmployeeService : BaseService<Employee>
         // The photo has its own upload (OrganizationImageService); whatever the form sends back
         // -- a display link, an old inline image -- must never replace the stored one.
         var photo = existing.ProfileImg;
+        var storedEmployeeNo = existing.EmployeeNo;
         payload.Adapt(existing);
         existing.ProfileImg = photo;
+        // With automatic numbering on, a blank number from the form never erases the one the employee has.
+        if (string.IsNullOrWhiteSpace(existing.EmployeeNo) && !string.IsNullOrWhiteSpace(storedEmployeeNo) && await _numbers.IsAutoAsync(token))
+        {
+            existing.EmployeeNo = storedEmployeeNo;
+        }
         if (!canChangeConfidentiality) existing.IsConfidential = wasConfidential;
         CalculateAge(existing);
 

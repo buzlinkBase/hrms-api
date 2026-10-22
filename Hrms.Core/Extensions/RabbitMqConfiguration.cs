@@ -6,6 +6,7 @@ using Hrms.Core.Messaging.BenefitWorkers;
 using Hrms.Core.Messaging.Filter;
 using Hrms.Core.Messaging.LeaveWorkers;
 using Hrms.Core.Messaging.Notifications;
+using Hrms.Core.Services;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -121,7 +122,8 @@ public static class QuartzConfiguration
             });
 
             // Daily benefits run (leave carry-over/grant/accrual, uniform allowance). Hour of day
-            // in UTC -- the old LeaveScheduler:RunAtHour setting, default midnight. A fire missed
+            // in Philippine time (Asia/Manila, like the rest of the system) -- the old
+            // LeaveScheduler:RunAtHour setting, default midnight. A fire missed
             // while every instance was down runs once as soon as one is back, and the job itself
             // catches up any days it missed (see DailyBenefitsJob).
             var runAtHour = Math.Clamp(builder.Configuration.GetValue<int?>("LeaveScheduler:RunAtHour") ?? 0, 0, 23);
@@ -130,16 +132,16 @@ public static class QuartzConfiguration
                 .ForJob(DailyBenefitsJob.Key)
                 .WithIdentity(DailyBenefitsJob.TriggerKey)
                 .WithCronSchedule($"0 0 {runAtHour} * * ?", cron => cron
-                    .InTimeZone(TimeZoneInfo.Utc)
+                    .InTimeZone(PhTime.Zone)
                     .WithMisfireHandlingInstructionFireAndProceed()));
 
-            // Old notification-bell entries (Notifications:RetentionDays), daily at 02:00 UTC.
+            // Old notification-bell entries (Notifications:RetentionDays), daily at 02:00 Philippine time.
             q.AddJob<NotificationRetentionJob>(NotificationRetentionJob.Key, job => job.StoreDurably());
             q.AddTrigger(trigger => trigger
                 .ForJob(NotificationRetentionJob.Key)
                 .WithIdentity(NotificationRetentionJob.TriggerKey)
                 .WithCronSchedule("0 0 2 * * ?", cron => cron
-                    .InTimeZone(TimeZoneInfo.Utc)
+                    .InTimeZone(PhTime.Zone)
                     .WithMisfireHandlingInstructionFireAndProceed()));
         });
         builder.Services.AddQuartzHostedService(options =>

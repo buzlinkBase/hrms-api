@@ -120,8 +120,32 @@ public class EmployeeImportService
         return SalaryType.VARIABLE;
     }
 
+    /// <summary>
+    /// A NEW employee whose row leaves both rest day columns blank gets the company's default rest
+    /// day(s) (Company Info > Regional Defaults). Rows that name a rest day, and employees that
+    /// already exist (a re-import keeps replacing theirs with what the file says), are untouched.
+    /// </summary>
+    private async Task ApplyCompanyDefaultRestDaysAsync(List<EmployeeImportModel> data, List<BasicEmployeeInfo> allEmployees, CancellationToken token)
+    {
+        var configured = await _employeeService.Context.Companies
+            .Select(c => c.WorkWeekRestDays)
+            .FirstOrDefaultAsync(token);
+        var days = CompanyRestDays.Parse(configured);
+        if (days.Count == 0) return;
+
+        foreach (var item in data)
+        {
+            if (item == null) continue;
+            if (!string.IsNullOrWhiteSpace(item.RestDay1) || !string.IsNullOrWhiteSpace(item.RestDay2)) continue;
+            if (allEmployees.Any(x => NamesMatch(item, x))) continue;
+            item.RestDay1 = days[0].ToString();
+            if (days.Count > 1) item.RestDay2 = days[1].ToString();
+        }
+    }
+
     private async Task PersistAsync(List<EmployeeImportModel> data, List<BasicEmployeeInfo> allEmployees, CancellationToken token)
     {
+        await ApplyCompanyDefaultRestDaysAsync(data, allEmployees, token);
         var shifts = ExtractShifts(data);
         var branches = await ExtractBranchesAsync(data, token);
         var clients = ExtractClients(data);
@@ -241,6 +265,8 @@ public class EmployeeImportService
                 employee.Id = existing.Id;
                 // Import never sets the confidential tag -- a re-import keeps it as stored.
                 employee.IsConfidential = existing.IsConfidential;
+                // The file has no employee number column, so keep the one already on the record.
+                employee.EmployeeNo = existing.EmployeeNo;
                 // Re-key onto the row that already exists (one-to-one, unique-indexed on
                 // EmployeeId) -- otherwise EF's UpdateRange graph-walk sees this fresh
                 // `new EmployeeSetting` with a default Id, treats it as a NEW entity to insert,
@@ -500,6 +526,7 @@ public class EmployeeImportService
                LastName = x.LastName,
                Suffix = x.Suffix,
                SettingsId = x.Settings != null ? x.Settings.Id : (Guid?)null,
+               EmployeeNo = x.EmployeeNo,
                IsConfidential = x.IsConfidential,
            }).ToListAsync(token);
         foreach (var employee in employees)
@@ -1251,6 +1278,8 @@ public class BasicEmployeeInfo
     // onto the row that already exists instead of EF trying to INSERT a second one for the
     // same EmployeeId. See PersistAsync's existing-employee branch.
     public Guid? SettingsId { get; set; }
+    /// <summary>The number the employee already has -- a re-import must not blank it.</summary>
+    public string EmployeeNo { get; set; } = string.Empty;
     public bool IsConfidential { get; set; }
     // The caller can't see this (confidential) employee -- rows matching it are rejected.
     public bool IsRestricted { get; set; }

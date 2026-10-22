@@ -39,7 +39,7 @@ public class MonthlyRemittanceReturnOverlayDocument
     {
         ["Period"] = $"{_data.PeriodFrom:MMM dd} – {_data.PeriodTo:MMM dd, yyyy}",
 
-        ["Employer.RegisteredName"] = ReportDocumentStyle.CompanyName(_company),
+        ["Employer.RegisteredName"] = ReportDocumentStyle.LegalName(_company),
         ["Employer.TIN"] = _company?.TIN,
         ["Employer.RDOCode"] = _company?.RDOCode,
         ["AmendedReturn"] = _data.AmendedReturn ? "Yes" : "No",

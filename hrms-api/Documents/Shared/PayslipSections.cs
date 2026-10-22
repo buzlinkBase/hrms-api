@@ -17,9 +17,14 @@ internal static class PayslipSections
 
     public static string Money(decimal v) => ReportDocumentStyle.Money(v);
 
-    public static void ComposePageHeader(IContainer c, Payroll p, EmployeeFullModel e, Company? company) =>
+    // logo: the company logo picture (see CompanyLetterheadService), or null for the plain text header.
+    public static void ComposePageHeader(IContainer c, Payroll p, EmployeeFullModel e, Company? company, byte[]? logo = null) =>
         c.BorderBottom(1).BorderColor(ReportDocumentStyle.Primary).PaddingBottom(6).Row(row =>
         {
+            if (logo is { Length: > 0 })
+            {
+                row.ConstantItem(48).Height(48).PaddingRight(8).AlignMiddle().Image(logo).FitArea();
+            }
             row.RelativeItem().Column(col =>
             {
                 col.Item().Text(CompanyName(company)).Bold().FontSize(12).FontColor(ReportDocumentStyle.Primary);

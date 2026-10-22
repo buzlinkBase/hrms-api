@@ -1,5 +1,6 @@
 using Hrms.Core.Messaging.Filter;
 using Hrms.Core.Messaging.LeaveWorkers;
+using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
@@ -41,7 +42,7 @@ public sealed class DailyBenefitsJob : IJob
     public async Task Execute(IJobExecutionContext context)
     {
         var token = context.CancellationToken;
-        var runDate = DateOnly.FromDateTime((context.ScheduledFireTimeUtc ?? context.FireTimeUtc).UtcDateTime);
+        var runDate = RunDateOf((context.ScheduledFireTimeUtc ?? context.FireTimeUtc).UtcDateTime);
 
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HrmsContext>();
@@ -70,6 +71,9 @@ public sealed class DailyBenefitsJob : IJob
         // publishes to the broker when this context saves.
         await db.SaveChangesAsync(token);
     }
+
+    /// <summary>The business day a fire belongs to: the Philippine calendar date, like everywhere else in the system.</summary>
+    public static DateOnly RunDateOf(DateTime fireTimeUtc) => PhTime.Today(fireTimeUtc);
 
     /// <summary>Every day after the last one processed, up to and including the run date.</summary>
     public static IEnumerable<DateOnly> DatesToRun(DateOnly? lastRun, DateOnly runDate)

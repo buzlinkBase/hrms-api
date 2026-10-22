@@ -70,7 +70,7 @@ public class MonthlyRemittanceReturnDocument : IDocument
                 section.Item().Background(ReportDocumentStyle.SectionHeaderBg)
                     .BorderBottom(1).BorderColor(ReportDocumentStyle.BorderColor).Padding(5)
                     .Text("WITHHOLDING AGENT").Bold().FontSize(9).FontColor(ReportDocumentStyle.Primary);
-                LabelValue(section, "Registered Name", ReportDocumentStyle.CompanyName(_company));
+                LabelValue(section, "Registered Name", ReportDocumentStyle.LegalName(_company));
                 LabelValue(section, "TIN", _company?.TIN);
                 LabelValue(section, "RDO Code", _company?.RDOCode);
             });

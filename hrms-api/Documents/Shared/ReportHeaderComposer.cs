@@ -34,15 +34,26 @@ internal static class ReportHeaderComposer
         });
     }
 
-    public static void ComposeFooter(IContainer c)
+    public static void ComposeFooter(IContainer c) => ComposeFooter(c, null);
+
+    // The company's own footer line (payslip disclaimer, "system-generated, no signature
+    // required", ...) sits above the page number when it set one.
+    public static void ComposeFooter(IContainer c, string? footerText)
     {
-        c.AlignCenter().PaddingTop(4).Text(t =>
+        c.Column(col =>
         {
-            t.DefaultTextStyle(x => x.FontSize(8).FontColor(ReportDocumentStyle.LabelColor));
-            t.Span("Page ");
-            t.CurrentPageNumber();
-            t.Span(" of ");
-            t.TotalPages();
+            if (!string.IsNullOrWhiteSpace(footerText))
+                col.Item().AlignCenter().PaddingTop(4)
+                    .Text(footerText.Trim()).FontSize(7.5f).Italic().FontColor(ReportDocumentStyle.LabelColor);
+
+            col.Item().AlignCenter().PaddingTop(4).Text(t =>
+            {
+                t.DefaultTextStyle(x => x.FontSize(8).FontColor(ReportDocumentStyle.LabelColor));
+                t.Span("Page ");
+                t.CurrentPageNumber();
+                t.Span(" of ");
+                t.TotalPages();
+            });
         });
     }
 

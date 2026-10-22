@@ -5,6 +5,7 @@ using Hrms.Core.Services;
 using Hrms.Core.Services.ClientPortal;
 using Hrms.Core.Services.Storage;
 using Microsoft.AspNetCore.RateLimiting;
+using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using Hrms.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -78,6 +79,10 @@ public class CompanySettingsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Put([FromBody] CreateCompany payload, CancellationToken token)
     {
+        // Before anything is synced or saved, so a bad employee-number setup leaves everything unchanged.
+        if (EmployeeIdSettings.Validate(payload.EmployeeIdMode, payload.EmployeeIdPrefix, payload.EmployeeIdPadding) is { } idError)
+            throw new Hrms.Core.ValidationException(idError);
+
         // "Company Name" (Description) is also the company's (tenant's) name everywhere outside
         // HRIS -- the company switcher, the access token, invitations. Rename it there first, so a
         // failure (e.g. Tenant Service rejecting the caller) leaves both sides unchanged instead of
@@ -100,13 +105,30 @@ public class CompanySettingsController : ControllerBase
 
         // Address and contact number are also shown in the platform console, which reads them from
         // Tenant Service -- same rule as the name: sync first so a refusal saves nothing.
-        var addressChanged = !string.Equals(current?.Address?.Trim() ?? "", payload.Address?.Trim() ?? "", StringComparison.Ordinal);
+        // The console shows one address line, so it gets the street line and the parts joined.
+        var newAddress = CompanyAddress.Compose(payload.Address, payload.Barangay, payload.City, payload.Province, payload.ZipCode, payload.Country);
+        var currentAddress = current == null
+            ? ""
+            : CompanyAddress.Compose(current.Address, current.Barangay, current.City, current.Province, current.ZipCode, current.Country);
+        var addressChanged = !string.Equals(currentAddress, newAddress, StringComparison.Ordinal);
         var contactChanged = !string.Equals(current?.Contact?.Trim() ?? "", payload.Contact?.Trim() ?? "", StringComparison.Ordinal);
-        if (addressChanged || contactChanged)
+        // Industry, sub-industry, business type and size are shown there too, and Tenant Service is
+        // the one that knows the industry lookup -- so it also gets the last word on whether the
+        // codes are valid. They go along only when one changed, so an older client that never sends
+        // them can't clear what Tenant Service holds.
+        var classificationChanged =
+            CodeChanged(current?.IndustryCode, payload.IndustryCode) ||
+            CodeChanged(current?.SubIndustryCode, payload.SubIndustryCode) ||
+            CodeChanged(current?.BusinessType, payload.BusinessType) ||
+            CodeChanged(current?.CompanySize, payload.CompanySize);
+        if (addressChanged || contactChanged || classificationChanged)
         {
+            var classification = classificationChanged
+                ? new TenantClassificationUpdate(payload.IndustryCode, payload.SubIndustryCode, payload.BusinessType, payload.CompanySize)
+                : null;
             try
             {
-                await _tenantClient.UpdateCurrentProfileAsync(new TenantProfileUpdate(payload.Address, payload.Contact), token);
+                await _tenantClient.UpdateCurrentProfileAsync(new TenantProfileUpdate(newAddress, payload.Contact, classification), token);
             }
             catch (ApiException ex)
             {
@@ -119,6 +141,9 @@ public class CompanySettingsController : ControllerBase
         await PublishBrandingAsync(token);
         return Ok("success");
     }
+
+    private static bool CodeChanged(string? current, string? incoming) =>
+        !string.Equals(current?.Trim() ?? "", incoming?.Trim() ?? "", StringComparison.Ordinal);
 
     /// <summary>The Client Portal shows the company's name and logo to its clients; it hears of a change here. Never fails the edit.</summary>
     private async Task PublishBrandingAsync(CancellationToken token)

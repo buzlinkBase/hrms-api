@@ -135,6 +135,7 @@ public class CompanySettingsControllerTests
             AuthorizedSignatoryName = "Jane",
             AuthorizedSignatoryTitle = "HR Head",
         }, CancellationToken.None);
+        await service.CommitChangesAsync();
 
         await using var verify = db.NewContext();
         var company = await verify.Companies.SingleAsync();
@@ -159,12 +160,241 @@ public class CompanySettingsControllerTests
         var service = new CompanyService(new UnitOfWorkService(context));
 
         await service.SeedDefaultAsync("Acme", null, CancellationToken.None);
+        await service.CommitChangesAsync();
 
         await using var verify = db.NewContext();
         var company = await verify.Companies.SingleAsync();
         company.Description.Should().Be("Acme");
         company.Address.Should().BeEmpty();
         company.TIN.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Put_ChangedClassification_SyncsItToTenantService_AndSavesIt()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+        await using var context = db.NewContext();
+        var controller = new CompanySettingsController(
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!);
+
+        await controller.Put(
+            new CreateCompany
+            {
+                Description = "My Space",
+                IndustryCode = "retail",
+                SubIndustryCode = "retail-grocery",
+                BusinessType = "corporation",
+                CompanySize = "11-50",
+            },
+            CancellationToken.None);
+
+        await tenantClient.Received(1).UpdateCurrentProfileAsync(
+            Arg.Is<TenantProfileUpdate>(p => p.Classification != null
+                && p.Classification.IndustryCode == "retail"
+                && p.Classification.SubIndustryCode == "retail-grocery"
+                && p.Classification.BusinessType == "corporation"
+                && p.Classification.CompanySize == "11-50"),
+            Arg.Any<CancellationToken>());
+        await using var verify = db.NewContext();
+        var company = await verify.Companies.SingleAsync();
+        company.IndustryCode.Should().Be("retail");
+        company.SubIndustryCode.Should().Be("retail-grocery");
+        company.BusinessType.Should().Be("corporation");
+        company.CompanySize.Should().Be("11-50");
+    }
+
+    [Fact]
+    public async Task Put_OnlyAddressChanged_DoesNotSendClassification()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+        await using var context = db.NewContext();
+        var controller = new CompanySettingsController(
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!);
+
+        await controller.Put(new CreateCompany { Description = "My Space", Address = "1 Main St" }, CancellationToken.None);
+
+        await tenantClient.Received(1).UpdateCurrentProfileAsync(
+            Arg.Is<TenantProfileUpdate>(p => p.Classification == null),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Put_TenantServiceRefusesTheClassification_SavesNothing()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+        var refusal = await ApiException.Create(
+            new HttpRequestMessage(HttpMethod.Put, "http://tenant-api/api/v1/tenants/current/profile"),
+            HttpMethod.Put,
+            new HttpResponseMessage(HttpStatusCode.BadRequest),
+            new RefitSettings());
+        tenantClient.UpdateCurrentProfileAsync(Arg.Any<TenantProfileUpdate>(), Arg.Any<CancellationToken>()).ThrowsAsync(refusal);
+        await using var context = db.NewContext();
+        var controller = new CompanySettingsController(
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!);
+
+        var act = () => controller.Put(
+            new CreateCompany { Description = "My Space", IndustryCode = "nope" }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*nothing was saved*");
+        await using var verify = db.NewContext();
+        (await verify.Companies.SingleAsync()).IndustryCode.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SeedDefaultAsync_WithClassification_CopiesTheCodes()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+        var service = new CompanyService(new UnitOfWorkService(context));
+
+        await service.SeedDefaultAsync("Acme", new CompanyProfile
+        {
+            IndustryCode = "bpo",
+            SubIndustryCode = "bpo-voice",
+            BusinessType = "partnership",
+            CompanySize = "51-200",
+        }, CancellationToken.None);
+        await service.CommitChangesAsync();
+
+        await using var verify = db.NewContext();
+        var company = await verify.Companies.SingleAsync();
+        company.IndustryCode.Should().Be("bpo");
+        company.SubIndustryCode.Should().Be("bpo-voice");
+        company.BusinessType.Should().Be("partnership");
+        company.CompanySize.Should().Be("51-200");
+    }
+
+    [Fact]
+    public void CompanyAddress_Compose_JoinsPartsAndSkipsBlanksAndTheDefaultCountry()
+    {
+        CompanyAddress.Compose(" 1 Main St ", "Brgy. Uno", "Makati", "Metro Manila", "1200", "Philippines")
+            .Should().Be("1 Main St, Brgy. Uno, Makati, Metro Manila 1200");
+        CompanyAddress.Compose("1 Main St", "", "Cebu", "", "", "Philippines").Should().Be("1 Main St, Cebu");
+        CompanyAddress.Compose("1 Main St", null, null, null, null, "Japan").Should().Be("1 Main St, Japan");
+        CompanyAddress.Compose("", "", "", "", "", "").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Put_AddressParts_AreSaved_AndTheComposedAddressIsSyncedToTheConsole()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+        await using var context = db.NewContext();
+        var controller = new CompanySettingsController(
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!);
+
+        await controller.Put(
+            new CreateCompany
+            {
+                Description = "My Space",
+                Address = "1 Main St",
+                City = "Makati",
+                Province = "Metro Manila",
+                ZipCode = "1200",
+                RegisteredName = "My Space Inc.",
+                Website = "https://myspace.test",
+                HrContactEmail = "hr@myspace.test",
+                PayrollContactName = "Pay Roll",
+                SecondaryPhone = "02-1234",
+                WorkWeekRestDays = "Saturday,Sunday",
+            },
+            CancellationToken.None);
+
+        await tenantClient.Received(1).UpdateCurrentProfileAsync(
+            Arg.Is<TenantProfileUpdate>(p => p.Address == "1 Main St, Makati, Metro Manila 1200"),
+            Arg.Any<CancellationToken>());
+        await using var verify = db.NewContext();
+        var company = await verify.Companies.SingleAsync();
+        company.Address.Should().Be("1 Main St");
+        company.City.Should().Be("Makati");
+        company.ZipCode.Should().Be("1200");
+        company.RegisteredName.Should().Be("My Space Inc.");
+        company.Website.Should().Be("https://myspace.test");
+        company.HrContactEmail.Should().Be("hr@myspace.test");
+        company.PayrollContactName.Should().Be("Pay Roll");
+        company.SecondaryPhone.Should().Be("02-1234");
+        company.WorkWeekRestDays.Should().Be("Saturday,Sunday");
+    }
+
+    [Fact]
+    public async Task Put_OnlyRegionalOrContactFieldsChanged_DoesNotSyncTheConsoleCopy()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+        await using var context = db.NewContext();
+        var controller = new CompanySettingsController(
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!);
+
+        await controller.Put(
+            new CreateCompany { Description = "My Space", HrContactName = "Hr", TimeZone = "Asia/Manila", Website = "x.test" },
+            CancellationToken.None);
+
+        await tenantClient.DidNotReceive().UpdateCurrentProfileAsync(Arg.Any<TenantProfileUpdate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Put_RegistrationAndPayslipFields_AreSaved_WithoutTouchingTheConsoleCopy()
+    {
+        using var db = await SeedCompanyAsync("My Space");
+        var tenantClient = Substitute.For<ITenantClient>();
+        await using var context = db.NewContext();
+        var controller = new CompanySettingsController(
+            new CompanyService(new UnitOfWorkService(context)), Substitute.For<IMapper>(), tenantClient,
+            images: null!, imageUrls: null!);
+
+        await controller.Put(
+            new CreateCompany
+            {
+                Description = "My Space",
+                EmployerType = "private",
+                IsWithholdingAgent = true,
+                AtcCode = "WC010",
+                TinBranchCode = "00001",
+                SssBranchCode = "01",
+                PhilHealthBranchCode = "02",
+                PagIbigBranchCode = "03",
+                SecDtiNumber = "CS201912345",
+                RegistrationDate = new DateTime(2019, 5, 20),
+                BusinessPermitNo = "BP-2026-001",
+                BusinessPermitExpiry = new DateTime(2026, 12, 31),
+                PayslipFooter = "System-generated; no signature required.",
+            },
+            CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        var company = await verify.Companies.SingleAsync();
+        company.EmployerType.Should().Be("private");
+        company.IsWithholdingAgent.Should().BeTrue();
+        company.AtcCode.Should().Be("WC010");
+        company.TinBranchCode.Should().Be("00001");
+        company.SssBranchCode.Should().Be("01");
+        company.PhilHealthBranchCode.Should().Be("02");
+        company.PagIbigBranchCode.Should().Be("03");
+        company.SecDtiNumber.Should().Be("CS201912345");
+        company.RegistrationDate.Should().Be(new DateTime(2019, 5, 20));
+        company.BusinessPermitNo.Should().Be("BP-2026-001");
+        company.BusinessPermitExpiry.Should().Be(new DateTime(2026, 12, 31));
+        company.PayslipFooter.Should().Be("System-generated; no signature required.");
+        await tenantClient.DidNotReceive().UpdateCurrentProfileAsync(Arg.Any<TenantProfileUpdate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void NewCompany_DefaultsToThePhilippines()
+    {
+        var company = new Company();
+
+        company.Country.Should().Be("Philippines");
+        company.TimeZone.Should().Be("Asia/Manila");
+        company.Currency.Should().Be("PHP");
+        company.WorkWeekRestDays.Should().Be("Sunday");
     }
 
     [Fact]

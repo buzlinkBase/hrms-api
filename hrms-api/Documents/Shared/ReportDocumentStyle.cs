@@ -27,5 +27,11 @@ internal static class ReportDocumentStyle
     public static string CompanyName(Company? company) =>
         string.IsNullOrWhiteSpace(company?.Description) ? "(Company Name Not Set)" : company.Description;
 
+    // The employer's name on the legal forms (BIR 2316, the monthly remittance returns), which ask
+    // for the "Registered Name": the registered business name when the company filled it in
+    // (Company Info), otherwise the display name. Everything else keeps showing the display name.
+    public static string LegalName(Company? company) =>
+        string.IsNullOrWhiteSpace(company?.RegisteredName) ? CompanyName(company) : company.RegisteredName.Trim();
+
     public static string Money(decimal v) => v.ToString("N2");
 }

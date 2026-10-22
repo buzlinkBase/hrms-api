@@ -199,6 +199,7 @@ namespace Hrms.Api.Controllers
         [HttpGet("payrolls/{id:guid}/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         public async Task<IActionResult> PrintMyPayslip(Guid id, [FromServices] IncomeAplDtlService otherIncomeService,
+            [FromServices] Hrms.Core.Services.Storage.CompanyLetterheadService letterhead,
             CancellationToken token)
         {
             var employeeId = await ResolveMyEmployeeIdAsync(token);
@@ -212,7 +213,8 @@ namespace Hrms.Api.Controllers
             var company = await _companyService.FineOneAsync(token);
             // Same layout and Other Income rules as PayrollsController.PrintPayslip.
             var otherIncome = new PayslipOtherIncome(await otherIncomeService.GetPayslipLinesAsync(payroll.Id, token));
-            var document = PayslipDocumentFactory.Create(payroll, employee, company, otherIncome);
+            var logo = await letterhead.LoadLogoAsync(company, token);
+            var document = PayslipDocumentFactory.Create(payroll, employee, company, otherIncome, logo);
             var bytes = document.GeneratePdf();
             return File(bytes, "application/pdf", $"payslip-{employee.EmployeeNo}-{payroll.PayPeriodStart:yyyyMMdd}.pdf");
         }

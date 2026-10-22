@@ -18,11 +18,13 @@ public class PayslipFixedDocument : IDocument
     private readonly Payroll _p;
     private readonly EmployeeFullModel _e;
     private readonly Company? _company;
+    private readonly byte[]? _logo;
     private readonly PayslipOtherIncome _otherIncome;
 
     public PayslipFixedDocument(Payroll payroll, EmployeeFullModel employee, Company? company = null,
-        PayslipOtherIncome? otherIncome = null)
+        PayslipOtherIncome? otherIncome = null, byte[]? logo = null)
     {
+        _logo = logo;
         _p = payroll;
         _e = employee;
         _company = company;
@@ -46,9 +48,9 @@ public class PayslipFixedDocument : IDocument
             page.MarginHorizontal(1.5f, Unit.Centimetre);
             page.DefaultTextStyle(x => x.FontSize(9).FontColor(ReportDocumentStyle.TextColor));
 
-            page.Header().Element(c => PayslipSections.ComposePageHeader(c, _p, _e, _company));
+            page.Header().Element(c => PayslipSections.ComposePageHeader(c, _p, _e, _company, _logo));
             page.Content().PaddingTop(8).Element(ComposeContent);
-            page.Footer().Element(ReportHeaderComposer.ComposeFooter);
+            page.Footer().Element(c => ReportHeaderComposer.ComposeFooter(c, _company?.PayslipFooter));
         });
     }
 

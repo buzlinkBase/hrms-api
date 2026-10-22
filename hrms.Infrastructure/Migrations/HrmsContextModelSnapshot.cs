@@ -156,7 +156,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Announcements", (string)null);
+                    b.ToTable("Announcements");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Announcements.AnnouncementAudienceRule", b =>
@@ -210,7 +210,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("AnnouncementAudienceRules", (string)null);
+                    b.ToTable("AnnouncementAudienceRules");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Announcements.AnnouncementRecipient", b =>
@@ -306,7 +306,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("AnnouncementRecipients", (string)null);
+                    b.ToTable("AnnouncementRecipients");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.AnnualTaxTable", b =>
@@ -350,7 +350,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("GovAnnualTaxes", (string)null);
+                    b.ToTable("GovAnnualTaxes");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalAction", b =>
@@ -403,7 +403,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ApprovalActions", (string)null);
+                    b.ToTable("ApprovalActions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalInstance", b =>
@@ -463,7 +463,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ApprovalInstances", (string)null);
+                    b.ToTable("ApprovalInstances");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflow", b =>
@@ -514,7 +514,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("ApplicationType", "ScopeDepartmentId", "IsActive");
 
-                    b.ToTable("ApprovalWorkflows", (string)null);
+                    b.ToTable("ApprovalWorkflows");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStep", b =>
@@ -578,7 +578,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ApprovalWorkflowSteps", (string)null);
+                    b.ToTable("ApprovalWorkflowSteps");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStepApprover", b =>
@@ -618,7 +618,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ApprovalWorkflowStepApprovers", (string)null);
+                    b.ToTable("ApprovalWorkflowStepApprovers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Attachments.Attachment", b =>
@@ -678,7 +678,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Attachments", (string)null);
+                    b.ToTable("Attachments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Attachments.AttachmentSetting", b =>
@@ -718,7 +718,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "OwnerType")
                         .IsUnique();
 
-                    b.ToTable("AttachmentSettings", (string)null);
+                    b.ToTable("AttachmentSettings");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Attendance", b =>
@@ -827,7 +827,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("BranchId", "DepartmentId", "OperationAreaId", "ClientId")
                         .HasDatabaseName("IX_Att_BRId_DepId_Area_ClId_LS");
 
-                    b.ToTable("Attendances", (string)null);
+                    b.ToTable("Attendances");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.AttendanceOriginalLog", b =>
@@ -947,7 +947,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("AttendanceOriginalLogs", (string)null);
+                    b.ToTable("AttendanceOriginalLogs");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Branch", b =>
@@ -1009,7 +1009,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Branches", (string)null);
+                    b.ToTable("Branches");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.CashBondAdjustment", b =>
@@ -1053,7 +1053,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("CashBondAdjustments", (string)null);
+                    b.ToTable("CashBondAdjustments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ChangeHoliday", b =>
@@ -1102,7 +1102,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ChangeHolidays", (string)null);
+                    b.ToTable("ChangeHolidays");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ChangeRestDay", b =>
@@ -1152,7 +1152,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ChangeRestDays", (string)null);
+                    b.ToTable("ChangeRestDays");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Client", b =>
@@ -1218,7 +1218,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Clients", (string)null);
+                    b.ToTable("Clients");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ClientBillingInfo", b =>
@@ -1287,7 +1287,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ClientBillingInfos", (string)null);
+                    b.ToTable("ClientBillingInfos");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ClientHoliday", b =>
@@ -1343,7 +1343,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ClientHolidays", (string)null);
+                    b.ToTable("ClientHolidays");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ClientRateTable", b =>
@@ -1386,7 +1386,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ClientRateTables", (string)null);
+                    b.ToTable("ClientRateTables");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ClientUserAccount", b =>
@@ -1432,7 +1432,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("ClientUserAccounts", (string)null);
+                    b.ToTable("ClientUserAccounts");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Company", b =>
@@ -1448,6 +1448,10 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<bool>("ApplyStatutoryOnActualMonth")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("AtcCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("AuthorizedSignatoryName")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -1456,7 +1460,30 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Barangay")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("BusinessPermitExpiry")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("BusinessPermitNo")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("BusinessType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CompanySize")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -1464,8 +1491,16 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
@@ -1478,10 +1513,74 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<bool>("EmployeeIdIncludeYear")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("EmployeeIdMode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("EmployeeIdPadding")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmployeeIdPrefix")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("EmployerType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("HrContactEmail")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("HrContactName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("HrContactPhone")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("IndustryCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsWithholdingAgent")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("LogoKey")
                         .HasColumnType("longtext");
 
+                    b.Property<int>("NextEmployeeNo")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PagIbigBranchCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("PagIbigNumber")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PayrollContactEmail")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PayrollContactName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PayrollContactPhone")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PayslipFooter")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PhilHealthBranchCode")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -1489,11 +1588,30 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Province")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("RDOCode")
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("RegisteredName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("RegistrationDate")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("SSSNumber")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SecDtiNumber")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SecondaryPhone")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -1501,7 +1619,18 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<bool>("ShowLetterhead")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("SssBranchCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SubIndustryCode")
                         .IsRequired()
                         .HasColumnType("longtext");
 
@@ -1515,17 +1644,37 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TinBranchCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<int>("TotalWorkingDays")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("Website")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("WorkWeekRestDays")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ZipCode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Companies", (string)null);
+                    b.ToTable("Companies");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.CostCenters", b =>
@@ -1575,7 +1724,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Areas", (string)null);
+                    b.ToTable("Areas");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.CutoffDay", b =>
@@ -1619,7 +1768,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("CutoffDays", (string)null);
+                    b.ToTable("CutoffDays");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DTRBatch", b =>
@@ -1682,7 +1831,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("DTRBatches", (string)null);
+                    b.ToTable("DTRBatches");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DailyRecord", b =>
@@ -1914,7 +2063,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("DailyTimeRecords", (string)null);
+                    b.ToTable("DailyTimeRecords");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Deduction", b =>
@@ -1965,7 +2114,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Deductions", (string)null);
+                    b.ToTable("Deductions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DeductionApplication", b =>
@@ -2070,7 +2219,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("DeductionApplications", (string)null);
+                    b.ToTable("DeductionApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DeductionApplicationDetail", b =>
@@ -2150,7 +2299,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("DeductionApplicationDetails", (string)null);
+                    b.ToTable("DeductionApplicationDetails");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DeductionPayment", b =>
@@ -2191,7 +2340,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("DeductionPayments", (string)null);
+                    b.ToTable("DeductionPayments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DeductionType", b =>
@@ -2228,7 +2377,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("DeductionTypes", (string)null);
+                    b.ToTable("DeductionTypes");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Department", b =>
@@ -2265,7 +2414,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Departments", (string)null);
+                    b.ToTable("Departments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DtrLeaveMetaData", b =>
@@ -2317,7 +2466,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("DtrLeaveMetaDatas", (string)null);
+                    b.ToTable("DtrLeaveMetaDatas");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.AssignAsset", b =>
@@ -2388,7 +2537,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("AssignAssets", (string)null);
+                    b.ToTable("AssignAssets");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.Dependent", b =>
@@ -2437,7 +2586,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Dependents", (string)null);
+                    b.ToTable("Dependents");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.Education", b =>
@@ -2478,7 +2627,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Educations", (string)null);
+                    b.ToTable("Educations");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.Employee", b =>
@@ -2728,7 +2877,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "IsConfidential");
 
-                    b.ToTable("Employees", (string)null);
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.EmployeeFixedSchedule", b =>
@@ -2771,7 +2920,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("EmployeeFixedSchedules", (string)null);
+                    b.ToTable("EmployeeFixedSchedules");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.EmployeeProfileUpdateRequest", b =>
@@ -2832,7 +2981,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("EmployeeProfileUpdateRequests", (string)null);
+                    b.ToTable("EmployeeProfileUpdateRequests");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.EmployeeProfileUpdateRequestDocument", b =>
@@ -2874,7 +3023,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("EmployeeProfileUpdateRequestDocuments", (string)null);
+                    b.ToTable("EmployeeProfileUpdateRequestDocuments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.EmployeeRecord", b =>
@@ -2920,7 +3069,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("EmployeeRecords", (string)null);
+                    b.ToTable("EmployeeRecords");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.EmployeeSetting", b =>
@@ -2986,7 +3135,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("EmployeeSettings", (string)null);
+                    b.ToTable("EmployeeSettings");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.EmploymentHistory", b =>
@@ -3034,7 +3183,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Employments", (string)null);
+                    b.ToTable("Employments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.HDMFRate", b =>
@@ -3082,7 +3231,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("HDMFRates", (string)null);
+                    b.ToTable("HDMFRates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.PHICRate", b =>
@@ -3130,7 +3279,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PHICRates", (string)null);
+                    b.ToTable("PHICRates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.PayrollOpeningBalance", b =>
@@ -3213,7 +3362,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PayrollOpeningBalances", (string)null);
+                    b.ToTable("PayrollOpeningBalances");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.PriorEmployerTaxRecord", b =>
@@ -3269,7 +3418,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PriorEmployerTaxRecords", (string)null);
+                    b.ToTable("PriorEmployerTaxRecords");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.RestDay", b =>
@@ -3306,7 +3455,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("RestDays", (string)null);
+                    b.ToTable("RestDays");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.RestDayDate", b =>
@@ -3343,7 +3492,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("RestDayDates", (string)null);
+                    b.ToTable("RestDayDates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.SSSRate", b =>
@@ -3394,7 +3543,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("SSSRates", (string)null);
+                    b.ToTable("SSSRates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.Skill", b =>
@@ -3435,7 +3584,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Skills", (string)null);
+                    b.ToTable("Skills");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.TaxRate", b =>
@@ -3480,7 +3629,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("TaxRates", (string)null);
+                    b.ToTable("TaxRates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.GeneralSetting", b =>
@@ -3529,7 +3678,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("GeneralSettings", (string)null);
+                    b.ToTable("GeneralSettings");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.HDMFContribution", b =>
@@ -3586,7 +3735,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("HDMFContributions", (string)null);
+                    b.ToTable("HDMFContributions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.HDMFTable", b =>
@@ -3643,7 +3792,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("GovHDMFs", (string)null);
+                    b.ToTable("GovHDMFs");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Holiday", b =>
@@ -3705,7 +3854,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Holidays", (string)null);
+                    b.ToTable("Holidays");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.IncomePayment", b =>
@@ -3746,7 +3895,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("IncomePayments", (string)null);
+                    b.ToTable("IncomePayments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Leave", b =>
@@ -3883,7 +4032,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Leaves", (string)null);
+                    b.ToTable("Leaves");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplication", b =>
@@ -3992,7 +4141,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("leaveApplications", (string)null);
+                    b.ToTable("leaveApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveCredits", b =>
@@ -4057,7 +4206,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "LeaveId", "PeriodYear")
                         .IsUnique();
 
-                    b.ToTable("LeaveCredits", (string)null);
+                    b.ToTable("LeaveCredits");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveLedger", b =>
@@ -4136,7 +4285,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("LeaveLedgers", (string)null);
+                    b.ToTable("LeaveLedgers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ManualBatchEntryLog", b =>
@@ -4185,7 +4334,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ManualAttendance", (string)null);
+                    b.ToTable("ManualAttendance");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.MinimumWageRate", b =>
@@ -4234,7 +4383,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("MinimumWageRates", (string)null);
+                    b.ToTable("MinimumWageRates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.NotificationPreference", b =>
@@ -4279,7 +4428,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("NotificationPreferences", (string)null);
+                    b.ToTable("NotificationPreferences");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncome", b =>
@@ -4331,7 +4480,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Allowances", (string)null);
+                    b.ToTable("Allowances");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncomeApplication", b =>
@@ -4422,7 +4571,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("OtherIncomeApplications", (string)null);
+                    b.ToTable("OtherIncomeApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncomeSchedules", b =>
@@ -4495,7 +4644,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("OtherIncomeApplicationDetails", (string)null);
+                    b.ToTable("OtherIncomeApplicationDetails");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncomeType", b =>
@@ -4528,7 +4677,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("AllowanceTypes", (string)null);
+                    b.ToTable("AllowanceTypes");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OverTimeApplication", b =>
@@ -4587,7 +4736,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("OTApplications", (string)null);
+                    b.ToTable("OTApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PHICContribution", b =>
@@ -4644,7 +4793,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PHICContributions", (string)null);
+                    b.ToTable("PHICContributions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PHICTable", b =>
@@ -4698,7 +4847,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("GovPHICs", (string)null);
+                    b.ToTable("GovPHICs");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PassSlipApplication", b =>
@@ -4759,7 +4908,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PassSlipApplications", (string)null);
+                    b.ToTable("PassSlipApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Payroll", b =>
@@ -5334,7 +5483,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Payrolls", (string)null);
+                    b.ToTable("Payrolls");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PayrollBatch", b =>
@@ -5402,7 +5551,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PayrollBatches", (string)null);
+                    b.ToTable("PayrollBatches");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PayrollDeductionDetail", b =>
@@ -5445,7 +5594,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PayrollDeductionDetails", (string)null);
+                    b.ToTable("PayrollDeductionDetails");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PayrollDtrDetail", b =>
@@ -5785,7 +5934,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PayrollDtrDetails", (string)null);
+                    b.ToTable("PayrollDtrDetails");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PayrollGroup", b =>
@@ -5830,7 +5979,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PayrollGroups", (string)null);
+                    b.ToTable("PayrollGroups");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Position", b =>
@@ -5870,7 +6019,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Positions", (string)null);
+                    b.ToTable("Positions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ProratedAllowanceForSSS", b =>
@@ -5917,7 +6066,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ProratedAllowances", (string)null);
+                    b.ToTable("ProratedAllowances");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.RateTable", b =>
@@ -5963,7 +6112,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("PremiumRates", (string)null);
+                    b.ToTable("PremiumRates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.RetirementFund", b =>
@@ -6001,7 +6150,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("RetirementFunds", (string)null);
+                    b.ToTable("RetirementFunds");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.RetirementLedger", b =>
@@ -6062,7 +6211,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("RetirementLedgers", (string)null);
+                    b.ToTable("RetirementLedgers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.SSSContribution", b =>
@@ -6126,7 +6275,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("SSSContributions", (string)null);
+                    b.ToTable("SSSContributions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.SSSTable", b =>
@@ -6179,7 +6328,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("GovSSSes", (string)null);
+                    b.ToTable("GovSSSes");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.SalaryAdjustment", b =>
@@ -6226,7 +6375,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("SalaryAdjustments", (string)null);
+                    b.ToTable("SalaryAdjustments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.Section", b =>
@@ -6272,7 +6421,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("Sections", (string)null);
+                    b.ToTable("Sections");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.TaxTable", b =>
@@ -6323,7 +6472,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("GovTaxes", (string)null);
+                    b.ToTable("GovTaxes");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ThirteenthMonthLedger", b =>
@@ -6366,7 +6515,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("ThirteenthMonthLedgers", (string)null);
+                    b.ToTable("ThirteenthMonthLedgers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.TimeShift", b =>
@@ -6466,7 +6615,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("TimeShifts", (string)null);
+                    b.ToTable("TimeShifts");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.TravelOrderApplication", b =>
@@ -6543,7 +6692,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("TravelOrderApplications", (string)null);
+                    b.ToTable("TravelOrderApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UnderTimeApplication", b =>
@@ -6590,7 +6739,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("UTApplications", (string)null);
+                    b.ToTable("UTApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowanceCreditLog", b =>
@@ -6668,7 +6817,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("UniformAllowanceCreditLogs", (string)null);
+                    b.ToTable("UniformAllowanceCreditLogs");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowanceFund", b =>
@@ -6712,7 +6861,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("UniformAllowanceFunds", (string)null);
+                    b.ToTable("UniformAllowanceFunds");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowanceLedger", b =>
@@ -6784,7 +6933,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("UniformAllowanceLedgers", (string)null);
+                    b.ToTable("UniformAllowanceLedgers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowancePolicy", b =>
@@ -6893,7 +7042,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("UniformAllowancePolicies", (string)null);
+                    b.ToTable("UniformAllowancePolicies");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UserNotification", b =>
@@ -6977,7 +7126,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("RecipientUserId", "ReadAt", "CreatedAt");
 
-                    b.ToTable("UserNotifications", (string)null);
+                    b.ToTable("UserNotifications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.WTaxContribution", b =>
@@ -7031,7 +7180,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("TaxContributions", (string)null);
+                    b.ToTable("TaxContributions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.WorkSchedulePlan", b =>
@@ -7077,7 +7226,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "DeletedAt");
 
-                    b.ToTable("WorkSchedulePlans", (string)null);
+                    b.ToTable("WorkSchedulePlans");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.YearLock", b =>
@@ -7121,7 +7270,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "Year")
                         .IsUnique();
 
-                    b.ToTable("YearLocks", (string)null);
+                    b.ToTable("YearLocks");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.InboxState", b =>
@@ -7170,7 +7319,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState", (string)null);
+                    b.ToTable("InboxState");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -7261,7 +7410,7 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage", (string)null);
+                    b.ToTable("OutboxMessage");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -7291,7 +7440,7 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState", (string)null);
+                    b.ToTable("OutboxState");
                 });
 
             modelBuilder.Entity("Onepunch.AuditEngine.EntityFrameworkCore.AuditEventRecord", b =>

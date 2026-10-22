@@ -43,7 +43,7 @@ public class Bir2316OverlayDocument
         ["Employee.Address"] = _data.Address,
 
         // Employer.RDOCode has no matching box in Part II either -- left out of the map.
-        ["Employer.RegisteredName"] = ReportDocumentStyle.CompanyName(_company),
+        ["Employer.RegisteredName"] = ReportDocumentStyle.LegalName(_company),
         ["Employer.TIN"] = _company?.TIN,
         ["Employer.Address"] = _company?.Address,
 

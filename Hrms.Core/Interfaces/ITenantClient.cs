@@ -17,4 +17,8 @@ public interface ITenantClient
     Task UpdateCurrentProfileAsync([Body] TenantProfileUpdate profile, CancellationToken token = default);
 }
 
-public sealed record TenantProfileUpdate(string? Address, string? Contact);
+// Classification is sent only when it changed (null leaves Tenant Service's copy alone). Tenant
+// Service refuses unknown codes and a sub-industry that doesn't belong to the industry.
+public sealed record TenantProfileUpdate(string? Address, string? Contact, TenantClassificationUpdate? Classification = null);
+
+public sealed record TenantClassificationUpdate(string? IndustryCode, string? SubIndustryCode, string? BusinessType, string? CompanySize);

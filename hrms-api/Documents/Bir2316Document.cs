@@ -67,7 +67,7 @@ public class Bir2316Document : IDocument
             col.Item().Border(1).BorderColor(ReportDocumentStyle.BorderColor).Column(section =>
             {
                 SectionHeader(section, "PART II — EMPLOYER INFORMATION");
-                TwoCol(section, ("Registered Name", ReportDocumentStyle.CompanyName(_company)), ("TIN", _company?.TIN ?? ""));
+                TwoCol(section, ("Registered Name", ReportDocumentStyle.LegalName(_company)), ("TIN", _company?.TIN ?? ""));
                 TwoCol(section, ("RDO Code", _company?.RDOCode ?? ""), ("Address", _company?.Address ?? ""));
             });
 

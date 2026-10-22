@@ -55,6 +55,37 @@ public class DailyBenefitsTests
         days.Last().Should().Be(new DateOnly(2026, 10, 1));
     }
 
+    // ── Philippine time ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void RunDate_IsThePhilippineCalendarDay_NotTheUtcOne()
+    {
+        // 16:00 UTC is midnight in Manila: already the next day there.
+        DailyBenefitsJob.RunDateOf(new DateTime(2026, 9, 30, 16, 0, 0, DateTimeKind.Utc)).Should().Be(new DateOnly(2026, 10, 1));
+        DailyBenefitsJob.RunDateOf(new DateTime(2026, 9, 30, 15, 59, 0, DateTimeKind.Utc)).Should().Be(new DateOnly(2026, 9, 30));
+    }
+
+    [Fact]
+    public void Midnight_Manila_Cron_FiresAt1600Utc()
+    {
+        var cron = new Quartz.CronExpression("0 0 0 * * ?") { TimeZone = Hrms.Core.Services.PhTime.Zone };
+
+        var next = cron.GetNextValidTimeAfter(new DateTimeOffset(2026, 9, 30, 15, 59, 0, TimeSpan.Zero));
+
+        next.Should().Be(new DateTimeOffset(2026, 9, 30, 16, 0, 0, TimeSpan.Zero));
+        DailyBenefitsJob.RunDateOf(next!.Value.UtcDateTime).Should().Be(new DateOnly(2026, 10, 1));
+    }
+
+    [Fact]
+    public void FirstManilaRun_AfterAUtcEraRun_DoesNotRepeatThatDay()
+    {
+        // The last UTC-midnight run (00:00 UTC Oct 1 = 08:00 Manila) recorded Oct 1; the first Manila
+        // midnight after it is Oct 2 00:00 Manila (16:00 UTC Oct 1), so only Oct 2 is processed.
+        var runDate = DailyBenefitsJob.RunDateOf(new DateTime(2026, 10, 1, 16, 0, 0, DateTimeKind.Utc));
+
+        DailyBenefitsJob.DatesToRun(new DateOnly(2026, 10, 1), runDate).Should().Equal(new DateOnly(2026, 10, 2));
+    }
+
     // ── Companies ───────────────────────────────────────────────────────────
 
     [Fact]

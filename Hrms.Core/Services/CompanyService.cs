@@ -110,6 +110,10 @@ public class CompanyService : BaseService<Company>
             PagIbigNumber = profile?.PagIbigNumber ?? string.Empty,
             AuthorizedSignatoryName = profile?.AuthorizedSignatoryName ?? string.Empty,
             AuthorizedSignatoryTitle = profile?.AuthorizedSignatoryTitle ?? string.Empty,
+            IndustryCode = profile?.IndustryCode ?? string.Empty,
+            SubIndustryCode = profile?.SubIndustryCode ?? string.Empty,
+            BusinessType = profile?.BusinessType ?? string.Empty,
+            CompanySize = profile?.CompanySize ?? string.Empty,
         }, token);
     }
 }
