@@ -170,9 +170,10 @@ namespace Hrms.Api.Controllers
         [EntriesData]
         [HttpGet("uniform-allowance-ledger")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> UniformAllowanceLedger([FromQuery] DateTime? asOf, CancellationToken token)
+        public async Task<IActionResult> UniformAllowanceLedger(
+            [FromQuery] DateTime? asOf, [FromQuery] Guid? clientId, [FromQuery] bool separatedWithBalance, CancellationToken token)
         {
-            var data = await _reportService.GetUniformAllowanceSummaryAsync(AsOfOrToday(asOf), token);
+            var data = await _reportService.GetUniformAllowanceSummaryAsync(AsOfOrToday(asOf), token, clientId, separatedWithBalance);
             return Ok(new { data, total = data.Count });
         }
 

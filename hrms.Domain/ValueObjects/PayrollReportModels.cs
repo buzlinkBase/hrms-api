@@ -189,6 +189,8 @@ public class FundLedgerSummaryModel
     public decimal Balance { get; set; }
     public int EntryCount { get; set; }
     public DateOnly? LastEntryDate { get; set; }
+    // Uniform Allowance only: when the employee separated, if they have.
+    public DateOnly? SeparatedOn { get; set; }
 }
 
 // One movement in an employee's ledger details (Cash Bond, Retirement, Uniform Allowance,

@@ -70,7 +70,8 @@ public sealed class UniformAllowanceAccrualStep : IDailyBenefitStep
 {
     public int Order => 50;
     public string Name => "Uniform allowance accrual";
-    public bool AppliesOn(RunDailyBenefits run) => run.Date.Day == 1;
+    // Every day: each client's policy picks its own credit day (or each employee's anniversary).
+    public bool AppliesOn(RunDailyBenefits run) => true;
 
     public Task RunAsync(IServiceProvider services, RunDailyBenefits run, CancellationToken token) =>
         services.GetRequiredService<UniformAllowanceAccrualWorker>().RunAsync(

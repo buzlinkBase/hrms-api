@@ -1,6 +1,7 @@
 using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.UniformAllowance;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,11 +18,30 @@ namespace Hrms.Api.Controllers
     public class UniformAllowanceController : ControllerBase
     {
         private readonly UniformAllowanceFundService _service;
+        private readonly UniformAllowanceScheduleService _schedule;
 
-        public UniformAllowanceController(UniformAllowanceFundService service)
+        public UniformAllowanceController(UniformAllowanceFundService service, UniformAllowanceScheduleService schedule)
         {
             _service = service;
+            _schedule = schedule;
         }
+
+        /// <summary>
+        /// Every credit decision -- credited, capped, or skipped with the reason (e.g. "12 of 20
+        /// required present days") -- newest first, filtered by period, client, employee and outcome.
+        /// </summary>
+        [HttpGet("credit-log")]
+        [RequirePermission("Payroll Reports:View")]
+        [ProducesResponseType(typeof(ResponseModel<List<UniformAllowanceCreditLogModel>>), 200)]
+        public async Task<IActionResult> CreditLog([FromQuery] UniformAllowanceCreditLogFilter filter, CancellationToken token) =>
+            Ok(await _schedule.GetCreditLogAsync(filter, token));
+
+        /// <summary>One employee's rules, recent decisions and next credits.</summary>
+        [HttpGet("{employeeId:guid}/schedule")]
+        [RequirePermission("Payroll Reports:View")]
+        [ProducesResponseType(typeof(ResponseModel<UniformAllowanceScheduleModel>), 200)]
+        public async Task<IActionResult> Schedule(Guid employeeId, [FromQuery] int upcoming, CancellationToken token) =>
+            Ok(await _schedule.GetEmployeeScheduleAsync(employeeId, upcoming == 0 ? 6 : upcoming, token));
 
         /// <summary>
         /// Current UniformAllowanceFund.Balance per employee — used by the Release review step

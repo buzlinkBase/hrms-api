@@ -1,6 +1,7 @@
 using Hrms.Core.Messaging.BenefitWorkers;
 using Hrms.Core.Messaging.DailyBenefits;
 using Hrms.Core.Messaging.LeaveWorkers;
+using Hrms.Core.Services.UniformAllowance;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 using hrms.test.TestSupport;
@@ -35,7 +36,8 @@ public class DailyBenefitsTests
         var days = DailyBenefitsJob.DatesToRun(new DateOnly(2026, 9, 29), new DateOnly(2026, 10, 2)).ToList();
 
         days.Should().Equal(new DateOnly(2026, 9, 30), new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 2));
-        days.Where(DailyBenefitsJob.HasWork).Should().Equal(new DateOnly(2026, 10, 1));
+        // Every day has work now: a uniform allowance policy can credit on any day.
+        days.Where(DailyBenefitsJob.HasWork).Should().Equal(days);
     }
 
     [Fact]
@@ -116,7 +118,7 @@ public class DailyBenefitsTests
     [InlineData(2026, 1, 1, 1, true, true)]    // calendar fiscal year starts: everything
     [InlineData(2026, 3, 1, 1, false, true)]   // ordinary 1st: accruals only
     [InlineData(2026, 4, 1, 4, true, true)]    // April fiscal year starts
-    [InlineData(2026, 3, 15, 1, false, false)] // mid-month: nothing
+    [InlineData(2026, 3, 15, 1, false, false)] // mid-month: no leave steps
     public void StepsApply_OnTheRightDays(int y, int m, int d, int fiscalStart, bool yearEndSteps, bool monthlySteps)
     {
         var run = new RunDailyBenefits(new DateOnly(y, m, d), fiscalStart);
@@ -125,7 +127,7 @@ public class DailyBenefitsTests
         new LeavePeriodGrantStep().AppliesOn(run).Should().Be(yearEndSteps);
         new AccrualCreditOpeningStep().AppliesOn(run).Should().Be(monthlySteps);
         new LeaveAccrualStep().AppliesOn(run).Should().Be(monthlySteps);
-        new UniformAllowanceAccrualStep().AppliesOn(run).Should().Be(monthlySteps);
+        new UniformAllowanceAccrualStep().AppliesOn(run).Should().BeTrue("each policy picks its own credit day");
     }
 
     [Fact]
@@ -174,9 +176,11 @@ public class DailyBenefitsTests
     {
         // Regression: this used to be the 1st..the 1st of the current month -- one day, so a
         // Present-Days client's employees could never reach the threshold.
-        UniformAllowanceAccrualWorker.AttendanceMonth(new DateOnly(2026, 3, 1))
+        var monthly = UniformCreditSchedules.For(UniformCreditFrequency.Monthly);
+        var policy = UniformPolicySnapshot.FromLegacy(new Client { UniformAllowance = 1m })!;
+        monthly.PeriodFor(new DateOnly(2026, 3, 1), policy)
             .Should().Be((new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 28)));
-        UniformAllowanceAccrualWorker.AttendanceMonth(new DateOnly(2026, 1, 1))
+        monthly.PeriodFor(new DateOnly(2026, 1, 1), policy)
             .Should().Be((new DateOnly(2025, 12, 1), new DateOnly(2025, 12, 31)));
     }
 

@@ -6473,6 +6473,84 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("UTApplications");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowanceCreditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("CreditDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("LedgerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("PolicyId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("PresentDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ReasonText")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<int?>("RequiredDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId", "CreditDate");
+
+                    b.HasIndex("EmployeeId", "CreditDate")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("UniformAllowanceCreditLogs");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowanceFund", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6490,6 +6568,12 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
+
+                    b.Property<DateOnly?>("SeparatedOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ServiceStartDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -6547,6 +6631,15 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<DateOnly?>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("PolicyId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -6572,6 +6665,115 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("UniformAllowanceLedgers");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowancePolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("AmountMode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ChangeReason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("CreditDay")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<string>("EligibleStatuses")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int?>("ExpectedDaysPerPeriod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Expiry")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("ExpiryAfterMonths")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ExpiryMonth")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal?>("MaxBalance")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<int?>("MinPresentDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OnSeparation")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("RehireBridgeDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RehireRule")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("StartMonth")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("WaitingMonths")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId", "EffectiveFrom")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("UniformAllowancePolicies");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UserNotification", b =>
@@ -7782,6 +7984,17 @@ namespace Hrms.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.UnderTimeApplication", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.UniformAllowanceCreditLog", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
                         .WithMany()

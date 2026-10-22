@@ -81,8 +81,10 @@ public sealed class DailyBenefitsJob : IJob
             yield return date;
     }
 
-    // Carry-over, grant and accrual all fall on the 1st of a month (a fiscal year starts on one).
-    public static bool HasWork(DateOnly date) => date.Day == 1;
+    // Every day: leave carry-over, grant and accrual fall on the 1st of a month, but a uniform
+    // allowance policy can credit on any day of the month or on each employee's anniversary. The
+    // steps themselves decide what applies (IDailyBenefitStep.AppliesOn).
+    public static bool HasWork(DateOnly date) => true;
 
     /// <summary>
     /// Every company with a Company record or any employee, with its fiscal-year start month.

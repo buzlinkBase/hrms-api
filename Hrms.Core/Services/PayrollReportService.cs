@@ -1,3 +1,4 @@
+using Hrms.Core.Services.UniformAllowance;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
 
@@ -298,12 +299,28 @@ public class PayrollReportService : BaseService<Payroll>
             .Select(x => new FundMovement(x.EmployeeId, x.EntryDate, x.Amount))
             .ToListAsync(token), token);
 
-    // Uniform Allowance Ledger main list — same shape as GetRetirementSummaryAsync.
-    public async Task<List<FundLedgerSummaryModel>> GetUniformAllowanceSummaryAsync(DateOnly asOf, CancellationToken token) =>
-        await SummarizeFundAsync(await Context.UniformAllowanceLedgers.AsNoTracking()
-            .Where(x => x.EntryDate <= asOf)
+    // Uniform Allowance Ledger main list — same shape as GetRetirementSummaryAsync, optionally for
+    // one client's current employees, and flagging who has separated (their balance is due with
+    // last pay under a KeepForRelease policy). separatedWithBalance keeps only those still owed.
+    public async Task<List<FundLedgerSummaryModel>> GetUniformAllowanceSummaryAsync(
+        DateOnly asOf, CancellationToken token, Guid? clientId = null, bool separatedWithBalance = false)
+    {
+        var movements = Context.UniformAllowanceLedgers.AsNoTracking().Where(x => x.EntryDate <= asOf);
+        if (clientId is { } client) movements = movements.Where(x => x.Employee.ClientId == client);
+        var rows = await SummarizeFundAsync(await movements
             .Select(x => new FundMovement(x.EmployeeId, x.EntryDate, x.Amount))
             .ToListAsync(token), token);
+
+        var ids = rows.Select(r => r.EmployeeId).ToList();
+        var statuses = await _uow.Repository.FindAll<Employee>().AsNoTracking()
+            .Where(x => ids.Contains(x.Id))
+            .Select(x => new { x.Id, x.EmploymentStatus, x.DateResigned })
+            .ToListAsync(token);
+        foreach (var s in statuses.Where(s => UniformSeparation.IsSeparated(s.EmploymentStatus, s.DateResigned, asOf)))
+            rows.First(r => r.EmployeeId == s.Id).SeparatedOn = UniformSeparation.SeparatedOn(s.DateResigned, asOf);
+
+        return separatedWithBalance ? rows.Where(r => r.SeparatedOn != null && r.Balance > 0).ToList() : rows;
+    }
 
     private sealed record FundMovement(Guid EmployeeId, DateOnly EntryDate, decimal Amount);
 

@@ -11,6 +11,13 @@ public class UniformAllowanceFund : BaseEntity, IEmployeeOwned, IEntryRecord
     public Guid EmployeeId { get; set; }
     public virtual Employee Employee { get; set; } = null!;
     public decimal Balance { get; set; }
+
+    // When service counts from for the waiting period and anniversary credits. Null = the hire
+    // date. Moves on a rehire unless the client's policy bridges the gap (UniformRehireRule).
+    public DateOnly? ServiceStartDate { get; set; }
+    // Set when the accrual run first sees the employee separated, cleared when it sees them back
+    // -- the app keeps no rehire record, so this is how a rehire is told apart.
+    public DateOnly? SeparatedOn { get; set; }
 }
 
 // Deliberately its own enum rather than reusing Leave's LedgerEntryType -- that enum's
@@ -19,9 +26,11 @@ public class UniformAllowanceFund : BaseEntity, IEmployeeOwned, IEntryRecord
 // Deduction/Expiry) are DTR/period concepts that don't apply to this single-balance model.
 public enum UniformAllowanceEntryType
 {
-    Accrual,      // UniformAllowanceAccrualWorker's monthly credit
+    Accrual,      // UniformAllowanceAccrualWorker's scheduled credit
     Adjustment,   // manual HR add/remove correction
     Release,      // HR disburses (issues uniforms/cash for) accumulated balance for a period
+    Forfeiture,   // balance written off on separation (UniformSeparationRule.Forfeit)
+    Expiry,       // balance lapsed under the policy's reset/expiry rule
 }
 
 // Append-only audit trail of every accrual/adjustment/release against a UniformAllowanceFund,
@@ -39,10 +48,16 @@ public class UniformAllowanceLedger : BaseEntity, IEmployeeOwned, IEntryRecord
     public decimal Balance { get; set; }   // running balance after this entry
     public string Particulars { get; set; } = string.Empty;
 
-    // Multi-instance safety net for UniformAllowanceAccrualWorker: populated ONLY for
-    // EntryType.Accrual entries as "{EmployeeId}|{yyyy-MM}", left null for every other entry
-    // type. The unique index on this column is the hard stop if two instances/redeliveries race
-    // past the worker's own pre-check query -- multiple nulls never collide, so Adjustment/
-    // Release entries are unaffected.
+    // Accruals: the policy version and attendance window that earned it (null on older rows and
+    // on manual entries).
+    public Guid? PolicyId { get; set; }
+    public DateOnly? PeriodStart { get; set; }
+    public DateOnly? PeriodEnd { get; set; }
+
+    // Multi-instance safety net for UniformAllowanceAccrualWorker's own entries: Accrual rows
+    // carry "{EmployeeId}|{yyyy-MM}" (at most one credit a month whatever the frequency) and
+    // Expiry rows "{EmployeeId}|expiry|{yyyy-MM}"; manual Adjustment/Release rows leave it null.
+    // The unique index on this column is the hard stop if two instances/redeliveries race past
+    // the worker's own pre-checks -- multiple nulls never collide.
     public string? AccrualDedupeKey { get; set; }
 }

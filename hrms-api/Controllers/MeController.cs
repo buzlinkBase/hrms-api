@@ -7,6 +7,7 @@ using Hrms.Api.Documents;
 using Hrms.Api.Documents.Shared;
 using Hrms.Api.Extensions;
 using Hrms.Core.Services.Attachments;
+using Hrms.Core.Services.UniformAllowance;
 using Hrms.Domain;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
@@ -46,6 +47,7 @@ namespace Hrms.Api.Controllers
         private readonly PayrollReportService _payrollReportService;
         private readonly IMapper _mapper;
         private readonly AttachmentService? _attachments;
+        private readonly UniformAllowanceScheduleService? _uniformAllowanceSchedule;
 
         public MeController(
             EmployeeService employeeService,
@@ -63,9 +65,11 @@ namespace Hrms.Api.Controllers
             DeductionApplicationService deductionApplicationService,
             PayrollReportService payrollReportService,
             IMapper mapper,
-            AttachmentService? attachments = null)
+            AttachmentService? attachments = null,
+            UniformAllowanceScheduleService? uniformAllowanceSchedule = null)
         {
             _attachments = attachments;
+            _uniformAllowanceSchedule = uniformAllowanceSchedule;
             _employeeService = employeeService;
             _payrollService = payrollService;
             _companyService = companyService;
@@ -689,6 +693,19 @@ namespace Hrms.Api.Controllers
 
             var data = await _payrollReportService.GetMyCashBondAsync(employeeId.Value, token);
             return Ok(data);
+        }
+
+        // "My Uniform Allowance" — the caller's balance, every movement, recent credit decisions
+        // (including skipped ones with the reason), the next credit dates and the rules behind them.
+        [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
+        [HttpGet("uniform-allowance")]
+        [ProducesResponseType(typeof(ResponseModel<MyUniformAllowanceModel>), 200)]
+        public async Task<IActionResult> GetMyUniformAllowance(CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null || _uniformAllowanceSchedule == null) return NotFound();
+
+            return Ok(await _uniformAllowanceSchedule.GetMineAsync(employeeId.Value, token));
         }
 
         // Scoped server-side to the caller's own EmployeeId via GetThirteenthMonthAsync's

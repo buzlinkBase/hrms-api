@@ -1,25 +1,38 @@
-using Hrms.Core.Messaging.BenefitWorkers;
 using Hrms.Core.Services;
+using Hrms.Core.Services.UniformAllowance;
+using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 
 namespace hrms.test.PayrollRunTests;
 
 /// <summary>
-/// UniformAllowanceAccrualWorker.IsMonthEarned -- the pure "is this calendar month earned"
-/// decision behind the monthly Uniform Allowance accrual, made `internal` specifically so it can
-/// be tested without a database, matching ComputeRetirementAccrual/ClampRetirementPayout's
-/// precedent this same session.
+/// A client still on the legacy Client.UniformAllowance/UniformAllowanceBasis columns keeps the
+/// old monthly rule through the policy engine: one full month of service (Tenure basis), or at
+/// least 20 present days in the month just ended (Present-Days basis), pass/fail.
 /// </summary>
 public class UniformAllowanceAccrualTests
 {
-    [Theory]
-    [InlineData(1, true)]   // exactly one full month since hire
-    [InlineData(5, true)]   // well past one month
-    [InlineData(0, false)]  // hired this same calendar month -- not earned yet
-    public void TenureMonthsBasis_EarnedOnceAtLeastOneFullMonthHasPassed(int monthsServed, bool expectedEarned)
+    private static readonly DateOnly CreditDate = new(2026, 6, 1);
+
+    private static UniformCreditDecision Decide(BenefitAccrualBasis basis, DateOnly hired, int presentDays)
     {
-        UniformAllowanceAccrualWorker.IsMonthEarned(
-                BenefitAccrualBasis.TenureMonths, monthsServed, presentDaysThisMonth: 0)
-            .Should().Be(expectedEarned);
+        var policy = UniformPolicySnapshot.FromLegacy(
+            new Client { Id = Guid.NewGuid(), UniformAllowance = 500m, UniformAllowanceBasis = basis })!;
+        return UniformCreditDecider.Decide(
+            new UniformCreditCandidate(policy, EmploymentStatus.Regular, false, hired, CreditDate, presentDays), 0);
+    }
+
+    [Theory]
+    [InlineData("2026-05-01", true)]   // exactly one full month since hire
+    [InlineData("2025-12-01", true)]   // well past one month
+    [InlineData("2026-05-15", false)]  // hired mid-May -- not a full month on June 1
+    public void TenureBasis_EarnedOnceAtLeastOneFullMonthHasPassed(string hired, bool earned)
+    {
+        var decision = Decide(BenefitAccrualBasis.TenureMonths, DateOnly.Parse(hired), presentDays: 0);
+
+        decision.Outcome.Should().Be(earned ? UniformCreditOutcome.Credited : UniformCreditOutcome.Skipped);
+        if (earned) decision.Amount.Should().Be(500m);
+        else decision.Reason!.Reason.Should().Be(UniformSkipReason.WaitingPeriod);
     }
 
     [Theory]
@@ -27,21 +40,28 @@ public class UniformAllowanceAccrualTests
     [InlineData(25, true)]  // above the threshold
     [InlineData(19, false)] // one short -- pass/fail, no partial credit
     [InlineData(0, false)]
-    public void PresentDaysBasis_IsPassFailAgainstTheThreshold_NotProrated(int presentDays, bool expectedEarned)
+    public void PresentDaysBasis_IsPassFailAgainstTwentyDays_NotProrated(int presentDays, bool earned)
     {
-        UniformAllowanceAccrualWorker.IsMonthEarned(
-                BenefitAccrualBasis.PresentDays, monthsServed: 10, presentDaysThisMonth: presentDays)
-            .Should().Be(expectedEarned);
+        var decision = Decide(BenefitAccrualBasis.PresentDays, new DateOnly(2020, 1, 1), presentDays);
+
+        decision.Outcome.Should().Be(earned ? UniformCreditOutcome.Credited : UniformCreditOutcome.Skipped);
+        decision.Amount.Should().Be(earned ? 500m : 0m);
     }
 
     [Fact]
-    public void PresentDaysBasis_IgnoresTenureMonths_EvenWhenTenureWouldOtherwiseQualify()
+    public void PresentDaysBasis_HasNoWaitingPeriod_ButStillNeedsTheDays()
     {
-        // High tenure but short on present days this month -- PresentDays basis must not fall
-        // back to the TenureMonths rule.
-        UniformAllowanceAccrualWorker.IsMonthEarned(
-                BenefitAccrualBasis.PresentDays, monthsServed: 24, presentDaysThisMonth: 5)
-            .Should().BeFalse();
+        Decide(BenefitAccrualBasis.PresentDays, new DateOnly(2026, 5, 20), presentDays: 20)
+            .Outcome.Should().Be(UniformCreditOutcome.Credited);
+        Decide(BenefitAccrualBasis.PresentDays, new DateOnly(2016, 1, 1), presentDays: 5)
+            .Reason!.Text.Should().Be("5 of 20 required present days");
+    }
+
+    [Fact]
+    public void ClientWithoutARate_HasNoLegacyPolicy()
+    {
+        UniformPolicySnapshot.FromLegacy(new Client { UniformAllowance = null }).Should().BeNull();
+        UniformPolicySnapshot.FromLegacy(new Client { UniformAllowance = 0 }).Should().BeNull();
     }
 }
 
