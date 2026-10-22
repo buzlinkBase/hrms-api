@@ -246,7 +246,7 @@ public class ClientPortalAttendanceChangeTests
         await using (var ctx = f.Db.NewContext())
         {
             var service = Attendance(new UnitOfWorkService(ctx), f);
-            await service.Remove(punch, CancellationToken.None);
+            await service.Remove(punch, AttendanceLogCaller.System, null, CancellationToken.None);
             await service.CommitChangesAsync(CancellationToken.None);
         }
 
@@ -267,7 +267,7 @@ public class ClientPortalAttendanceChangeTests
         await using (var ctx = f.Db.NewContext())
         {
             var service = Attendance(new UnitOfWorkService(ctx), f);
-            await service.Update(new UpdateAttendance { Id = punch, WorkTime = Day.AddDays(3).ToDateTime(new TimeOnly(6, 0)), Remarks = "wrong day" }, CancellationToken.None);
+            await service.Update(new UpdateAttendance { Id = punch, WorkTime = Day.AddDays(3).ToDateTime(new TimeOnly(6, 0)), Remarks = "wrong day" }, AttendanceLogCaller.System, CancellationToken.None);
             await service.CommitChangesAsync(CancellationToken.None);
         }
 

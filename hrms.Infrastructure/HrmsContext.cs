@@ -99,6 +99,7 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     public DbSet<DtrLeaveMetaData>  DtrLeaveMetaDatas { get; set; }
     public DbSet<DTRBatch> DTRBatches { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
+    public DbSet<AttendanceOriginalLog> AttendanceOriginalLogs { get; set; }
     public DbSet<Employee> Employees { get; set; }
     public DbSet<Skill> Skills { get; set; }
     public DbSet<Education> Educations { get; set; }

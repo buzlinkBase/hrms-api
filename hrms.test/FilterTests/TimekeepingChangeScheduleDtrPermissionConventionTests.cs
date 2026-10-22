@@ -46,27 +46,48 @@ public class TimekeepingChangeScheduleDtrPermissionConventionTests
     [Theory]
     [InlineData(nameof(AttendanceController.Upload), "Upload Attendance:Edit")]
     [InlineData(nameof(AttendanceController.ManualEntry), "Attendance Manual Entry:Edit")]
-    [InlineData(nameof(AttendanceController.UpdateAtt), "Attendance Manual Entry:Edit")]
     [InlineData(nameof(AttendanceController.GetManualEntry), "Attendance Manual Entry:View")]
     [InlineData(nameof(AttendanceController.GetShiftAttendance), "Attendance Manual Entry:View")]
     [InlineData(nameof(AttendanceController.RawRowLogs), "Raw Logs:View")]
+    [InlineData(nameof(AttendanceController.GetRemovedShiftAttendance), "Attendance Manual Entry:View")]
+    [InlineData(nameof(AttendanceController.UploadBatches), "Upload Attendance:View")]
+    [InlineData(nameof(AttendanceController.DeleteUploadBatch), "Attendance Manual Entry:DeleteUploaded")]
     public void AttendanceController_ActionRequiresTheExpectedCode(string actionName, string expectedCode)
     {
         AssertCodes(typeof(AttendanceController), actionName, expectedCode);
     }
 
+    // Any per-source edit code gets in; the service then checks the one for the log's source.
     [Fact]
-    public void AttendanceController_Delete_BothOverloads_RequireAttendanceManualEntryDelete()
+    public void AttendanceController_UpdateAtt_AcceptsAnyPerSourceEditCode()
+    {
+        AssertCodes(typeof(AttendanceController), nameof(AttendanceController.UpdateAtt),
+            "Attendance Manual Entry:Edit", "Attendance Manual Entry:EditUploaded", "Attendance Manual Entry:EditSynced");
+    }
+
+    [Fact]
+    public void AttendanceController_RestoreOriginal_AcceptsAnyUploadedOrSyncedEditOrDeleteCode()
+    {
+        AssertCodes(typeof(AttendanceController), nameof(AttendanceController.RestoreOriginal),
+            "Attendance Manual Entry:EditUploaded", "Attendance Manual Entry:DeleteUploaded",
+            "Attendance Manual Entry:EditSynced", "Attendance Manual Entry:DeleteSynced");
+    }
+
+    [Fact]
+    public void AttendanceController_Delete_SingleLog_AcceptsAnyPerSourceDeleteCode_ManualBatch_RequiresDelete()
     {
         var deletes = typeof(AttendanceController)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Where(m => m.Name == nameof(AttendanceController.Delete))
             .ToList();
-
-        var expected = new[] { "Attendance Manual Entry:Delete" };
         deletes.Should().HaveCount(2);
-        deletes.Should().OnlyContain(m =>
-            m.GetCustomAttribute<RequirePermissionAttribute>()!.Codes.SequenceEqual(expected));
+
+        var single = deletes.Single(m => m.GetParameters()[0].ParameterType == typeof(Guid));
+        single.GetCustomAttribute<RequirePermissionAttribute>()!.Codes.Should().BeEquivalentTo(
+            ["Attendance Manual Entry:Delete", "Attendance Manual Entry:DeleteUploaded", "Attendance Manual Entry:DeleteSynced"]);
+
+        var batch = deletes.Single(m => m.GetParameters()[0].ParameterType == typeof(string));
+        batch.GetCustomAttribute<RequirePermissionAttribute>()!.Codes.Should().BeEquivalentTo(["Attendance Manual Entry:Delete"]);
     }
 
     [Theory]

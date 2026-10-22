@@ -529,6 +529,12 @@ public enum LOGSOURCE
     MOBILE,
     OTHER
 }
+// What a user did to an uploaded/synced log whose original is kept in AttendanceOriginalLog.
+public enum ATTENDANCE_ORIGINAL_ACTION
+{
+    EDITED,
+    DELETED
+}
 public enum ManualEntryLimitEnum
 {
     NOLIMIT,

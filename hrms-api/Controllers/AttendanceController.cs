@@ -2,6 +2,7 @@ using Onepunch.Common.Lib.Subscriptions;
 using Hrms.Api.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -128,8 +129,10 @@ public class AttendanceController : ControllerBase
         return Ok("success");
     }
 
+    // Any one of the per-source edit permissions gets in; the service checks the one for the log's
+    // own source (AttendanceLogSourcePolicy).
     [HttpPut()]
-    [RequirePermission("Attendance Manual Entry:Edit")]
+    [RequirePermission(AttendanceLogPermissions.Edit, AttendanceLogPermissions.EditUploaded, AttendanceLogPermissions.EditSynced)]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateAtt([FromBody] UpdateAttendance payload, CancellationToken ct)
@@ -142,10 +145,28 @@ public class AttendanceController : ControllerBase
         {
             return BadRequest("Remarks is required.");
         }
-        await _attendanceService.Update(payload, ct);
+        await _attendanceService.Update(payload, LogCaller(), ct);
         await _attendanceService.CommitChangesAsync(ct);
         return Ok("success");
     }
+
+    // Restoring an edit needs the log source's edit permission, restoring a removal its delete
+    // permission -- checked by the service once it knows which.
+    [HttpPost("originals/{id:guid}/restore")]
+    [RequirePermission(
+        AttendanceLogPermissions.EditUploaded, AttendanceLogPermissions.DeleteUploaded,
+        AttendanceLogPermissions.EditSynced, AttendanceLogPermissions.DeleteSynced)]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RestoreOriginal([FromRoute] Guid id, CancellationToken ct)
+    {
+        await _attendanceService.RestoreOriginal(id, LogCaller(), ct);
+        await _attendanceService.CommitChangesAsync(ct);
+        return Ok("success");
+    }
+
+    private AttendanceLogCaller LogCaller() =>
+        new(User.HasPermission, User.GetUserId(), User.GetUserClaim("email"));
 
     [HttpGet("unregistered")]
     [RequirePermission("Unregistered Employees:View")]
@@ -193,6 +214,33 @@ public class AttendanceController : ControllerBase
         return Ok(attendance);
     }
 
+    // Removed uploaded/synced logs in the same shift window as dtr-view-att-by-shift, for Restore.
+    [HttpGet("dtr-view-removed-by-shift")]
+    [RequirePermission(AttendanceLogPermissions.View)]
+    [ProducesResponseType(typeof(ResponseModel<List<RemovedAttendanceLogModel>>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetRemovedShiftAttendance(
+        [FromQuery] Guid employeeId, [FromQuery] DateOnly workDate, [FromQuery] Guid? timeShiftId, CancellationToken ct)
+    {
+        var shifts = await _rosterReportService.FindCurrentAndNextShift(workDate, employeeId, timeShiftId, ct);
+        if (shifts.Current?.StartTime == null || shifts.Next?.StartTime == null)
+        {
+            return Ok(new List<RemovedAttendanceLogModel>());
+        }
+        var removed = await _attendanceService.GetRemovedLogsInRange(employeeId, shifts.Current, shifts.Next, ct);
+        return Ok(removed);
+    }
+
+    [HttpGet("upload-batches")]
+    [RequirePermission("Upload Attendance:View")]
+    [ProducesResponseType(typeof(ResponseModel<List<UploadBatchModel>>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadBatches([FromQuery] UploadBatchFilter filter, CancellationToken ct)
+    {
+        var batches = await _attendanceService.GetUploadBatches(filter ?? new UploadBatchFilter(), ct);
+        return Ok(batches);
+    }
+
     [HttpGet("raw-logs")]
     [RequirePermission("Raw Logs:View")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
@@ -203,13 +251,27 @@ public class AttendanceController : ControllerBase
         return Ok(result);
     }
 
+    // Any one of the per-source delete permissions gets in; the service checks the one for the
+    // log's own source (AttendanceLogSourcePolicy). reason is kept with a removed log's original.
     [HttpDelete("{id:guid}")]
-    [RequirePermission("Attendance Manual Entry:Delete")]
+    [RequirePermission(AttendanceLogPermissions.Delete, AttendanceLogPermissions.DeleteUploaded, AttendanceLogPermissions.DeleteSynced)]
     [ProducesResponseType(typeof(ResponseModel<string>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
+    public async Task<IActionResult> Delete([FromRoute] Guid id, [FromQuery] string? reason, CancellationToken ct)
     {
-        await _attendanceService.Remove(id, ct);
+        await _attendanceService.Remove(id, LogCaller(), reason, ct);
+        await _attendanceService.CommitChangesAsync(ct);
+        return Ok("success");
+    }
+
+    // A whole attendance file upload, with the saved originals of its edited/removed logs.
+    [HttpDelete("upload-batch/{batch}")]
+    [RequirePermission(AttendanceLogPermissions.DeleteUploaded)]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> DeleteUploadBatch([FromRoute] string batch, CancellationToken ct)
+    {
+        await _attendanceService.RemoveUploadBatch(batch, LogCaller(), ct);
         await _attendanceService.CommitChangesAsync(ct);
         return Ok("success");
     }

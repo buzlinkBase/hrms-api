@@ -830,6 +830,126 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("Attendances");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.AttendanceOriginalLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ActedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ActedByName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("ActedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("AttendanceId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("BioId")
+                        .HasColumnType("int");
+
+                    b.Property<Polygon>("Boundary")
+                        .HasColumnType("geometry")
+                        .HasAnnotation("MySql:SpatialReferenceSystemId", 4326);
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ClientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("EditRemarks")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("IP")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LogRemarks")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("LogSource")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("OperationAreaId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Verifycode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("WorkDateTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Workstate")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttendanceId")
+                        .HasDatabaseName("IX_AttendanceOriginalLog_AttendanceId");
+
+                    b.HasIndex("BatchCode", "LogSource")
+                        .HasDatabaseName("IX_AttendanceOriginalLog_BatchCode_LogSource");
+
+                    b.HasIndex("BioId", "WorkDateTime")
+                        .HasDatabaseName("IX_AttendanceOriginalLog_BioId_WorkDateTime");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("AttendanceOriginalLogs");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.Branch", b =>
                 {
                     b.Property<Guid>("Id")

@@ -65,6 +65,47 @@ public class AttendanceModel
     // upload-att-log actions.
     public string? LogRemarks { get; set; }
     public string? EditRemarks { get; set; }
+    // Set on an edited uploaded/synced log (DTR Attendance Logs view): its saved original
+    // (AttendanceOriginalLog) and the time the file/device had, for Restore.
+    public Guid? OriginalLogId { get; set; }
+    public DateTime? OriginalWorkDateTime { get; set; }
+}
+
+// A removed uploaded/synced log whose original is kept (AttendanceOriginalLog) -- listed in the DTR
+// Attendance Logs view so it can be restored.
+public class RemovedAttendanceLogModel
+{
+    public Guid Id { get; set; }
+    public DateTime WorkDateTime { get; set; }
+    public string LogSource { get; set; } = string.Empty;
+    public string Batch { get; set; } = string.Empty;
+    public string DeviceName { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public string RemovedBy { get; set; } = string.Empty;
+    // UTC.
+    public DateTime RemovedAt { get; set; }
+}
+
+// One attendance file upload (all UPLOADED logs sharing a BatchCode), for Upload History.
+public class UploadBatchModel
+{
+    public string BatchCode { get; set; } = string.Empty;
+    // UTC; null when every log of the batch was removed one by one (only saved originals remain).
+    public DateTime? UploadedAt { get; set; }
+    public string Remarks { get; set; } = string.Empty;
+    public string DeviceName { get; set; } = string.Empty;
+    public int LogCount { get; set; }
+    public int EmployeeCount { get; set; }
+    public DateTime? FirstLog { get; set; }
+    public DateTime? LastLog { get; set; }
+    // Logs of this batch a user edited or removed (saved originals).
+    public int ChangedCount { get; set; }
+}
+
+public record UploadBatchFilter
+{
+    public DateOnly? FromDate { get; set; }
+    public DateOnly? ToDate { get; set; }
 }
 
 

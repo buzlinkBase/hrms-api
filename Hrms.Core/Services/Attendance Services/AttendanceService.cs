@@ -11,6 +11,7 @@ public class AttendanceService : BaseService<Attendance>
 {
     private readonly IAttendanceSourceGuard? _sourceGuard;
     private readonly ClientPortal.ClientPortalPunchChangeService? _portalPunches;
+    private readonly AttendanceOriginalLogService _originals;
 
     /// <param name="sourceGuard">Refuses logs from a source the company's plan doesn't include (mobile
     /// attendance). Supplied by DI; omitted only where a plan check is not wanted (unit tests).</param>
@@ -20,14 +21,21 @@ public class AttendanceService : BaseService<Attendance>
     {
         _sourceGuard = sourceGuard;
         _portalPunches = portalPunches;
+        _originals = new AttendanceOriginalLogService(uow);
     }
 
-    public async Task Update(UpdateAttendance model, CancellationToken token)
+    /// <summary>
+    /// Edits a log's time. Each source needs its own permission (AttendanceLogSourcePolicy); editing
+    /// an uploaded/synced log first saves its original, for Restore and so a re-sync won't re-add it.
+    /// </summary>
+    public async Task Update(UpdateAttendance model, AttendanceLogCaller caller, CancellationToken token)
     {
-        var before = await Context.Attendances.AsNoTracking()
-            .Where(x => x.Id == model.Id)
-            .Select(x => new { x.EmployeeId, x.WorkDateTime })
-            .FirstOrDefaultAsync(token);
+        var before = await Context.Attendances.AsNoTracking().FirstOrDefaultAsync(x => x.Id == model.Id, token)
+            ?? throw new NotFoundException("Attendance log not found.");
+
+        var rule = AttendanceLogSourcePolicy.EnsureCanEdit(before.LogSource, caller);
+        if (rule.KeepsOriginal)
+            await _originals.RecordEditAsync(before, model.Remarks, caller, token);
 
         await Context.Attendances
             .Where(x => x.Id == model.Id)
@@ -37,8 +45,17 @@ public class AttendanceService : BaseService<Attendance>
             ;
 
         // The punch may have moved to another day, so both the old and the new day are sent again.
-        if (before != null)
-            await StagePortalRefreshAsync([(before.EmployeeId, before.WorkDateTime), (before.EmployeeId, model.WorkTime)], token);
+        await StagePortalRefreshAsync([(before.EmployeeId, before.WorkDateTime), (before.EmployeeId, model.WorkTime)], token);
+    }
+
+    /// <summary>
+    /// Puts an edited or removed uploaded/synced log back the way the file/device had it (see
+    /// AttendanceOriginalLogService.RestoreAsync).
+    /// </summary>
+    public async Task RestoreOriginal(Guid originalId, AttendanceLogCaller caller, CancellationToken token)
+    {
+        var changed = await _originals.RestoreAsync(originalId, caller, token);
+        await StagePortalRefreshAsync(changed, token);
     }
 
     // Staged in the caller's unit of work: leaves with its commit (see ClientPortalPunchChangeService).
@@ -59,17 +76,17 @@ public class AttendanceService : BaseService<Attendance>
         if (_sourceGuard != null)
             await _sourceGuard.EnsureAllowedAsync(attendances.Select(x => x.LogSource), token);
 
-        await RemoveExistingDuplicatesAsync(attendances, token);
+        var toInsert = await RemoveExistingDuplicatesAsync(attendances, token);
 
         // 4. Prepare the incoming records for clean insertions
-        foreach (var attendance in attendances)
+        foreach (var attendance in toInsert)
         {
             // Resetting the ID allows the database to generate a fresh, non-conflicting primary key
             attendance.Id = Guid.Empty;
             attendance.UserName = string.Empty;
             //attendance.UserId = _currentUser.Id;
         }
-        await CreateRangeAsync(attendances, token);
+        await CreateRangeAsync(toInsert, token);
     }
 
     // Ids per DELETE ... WHERE Id IN (...) -- keeps each statement's parameter list bounded.
@@ -79,8 +96,13 @@ public class AttendanceService : BaseService<Attendance>
     /// An incoming log replaces any stored log with the same (BioId, EmployeeId, WorkDateTime).
     /// Set-based on purpose: one ranged lookup + a few Id deletes. A per-key DELETE (one round
     /// trip and one table scan per log) took past the client's timeout on a ~1600-row upload.
+    ///
+    /// A user's change to an uploaded/synced log sticks: an incoming uploaded/synced punch is
+    /// skipped when its key matches a saved original (the log was edited or removed) or an edited
+    /// log, and an edited log is never replaced. Manual entries are always added. Returns the logs
+    /// to insert.
     /// </summary>
-    private async Task RemoveExistingDuplicatesAsync(List<Attendance> attendances, CancellationToken token)
+    private async Task<List<Attendance>> RemoveExistingDuplicatesAsync(List<Attendance> attendances, CancellationToken token)
     {
         var incomingKeys = attendances
             .Select(x => (x.BioId, x.EmployeeId, x.WorkDateTime))
@@ -91,12 +113,25 @@ public class AttendanceService : BaseService<Attendance>
 
         var candidates = await GetQueryable()
             .Where(x => bioIds.Contains(x.BioId) && x.WorkDateTime >= from && x.WorkDateTime <= to)
-            .Select(x => new { x.Id, x.BioId, x.EmployeeId, x.WorkDateTime })
+            .Select(x => new
+            {
+                x.Id, x.BioId, x.EmployeeId, x.WorkDateTime,
+                Edited = Context.AttendanceOriginalLogs.Any(o => o.AttendanceId == x.Id),
+            })
             .ToListAsync(token);
+
+        var blockedKeys = await _originals.FindOriginalKeysAsync(bioIds, from, to, token);
+        foreach (var edited in candidates.Where(x => x.Edited))
+            blockedKeys.Add((edited.BioId, edited.EmployeeId, edited.WorkDateTime));
+
+        var toInsert = attendances
+            .Where(x => x.LogSource == LOGSOURCE.MANUAL || !blockedKeys.Contains((x.BioId, x.EmployeeId, x.WorkDateTime)))
+            .ToList();
+        var insertKeys = toInsert.Select(x => (x.BioId, x.EmployeeId, x.WorkDateTime)).ToHashSet();
 
         // Matched in memory so a null EmployeeId (unregistered Bio ID) only matches null.
         var staleIds = candidates
-            .Where(x => incomingKeys.Contains((x.BioId, x.EmployeeId, x.WorkDateTime)))
+            .Where(x => !x.Edited && insertKeys.Contains((x.BioId, x.EmployeeId, x.WorkDateTime)))
             .Select(x => x.Id)
             .ToList();
 
@@ -106,6 +141,7 @@ public class AttendanceService : BaseService<Attendance>
                 .Where(x => chunk.Contains(x.Id))
                 .ExecuteDeleteAsync(token);
         }
+        return toInsert;
     }
 
     /// <summary>
@@ -196,18 +232,32 @@ public class AttendanceService : BaseService<Attendance>
             .ToListAsync();
     }
 
-    public async Task<List<AttendanceModel>> GetAllLogsInRange(Guid employeeId, CurrentShiftInfo current, CurrentShiftInfo next, CancellationToken ct)
+    // Same window the DTR captures for this shift (DTR.Core AttendanceProvider), including the
+    // earliest allowed clock-in before the shift start — otherwise an early time-in the DTR
+    // counted would be missing from the DTR Attendance Logs view.
+    private async Task<(DateTime From, DateTime To)> ShiftCaptureWindowAsync(CurrentShiftInfo current, CurrentShiftInfo next, CancellationToken ct)
     {
-        // Same window the DTR captures for this shift (DTR.Core AttendanceProvider), including the
-        // earliest allowed clock-in before the shift start — otherwise an early time-in the DTR
-        // counted would be missing from this list.
         var settings = await Context.GeneralSettings.FirstOrDefaultAsync(
             x => x.IdentityType == "Company" && x.Description == nameof(SettingKey.TimeInAllowance), ct);
         var window = AttendanceCaptureWindow.For(
             current.ShiftType, current.StartTime!.Value, next.StartTime!.Value,
             GeneralSettingsUtil.ParseInt(settings?.Value, -120));
-        var from = window.From;
-        var to = window.To;
+        return (window.From, window.To);
+    }
+
+    /// <summary>Removed uploaded/synced logs of the shift (DTR Attendance Logs view), for Restore.</summary>
+    public async Task<List<RemovedAttendanceLogModel>> GetRemovedLogsInRange(Guid employeeId, CurrentShiftInfo current, CurrentShiftInfo next, CancellationToken ct)
+    {
+        var (from, to) = await ShiftCaptureWindowAsync(current, next, ct);
+        var removed = await _originals.ListRemovedInRangeAsync(employeeId, from, to, ct);
+        foreach (var log in removed)
+            log.RemovedAt = PhTime.AsUtc(log.RemovedAt);
+        return removed;
+    }
+
+    public async Task<List<AttendanceModel>> GetAllLogsInRange(Guid employeeId, CurrentShiftInfo current, CurrentShiftInfo next, CancellationToken ct)
+    {
+        var (from, to) = await ShiftCaptureWindowAsync(current, next, ct);
 
         return await Uow.Context.Attendances
             .Where(x => x.WorkDateTime >= from &&
@@ -229,6 +279,10 @@ public class AttendanceService : BaseService<Attendance>
                 Name = x.Employee != null
                     ? (x.Employee.LastName ?? "") + ", " + (x.Employee.FirstName ?? "") + " " + (x.Employee.MiddleName ?? "") + " " + (x.Employee.Suffix ?? "")
                     : "",
+                OriginalLogId = Uow.Context.AttendanceOriginalLogs
+                    .Where(o => o.AttendanceId == x.Id).Select(o => (Guid?)o.Id).FirstOrDefault(),
+                OriginalWorkDateTime = Uow.Context.AttendanceOriginalLogs
+                    .Where(o => o.AttendanceId == x.Id).Select(o => (DateTime?)o.WorkDateTime).FirstOrDefault(),
             })
             .OrderByDescending(x => x.Name)
             .ThenBy(x => x.WorkDateTime)
@@ -391,16 +445,134 @@ public class AttendanceService : BaseService<Attendance>
             );
         return result;
     }
-    public async Task Remove(Guid Id, CancellationToken token)
+    /// <summary>
+    /// Removes a log. Each source needs its own permission (AttendanceLogSourcePolicy); removing an
+    /// uploaded/synced log first saves its original, for Restore and so a re-sync won't re-add it.
+    /// </summary>
+    public async Task Remove(Guid Id, AttendanceLogCaller caller, string? reason, CancellationToken token)
     {
-        var attendance = await Context.Attendances.FirstOrDefaultAsync(x => x.Id == Id, token);
-        if (attendance == null)
-            throw new NotFoundException("Attendance log not found.");
-        if (attendance.LogSource != LOGSOURCE.MANUAL)
-            throw new ValidationException("Only manually entered attendance logs can be deleted.");
+        var attendance = await Context.Attendances.AsNoTracking().FirstOrDefaultAsync(x => x.Id == Id, token)
+            ?? throw new NotFoundException("Attendance log not found.");
+
+        var rule = AttendanceLogSourcePolicy.EnsureCanDelete(attendance.LogSource, caller);
+        if (rule.KeepsOriginal)
+            await _originals.RecordDeleteAsync(attendance, reason ?? string.Empty, caller, token);
 
         await RemoveAsync(Id, token);
         await StagePortalRefreshAsync([(attendance.EmployeeId, attendance.WorkDateTime)], token);
+    }
+
+    /// <summary>
+    /// Deletes one attendance file upload: every log it imported and every saved original of it,
+    /// so the same file can be imported again from scratch.
+    /// </summary>
+    public async Task RemoveUploadBatch(string batch, AttendanceLogCaller caller, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(batch))
+            throw new ValidationException("Choose an upload to delete.");
+        AttendanceLogSourcePolicy.EnsureCanDelete(LOGSOURCE.UPLOADED, caller);
+
+        // Confidential employees' logs too: the upload goes as a whole.
+        var query = Context.IgnoringConfidentiality<Attendance>()
+            .Where(x => x.BatchCode == batch && x.LogSource == LOGSOURCE.UPLOADED);
+        // Read before the delete: afterwards nothing says which posted days these punches backed.
+        var removed = (await query.AsNoTracking().Select(x => new { x.EmployeeId, x.WorkDateTime }).ToListAsync(token))
+            .Select(x => (x.EmployeeId, At: x.WorkDateTime))
+            .ToList();
+
+        await query.ExecuteDeleteAsync(token);
+        await _originals.RemoveForUploadBatchAsync(batch, token);
+        await StagePortalRefreshAsync(removed, token);
+    }
+
+    /// <summary>
+    /// Attendance file uploads (UPLOADED logs grouped by BatchCode) with a log between the dates,
+    /// newest first. An upload whose logs were all removed one by one still shows (through its
+    /// saved originals) so it can be deleted, freeing the file to be imported again.
+    /// </summary>
+    public async Task<List<UploadBatchModel>> GetUploadBatches(UploadBatchFilter filter, CancellationToken token)
+    {
+        DateTime? from = filter.FromDate?.ToDateTime(TimeOnly.MinValue);
+        DateTime? to = filter.ToDate?.ToDateTime(TimeOnly.MinValue).AddDays(1);
+
+        // The uploads touching the dates; each is then counted whole, not just its logs in range.
+        var liveCodes = await Context.Attendances.AsNoTracking()
+            .Where(x => x.LogSource == LOGSOURCE.UPLOADED && x.BatchCode != "" &&
+                        (from == null || x.WorkDateTime >= from) &&
+                        (to == null || x.WorkDateTime < to))
+            .Select(x => x.BatchCode)
+            .Distinct()
+            .ToListAsync(token);
+        var originalCodes = await Context.AttendanceOriginalLogs.AsNoTracking()
+            .Where(x => x.LogSource == LOGSOURCE.UPLOADED && x.BatchCode != "" &&
+                        (from == null || x.WorkDateTime >= from) &&
+                        (to == null || x.WorkDateTime < to))
+            .Select(x => x.BatchCode)
+            .Distinct()
+            .ToListAsync(token);
+        var codes = liveCodes.Union(originalCodes).ToList();
+        if (codes.Count == 0) return [];
+
+        var live = await Context.Attendances.AsNoTracking()
+            .Where(x => x.LogSource == LOGSOURCE.UPLOADED && codes.Contains(x.BatchCode))
+            .GroupBy(x => x.BatchCode)
+            .Select(g => new
+            {
+                BatchCode = g.Key,
+                UploadedAt = g.Min(x => x.CreatedAt),
+                Remarks = g.Max(x => x.LogRemarks),
+                DeviceName = g.Max(x => x.DeviceName),
+                LogCount = g.Count(),
+                EmployeeCount = g.Where(x => x.EmployeeId != null).Select(x => x.EmployeeId).Distinct().Count(),
+                FirstLog = g.Min(x => x.WorkDateTime),
+                LastLog = g.Max(x => x.WorkDateTime),
+            })
+            .ToListAsync(token);
+
+        var changed = await Context.AttendanceOriginalLogs.AsNoTracking()
+            .Where(x => x.LogSource == LOGSOURCE.UPLOADED && codes.Contains(x.BatchCode))
+            .GroupBy(x => x.BatchCode)
+            .Select(g => new
+            {
+                BatchCode = g.Key,
+                Count = g.Count(),
+                Remarks = g.Max(x => x.LogRemarks),
+                DeviceName = g.Max(x => x.DeviceName),
+                FirstLog = g.Min(x => x.WorkDateTime),
+                LastLog = g.Max(x => x.WorkDateTime),
+            })
+            .ToDictionaryAsync(x => x.BatchCode, token);
+
+        var batches = live.Select(x => new UploadBatchModel
+        {
+            BatchCode = x.BatchCode,
+            UploadedAt = PhTime.AsUtc(x.UploadedAt),
+            Remarks = x.Remarks ?? string.Empty,
+            DeviceName = x.DeviceName ?? string.Empty,
+            LogCount = x.LogCount,
+            EmployeeCount = x.EmployeeCount,
+            FirstLog = x.FirstLog,
+            LastLog = x.LastLog,
+            ChangedCount = changed.TryGetValue(x.BatchCode, out var c) ? c.Count : 0,
+        }).ToList();
+
+        var withLogs = live.Select(x => x.BatchCode).ToHashSet();
+        batches.AddRange(changed.Values
+            .Where(x => !withLogs.Contains(x.BatchCode))
+            .Select(x => new UploadBatchModel
+            {
+                BatchCode = x.BatchCode,
+                Remarks = x.Remarks ?? string.Empty,
+                DeviceName = x.DeviceName ?? string.Empty,
+                FirstLog = x.FirstLog,
+                LastLog = x.LastLog,
+                ChangedCount = x.Count,
+            }));
+
+        return batches
+            .OrderByDescending(x => x.UploadedAt ?? DateTime.MinValue)
+            .ThenByDescending(x => x.LastLog)
+            .ToList();
     }
     // Manual entries only (pass-slip logs are manual too) -- uploaded, biometric and synced logs
     // in a batch with the same code are never deleted this way, same rule as Remove(Guid) above.
