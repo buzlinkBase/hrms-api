@@ -14,4 +14,8 @@ public class DashboardCount
 {
     public string Label { get; set; } = string.Empty;
     public int Count { get; set; }
+
+    // What the bar filters by when the page drills into it: a branch/site id, an EmploymentStatus
+    // name or a tenure band code ("1-3", "10-"). Null when there's nothing to filter by ("No branch").
+    public string? Key { get; set; }
 }

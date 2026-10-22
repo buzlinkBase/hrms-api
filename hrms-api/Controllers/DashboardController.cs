@@ -256,6 +256,8 @@ public class DashboardController : ControllerBase
             attendanceTrend = trend.Select(t => new
             {
                 date = t.Date.ToString("ddd"),
+                // The day itself, for drilling into that day's DTR.
+                workDate = t.Date.ToString("yyyy-MM-dd"),
                 present = t.Present,
                 late = t.Late,
                 absent = t.Absent,

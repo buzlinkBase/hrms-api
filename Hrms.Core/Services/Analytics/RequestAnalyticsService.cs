@@ -13,7 +13,7 @@ public sealed record RequestFact(
 
 public sealed record RequestActionFact(Guid ActorEmployeeId, ApprovalActionType Action, DateTime At);
 
-public sealed record LeaveDaysFact(string LeaveType, decimal Days);
+public sealed record LeaveDaysFact(string LeaveType, decimal Days, Guid? LeaveId = null);
 
 /// <summary>
 /// Leave and request analytics: how many employee requests were filed, how many got approved,
@@ -72,7 +72,7 @@ public class RequestAnalyticsService
             .Where(x => x.ApprovalStatus == ApprovalStatus.Approved &&
                         x.LeaveDateFrom >= filter.From && x.LeaveDateFrom <= filter.To &&
                         employeeIds.Contains(x.EmployeeId))
-            .Select(x => new { LeaveType = x.Leave.Description, x.LeaveDateFrom, x.LeaveDateTo, x.DayFraction })
+            .Select(x => new { LeaveType = x.Leave.Description, x.LeaveId, x.LeaveDateFrom, x.LeaveDateTo, x.DayFraction })
             .ToListAsync(token);
 
         var actorIds = current.SelectMany(r => r.Actions).Select(a => a.ActorEmployeeId).Distinct().ToList();
@@ -86,7 +86,8 @@ public class RequestAnalyticsService
             previous,
             leaves.Select(l => new LeaveDaysFact(
                 string.IsNullOrWhiteSpace(l.LeaveType) ? "Other" : l.LeaveType,
-                LeaveDays(l.LeaveDateFrom, l.LeaveDateTo, l.DayFraction))).ToList(),
+                LeaveDays(l.LeaveDateFrom, l.LeaveDateTo, l.DayFraction),
+                l.LeaveId)).ToList(),
             id => actorNames.GetValueOrDefault(id) ?? "—");
     }
 
@@ -175,6 +176,7 @@ public class RequestAnalyticsService
             .Select(x =>
             {
                 var totals = TotalsOf(x.Requests);
+                // Keyed like the series, so the page drills into a row and a chart point the same way.
                 return new AnalyticsRow(TypeLabel(x.Type), new Dictionary<string, decimal>
                 {
                     ["filed"] = totals.Filed,
@@ -182,7 +184,7 @@ public class RequestAnalyticsService
                     ["declined"] = x.Requests.Count(r => r.Status == ApprovalInstanceStatus.Declined),
                     ["pending"] = totals.Pending,
                     ["medianHours"] = totals.MedianHours,
-                });
+                }, SeriesKey(x.Type));
             })
             .OrderByDescending(r => r.Values["filed"])
             .ToList();
@@ -207,12 +209,12 @@ public class RequestAnalyticsService
             .ToList();
 
         var byLeaveType = leaveDays
-            .GroupBy(l => l.LeaveType)
-            .Select(g => new AnalyticsRow(g.Key, new Dictionary<string, decimal>
+            .GroupBy(l => (l.LeaveType, l.LeaveId))
+            .Select(g => new AnalyticsRow(g.Key.LeaveType, new Dictionary<string, decimal>
             {
                 ["days"] = g.Sum(l => l.Days),
                 ["requests"] = g.Count(),
-            }))
+            }, g.Key.LeaveId?.ToString()))
             .OrderByDescending(r => r.Values["days"])
             .ToList();
 

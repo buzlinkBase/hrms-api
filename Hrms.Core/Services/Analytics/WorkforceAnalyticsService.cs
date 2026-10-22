@@ -10,7 +10,9 @@ public sealed record WorkforceMember(
     string Gender,
     DateOnly? BirthDate,
     string Department,
-    string Branch)
+    string Branch,
+    Guid? DepartmentId = null,
+    Guid? BranchId = null)
 {
     /// <summary>On the payroll that day: hired by then and not yet separated.</summary>
     public bool IsActiveOn(DateOnly date) => HireDate <= date && (SeparationDate == null || SeparationDate > date);
@@ -40,6 +42,8 @@ public class WorkforceAnalyticsService
                 e.DOB,
                 Department = e.Department != null ? e.Department.Name : null,
                 Branch = e.Branch != null ? e.Branch.Name : null,
+                e.DepartmentId,
+                e.BranchId,
             })
             .ToListAsync(token);
 
@@ -47,10 +51,12 @@ public class WorkforceAnalyticsService
             m.HireDate,
             m.DateResigned is { } resigned ? DateOnly.FromDateTime(resigned) : null,
             m.EmploymentStatus,
-            string.IsNullOrWhiteSpace(m.Gender) ? "Not set" : m.Gender,
+            string.IsNullOrWhiteSpace(m.Gender) ? NotSet : m.Gender,
             m.DOB is { } dob ? DateOnly.FromDateTime(dob) : null,
             m.Department ?? AnalyticsScope.Unassigned,
-            m.Branch ?? AnalyticsScope.Unassigned)).ToList());
+            m.Branch ?? AnalyticsScope.Unassigned,
+            m.Department != null ? m.DepartmentId : null,
+            m.Branch != null ? m.BranchId : null)).ToList());
     }
 
     public static AnalyticsResult Calculate(AnalyticsFilter filter, IReadOnlyList<WorkforceMember> members)
@@ -88,12 +94,12 @@ public class WorkforceAnalyticsService
             ],
             series,
             [
-                CountBy("department", "By department", active, m => m.Department),
-                CountBy("branch", "By branch", active, m => m.Branch),
-                CountBy("status", "By employment status", active, m => m.EmploymentStatus.ToString()),
+                CountBy("department", "By department", active, m => new(m.Department, m.DepartmentId?.ToString())),
+                CountBy("branch", "By branch", active, m => new(m.Branch, m.BranchId?.ToString())),
+                CountBy("status", "By employment status", active, m => new(m.EmploymentStatus.ToString(), m.EmploymentStatus.ToString())),
                 CountBy("tenure", "By tenure", active, m => TenureBand(m.HireDate, filter.To), TenureBands),
                 CountBy("age", "By age", active, m => AgeBand(m.BirthDate, filter.To), AgeBands),
-                CountBy("gender", "By gender", active, m => m.Gender),
+                CountBy("gender", "By gender", active, m => new(m.Gender, m.Gender == NotSet ? null : m.Gender)),
             ]);
     }
 
@@ -116,10 +122,25 @@ public class WorkforceAnalyticsService
 
     private static double YearsBetween(DateOnly from, DateOnly to) => (to.DayNumber - from.DayNumber) / 365.25;
 
-    private static readonly string[] TenureBands = ["Under 1 year", "1–3 years", "3–5 years", "5–10 years", "10+ years"];
-    private static readonly string[] AgeBands = ["Under 25", "25–34", "35–44", "45–54", "55+", "Not set"];
+    private const string NotSet = "Not set";
 
-    private static string TenureBand(DateOnly hireDate, DateOnly asOf) => YearsBetween(hireDate, asOf) switch
+    /// <summary>A breakdown row's label and what the page drills into for it (see <see cref="AnalyticsRow.Key"/>).</summary>
+    private sealed record RowGroup(string Label, string? Key);
+
+    // Tenure keys are "{from}-{to}" in years ("10-" for the last band), which the page turns into
+    // a hire-date range. The employee list can't filter by birth date, so age bands have no key.
+    private static readonly RowGroup[] TenureBands =
+    [
+        new("Under 1 year", "0-1"), new("1–3 years", "1-3"), new("3–5 years", "3-5"),
+        new("5–10 years", "5-10"), new("10+ years", "10-"),
+    ];
+    private static readonly RowGroup[] AgeBands =
+    [
+        new("Under 25", null), new("25–34", null), new("35–44", null),
+        new("45–54", null), new("55+", null), new(NotSet, null),
+    ];
+
+    private static RowGroup TenureBand(DateOnly hireDate, DateOnly asOf) => YearsBetween(hireDate, asOf) switch
     {
         < 1 => TenureBands[0],
         < 3 => TenureBands[1],
@@ -128,7 +149,7 @@ public class WorkforceAnalyticsService
         _ => TenureBands[4],
     };
 
-    private static string AgeBand(DateOnly? birthDate, DateOnly asOf) => birthDate is not { } dob
+    private static RowGroup AgeBand(DateOnly? birthDate, DateOnly asOf) => birthDate is not { } dob
         ? AgeBands[5]
         : YearsBetween(dob, asOf) switch
         {
@@ -147,22 +168,23 @@ public class WorkforceAnalyticsService
 
     // Named bands keep their natural order (and show empty bands); anything else sorts biggest first.
     private static AnalyticsBreakdown CountBy(
-        string key, string title, IReadOnlyList<WorkforceMember> active, Func<WorkforceMember, string> labelOf,
-        IReadOnlyList<string>? order = null)
+        string key, string title, IReadOnlyList<WorkforceMember> active, Func<WorkforceMember, RowGroup> groupOf,
+        IReadOnlyList<RowGroup>? order = null)
     {
-        var counts = active.GroupBy(labelOf).ToDictionary(g => g.Key, g => g.Count());
-        var labels = order != null
-            ? order.Where(label => counts.ContainsKey(label) || label != "Not set").ToList()
-            : counts.OrderByDescending(c => c.Value).ThenBy(c => c.Key).Select(c => c.Key).ToList();
+        // Grouped by key as well as label, so two departments sharing a name stay apart.
+        var counts = active.GroupBy(groupOf).ToDictionary(g => g.Key, g => g.Count());
+        var groups = order != null
+            ? order.Where(group => counts.ContainsKey(group) || group.Label != NotSet).ToList()
+            : counts.OrderByDescending(c => c.Value).ThenBy(c => c.Key.Label).Select(c => c.Key).ToList();
 
-        var rows = labels.Select(label =>
+        var rows = groups.Select(group =>
         {
-            var count = counts.GetValueOrDefault(label);
-            return new AnalyticsRow(label, new Dictionary<string, decimal>
+            var count = counts.GetValueOrDefault(group);
+            return new AnalyticsRow(group.Label, new Dictionary<string, decimal>
             {
                 ["count"] = count,
                 ["share"] = AnalyticsPeriod.Percent(count, active.Count),
-            });
+            }, group.Key);
         }).ToList();
         return new AnalyticsBreakdown(key, title, CountColumns, rows);
     }

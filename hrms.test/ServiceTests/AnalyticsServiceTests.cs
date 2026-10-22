@@ -126,6 +126,24 @@ public class WorkforceAnalyticsServiceTests
     }
 
     [Fact]
+    public async Task BreakdownRows_CarryTheKeyThePageDrillsInto()
+    {
+        using var db = new SqliteHrmsContext();
+        await AnalyticsSeed.SeedAsync(db, seed => seed.Employees.AddRange(
+            AnalyticsSeed.Employee(AnalyticsSeed.Sales, "Ana", new DateOnly(2020, 1, 1)),
+            AnalyticsSeed.Employee(AnalyticsSeed.Ops, "Cy", new DateOnly(2025, 6, 1))));
+
+        var result = await AnalyticsSeed.RunAsync(db, uow => new WorkforceAnalyticsService(uow).GetAsync(AnalyticsSeed.Range(new DateOnly(2026, 1, 1), new DateOnly(2026, 3, 31)), default));
+
+        result.Breakdown("department").Rows.Single(r => r.Label == "Sales").Key.Should().Be(AnalyticsSeed.Sales.ToString());
+        result.Breakdown("branch").Rows.Should().ContainSingle().Which.Key.Should().BeNull("nobody has a branch, so there's nothing to filter by");
+        result.Breakdown("status").Rows.Should().ContainSingle().Which.Key.Should().Be("Regular");
+        result.Breakdown("gender").Rows.Should().ContainSingle().Which.Key.Should().Be("Female");
+        result.Breakdown("tenure").Rows.Select(r => r.Key).Should().Equal("0-1", "1-3", "3-5", "5-10", "10-");
+        result.Breakdown("age").Rows.Should().OnlyContain(r => r.Key == null, "the employee list can't filter by birth date");
+    }
+
+    [Fact]
     public async Task DepartmentFilter_AndConfidentialEmployees_NarrowTheCount()
     {
         using var db = new SqliteHrmsContext();
@@ -178,8 +196,9 @@ public class AttendanceAnalyticsServiceTests
         result.Kpi("absences").Should().Be(1);
         result.Kpi("overtimeHours").Should().Be(2m);
         result.PreviousKpi("lateHours").Should().Be(1m, "the February day falls in the previous period");
-        result.Breakdown("mostLate").Rows.Should().ContainSingle().Which.Label.Should().Be("Ana");
-        result.Breakdown("department").Rows.Select(r => r.Label).Should().BeEquivalentTo(["Sales", "Operations"]);
+        result.Breakdown("mostLate").Rows.Should().ContainSingle().Which.Should().Match<AnalyticsRow>(r => r.Label == "Ana" && r.Key == ana.Id.ToString());
+        result.Breakdown("department").Rows.Select(r => (r.Label, r.Key)).Should().BeEquivalentTo(
+            [("Sales", AnalyticsSeed.Sales.ToString()), ("Operations", AnalyticsSeed.Ops.ToString())]);
     }
 }
 
@@ -217,7 +236,8 @@ public class PayrollAnalyticsServiceTests
         uncleared.Kpi("laborCost").Should().Be(28_540m);
         uncleared.Kpi("overtimeShare").Should().Be(10m);
         uncleared.Breakdown("runType").Rows.Select(r => r.Label).Should().Equal("Regular", "13th Month");
-        uncleared.Breakdown("department").Rows.Should().ContainSingle().Which.Label.Should().Be("Sales");
+        uncleared.Breakdown("runType").Rows.Select(r => r.Key).Should().Equal("Regular", "ThirteenthMonth");
+        uncleared.Breakdown("department").Rows.Should().ContainSingle().Which.Should().Match<AnalyticsRow>(r => r.Label == "Sales" && r.Key == AnalyticsSeed.Sales.ToString());
 
         var cleared = await AnalyticsSeed.RunAsync(db, uow => new PayrollAnalyticsService(uow).GetAsync(range, default));
         cleared.Kpi("gross").Should().Be(78_000m);
@@ -298,7 +318,9 @@ public class RequestAnalyticsServiceTests
         result.Kpi("pending").Should().Be(1);
         result.Kpi("leaveDays").Should().Be(3m, "only the approved leave counts");
         result.Breakdown("approver").Rows.Should().ContainSingle().Which.Values["decisions"].Should().Be(3);
-        result.Breakdown("leaveType").Rows.Should().ContainSingle().Which.Label.Should().Be("Vacation Leave");
+        result.Breakdown("leaveType").Rows.Should().ContainSingle().Which.Should().Match<AnalyticsRow>(r => r.Label == "Vacation Leave" && r.Key == vacation.Id.ToString());
+        // Type rows share the series keys, so a row and a chart point drill the same way.
+        result.Breakdown("type").Rows.Select(r => r.Key).Should().BeEquivalentTo(["leave", "overtime"]);
         // The API camelCases dictionary keys, so series keys must already be camelCase to match.
         result.SeriesDefinitions.Select(s => s.Key).Should().Contain("officialBusiness")
             .And.BeEquivalentTo(result.Series[0].Values.Keys);

@@ -79,6 +79,7 @@ public class AttendanceAnalyticsService
             .GroupBy(x => new { x.EmployeeId, x.FullName })
             .Select(g => new
             {
+                g.Key.EmployeeId,
                 g.Key.FullName,
                 AbsentDays = g.Count(x => x.AbsentCount > 0),
                 LateMinutes = g.Sum(x => x.LateMinutes),
@@ -94,10 +95,14 @@ public class AttendanceAnalyticsService
             byMonth.ToDictionary(
                 m => AnalyticsPeriod.Label(m.Year, m.Month),
                 m => new AttendanceTotals(m.ScheduledDays, m.AbsentDays, m.LateMinutes, m.UndertimeMinutes, m.OvertimeHours)),
-            byDepartment.Select(d => (
-                d.DepartmentId is { } id && departmentNames.TryGetValue(id, out var name) ? name : AnalyticsScope.Unassigned,
-                new AttendanceTotals(d.ScheduledDays, d.AbsentDays, d.LateMinutes, d.UndertimeMinutes, d.OvertimeHours))).ToList(),
-            byEmployee.Select(e => (e.FullName ?? "—", e.LateMinutes, e.AbsentDays)).ToList());
+            byDepartment.Select(d =>
+            {
+                var totals = new AttendanceTotals(d.ScheduledDays, d.AbsentDays, d.LateMinutes, d.UndertimeMinutes, d.OvertimeHours);
+                return d.DepartmentId is { } id && departmentNames.TryGetValue(id, out var name)
+                    ? (name, (string?)id.ToString(), totals)
+                    : (AnalyticsScope.Unassigned, null, totals);
+            }).ToList(),
+            byEmployee.Select(e => (e.FullName ?? "—", e.EmployeeId, e.LateMinutes, e.AbsentDays)).ToList());
     }
 
     private static async Task<AttendanceTotals> TotalsAsync(IQueryable<DailyRecord> days, CancellationToken token)
@@ -126,8 +131,8 @@ public class AttendanceAnalyticsService
         AttendanceTotals current,
         AttendanceTotals previous,
         IReadOnlyDictionary<string, AttendanceTotals> byMonth,
-        IReadOnlyList<(string Department, AttendanceTotals Totals)> byDepartment,
-        IReadOnlyList<(string Name, double LateMinutes, int AbsentDays)> byEmployee)
+        IReadOnlyList<(string Department, string? DepartmentId, AttendanceTotals Totals)> byDepartment,
+        IReadOnlyList<(string Name, Guid EmployeeId, double LateMinutes, int AbsentDays)> byEmployee)
     {
         var kpis = new List<AnalyticsKpi>
         {
@@ -154,20 +159,21 @@ public class AttendanceAnalyticsService
             .ToList();
 
         var departmentRows = byDepartment
-            .GroupBy(d => d.Department)
+            // By id as well as name, so two departments sharing a name stay apart.
+            .GroupBy(d => (d.Department, d.DepartmentId))
             .Select(g =>
             {
                 var t = g.Select(x => x.Totals).Aggregate(AttendanceTotals.Empty, (a, b) => new AttendanceTotals(
                     a.ScheduledDays + b.ScheduledDays, a.AbsentDays + b.AbsentDays, a.LateMinutes + b.LateMinutes,
                     a.UndertimeMinutes + b.UndertimeMinutes, a.OvertimeHours + b.OvertimeHours));
-                return new AnalyticsRow(g.Key, new Dictionary<string, decimal>
+                return new AnalyticsRow(g.Key.Department, new Dictionary<string, decimal>
                 {
                     ["attendanceRate"] = t.AttendanceRate,
                     ["lateHours"] = t.LateHours,
                     ["undertimeHours"] = t.UndertimeHours,
                     ["absences"] = t.AbsentDays,
                     ["overtimeHours"] = t.OvertimeHoursRounded,
-                });
+                }, g.Key.DepartmentId);
             })
             .OrderBy(r => r.Values["attendanceRate"])
             .ToList();
@@ -196,12 +202,12 @@ public class AttendanceAnalyticsService
                 new AnalyticsBreakdown("mostLate", "Most late",
                     [new("lateHours", "Late hours", AnalyticsUnit.Hours)],
                     byEmployee.Where(e => e.LateMinutes > 0).OrderByDescending(e => e.LateMinutes).Take(TopCount)
-                        .Select(e => new AnalyticsRow(e.Name, new Dictionary<string, decimal> { ["lateHours"] = Math.Round((decimal)e.LateMinutes / 60, 1) }))
+                        .Select(e => new AnalyticsRow(e.Name, new Dictionary<string, decimal> { ["lateHours"] = Math.Round((decimal)e.LateMinutes / 60, 1) }, e.EmployeeId.ToString()))
                         .ToList()),
                 new AnalyticsBreakdown("mostAbsent", "Most absent",
                     [new("absences", "Absences", AnalyticsUnit.Days)],
                     byEmployee.Where(e => e.AbsentDays > 0).OrderByDescending(e => e.AbsentDays).Take(TopCount)
-                        .Select(e => new AnalyticsRow(e.Name, new Dictionary<string, decimal> { ["absences"] = e.AbsentDays }))
+                        .Select(e => new AnalyticsRow(e.Name, new Dictionary<string, decimal> { ["absences"] = e.AbsentDays }, e.EmployeeId.ToString()))
                         .ToList()),
             ]);
     }

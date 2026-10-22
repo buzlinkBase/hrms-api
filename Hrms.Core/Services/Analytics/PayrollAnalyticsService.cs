@@ -107,10 +107,14 @@ public class PayrollAnalyticsService
             byMonth.ToDictionary(
                 m => AnalyticsPeriod.Label(m.Year, m.Month),
                 m => new PayrollTotals(m.Gross, m.Net, m.Employer, m.Overtime, m.Payslips)),
-            byDepartment.Select(d => (
-                d.DepartmentId is { } id && departmentNames.TryGetValue(id, out var name) ? name : AnalyticsScope.Unassigned,
-                new PayrollTotals(d.Gross, d.Net, d.Employer, d.Overtime, d.Payslips))).ToList(),
-            byRunType.Select(r => (RunTypeLabel(r.RunType), new PayrollTotals(r.Gross, r.Net, r.Employer, r.Overtime, r.Payslips))).ToList());
+            byDepartment.Select(d =>
+            {
+                var totals = new PayrollTotals(d.Gross, d.Net, d.Employer, d.Overtime, d.Payslips);
+                return d.DepartmentId is { } id && departmentNames.TryGetValue(id, out var name)
+                    ? (name, (string?)id.ToString(), totals)
+                    : (AnalyticsScope.Unassigned, null, totals);
+            }).ToList(),
+            byRunType.Select(r => (RunTypeLabel(r.RunType), (string?)r.RunType.ToString(), new PayrollTotals(r.Gross, r.Net, r.Employer, r.Overtime, r.Payslips))).ToList());
     }
 
     public static string RunTypeLabel(PayrollType type) => type switch
@@ -141,19 +145,20 @@ public class PayrollAnalyticsService
         ["payslips"] = t.Payslips,
     };
 
-    private static List<AnalyticsRow> BreakdownRows(IEnumerable<(string Label, PayrollTotals Totals)> groups) => groups
-        .GroupBy(g => g.Label)
-        .Select(g => (Label: g.Key, Totals: g.Select(x => x.Totals).Aggregate(PayrollTotals.Empty, (a, b) => a.Plus(b))))
+    // By key as well as label, so two departments sharing a name stay apart.
+    private static List<AnalyticsRow> BreakdownRows(IEnumerable<(string Label, string? Key, PayrollTotals Totals)> groups) => groups
+        .GroupBy(g => (g.Label, g.Key))
+        .Select(g => (g.Key.Label, g.Key.Key, Totals: g.Select(x => x.Totals).Aggregate(PayrollTotals.Empty, (a, b) => a.Plus(b))))
         .OrderByDescending(g => g.Totals.LaborCost)
-        .Select(g => new AnalyticsRow(g.Label, Values(g.Totals)))
+        .Select(g => new AnalyticsRow(g.Label, Values(g.Totals), g.Key))
         .ToList();
 
     public static AnalyticsResult Calculate(
         AnalyticsFilter filter,
         PayrollTotals previous,
         IReadOnlyDictionary<string, PayrollTotals> byMonth,
-        IReadOnlyList<(string Department, PayrollTotals Totals)> byDepartment,
-        IReadOnlyList<(string RunType, PayrollTotals Totals)> byRunType)
+        IReadOnlyList<(string Department, string? DepartmentId, PayrollTotals Totals)> byDepartment,
+        IReadOnlyList<(string RunType, string? RunTypeKey, PayrollTotals Totals)> byRunType)
     {
         var current = byMonth.Values.Aggregate(PayrollTotals.Empty, (a, b) => a.Plus(b));
         var kpis = new List<AnalyticsKpi>

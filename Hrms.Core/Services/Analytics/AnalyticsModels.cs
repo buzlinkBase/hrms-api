@@ -32,7 +32,9 @@ public sealed record AnalyticsPoint(string Period, IReadOnlyDictionary<string, d
 
 public sealed record AnalyticsSeries(string Key, string Label, AnalyticsUnit Unit);
 
-public sealed record AnalyticsRow(string Label, IReadOnlyDictionary<string, decimal> Values);
+/// <param name="Key">What the page filters by when it drills into the row -- an id, an enum name or a
+/// band code, depending on the breakdown. Null when the row has nothing to drill into.</param>
+public sealed record AnalyticsRow(string Label, IReadOnlyDictionary<string, decimal> Values, string? Key = null);
 
 public sealed record AnalyticsColumn(string Key, string Label, AnalyticsUnit Unit);
 
