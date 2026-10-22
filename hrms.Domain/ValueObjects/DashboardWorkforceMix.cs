@@ -1,11 +1,12 @@
 namespace Hrms.Domain.ValueObjects;
 
-// The Dashboard's "who works here right now" charts: current employees (not resigned) split three
-// ways. See DashboardWorkforceService.
+// The Dashboard's "who works here right now" charts: current employees (not resigned) split by
+// status, branch, project site and tenure. See DashboardWorkforceService.
 public class DashboardWorkforceMix
 {
     public List<DashboardCount> EmploymentStatus { get; set; } = [];
     public List<DashboardCount> Branches { get; set; } = [];
+    public List<DashboardCount> Sites { get; set; } = [];
     public List<DashboardCount> Tenure { get; set; } = [];
 }
 

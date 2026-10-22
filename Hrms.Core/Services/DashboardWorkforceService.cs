@@ -6,8 +6,9 @@ namespace Hrms.Core.Services;
 // through the normal (tenant- and confidentiality-filtered) queries.
 public class DashboardWorkforceService
 {
-    private const int MaxBranches = 8;
+    private const int MaxBars = 8;
     private const string NoBranch = "No branch";
+    private const string NoSite = "No site";
 
     // Upper bound (exclusive, in whole years) of each band; the last band is open-ended.
     private static readonly (string Label, int UpToYears)[] TenureBands =
@@ -32,12 +33,10 @@ public class DashboardWorkforceService
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync(token);
 
-        var branches = await current
-            .GroupBy(e => e.Branch != null ? e.Branch.Name : NoBranch)
-            .Select(g => new { Label = g.Key, Count = g.Count() })
-            .OrderByDescending(x => x.Count)
-            .Take(MaxBranches)
-            .ToListAsync(token);
+        var branches = await TopCountsAsync(current.Select(e => e.Branch != null ? e.Branch.Name : NoBranch), token);
+
+        // A project site is the employee's Area (CostCenters).
+        var sites = await TopCountsAsync(current.Select(e => e.Area != null ? e.Area.Name : NoSite), token);
 
         var hireDates = await current.Select(e => e.HireDate).ToListAsync(token);
 
@@ -47,12 +46,20 @@ public class DashboardWorkforceService
                 .OrderByDescending(x => x.Count)
                 .Select(x => new DashboardCount { Label = x.Status.ToString(), Count = x.Count })
                 .ToList(),
-            Branches = branches
-                .Select(x => new DashboardCount { Label = x.Label, Count = x.Count })
-                .ToList(),
+            Branches = branches,
+            Sites = sites,
             Tenure = TenureCounts(hireDates, today),
         };
     }
+
+    // The largest groups of a label, biggest first.
+    private static Task<List<DashboardCount>> TopCountsAsync(IQueryable<string> labels, CancellationToken token) =>
+        labels
+            .GroupBy(label => label)
+            .Select(g => new DashboardCount { Label = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(MaxBars)
+            .ToListAsync(token);
 
     // A hire date in the future counts as under a year.
     public static List<DashboardCount> TenureCounts(IEnumerable<DateOnly> hireDates, DateOnly today)

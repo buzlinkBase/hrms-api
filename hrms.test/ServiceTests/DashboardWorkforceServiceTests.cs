@@ -37,13 +37,15 @@ public class DashboardWorkforceServiceTests
         {
             var group = new PayrollGroup { Id = Guid.NewGuid() };
             var branch = new Branch { Id = Guid.NewGuid(), Name = "Manila" };
+            var site = new CostCenters { Id = Guid.NewGuid(), Code = "HALL", Name = "City Hall" };
             seed.PayrollGroups.Add(group);
             seed.Branches.Add(branch);
+            seed.Areas.Add(site);
             seed.Employees.AddRange(
-                new Employee { Id = Guid.NewGuid(), PayrollGroupId = group.Id, BranchId = branch.Id, EmploymentStatus = EmploymentStatus.Regular, HireDate = new DateOnly(2020, 1, 1) },
+                new Employee { Id = Guid.NewGuid(), PayrollGroupId = group.Id, BranchId = branch.Id, AreaId = site.Id, EmploymentStatus = EmploymentStatus.Regular, HireDate = new DateOnly(2020, 1, 1) },
                 new Employee { Id = Guid.NewGuid(), PayrollGroupId = group.Id, BranchId = branch.Id, EmploymentStatus = EmploymentStatus.Regular, HireDate = new DateOnly(2026, 6, 1) },
                 new Employee { Id = Guid.NewGuid(), PayrollGroupId = group.Id, EmploymentStatus = EmploymentStatus.Probationary, HireDate = new DateOnly(2026, 8, 1) },
-                new Employee { Id = Guid.NewGuid(), PayrollGroupId = group.Id, BranchId = branch.Id, EmploymentStatus = EmploymentStatus.Regular, HireDate = new DateOnly(2015, 1, 1), DateResigned = new DateTime(2026, 5, 1) });
+                new Employee { Id = Guid.NewGuid(), PayrollGroupId = group.Id, BranchId = branch.Id, AreaId = site.Id, EmploymentStatus = EmploymentStatus.Regular, HireDate = new DateOnly(2015, 1, 1), DateResigned = new DateTime(2026, 5, 1) });
             await seed.SaveChangesAsync();
         }
 
@@ -59,6 +61,11 @@ public class DashboardWorkforceServiceTests
         [
             new DashboardCount { Label = "Manila", Count = 2 },
             new DashboardCount { Label = "No branch", Count = 1 },
+        ], o => o.WithStrictOrdering());
+        mix.Sites.Should().BeEquivalentTo(
+        [
+            new DashboardCount { Label = "No site", Count = 2 },
+            new DashboardCount { Label = "City Hall", Count = 1 },
         ], o => o.WithStrictOrdering());
         mix.Tenure.Single(t => t.Label == "Under 1 year").Count.Should().Be(2);
         mix.Tenure.Single(t => t.Label == "5 to 10 years").Count.Should().Be(1);
