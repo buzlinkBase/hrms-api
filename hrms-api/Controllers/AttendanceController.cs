@@ -232,7 +232,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("upload-batches")]
-    [RequirePermission("Upload Attendance:View")]
+    [RequirePermission(AttendanceLogPermissions.UploadView)]
     [ProducesResponseType(typeof(ResponseModel<List<UploadBatchModel>>), 200)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UploadBatches([FromQuery] UploadBatchFilter filter, CancellationToken ct)

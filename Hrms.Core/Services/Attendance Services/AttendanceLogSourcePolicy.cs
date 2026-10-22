@@ -3,18 +3,22 @@ using Onepunch.Common.Lib.Exceptions;
 namespace Hrms.Core.Services;
 
 /// <summary>
-/// Permission codes for changing attendance logs -- one Edit/Delete pair per log source (tenantstore
-/// catalog row "Attendance Manual Entry"). Constants so controllers can name them in [RequirePermission].
+/// Permission codes for changing attendance logs -- one Edit/Delete pair per log source, each on its
+/// own tenantstore catalog row (Attendance Manual Entry, Upload Attendance, Sync Attendance).
+/// Constants so controllers can name them in [RequirePermission].
 /// </summary>
 public static class AttendanceLogPermissions
 {
     public const string View = "Attendance Manual Entry:View";
     public const string Edit = "Attendance Manual Entry:Edit";
     public const string Delete = "Attendance Manual Entry:Delete";
-    public const string EditUploaded = "Attendance Manual Entry:EditUploaded";
-    public const string DeleteUploaded = "Attendance Manual Entry:DeleteUploaded";
-    public const string EditSynced = "Attendance Manual Entry:EditSynced";
-    public const string DeleteSynced = "Attendance Manual Entry:DeleteSynced";
+    public const string UploadView = "Upload Attendance:View";
+    // Also gates uploading attendance files.
+    public const string EditUploaded = "Upload Attendance:Edit";
+    // Also gates deleting a whole upload.
+    public const string DeleteUploaded = "Upload Attendance:Delete";
+    public const string EditSynced = "Sync Attendance:Edit";
+    public const string DeleteSynced = "Sync Attendance:Delete";
 }
 
 /// <summary>Who is changing an attendance log: what they may do, and the name kept on a saved original.</summary>

@@ -51,7 +51,7 @@ public class TimekeepingChangeScheduleDtrPermissionConventionTests
     [InlineData(nameof(AttendanceController.RawRowLogs), "Raw Logs:View")]
     [InlineData(nameof(AttendanceController.GetRemovedShiftAttendance), "Attendance Manual Entry:View")]
     [InlineData(nameof(AttendanceController.UploadBatches), "Upload Attendance:View")]
-    [InlineData(nameof(AttendanceController.DeleteUploadBatch), "Attendance Manual Entry:DeleteUploaded")]
+    [InlineData(nameof(AttendanceController.DeleteUploadBatch), "Upload Attendance:Delete")]
     public void AttendanceController_ActionRequiresTheExpectedCode(string actionName, string expectedCode)
     {
         AssertCodes(typeof(AttendanceController), actionName, expectedCode);
@@ -62,15 +62,15 @@ public class TimekeepingChangeScheduleDtrPermissionConventionTests
     public void AttendanceController_UpdateAtt_AcceptsAnyPerSourceEditCode()
     {
         AssertCodes(typeof(AttendanceController), nameof(AttendanceController.UpdateAtt),
-            "Attendance Manual Entry:Edit", "Attendance Manual Entry:EditUploaded", "Attendance Manual Entry:EditSynced");
+            "Attendance Manual Entry:Edit", "Upload Attendance:Edit", "Sync Attendance:Edit");
     }
 
     [Fact]
     public void AttendanceController_RestoreOriginal_AcceptsAnyUploadedOrSyncedEditOrDeleteCode()
     {
         AssertCodes(typeof(AttendanceController), nameof(AttendanceController.RestoreOriginal),
-            "Attendance Manual Entry:EditUploaded", "Attendance Manual Entry:DeleteUploaded",
-            "Attendance Manual Entry:EditSynced", "Attendance Manual Entry:DeleteSynced");
+            "Upload Attendance:Edit", "Upload Attendance:Delete",
+            "Sync Attendance:Edit", "Sync Attendance:Delete");
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class TimekeepingChangeScheduleDtrPermissionConventionTests
 
         var single = deletes.Single(m => m.GetParameters()[0].ParameterType == typeof(Guid));
         single.GetCustomAttribute<RequirePermissionAttribute>()!.Codes.Should().BeEquivalentTo(
-            ["Attendance Manual Entry:Delete", "Attendance Manual Entry:DeleteUploaded", "Attendance Manual Entry:DeleteSynced"]);
+            ["Attendance Manual Entry:Delete", "Upload Attendance:Delete", "Sync Attendance:Delete"]);
 
         var batch = deletes.Single(m => m.GetParameters()[0].ParameterType == typeof(string));
         batch.GetCustomAttribute<RequirePermissionAttribute>()!.Codes.Should().BeEquivalentTo(["Attendance Manual Entry:Delete"]);
