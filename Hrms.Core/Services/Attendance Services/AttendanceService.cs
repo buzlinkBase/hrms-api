@@ -464,13 +464,15 @@ public class AttendanceService : BaseService<Attendance>
 
     /// <summary>
     /// Deletes one attendance file upload: every log it imported and every saved original of it,
-    /// so the same file can be imported again from scratch.
+    /// so the same file can be imported again from scratch. Refused while a saved DTR covers its
+    /// logs (UploadBatchDtrLock) -- that DTR has to be deleted first.
     /// </summary>
     public async Task RemoveUploadBatch(string batch, AttendanceLogCaller caller, CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(batch))
             throw new ValidationException("Choose an upload to delete.");
         AttendanceLogSourcePolicy.EnsureCanDelete(LOGSOURCE.UPLOADED, caller);
+        await UploadBatchDtrLock.EnsureDeletableAsync(Context, batch, token);
 
         // Confidential employees' logs too: the upload goes as a whole.
         var query = Context.IgnoringConfidentiality<Attendance>()
@@ -568,6 +570,10 @@ public class AttendanceService : BaseService<Attendance>
                 LastLog = x.LastLog,
                 ChangedCount = x.Count,
             }));
+
+        var locks = await UploadBatchDtrLock.FindAsync(Context, codes, token);
+        foreach (var batch in batches)
+            batch.SavedDtrBatches = locks.TryGetValue(batch.BatchCode, out var dtr) ? dtr : [];
 
         return batches
             .OrderByDescending(x => x.UploadedAt ?? DateTime.MinValue)

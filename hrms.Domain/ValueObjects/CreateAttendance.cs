@@ -100,6 +100,8 @@ public class UploadBatchModel
     public DateTime? LastLog { get; set; }
     // Logs of this batch a user edited or removed (saved originals).
     public int ChangedCount { get; set; }
+    // Saved DTR batches covering this batch's logs; while any is listed the batch can't be deleted.
+    public List<string> SavedDtrBatches { get; set; } = [];
 }
 
 public record UploadBatchFilter
