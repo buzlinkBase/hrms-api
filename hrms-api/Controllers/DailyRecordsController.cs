@@ -218,12 +218,12 @@ public class DailyRecordsController : ControllerBase
         [FromQuery] DateTime? to,
         CancellationToken token)
     {
-        var fromDate = from.HasValue
-            ? DateOnly.FromDateTime(from.Value)
-            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-5));
-        var toDate = to.HasValue
-            ? DateOnly.FromDateTime(to.Value)
-            : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));
+        // No hidden window: a missing bound is open-ended, so the caller's own range decides how
+        // far back (e.g. last year's batches) the list reaches.
+        var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : DateOnly.MinValue;
+        var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : DateOnly.MaxValue;
+        if (fromDate > toDate)
+            return BadRequest("The date range's start date is after its end date.");
         var result = await _service.GetBatches(fromDate, toDate, token);
         return Ok(result);
     }

@@ -250,10 +250,9 @@ namespace Hrms.Api.Controllers
 
         // Batch-list projection for the Payroll Batches tab (Approve/Decline/Delete/Request
         // Deletion a whole Generate run) -- independent of the report's own date range below,
-        // same relationship DTR's batch-codes endpoint has to its own report screens. Defaults
-        // to today minus 5 months / plus 1 month, exactly matching
-        // DailyRecordsController.GetCodes's default so older not-yet-approved runs aren't hidden
-        // by a narrow window.
+        // same relationship DTR's batch-codes endpoint has to its own report screens. A missing
+        // from/to is open-ended (like DailyRecordsController.GetCodes), so the caller's own range
+        // decides how far back the list reaches.
         [HttpGet("batches")]
         [RequirePermission("Payroll Summary:View")]
         [ProducesResponseType(typeof(ResponseModel<List<PayrollBatchListModel>>), 200)]
@@ -262,12 +261,10 @@ namespace Hrms.Api.Controllers
             [FromQuery] DateTime? to,
             CancellationToken token)
         {
-            var fromDate = from.HasValue
-                ? DateOnly.FromDateTime(from.Value)
-                : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(-5));
-            var toDate = to.HasValue
-                ? DateOnly.FromDateTime(to.Value)
-                : DateOnly.FromDateTime(DateTime.UtcNow.Date.AddMonths(1));
+            var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : DateOnly.MinValue;
+            var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : DateOnly.MaxValue;
+            if (fromDate > toDate)
+                return BadRequest("The date range's start date is after its end date.");
             var result = await _service.GetBatchesAsync(fromDate, toDate, token);
             return Ok(result);
         }

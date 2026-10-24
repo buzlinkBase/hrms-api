@@ -366,6 +366,37 @@ public class DailyRecordServiceApprovalTests
             "a legacy batch that predates DTRBatch must not retroactively show as pending");
     }
 
+    // The controller no longer applies a hidden 5-month window: an open-ended range must reach
+    // batches from previous years.
+    [Fact]
+    public async Task GetBatches_OpenEndedRange_ReturnsBatchesFromPreviousYears()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var seed = db.NewContext())
+        {
+            var (_, generator, _) = SeedEmployees(seed);
+            foreach (var year in new[] { 2024, 2025, 2026 })
+            {
+                seed.DailyTimeRecords.Add(new DailyRecord
+                {
+                    Id = Guid.NewGuid(),
+                    EmployeeId = generator.Id,
+                    WorkDate = new DateOnly(year, 1, 1),
+                    BatchCode = $"DTR-{year}",
+                    Posted = true,
+                });
+            }
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var uow = new UnitOfWorkService(context);
+        var service = BuildService(uow);
+        var batches = await service.GetBatches(DateOnly.MinValue, DateOnly.MaxValue, CancellationToken.None);
+
+        batches.Select(x => x.Code).Should().BeEquivalentTo("DTR-2024", "DTR-2025", "DTR-2026");
+    }
+
     // Regression: the batch list aggregated a single x.First() row per batch, so every batch
     // showed a one-day period ("Sep 01 – Sep 01"), 1 employee, and one row's posted flag.
     [Fact]

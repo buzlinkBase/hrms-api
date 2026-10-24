@@ -728,4 +728,34 @@ public class PayrollBatchLifecycleServiceTests
         found.Id.Should().Be(inRangeBatchId);
         found.EmployeeCount.Should().Be(2);
     }
+
+    // The controller no longer applies a hidden 5-month window: an open-ended range must reach
+    // batches from previous years.
+    [Fact]
+    public async Task GetBatchesAsync_OpenEndedRange_ReturnsBatchesFromPreviousYears()
+    {
+        using var db = new SqliteHrmsContext();
+
+        await using (var seed = db.NewContext())
+        {
+            foreach (var year in new[] { 2024, 2025, 2026 })
+            {
+                var id = Guid.NewGuid();
+                seed.PayrollBatches.Add(new PayrollBatch
+                {
+                    Id = id,
+                    PayPeriodStart = new DateOnly(year, 1, 1),
+                    PayPeriodEnd = new DateOnly(year, 1, 15),
+                });
+                seed.Payrolls.Add(new Payroll { Id = Guid.NewGuid(), PayrollBatchId = id, EmployeeId = Guid.NewGuid() });
+            }
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var service = new PayrollBatchService(new UnitOfWorkService(context));
+        var batches = await service.GetBatchesAsync(DateOnly.MinValue, DateOnly.MaxValue, CancellationToken.None);
+
+        batches.Should().HaveCount(3);
+    }
 }
