@@ -181,6 +181,34 @@ public class PayrollReportSnapshotTests
         ["cash-bond"], ["deduction-ledger"],
     ];
 
+    // Balance is per installment (Amount until paid, then 0), so the ledger's outstanding figure is
+    // the sum of the open ones -- not the Balance of a single row -- and a loan that has not begun or
+    // is fully paid is not listed.
+    [Fact]
+    public async Task DeductionLedger_SumsOpenInstallments_AndOmitsPaidOrNotYetStartedLoans()
+    {
+        using var db = await SeedAsync();
+        await using (var seed = db.NewContext())
+        {
+            var paidApp = Id(40);
+            var futureApp = Id(41);
+            seed.DeductionApplications.AddRange(
+                new DeductionApplication { Id = paidApp, EmployeeId = Ben, DeductionId = Loan, TotalPrincipal = 100m, StartDate = new DateOnly(2026, 1, 1), EndDate = new DateOnly(2026, 1, 31), ProcessBy = "", Note = "", Remarks = "" },
+                new DeductionApplication { Id = futureApp, EmployeeId = Ben, DeductionId = Loan, TotalPrincipal = 100m, StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 6, 30), ProcessBy = "", Note = "", Remarks = "" });
+            seed.DeductionApplicationDetails.AddRange(
+                new DeductionApplicationDetail { Id = Id(230), EmployeeId = Ben, DeductionId = Loan, DeductionApplicationId = paidApp, Date = new DateOnly(2026, 1, 15), RecordOrder = 1, Amount = 100m, Balance = 0m },
+                new DeductionApplicationDetail { Id = Id(231), EmployeeId = Ben, DeductionId = Loan, DeductionApplicationId = futureApp, Date = new DateOnly(2026, 6, 15), RecordOrder = 1, Amount = 100m, Balance = 100m });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var result = await BuildService(context).GetDeductionLedgerAsync(new(2026, 2, 28), default);
+
+        result.Should().ContainSingle();
+        result[0].EmployeeId.Should().Be(Ana);
+        result[0].CurrentBalance.Should().Be(3000m);
+    }
+
     [Theory]
     [MemberData(nameof(Reports))]
     public Task Report_MatchesRecordedOutput(string name) => SnapshotAsync(name, name switch

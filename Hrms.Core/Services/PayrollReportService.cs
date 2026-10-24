@@ -75,39 +75,30 @@ public class PayrollReportService : BaseService<Payroll>
         }).OrderBy(x => x.FullName).ToList();
     }
 
-    // "Current outstanding balance" for a deduction schedule = the Balance of the highest-
-    // RecordOrder row (the most recently-scheduled still-unpaid installment) among that
-    // (Employee, Deduction) pair's rows with Balance > 0 — DeductionApplicationDetail rows are
-    // an amortization schedule (one row per installment), not one row per application. Not
-    // filtered to any single DeductionType category — covers Loans, Cash Advances, Cash Bond,
+    // "Current outstanding balance" for a deduction schedule = the sum of Balance over that
+    // schedule's still-open installments. DeductionApplicationDetail.Balance is per installment
+    // (it starts at Amount and drops to 0 when payroll posts the installment), so the total owed
+    // is the sum across the schedule, future installments included -- not the Balance of any one
+    // row. A schedule is listed once it has begun (an open installment dated on or before asOf).
+    // Not filtered to any single DeductionType category -- covers Loans, Cash Advances, Cash Bond,
     // and any other installment-based deduction alike.
     public async Task<List<DeductionLedgerModel>> GetDeductionLedgerAsync(DateOnly asOf, CancellationToken token, Guid? clientId = null)
     {
-        // The latest open installment per schedule is picked in SQL (no later open row exists),
-        // reading only the columns used -- instead of loading every open installment row.
         // A skipped attendance installment is forgiven, not owed, so it never counts as open.
-        var details = Context.DeductionApplicationDetails.AsNoTracking().Where(x => !x.IsSkipped);
+        var details = Context.DeductionApplicationDetails.AsNoTracking().Where(x => !x.IsSkipped && x.Balance > 0);
         if (clientId is { } client) details = details.Where(x => ClientEmployeeIds(client).Contains(x.EmployeeId));
-        var latestCandidates = await details
-            .Where(x => x.Date <= asOf && x.Balance > 0 &&
-                !details.Any(y =>
-                    y.EmployeeId == x.EmployeeId && y.DeductionId == x.DeductionId && y.DeductionApplicationId == x.DeductionApplicationId &&
-                    y.Date <= asOf && y.Balance > 0 && y.RecordOrder > x.RecordOrder))
-            .Select(x => new { x.EmployeeId, x.DeductionId, x.DeductionApplicationId, x.Balance })
+        var openPerLoan = await details
+            .GroupBy(x => new { x.EmployeeId, x.DeductionId, x.DeductionApplicationId })
+            .Where(g => g.Min(x => x.Date) <= asOf)
+            .Select(g => new { g.Key.EmployeeId, g.Key.DeductionId, g.Key.DeductionApplicationId, Balance = g.Sum(x => x.Balance) })
             .ToListAsync(token);
 
-        // Two open rows can share the top RecordOrder -- keep one per schedule, as before.
-        var latestPerLoan = latestCandidates
-            .GroupBy(x => new { x.EmployeeId, x.DeductionId, x.DeductionApplicationId })
-            .Select(g => g.First())
-            .ToList();
-
-        var applicationIds = latestPerLoan.Select(x => x.DeductionApplicationId).Distinct().ToList();
+        var applicationIds = openPerLoan.Select(x => x.DeductionApplicationId).Distinct().ToList();
         var applicationMap = (await Context.DeductionApplications.AsNoTracking()
             .Where(x => applicationIds.Contains(x.Id)).ToListAsync(token))
             .ToDictionary(x => x.Id);
 
-        var deductionIds = latestPerLoan.Select(x => x.DeductionId).Distinct().ToList();
+        var deductionIds = openPerLoan.Select(x => x.DeductionId).Distinct().ToList();
         var deductions = await Context.Deductions.AsNoTracking()
             .Where(x => deductionIds.Contains(x.Id)).ToListAsync(token);
         var deductionMap = deductions.ToDictionary(x => x.Id);
@@ -117,9 +108,9 @@ public class PayrollReportService : BaseService<Payroll>
             .Where(x => categoryIds.Contains(x.Id)).ToListAsync(token))
             .ToDictionary(x => x.Id);
 
-        var employeeMap = await LoadEmployeeMapAsync(latestPerLoan.Select(x => x.EmployeeId), token);
+        var employeeMap = await LoadEmployeeMapAsync(openPerLoan.Select(x => x.EmployeeId), token);
 
-        return latestPerLoan.Select(x =>
+        return openPerLoan.Select(x =>
         {
             applicationMap.TryGetValue(x.DeductionApplicationId, out var app);
             deductionMap.TryGetValue(x.DeductionId, out var deduction);
