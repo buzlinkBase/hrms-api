@@ -30,31 +30,6 @@ public class CoworkerServiceTests
     public void IsMilestone_OnlyForServiceAnniversariesWorthCelebrating(int years, bool expected) =>
         CoworkerService.IsMilestone(years).Should().Be(expected);
 
-    [Fact]
-    public void BuildOrgTree_NestsReportsAndSurvivesCyclesAndMissingManagers()
-    {
-        OrgNodeModel Node(Guid id) => new() { Id = id, FullName = id.ToString() };
-        var boss = Guid.NewGuid();
-        var mid = Guid.NewGuid();
-        var leaf = Guid.NewGuid();
-        var orphan = Guid.NewGuid();
-        var a = Guid.NewGuid();
-        var b = Guid.NewGuid();
-
-        var roots = CoworkerService.BuildOrgTree(
-        [
-            (boss, null, Node(boss)),
-            (mid, boss, Node(mid)),
-            (leaf, mid, Node(leaf)),
-            (orphan, Guid.NewGuid(), Node(orphan)), // manager not in the list
-            (a, b, Node(a)), // a <-> b cycle
-            (b, a, Node(b)),
-        ]);
-
-        roots.Select(r => r.Id).Should().BeEquivalentTo([boss, orphan, a, b]);
-        roots.Single(r => r.Id == boss).Reports.Single().Reports.Single().Id.Should().Be(leaf);
-    }
-
     private static CoworkerService Service(HrmsContext context) =>
         new(new UnitOfWorkService(context),
             new ImageUrlResolver(new LocalFileStorage(Path.GetTempPath())),

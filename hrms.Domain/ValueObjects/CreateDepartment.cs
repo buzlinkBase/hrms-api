@@ -4,6 +4,8 @@ public class CreateDepartment
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public Guid? ParentDepartmentId { get; set; }
+    public Guid? HeadId { get; set; }
     public string Status { get; set; }
 }
 public class UpdateDepartment : CreateDepartment

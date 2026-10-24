@@ -1,4 +1,5 @@
-﻿using Hrms.Core.Validations;
+﻿using Hrms.Core.Services.OrgChart;
+using Hrms.Core.Validations;
 using Hrms.Domain.Entities;
 using Mapster;
 
@@ -23,7 +24,20 @@ public class DepartmentService : BaseService<Department>
         {
             return EvaluationResult.Fail($"A department named '{model.Name.Trim()}' already exists.");
         }
+        if (model.ParentDepartmentId != null && await WouldCreateCycleAsync(model.Id, model.ParentDepartmentId.Value, token))
+        {
+            return EvaluationResult.Fail("A department can't sit under itself or one of its own sub-departments.");
+        }
         return await base.CreateValidatorAsync(model, token);
+    }
+
+    // Walks up from the proposed parent; reaching `id` means the move would close a loop.
+    private async Task<bool> WouldCreateCycleAsync(Guid id, Guid parentId, CancellationToken token)
+    {
+        var parents = await Context.Departments.AsNoTracking()
+            .Select(d => new { d.Id, d.ParentDepartmentId })
+            .ToDictionaryAsync(d => d.Id, d => d.ParentDepartmentId, token);
+        return OrgChartBuilder.ReachesSelf(id, parentId, parents);
     }
 
     public async Task AddAsync(Department model, CancellationToken token)

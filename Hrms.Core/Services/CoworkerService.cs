@@ -1,4 +1,5 @@
 using DTR.Core;
+using Hrms.Core.Services.OrgChart;
 using Hrms.Core.Services.Storage;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
@@ -16,6 +17,7 @@ public class CoworkerService
     public const int AnniversaryLookAheadDays = 7;
     public const int DirectoryPageSize = 24;
     private const int MaxOrgNodes = 2000;
+    private const string CompanyName = "Company";
 
     private static readonly int[] MilestoneYears = [1, 3, 5, 10, 15, 20, 25, 30, 35, 40];
 
@@ -162,8 +164,8 @@ public class CoworkerService
         return new DirectoryPageModel { Items = items, Total = total };
     }
 
-    // Reporting lines from ManagerId. Roots are people with no (visible) manager. A cycle in the
-    // data can't loop forever: each employee is placed at most once.
+    // Company > Department > Section > people, with reporting lines (ManagerId) inside each unit.
+    // The layout rules live in OrgChartBuilder; this only loads the rows.
     public async Task<List<OrgNodeModel>> GetOrgChartAsync(CancellationToken token)
     {
         if (!(await GetWidgetsAsync()).ShowDirectory) return [];
@@ -177,46 +179,25 @@ public class CoworkerService
                 e.ManagerId,
                 e.FirstName,
                 e.LastName,
+                e.DepartmentId,
+                e.SectionId,
                 Position = e.Position != null ? e.Position.Name : string.Empty,
+                Level = e.Position != null ? e.Position.Level : 0,
             })
             .ToListAsync(token);
 
-        return BuildOrgTree(people.Select(p =>
-            (p.Id, p.ManagerId, new OrgNodeModel
-            {
-                Id = p.Id,
-                FullName = $"{p.FirstName} {p.LastName}".Trim(),
-                PositionName = p.Position,
-            })).ToList());
-    }
+        var departments = await _uow.Repository.FindAll<Department>().AsNoTracking()
+            .Select(d => new OrgDepartment(d.Id, d.Name, d.ParentDepartmentId, d.HeadId))
+            .ToListAsync(token);
+        var sections = await _uow.Repository.FindAll<Section>().AsNoTracking()
+            .Select(s => new OrgSection(s.Id, s.Name, s.DepartmentId, s.HeadId))
+            .ToListAsync(token);
 
-    public static List<OrgNodeModel> BuildOrgTree(List<(Guid Id, Guid? ManagerId, OrgNodeModel Node)> people)
-    {
-        var byId = people.ToDictionary(p => p.Id, p => p.Node);
-        var parents = people.ToDictionary(p => p.Id, p => p.ManagerId);
-        var roots = new List<OrgNodeModel>();
-        foreach (var (id, managerId, node) in people)
-        {
-            if (managerId != null && managerId != id && byId.ContainsKey(managerId.Value)
-                && !ReachesSelf(id, managerId.Value, parents))
-                byId[managerId.Value].Reports.Add(node);
-            else
-                roots.Add(node);
-        }
-        return roots;
-    }
-
-    // True if walking up from `managerId` arrives back at `id` (attaching would close a loop).
-    private static bool ReachesSelf(Guid id, Guid managerId, Dictionary<Guid, Guid?> parents)
-    {
-        var seen = new HashSet<Guid>();
-        Guid? current = managerId;
-        while (current != null && seen.Add(current.Value))
-        {
-            if (current == id) return true;
-            current = parents.GetValueOrDefault(current.Value);
-        }
-        return false;
+        return OrgChartBuilder.Build(
+            CompanyName,
+            departments,
+            sections,
+            people.Select(p => new OrgPerson(p.Id, $"{p.FirstName} {p.LastName}".Trim(), p.Position, p.Level, p.ManagerId, p.DepartmentId, p.SectionId)).ToList());
     }
 
     // Employee-controlled opt-in; touches only the given employee's own row.

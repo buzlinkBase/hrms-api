@@ -7,4 +7,5 @@ public class Section : BaseEntity
     public string SectionType { get; set; } = "Section";
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public Guid? HeadId { get; set; }
 }
