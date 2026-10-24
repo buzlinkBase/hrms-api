@@ -49,6 +49,20 @@ public class PayrollSettingsController : ControllerBase
             PortalShowThirteenthMonth = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowThirteenthMonth),
             PortalShowCashBond = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowCashBond),
             PortalShowUniformAllowance = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowUniformAllowance),
+            PortalShowAnnouncements = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowAnnouncements),
+            PortalShowCoworkers = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowCoworkers),
+            PortalShowDtr = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowDtr),
+            PortalShowIncompletePunches = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowIncompletePunches),
+            PortalShowRawAttendance = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowRawAttendance),
+            PortalShowShiftSchedule = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowShiftSchedule),
+            PortalShowPayslips = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowPayslips),
+            PortalShowLeaveCredits = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowLeaveCredits),
+            PortalShowDeductions = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowDeductions),
+            PortalShowLeaveApplications = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowLeaveApplications),
+            PortalShowOvertime = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowOvertime),
+            PortalShowOfficialBusiness = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowOfficialBusiness),
+            PortalShowPassSlip = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowPassSlip),
+            PortalShowLoanApplications = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowLoanApplications),
         });
     }
 
@@ -64,6 +78,20 @@ public class PayrollSettingsController : ControllerBase
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowThirteenthMonth, Value = request.PortalShowThirteenthMonth.ToString() },
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowCashBond, Value = request.PortalShowCashBond.ToString() },
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowUniformAllowance, Value = request.PortalShowUniformAllowance.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowAnnouncements, Value = request.PortalShowAnnouncements.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowCoworkers, Value = request.PortalShowCoworkers.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowDtr, Value = request.PortalShowDtr.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowIncompletePunches, Value = request.PortalShowIncompletePunches.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowRawAttendance, Value = request.PortalShowRawAttendance.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowShiftSchedule, Value = request.PortalShowShiftSchedule.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowPayslips, Value = request.PortalShowPayslips.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowLeaveCredits, Value = request.PortalShowLeaveCredits.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowDeductions, Value = request.PortalShowDeductions.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowLeaveApplications, Value = request.PortalShowLeaveApplications.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowOvertime, Value = request.PortalShowOvertime.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowOfficialBusiness, Value = request.PortalShowOfficialBusiness.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowPassSlip, Value = request.PortalShowPassSlip.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowLoanApplications, Value = request.PortalShowLoanApplications.ToString() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync(IdentityType, incoming, null, token);
@@ -80,4 +108,18 @@ public class PayrollSettingsDto
     public bool PortalShowThirteenthMonth { get; set; } = true;
     public bool PortalShowCashBond { get; set; } = true;
     public bool PortalShowUniformAllowance { get; set; } = true;
+    public bool PortalShowAnnouncements { get; set; } = true;
+    public bool PortalShowCoworkers { get; set; } = true;
+    public bool PortalShowDtr { get; set; } = true;
+    public bool PortalShowIncompletePunches { get; set; } = true;
+    public bool PortalShowRawAttendance { get; set; } = true;
+    public bool PortalShowShiftSchedule { get; set; } = true;
+    public bool PortalShowPayslips { get; set; } = true;
+    public bool PortalShowLeaveCredits { get; set; } = true;
+    public bool PortalShowDeductions { get; set; } = true;
+    public bool PortalShowLeaveApplications { get; set; } = true;
+    public bool PortalShowOvertime { get; set; } = true;
+    public bool PortalShowOfficialBusiness { get; set; } = true;
+    public bool PortalShowPassSlip { get; set; } = true;
+    public bool PortalShowLoanApplications { get; set; } = true;
 }

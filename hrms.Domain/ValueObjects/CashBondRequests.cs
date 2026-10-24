@@ -9,3 +9,7 @@ public record AdjustCashBondPayload(
     bool IsAddition,
     string Particulars,
     DateOnly? EntryDate = null);
+
+// Payroll Reports > Cash Bond Tracking > "Edit rate" -- sets the per-run cash bond (Employee.CashBond).
+// Applies from the next payroll run; logged as a CashBondRateChange without touching the collected total.
+public record ChangeCashBondRatePayload(Guid EmployeeId, decimal NewRate, string Reason);

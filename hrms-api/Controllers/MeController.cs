@@ -142,6 +142,7 @@ namespace Hrms.Api.Controllers
             Ok(await visibility.GetAsync());
 
         // Which Coworkers widgets the company switched on, so the page only shows those tabs.
+        [PortalPage(PortalPage.Coworkers)]
         [HttpGet("coworkers/settings")]
         public async Task<IActionResult> GetCoworkerSettings([FromServices] CoworkerService coworkers)
         {
@@ -155,24 +156,29 @@ namespace Hrms.Api.Controllers
             });
         }
 
+        [PortalPage(PortalPage.Coworkers)]
         [HttpGet("coworkers/new-hires")]
         public async Task<IActionResult> GetNewHires([FromServices] CoworkerService coworkers, CancellationToken token) =>
             Ok(await coworkers.GetNewHiresAsync(PhToday(), token));
 
+        [PortalPage(PortalPage.Coworkers)]
         [HttpGet("coworkers/anniversaries")]
         public async Task<IActionResult> GetAnniversaries([FromServices] CoworkerService coworkers, CancellationToken token) =>
             Ok(await coworkers.GetAnniversariesAsync(PhToday(), token));
 
+        [PortalPage(PortalPage.Coworkers)]
         [HttpGet("coworkers/out-today")]
         public async Task<IActionResult> GetOutToday([FromServices] CoworkerService coworkers, CancellationToken token) =>
             Ok(await coworkers.GetOutTodayAsync(PhToday(), token));
 
+        [PortalPage(PortalPage.Coworkers)]
         [HttpGet("coworkers/directory")]
         public async Task<IActionResult> GetDirectory(
             [FromServices] CoworkerService coworkers, [FromQuery] string? q, [FromQuery] Guid? departmentId,
             [FromQuery] int page = 1, CancellationToken token = default) =>
             Ok(await coworkers.SearchDirectoryAsync(q, departmentId, page, token));
 
+        [PortalPage(PortalPage.Coworkers)]
         [HttpGet("coworkers/org-chart")]
         public async Task<IActionResult> GetOrgChart([FromServices] CoworkerService coworkers, CancellationToken token) =>
             Ok(await coworkers.GetOrgChartAsync(token));
@@ -180,6 +186,7 @@ namespace Hrms.Api.Controllers
         public record ContactSharingRequest(bool Share);
 
         // The employee's own opt-in to show their email/contact in the directory.
+        [PortalPage(PortalPage.Coworkers)]
         [HttpPut("contact-sharing")]
         public async Task<IActionResult> SetContactSharing(
             [FromBody] ContactSharingRequest request, [FromServices] CoworkerService coworkers, CancellationToken token)
@@ -190,6 +197,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.PayrollCore)]
+        [PortalPage(PortalPage.Payslips)]
         [HttpGet("payrolls")]
         [ProducesResponseType(typeof(ResponseModel<List<Payroll>>), 200)]
         public async Task<IActionResult> GetMyPayrolls([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -204,6 +212,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.PayrollCore)]
+        [PortalPage(PortalPage.Payslips)]
         [HttpGet("payrolls/{id:guid}/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         public async Task<IActionResult> PrintMyPayslip(Guid id, [FromServices] IncomeAplDtlService otherIncomeService,
@@ -245,6 +254,7 @@ namespace Hrms.Api.Controllers
             return Ok(acknowledgedAt);
         }
 
+        [PortalPage(PortalPage.Dtr)]
         [HttpGet("dtr-detail")]
         [ProducesResponseType(typeof(ResponseModel<ObjectCollection<DTRDetailModel>>), 200)]
         public async Task<IActionResult> GetMyDtrDetail([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -257,6 +267,7 @@ namespace Hrms.Api.Controllers
             return Ok(result);
         }
 
+        [PortalPage(PortalPage.IncompletePunches)]
         [HttpGet("incomplete-punches")]
         [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
         public async Task<IActionResult> GetMyIncompletePunches([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -271,6 +282,7 @@ namespace Hrms.Api.Controllers
 
         // Portal counterpart of Timekeeping's Raw Logs (DailyRecordsController.GenerateRawColumnarView),
         // always scoped to the caller's own employee record.
+        [PortalPage(PortalPage.RawAttendance)]
         [HttpGet("raw-attendance")]
         [ProducesResponseType(typeof(ResponseModel<ObjectCollection<ColumnarLogModel>>), 200)]
         public async Task<IActionResult> GetMyRawAttendance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
@@ -284,6 +296,7 @@ namespace Hrms.Api.Controllers
             return Ok(result);
         }
 
+        [PortalPage(PortalPage.ShiftSchedule)]
         [HttpGet("fixed-schedule")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeFixedScheduleModel>>), 200)]
         public async Task<IActionResult> GetMyFixedSchedule(CancellationToken token)
@@ -295,6 +308,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.LeaveCredits)]
         [HttpGet("leave-credits")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveCreditsBalanceModel>>), 200)]
         public async Task<IActionResult> GetMyLeaveCredits([FromQuery] int? year, CancellationToken token)
@@ -306,6 +320,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.LeaveApplications)]
         [HttpGet("leave-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyLeaveApplications(CancellationToken token)
@@ -320,6 +335,7 @@ namespace Hrms.Api.Controllers
         // same guard rail as every other write in this controller. Without it, a self-service
         // caller could file leave under a coworker's EmployeeId or self-approve it outright.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.LeaveApplications)]
         [HttpPost("leave-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyLeaveApplication([FromBody] CreateLeaveApplication payload, CancellationToken token)
@@ -340,6 +356,7 @@ namespace Hrms.Api.Controllers
         // whether another employee's application id exists) or InvalidOperationException (not
         // ForApproval anymore), both handled by the standard exception pipeline.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.LeaveApplications)]
         [HttpPatch("leave-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyLeaveApplication(Guid id, CancellationToken token)
@@ -355,6 +372,7 @@ namespace Hrms.Api.Controllers
         // pending-only rule, the portal filing policy, and the "back to the first approver if
         // anyone already approved" restart all live in LeaveApplicationService.UpdateOwnAsync.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.LeaveApplications)]
         [HttpPut("leave-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyLeaveApplication(Guid id, [FromBody] UpdateLeaveApplication payload, CancellationToken token)
@@ -369,6 +387,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.Overtime)]
         [HttpGet("overtime-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<OvertimeApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyOvertimeApplications(CancellationToken token)
@@ -389,6 +408,7 @@ namespace Hrms.Api.Controllers
         // entity default (ForApproval) already applies — set explicitly on the entity anyway
         // for clarity, since nothing on the wire could override it either way.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.Overtime)]
         [HttpPost("overtime-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyOvertimeApplication([FromBody] CreateOverTimeApplication payload, CancellationToken token)
@@ -404,6 +424,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.Overtime)]
         [HttpPatch("overtime-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyOvertimeApplication(Guid id, CancellationToken token)
@@ -417,6 +438,7 @@ namespace Hrms.Api.Controllers
 
         // See UpdateMyLeaveApplication -- same rules, enforced in OvertimeApplicationService.UpdateOwnAsync.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.Overtime)]
         [HttpPut("overtime-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyOvertimeApplication(Guid id, [FromBody] UpdateOvertimeApplication payload, CancellationToken token)
@@ -431,6 +453,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.OfficialBusiness)]
         [HttpGet("travel-order-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<TravelOrderApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyTravelOrderApplications(CancellationToken token)
@@ -449,6 +472,7 @@ namespace Hrms.Api.Controllers
         // treats it as finance-only and always sends 0 regardless of input, so self-service
         // filing follows the same convention rather than inventing a new one.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.OfficialBusiness)]
         [HttpPost("travel-order-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyTravelOrderApplication([FromBody] CreateTravelOrderApplication payload, CancellationToken token)
@@ -466,6 +490,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.OfficialBusiness)]
         [HttpPatch("travel-order-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyTravelOrderApplication(Guid id, CancellationToken token)
@@ -479,6 +504,7 @@ namespace Hrms.Api.Controllers
 
         // See UpdateMyLeaveApplication. Cost stays zeroed, same convention as filing.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.OfficialBusiness)]
         [HttpPut("travel-order-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyTravelOrderApplication(Guid id, [FromBody] UpdateTravelOrderApplication payload, CancellationToken token)
@@ -494,6 +520,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.PassSlip)]
         [HttpGet("pass-slip-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<PassSlipApplicationModel>>), 200)]
         public async Task<IActionResult> GetMyPassSlipApplications(CancellationToken token)
@@ -510,6 +537,7 @@ namespace Hrms.Api.Controllers
         // EmployeeId forced as above — PassSlipApplicationService.AddAsync already forces
         // ApprovalStatus.ForApproval itself, so this endpoint doesn't need to duplicate that.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.PassSlip)]
         [HttpPost("pass-slip-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyPassSlipApplication([FromBody] CreatePassSlipApplication payload, CancellationToken token)
@@ -525,6 +553,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.PassSlip)]
         [HttpPatch("pass-slip-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyPassSlipApplication(Guid id, CancellationToken token)
@@ -538,6 +567,7 @@ namespace Hrms.Api.Controllers
 
         // See UpdateMyLeaveApplication -- enforced in PassSlipApplicationService.UpdateOwnAsync.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.PassSlip)]
         [HttpPut("pass-slip-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyPassSlipApplication(Guid id, [FromBody] UpdatePassSlipApplication payload, CancellationToken token)
@@ -591,6 +621,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.ShiftSchedule)]
         [HttpGet("change-rest-day")]
         [ProducesResponseType(typeof(ResponseModel<List<RestDayRecordResponse>>), 200)]
         public async Task<IActionResult> GetMyChangeRestDayRequests(CancellationToken token)
@@ -605,6 +636,7 @@ namespace Hrms.Api.Controllers
         // as every other create action here. RequestChangeOffAsync always files ForApproval —
         // see ChangeRestDayService for why that's safe against the DTR calculation path.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.ShiftSchedule)]
         [HttpPost("change-rest-day")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyChangeRestDayRequest([FromBody] RequestChangeRestDay payload, CancellationToken token)
@@ -621,6 +653,7 @@ namespace Hrms.Api.Controllers
         // ChangeRestDayService.WithdrawChangeOffAsync. employeeId is resolved server-side same as
         // everywhere else, so a caller can only ever match rows under their own batches.
         [RequireFeature(EntitlementKeys.ApplicationsCore)]
+        [PortalPage(PortalPage.ShiftSchedule)]
         [HttpPatch("change-rest-day/{batchCode}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 404)]
@@ -634,6 +667,8 @@ namespace Hrms.Api.Controllers
             return Ok();
         }
 
+        // Not gated by PortalPage.LoanApplications: My Deductions lists the same applications, so
+        // switching Loan Applications off must not break it.
         [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpGet("loan-applications")]
         [ProducesResponseType(typeof(ResponseModel<List<DeductionApplicationModel>>), 200)]
@@ -650,6 +685,7 @@ namespace Hrms.Api.Controllers
         // as every other create action here. Always files ForApproval — an untrusted amortization
         // schedule must not reach payroll until HR approves it. See DeductionAplDtlService.LoadAsync.
         [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
+        [PortalPage(PortalPage.LoanApplications)]
         [HttpPost("loan-applications")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CreateMyLoanApplication([FromBody] CreateDeductionApplication payload, CancellationToken token)
@@ -663,6 +699,7 @@ namespace Hrms.Api.Controllers
         }
 
         [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
+        [PortalPage(PortalPage.LoanApplications)]
         [HttpPatch("loan-applications/{id:guid}/withdraw")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> WithdrawMyLoanApplication(Guid id, CancellationToken token)
@@ -677,6 +714,7 @@ namespace Hrms.Api.Controllers
         // See UpdateMyLeaveApplication -- enforced in DeductionApplicationService.UpdateOwnAsync
         // (which also re-checks the deduction type is still employee-fileable).
         [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
+        [PortalPage(PortalPage.LoanApplications)]
         [HttpPut("loan-applications/{id:guid}")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UpdateMyLoanApplication(Guid id, [FromBody] UpdateDeductionApplication payload, CancellationToken token)

@@ -240,6 +240,7 @@ public class PayrollSummaryReportDocumentTests
         {
             "Rest Day", "Paid Leave", "COLA", "Bonuses", "Commissions", "De Minimis", "Reimb.",
             "Ret. Accrual", "Cash Bond", "Total Ded.", "Late/UT", "Absent", "Ret. Payout",
+            "Cash Bond Refund",
         });
         doc.ColumnHeaders.Should().OnlyHaveUniqueItems();
         doc.ColumnHeaders[0].Should().Be("Employee");

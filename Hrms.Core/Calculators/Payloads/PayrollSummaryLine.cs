@@ -287,6 +287,10 @@ public class PayrollSummaryLine
     // out RetirementFund.Balance at separation; added straight to NetPay (non-taxable), never to
     // GrossIncome. RetirementFund.Balance only debits by this amount at Post time.
     public decimal RetirementPayout { get; set; }
+    // Last Pay > IncludeCashBondRefund -- set by LastPayrollService.GenerateAsync; the collected
+    // cash bond paid back at separation, added straight to NetPay (non-taxable), never to
+    // GrossIncome. Mirrors Payroll.CashBondRefund.
+    public decimal CashBondRefund { get; set; }
 
     public decimal RestDayHours { get; set; }
     public decimal RestDayOTHours { get; set; }

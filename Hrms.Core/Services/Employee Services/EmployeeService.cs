@@ -381,8 +381,15 @@ public class EmployeeService : BaseService<Employee>
         // -- a display link, an old inline image -- must never replace the stored one.
         var photo = existing.ProfileImg;
         var storedEmployeeNo = existing.EmployeeNo;
+        var storedCashBond = existing.CashBond;
         payload.Adapt(existing);
         existing.ProfileImg = photo;
+        // A cash bond change made here is logged in the rate history like the Cash Bond report's
+        // quick edit (it applies from the next payroll run either way).
+        if (CashBondRateChange.Between(existing.Id, storedCashBond, existing.CashBond, "Updated in Employee Details") is { } cashBondChange)
+        {
+            Context.CashBondRateChanges.Add(cashBondChange);
+        }
         // With automatic numbering on, a blank number from the form never erases the one the employee has.
         if (string.IsNullOrWhiteSpace(existing.EmployeeNo) && !string.IsNullOrWhiteSpace(storedEmployeeNo) && await _numbers.IsAutoAsync(token))
         {

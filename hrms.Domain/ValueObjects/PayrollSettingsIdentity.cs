@@ -16,4 +16,18 @@ public static class PayrollSettingsIdentity
     public const string KeyPortalShowThirteenthMonth = "PortalShowThirteenthMonth";
     public const string KeyPortalShowCashBond = "PortalShowCashBond";
     public const string KeyPortalShowUniformAllowance = "PortalShowUniformAllowance";
+    public const string KeyPortalShowAnnouncements = "PortalShowAnnouncements";
+    public const string KeyPortalShowCoworkers = "PortalShowCoworkers";
+    public const string KeyPortalShowDtr = "PortalShowDtr";
+    public const string KeyPortalShowIncompletePunches = "PortalShowIncompletePunches";
+    public const string KeyPortalShowRawAttendance = "PortalShowRawAttendance";
+    public const string KeyPortalShowShiftSchedule = "PortalShowShiftSchedule";
+    public const string KeyPortalShowPayslips = "PortalShowPayslips";
+    public const string KeyPortalShowLeaveCredits = "PortalShowLeaveCredits";
+    public const string KeyPortalShowDeductions = "PortalShowDeductions";
+    public const string KeyPortalShowLeaveApplications = "PortalShowLeaveApplications";
+    public const string KeyPortalShowOvertime = "PortalShowOvertime";
+    public const string KeyPortalShowOfficialBusiness = "PortalShowOfficialBusiness";
+    public const string KeyPortalShowPassSlip = "PortalShowPassSlip";
+    public const string KeyPortalShowLoanApplications = "PortalShowLoanApplications";
 }

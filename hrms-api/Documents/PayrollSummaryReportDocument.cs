@@ -311,6 +311,8 @@ public class PayrollSummaryReportDocument : IDocument
         new("Absent", 1, ColumnKind.Money, r => r.AbsencesAmount, Muted: true),
         // Last Pay only -- the cashed-out Retirement Fund balance, added straight to Net.
         new("Ret. Payout", 1, ColumnKind.Money, r => r.RetirementPayout),
+        // Last Pay only -- the collected cash bond paid back, added straight to Net.
+        new("Cash Bond Refund", 1, ColumnKind.Money, r => r.CashBondRefund),
         new("Net Pay", 1.2f, ColumnKind.Money, r => r.NetPay, Emphasis: true),
     ];
 

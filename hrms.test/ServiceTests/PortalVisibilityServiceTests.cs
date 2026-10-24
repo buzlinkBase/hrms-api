@@ -8,8 +8,8 @@ using hrms.test.TestSupport;
 namespace hrms.test.ServiceTests;
 
 /// <summary>
-/// Company Settings > Payroll Settings switches for the optional My Portal pay pages: all on until
-/// the company saves a switch off, and each switch only affects its own page.
+/// Company Settings > Payroll Settings switches for the My Portal pages: all on until the company
+/// saves a switch off, and each switch only affects its own page.
 /// </summary>
 public class PortalVisibilityServiceTests
 {
@@ -27,6 +27,40 @@ public class PortalVisibilityServiceTests
         await seed.SaveChangesAsync();
     }
 
+    private static readonly (string Key, PortalPage Page)[] Switches =
+    [
+        (PayrollSettingsIdentity.KeyPortalShowThirteenthMonth, PortalPage.ThirteenthMonth),
+        (PayrollSettingsIdentity.KeyPortalShowCashBond, PortalPage.CashBond),
+        (PayrollSettingsIdentity.KeyPortalShowUniformAllowance, PortalPage.UniformAllowance),
+        (PayrollSettingsIdentity.KeyPortalShowAnnouncements, PortalPage.Announcements),
+        (PayrollSettingsIdentity.KeyPortalShowCoworkers, PortalPage.Coworkers),
+        (PayrollSettingsIdentity.KeyPortalShowDtr, PortalPage.Dtr),
+        (PayrollSettingsIdentity.KeyPortalShowIncompletePunches, PortalPage.IncompletePunches),
+        (PayrollSettingsIdentity.KeyPortalShowRawAttendance, PortalPage.RawAttendance),
+        (PayrollSettingsIdentity.KeyPortalShowShiftSchedule, PortalPage.ShiftSchedule),
+        (PayrollSettingsIdentity.KeyPortalShowPayslips, PortalPage.Payslips),
+        (PayrollSettingsIdentity.KeyPortalShowLeaveCredits, PortalPage.LeaveCredits),
+        (PayrollSettingsIdentity.KeyPortalShowDeductions, PortalPage.Deductions),
+        (PayrollSettingsIdentity.KeyPortalShowLeaveApplications, PortalPage.LeaveApplications),
+        (PayrollSettingsIdentity.KeyPortalShowOvertime, PortalPage.Overtime),
+        (PayrollSettingsIdentity.KeyPortalShowOfficialBusiness, PortalPage.OfficialBusiness),
+        (PayrollSettingsIdentity.KeyPortalShowPassSlip, PortalPage.PassSlip),
+        (PayrollSettingsIdentity.KeyPortalShowLoanApplications, PortalPage.LoanApplications),
+    ];
+
+    public static TheoryData<string, PortalPage> SwitchData()
+    {
+        var data = new TheoryData<string, PortalPage>();
+        foreach (var (key, page) in Switches) data.Add(key, page);
+        return data;
+    }
+
+    [Fact]
+    public void EverySwitchIsCoveredByATest()
+    {
+        Switches.Select(s => s.Page).Should().BeEquivalentTo(Enum.GetValues<PortalPage>());
+    }
+
     [Fact]
     public async Task EveryPageIsVisibleUntilTheCompanySwitchesItOff()
     {
@@ -35,15 +69,13 @@ public class PortalVisibilityServiceTests
 
         var result = await Service(context).GetAsync();
 
-        result.Should().Be(new PortalVisibilityModel(true, true, true));
+        result.Should().Be(new PortalVisibilityModel());
+        Enum.GetValues<PortalPage>().Should().OnlyContain(p => result.IsVisible(p));
     }
 
     [Theory]
-    [InlineData(PayrollSettingsIdentity.KeyPortalShowThirteenthMonth, false, true, true)]
-    [InlineData(PayrollSettingsIdentity.KeyPortalShowCashBond, true, false, true)]
-    [InlineData(PayrollSettingsIdentity.KeyPortalShowUniformAllowance, true, true, false)]
-    public async Task SwitchingOnePageOffLeavesTheOthersVisible(
-        string key, bool thirteenth, bool cashBond, bool uniform)
+    [MemberData(nameof(SwitchData))]
+    public async Task SwitchingOnePageOffLeavesTheOthersVisible(string key, PortalPage page)
     {
         using var db = new SqliteHrmsContext();
         await using (var seed = db.NewContext())
@@ -52,7 +84,8 @@ public class PortalVisibilityServiceTests
         await using var context = db.NewContext();
         var result = await Service(context).GetAsync();
 
-        result.Should().Be(new PortalVisibilityModel(thirteenth, cashBond, uniform));
+        result.IsVisible(page).Should().BeFalse();
+        Enum.GetValues<PortalPage>().Where(p => p != page).Should().OnlyContain(p => result.IsVisible(p));
     }
 
     [Fact]

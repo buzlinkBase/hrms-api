@@ -19,6 +19,7 @@ namespace Hrms.Api.Controllers;
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 401)]
 [ProducesResponseType(typeof(ResponseModel<ProblemDetails>), 500)]
 [RequireFeature(EntitlementKeys.PortalSelfService)]
+[PortalPage(PortalPage.ShiftSchedule)]
 public class MyScheduleController : ControllerBase
 {
     private readonly EmployeeService _employeeService;

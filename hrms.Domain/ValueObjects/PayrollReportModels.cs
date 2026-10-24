@@ -63,9 +63,21 @@ public class CashBondReportModel
     // Net of manual entries (CashBondAdjustment) -- e.g. the opening balance from before this system.
     public decimal Adjustments { get; set; }
     public decimal CollectedFromPayroll { get; set; }
-    // Adjustments + CollectedFromPayroll.
+    // Paid back through Last Pay (Payroll.CashBondRefund), shown as a positive figure.
+    public decimal Refunded { get; set; }
+    // Adjustments + CollectedFromPayroll - Refunded.
     public decimal TotalCollected { get; set; }
     public int PayrollRunsCount { get; set; }
+}
+
+// One entry of an employee's cash bond rate history. See CashBondRateChange.
+public class CashBondRateChangeModel
+{
+    public Guid Id { get; set; }
+    public DateTime ChangedAt { get; set; }
+    public decimal OldRate { get; set; }
+    public decimal NewRate { get; set; }
+    public string Reason { get; set; } = string.Empty;
 }
 
 // "My Cash Bond" (employee portal) -- same TotalCollected concept as CashBondReportModel, plus
@@ -75,6 +87,8 @@ public class MyCashBondModel
 {
     public decimal CashBondRate { get; set; }
     public decimal TotalCollected { get; set; }
+    // Paid back through Last Pay, already subtracted from TotalCollected.
+    public decimal Refunded { get; set; }
     public List<MyCashBondRunModel> Runs { get; set; } = new();
     public List<MyCashBondAdjustmentModel> Adjustments { get; set; } = new();
 }
@@ -90,6 +104,7 @@ public class MyCashBondRunModel
     public Guid PayrollId { get; set; }
     public DateOnly PayPeriodStart { get; set; }
     public DateOnly PayPeriodEnd { get; set; }
+    // Signed: the cash bond deducted on the run, or minus the refund when it is a Last Pay.
     public decimal Amount { get; set; }
 }
 

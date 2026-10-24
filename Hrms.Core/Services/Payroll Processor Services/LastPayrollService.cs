@@ -7,8 +7,9 @@ namespace Hrms.Core.Services;
 
 // Last Pay / Final Pay (DOLE Labor Advisory 06-20) for a separated employee: prorated 13th
 // month pay (basic pay actually earned up to DateResigned / 12) + cash conversion of
-// convertible leave credits + cash-out of the accrued RetirementFund.Balance (non-taxable,
-// added to NetPay rather than Gross), minus outstanding loan balance (informational netting
+// convertible leave credits + cash-out of the accrued RetirementFund.Balance + refund of the
+// cash bond collected so far (both non-taxable, added to NetPay rather than Gross), minus
+// outstanding loan balance (informational netting
 // only — the loan ledger itself is untouched). Shares the SAME annual exemption ceiling as 13th month
 // (see ThirteenthMonthCeilingCalculator), combined with Special Bonuses already paid that
 // year. Deliberately does NOT compute final DTR-attendance wages — those still flow through
@@ -109,12 +110,10 @@ public class LastPayrollService
         return warnings;
     }
 
-    // Cash Bond status for the Last Pay review screen — informational only, same role as
-    // GetAttendanceWarningsAsync below: HR sees each separated employee's cash bond collected-
-    // to-date vs. target and decides the refund manually (bonds are often conditional on
-    // clearance/no accountabilities, which this system has no way to verify). Never applied to
-    // NetPay or the deduction ledger — mirrors the "informational netting only" boundary already
-    // documented on the outstanding-loan line in GenerateAsync below. Uses the latest separation
+    // Cash Bond status for the Last Pay review screen — each separated employee's cash bond
+    // collected to date, i.e. what GenerateAsync pays back when IncludeCashBondRefund is on. HR
+    // can leave the option off per run (bonds are often conditional on clearance/no
+    // accountabilities, which this system has no way to verify). Uses the latest separation
     // date among the selected employees as the "as of" cutoff, same simplifying convention
     // LoadOutstandingLoansAsync uses.
     public async Task<List<CashBondReportModel>> GetCashBondStatusAsync(List<Guid> employeeIds, CancellationToken token)
@@ -207,6 +206,8 @@ public class LastPayrollService
         // result set — cached per (year, asOfDate) so a batch of same-day separations
         // doesn't re-run the same query once per employee.
         var thirteenthMonthFiguresCache = new Dictionary<DateOnly, List<ThirteenthMonthModel>>();
+        // Same idea for the cash bond balances, which are as of each separation date.
+        var cashBondCache = new Dictionary<DateOnly, Dictionary<Guid, decimal>>();
 
         var lines = new List<PayrollSummaryLine>();
         foreach (var employeeId in payload.EmployeeIds)
@@ -235,6 +236,14 @@ public class LastPayrollService
             retirementBalances.TryGetValue(employeeId, out var retirementBalance);
             var retirementPayout = payload.IncludeRetirementPayout ? retirementBalance : 0;
             outstandingLoans.TryGetValue(employeeId, out var outstandingLoanBalance);
+
+            if (!cashBondCache.TryGetValue(asOfDate, out var cashBondBalances))
+            {
+                cashBondBalances = (await _payrollReportService.GetCashBondReportAsync(asOfDate, token, payload.EmployeeIds))
+                    .ToDictionary(x => x.EmployeeId, x => x.TotalCollected);
+                cashBondCache[asOfDate] = cashBondBalances;
+            }
+            var cashBondRefund = ComputeCashBondRefund(payload.IncludeCashBondRefund, cashBondBalances.GetValueOrDefault(employeeId));
 
             var gross = proratedThirteenthMonth + leaveConversion;
             var remainingCeiling = ThirteenthMonthCeilingCalculator.ComputeRemainingThirteenthMonthCeiling((decimal)ceiling, totalSpecialBonusesForYear);
@@ -289,6 +298,7 @@ public class LastPayrollService
                 AreaId = employee.AreaId,
                 ClientId = employee.ClientId,
                 RetirementPayout = retirementPayout,
+                CashBondRefund = cashBondRefund,
             };
             line.NetPay = PayrollProcessorUtil.GetNetPay(line, wtaxResult);
             // Non-taxable (PH retirement benefits are generally tax-exempt at separation) --
@@ -297,6 +307,10 @@ public class LastPayrollService
             // Settled (RetirementFund.Balance debited, RetirementLedger entry written) only at
             // Post time -- see PayrollService.ProcessRetirementFundActivityAsync.
             line.NetPay += retirementPayout;
+            // The employee's own cash bond paid back -- non-taxable like the retirement payout.
+            // The Cash Bond reports subtract CashBondRefund from the collected total, so there is
+            // nothing to settle at Post time.
+            line.NetPay += cashBondRefund;
 
             // HR-confirmed Salary Adjustments — reuses EmployeePayrollLineService's exact
             // apply logic (same untaxed-addition behavior as the regular flow) via a small
@@ -362,6 +376,12 @@ public class LastPayrollService
 
         return lines;
     }
+
+    // What is paid back for the cash bond: everything collected so far (never negative, e.g. a
+    // correction larger than what was deducted), or nothing when HR left the option off.
+    // internal (not private) so hrms.test can exercise this directly without a DB.
+    internal static decimal ComputeCashBondRefund(bool include, decimal totalCollected) =>
+        include ? Math.Max(totalCollected, 0m) : 0m;
 
     // Direct addition to Gross/Net, matching EmployeePayrollLineService.ApplySalaryAdjustments'
     // Allowance-branch treatment (untaxed — applied after tax computation, not re-run through

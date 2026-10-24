@@ -99,6 +99,10 @@ public record LastPayRunPayload(List<Guid> EmployeeIds)
     // to NetPay (see LastPayrollService.GenerateAsync), and settled (Balance debited,
     // RetirementLedger entry written) at Post time like the accrual side.
     public bool IncludeRetirementPayout { get; init; } = true;
+    // Pays back the cash bond collected so far (deductions + manual entries - earlier refunds) --
+    // non-taxable, added straight to NetPay. HR can untick it when the bond is withheld pending
+    // clearance, which this system cannot verify.
+    public bool IncludeCashBondRefund { get; init; } = true;
     // Explicit opt-in only — omitted/empty means none applied. Sourced from
     // LastPayrollService.GetAvailableSalaryAdjustmentsAsync/GetAvailableOtherIncomeAsync and
     // confirmed by HR before Generate is called. See PayrollInputConsumptionService for how

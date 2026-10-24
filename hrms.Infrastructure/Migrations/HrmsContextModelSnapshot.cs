@@ -1056,6 +1056,50 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("CashBondAdjustments");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.CashBondRateChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("NewRate")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<decimal>("OldRate")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("CashBondRateChanges");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.ChangeHoliday", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4950,6 +4994,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("CashBondDeduction")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<decimal>("CashBondRefund")
+                        .HasColumnType("decimal(65,30)");
+
                     b.Property<Guid?>("ClientId")
                         .HasColumnType("char(36)");
 
@@ -7753,6 +7800,17 @@ namespace Hrms.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.CashBondAdjustment", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.CashBondRateChange", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
                         .WithMany()

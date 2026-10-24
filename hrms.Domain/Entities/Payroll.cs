@@ -321,6 +321,11 @@ public class Payroll: BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, IC
     // payout. Only read back at Post time to debit RetirementFund.Balance -- see
     // PayrollService.ProcessRetirementFundActivityAsync.
     public decimal RetirementPayout { get; set; }
+    // Last Pay > IncludeCashBondRefund -- the employee's collected cash bond paid back at
+    // separation (LastPayrollService.GenerateAsync), non-taxable so it's added straight to
+    // NetPay rather than GrossIncome. It is not a stored balance: the Cash Bond reports subtract
+    // it from the collected total (PayrollReportService), which is what stops a second refund.
+    public decimal CashBondRefund { get; set; }
 
     public decimal RestDayHours { get; set; }
     public decimal RestDayOTHours { get; set; }

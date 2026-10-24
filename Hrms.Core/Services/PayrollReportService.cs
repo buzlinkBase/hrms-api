@@ -143,10 +143,16 @@ public class PayrollReportService : BaseService<Payroll>
         DateOnly asOf, CancellationToken token, List<Guid>? employeeIds = null, Guid? clientId = null)
     {
         var fromPayroll = await ForClient(CashBondPayrolls(), clientId)
-            .Where(x => x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf
+            .Where(x => (x.CashBondDeduction > 0 || x.CashBondRefund > 0) && x.PayPeriodEnd <= asOf
                 && (employeeIds == null || employeeIds.Contains(x.EmployeeId)))
             .GroupBy(x => x.EmployeeId)
-            .Select(g => new { EmployeeId = g.Key, Collected = g.Sum(x => x.CashBondDeduction), RunsCount = g.Count() })
+            .Select(g => new
+            {
+                EmployeeId = g.Key,
+                Collected = g.Sum(x => x.CashBondDeduction),
+                Refunded = g.Sum(x => x.CashBondRefund),
+                RunsCount = g.Count(x => x.CashBondDeduction > 0),
+            })
             .ToDictionaryAsync(x => x.EmployeeId, token);
         var adjustmentRows = Context.CashBondAdjustments.AsNoTracking();
         if (clientId is { } client) adjustmentRows = adjustmentRows.Where(x => ClientEmployeeIds(client).Contains(x.EmployeeId));
@@ -165,6 +171,7 @@ public class PayrollReportService : BaseService<Payroll>
             employeeMap.TryGetValue(id, out var e);
             fromPayroll.TryGetValue(id, out var payroll);
             var collected = payroll?.Collected ?? 0m;
+            var refunded = payroll?.Refunded ?? 0m;
             var adjusted = adjustments.GetValueOrDefault(id);
             return new CashBondReportModel
             {
@@ -174,7 +181,8 @@ public class PayrollReportService : BaseService<Payroll>
                 CashBondRate = e?.CashBond ?? 0,
                 Adjustments = adjusted,
                 CollectedFromPayroll = collected,
-                TotalCollected = adjusted + collected,
+                Refunded = refunded,
+                TotalCollected = adjusted + collected - refunded,
                 PayrollRunsCount = payroll?.RunsCount ?? 0,
             };
         })
@@ -188,16 +196,19 @@ public class PayrollReportService : BaseService<Payroll>
     {
         var employee = await _employeeService.FineOneAsync(employeeId, token);
         var runs = await Context.Payrolls.AsNoTracking()
-            .Where(x => x.EmployeeId == employeeId && x.CashBondDeduction > 0)
+            .Where(x => x.EmployeeId == employeeId && (x.CashBondDeduction > 0 || x.CashBondRefund > 0))
             .OrderByDescending(x => x.PayPeriodEnd)
             .Select(x => new MyCashBondRunModel
             {
                 PayrollId = x.Id,
                 PayPeriodStart = x.PayPeriodStart,
                 PayPeriodEnd = x.PayPeriodEnd,
-                Amount = x.CashBondDeduction,
+                Amount = x.CashBondDeduction - x.CashBondRefund,
             })
             .ToListAsync(token);
+        var refunded = await Context.Payrolls.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId)
+            .SumAsync(x => x.CashBondRefund, token);
         var adjustments = await Context.CashBondAdjustments.AsNoTracking()
             .Where(x => x.EmployeeId == employeeId)
             .OrderByDescending(x => x.EntryDate)
@@ -213,6 +224,7 @@ public class PayrollReportService : BaseService<Payroll>
         {
             CashBondRate = employee?.CashBond ?? 0,
             TotalCollected = runs.Sum(x => x.Amount) + adjustments.Sum(x => x.Amount),
+            Refunded = refunded,
             Runs = runs,
             Adjustments = adjustments,
         };
@@ -249,6 +261,51 @@ public class PayrollReportService : BaseService<Payroll>
         });
         await CommitChangesAsync(token);
     }
+
+    // HR's quick edit of the per-run cash bond. The new rate is simply stored on the employee:
+    // CashBondDeductionPolicy reads it when the next payroll run is generated, so it applies from
+    // the next run and runs already generated keep their amounts. The change is logged as a
+    // CashBondRateChange (history only -- the collected total is untouched). Returns the history
+    // row, or null when the rate did not change.
+    public async Task<CashBondRateChangeModel?> ChangeCashBondRateAsync(
+        Guid employeeId, decimal newRate, string reason, CancellationToken token)
+    {
+        if (newRate < 0)
+            throw new InvalidOperationException("The cash bond cannot be negative.");
+        var employee = await Context.Employees.FirstOrDefaultAsync(x => x.Id == employeeId, token)
+            ?? throw new NotFoundException("Employee not found.");
+
+        var change = CashBondRateChange.Between(employeeId, employee.CashBond, newRate, reason);
+        if (change == null) return null;
+
+        employee.CashBond = newRate;
+        Context.CashBondRateChanges.Add(change);
+        await CommitChangesAsync(token);
+
+        return new CashBondRateChangeModel
+        {
+            Id = change.Id,
+            ChangedAt = change.CreatedAt,
+            OldRate = change.OldRate,
+            NewRate = change.NewRate,
+            Reason = change.Reason,
+        };
+    }
+
+    // Rate history for the Cash Bond report's drawer, newest first.
+    public Task<List<CashBondRateChangeModel>> GetCashBondRateHistoryAsync(Guid employeeId, CancellationToken token) =>
+        Context.CashBondRateChanges.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId)
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new CashBondRateChangeModel
+            {
+                Id = x.Id,
+                ChangedAt = x.CreatedAt,
+                OldRate = x.OldRate,
+                NewRate = x.NewRate,
+                Reason = x.Reason,
+            })
+            .ToListAsync(token);
 
     // Leave credits balances — LeaveCredits already holds the authoritative per-employee,
     // per-leave-type, per-period balance (Granted/Used/Balance/Reserved/AvailableToFile),
@@ -401,8 +458,8 @@ public class PayrollReportService : BaseService<Payroll>
     public async Task<List<LedgerEntryModel>> GetCashBondEntriesAsync(Guid employeeId, DateOnly asOf, CancellationToken token)
     {
         var fromPayroll = await CashBondPayrolls()
-            .Where(x => x.EmployeeId == employeeId && x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf)
-            .Select(x => new { x.Id, x.PayPeriodStart, x.PayPeriodEnd, x.CashBondDeduction, x.CreatedAt })
+            .Where(x => x.EmployeeId == employeeId && (x.CashBondDeduction > 0 || x.CashBondRefund > 0) && x.PayPeriodEnd <= asOf)
+            .Select(x => new { x.Id, x.PayPeriodStart, x.PayPeriodEnd, x.CashBondDeduction, x.CashBondRefund, x.CreatedAt })
             .ToListAsync(token);
         var adjustments = await Context.CashBondAdjustments.AsNoTracking()
             .Where(x => x.EmployeeId == employeeId && x.EntryDate <= asOf)
@@ -413,9 +470,11 @@ public class PayrollReportService : BaseService<Payroll>
             .Select(x => (x.CreatedAt, Entry: new LedgerEntryModel
             {
                 EntryDate = x.PayPeriodEnd,
-                EntryType = "Payroll",
-                Amount = x.CashBondDeduction,
-                Remarks = $"Payroll {x.PayPeriodStart:MMM dd} – {x.PayPeriodEnd:MMM dd, yyyy}",
+                EntryType = x.CashBondRefund > 0 ? "Refund" : "Payroll",
+                Amount = x.CashBondDeduction - x.CashBondRefund,
+                Remarks = x.CashBondRefund > 0
+                    ? $"Refunded in Last Pay {x.PayPeriodEnd:MMM dd, yyyy}"
+                    : $"Payroll {x.PayPeriodStart:MMM dd} – {x.PayPeriodEnd:MMM dd, yyyy}",
                 PayrollId = x.Id,
             }))
             .Concat(adjustments.Select(x => (x.CreatedAt, Entry: new LedgerEntryModel

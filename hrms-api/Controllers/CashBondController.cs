@@ -44,5 +44,22 @@ namespace Hrms.Api.Controllers
                 token);
             return Ok();
         }
+
+        /// <summary>
+        /// HR's quick edit of an employee's per-run cash bond. Applies from the next payroll run and
+        /// is logged in the employee's rate history (and the audit trail); the collected total is
+        /// not touched. Returns the history row, or null when the rate did not change.
+        /// </summary>
+        [HttpPut("rate")]
+        [RequirePermission("Payroll Reports:Edit")]
+        [ProducesResponseType(typeof(ResponseModel<CashBondRateChangeModel>), 200)]
+        public async Task<IActionResult> ChangeRate([FromBody] ChangeCashBondRatePayload payload, CancellationToken token) =>
+            Ok(await _reportService.ChangeCashBondRateAsync(payload.EmployeeId, payload.NewRate, payload.Reason, token));
+
+        [HttpGet("{employeeId:guid}/rate-history")]
+        [RequirePermission("Payroll Reports:View")]
+        [ProducesResponseType(typeof(ResponseModel<List<CashBondRateChangeModel>>), 200)]
+        public async Task<IActionResult> RateHistory(Guid employeeId, CancellationToken token) =>
+            Ok(await _reportService.GetCashBondRateHistoryAsync(employeeId, token));
     }
 }

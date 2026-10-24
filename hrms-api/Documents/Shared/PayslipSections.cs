@@ -278,6 +278,16 @@ internal static class PayslipSections
                     row.ConstantItem(150).AlignRight().Text(Money(p.GovernmentFundedLeavePay)).FontColor(ReportDocumentStyle.LabelColor);
                 });
             }
+            // Last Pay only — the employee's own cash bond paid back, added to Net Pay outside the
+            // taxable Earnings box like the leave payout above.
+            if (p.CashBondRefund > 0)
+            {
+                col.Item().PaddingBottom(4).Row(row =>
+                {
+                    row.RelativeItem().Text("Cash Bond Refund (Non-Taxable)").FontColor(ReportDocumentStyle.LabelColor);
+                    row.ConstantItem(150).AlignRight().Text(Money(p.CashBondRefund)).FontColor(ReportDocumentStyle.LabelColor);
+                });
+            }
             col.Item().Background(ReportDocumentStyle.SectionHeaderBg).Border(1).BorderColor(ReportDocumentStyle.Primary).Padding(10).Row(row =>
             {
                 row.RelativeItem().Text("NET PAY").Bold().FontSize(12).FontColor(ReportDocumentStyle.Primary);
