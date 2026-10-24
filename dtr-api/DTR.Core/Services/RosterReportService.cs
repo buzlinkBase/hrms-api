@@ -33,8 +33,11 @@ public class RosterReportService
         // An area filter matches the site each day is actually scheduled at (a tagged Work
         // Rotation day, else the employee's own site), so employees from other sites who are
         // rostered there must be loaded too -- the filter is applied per day below.
+        // The client filter works the same way: a reliever rostered under a client for a day
+        // belongs to that client for that day, else to the client on their own record.
         var areaFilter = payload.OperationAreaId;
-        var employees = await _employeeService.GetForDTRRunAsync(payload with { OperationAreaId = null }, token);
+        var clientFilter = payload.ClientId;
+        var employees = await _employeeService.GetForDTRRunAsync(payload with { OperationAreaId = null, ClientId = null }, token);
         if (employees.Count == 0) return new List<RosterReportModel>();
 
         var shifts = await _workScheduleResolver.Resolve(fromDate, toDate, employees, token);
@@ -48,6 +51,7 @@ public class RosterReportService
                 shifts.TryGetValue(new CurrentTimeShiftKey(employee.Id, date), out var shift);
                 var isRestDay = restDays.ContainsKey(new ResDaykey(employee.Id, date));
                 if (areaFilter.HasValue && (shift?.AreaId ?? employee.AreaId) != areaFilter) continue;
+                if (clientFilter.HasValue && (shift?.ClientId ?? employee.ClientId) != clientFilter) continue;
 
                 results.Add(new RosterReportModel
                 {
