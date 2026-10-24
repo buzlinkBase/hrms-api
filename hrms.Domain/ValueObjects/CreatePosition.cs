@@ -5,6 +5,7 @@ public class CreatePosition
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public double Rate { get; set; } = 0;
+    public int Level { get; set; } = 0;
     public string Status { get; set; }
 
 }

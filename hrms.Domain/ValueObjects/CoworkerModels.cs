@@ -37,12 +37,25 @@ public class DirectoryPageModel
     public int Total { get; set; }
 }
 
+public static class OrgNodeKinds
+{
+    public const string Company = "company";
+    public const string Department = "department";
+    public const string Section = "section";
+    public const string Employee = "employee";
+}
+
+// One box in the org chart: the company, a department, a section or a person. Units carry the
+// number of people beneath them; people carry their position and its level.
 public class OrgNodeModel
 {
-    public Guid Id { get; set; }
-    public string FullName { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
+    public string Kind { get; set; } = OrgNodeKinds.Employee;
+    public string Name { get; set; } = string.Empty;
     public string PositionName { get; set; } = string.Empty;
-    public List<OrgNodeModel> Reports { get; set; } = [];
+    public int Level { get; set; }
+    public int HeadCount { get; set; }
+    public List<OrgNodeModel> Children { get; set; } = [];
 }
 
 public class CoworkerSettingsModel
