@@ -47,9 +47,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("sss-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
-        public async Task<IActionResult> SssRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> SssRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _sssService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _sssService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -57,9 +57,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("philhealth-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
-        public async Task<IActionResult> PhilHealthRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> PhilHealthRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _phicService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _phicService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -67,9 +67,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("pagibig-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
-        public async Task<IActionResult> PagIbigRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> PagIbigRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _hdmfService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _hdmfService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -77,9 +77,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("wtax-remittance")]
         [RequirePermission("Government Statutory Reports:View")]
-        public async Task<IActionResult> WTaxRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> WTaxRemittance([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _taxService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _taxService.GetRemittanceReportAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -87,9 +87,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("bank-disbursement")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> BankDisbursement([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> BankDisbursement([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetBankDisbursementAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _reportService.GetBankDisbursementAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -97,10 +97,10 @@ namespace Hrms.Api.Controllers
         [EntriesData]
         [HttpGet("deduction-ledger")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> DeductionLedger([FromQuery] DateTime? asOf, CancellationToken token)
+        public async Task<IActionResult> DeductionLedger([FromQuery] DateTime? asOf, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var asOfDate = asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
-            var data = await _reportService.GetDeductionLedgerAsync(asOfDate, token);
+            var data = await _reportService.GetDeductionLedgerAsync(asOfDate, token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -108,10 +108,10 @@ namespace Hrms.Api.Controllers
         [EntriesData]
         [HttpGet("cash-bond")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> CashBond([FromQuery] DateTime? asOf, CancellationToken token)
+        public async Task<IActionResult> CashBond([FromQuery] DateTime? asOf, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var asOfDate = asOf.HasValue ? DateOnly.FromDateTime(asOf.Value) : DateOnly.FromDateTime(DateTime.UtcNow);
-            var data = await _reportService.GetCashBondReportAsync(asOfDate, token);
+            var data = await _reportService.GetCashBondReportAsync(asOfDate, token, null, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -150,9 +150,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("retirement-ledger")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> RetirementLedger([FromQuery] DateTime? asOf, CancellationToken token)
+        public async Task<IActionResult> RetirementLedger([FromQuery] DateTime? asOf, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetRetirementSummaryAsync(AsOfOrToday(asOf), token);
+            var data = await _reportService.GetRetirementSummaryAsync(AsOfOrToday(asOf), token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -194,9 +194,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("reimbursement-list")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> ReimbursementList([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> ReimbursementList([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetReimbursementListAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token);
+            var data = await _reportService.GetReimbursementListAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -208,9 +208,10 @@ namespace Hrms.Api.Controllers
             [FromQuery] DateTime from,
             [FromQuery] DateTime to,
             [FromQuery] string groupBy = "department",
+            [FromQuery] Guid? clientId = null,
             CancellationToken token = default)
         {
-            var data = await _reportService.GetCostSummaryAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), groupBy, token);
+            var data = await _reportService.GetCostSummaryAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), groupBy, token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -218,9 +219,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("ytd-summary")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> YtdSummary([FromQuery] int year, [FromQuery] Guid? employeeId, CancellationToken token)
+        public async Task<IActionResult> YtdSummary([FromQuery] int year, [FromQuery] Guid? employeeId, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetYtdSummaryAsync(year, employeeId, token);
+            var data = await _reportService.GetYtdSummaryAsync(year, employeeId, token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -228,9 +229,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("13th-month-pay")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> ThirteenthMonthPay([FromQuery] int year, CancellationToken token)
+        public async Task<IActionResult> ThirteenthMonthPay([FromQuery] int year, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetThirteenthMonthAsync(year, token);
+            var data = await _reportService.GetThirteenthMonthAsync(year, token, null, null, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -239,9 +240,9 @@ namespace Hrms.Api.Controllers
         [HttpGet("13th-month-pay/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Payroll Reports:Export")]
-        public async Task<IActionResult> ThirteenthMonthPayPrint([FromQuery] int year, CancellationToken token)
+        public async Task<IActionResult> ThirteenthMonthPayPrint([FromQuery] int year, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetThirteenthMonthAsync(year, token);
+            var data = await _reportService.GetThirteenthMonthAsync(year, token, null, null, clientId);
             var company = await _companyService.FineOneAsync(token);
             var document = new ThirteenthMonthPayListDocument(data, year, company);
             var bytes = document.GeneratePdf();
@@ -256,10 +257,10 @@ namespace Hrms.Api.Controllers
         [RequirePermission("BIR Reports:View")]
         public async Task<IActionResult> MonthlyRemittanceReturn(
             [FromQuery] DateTime from, [FromQuery] DateTime to,
-            [FromQuery] bool amendedReturn, CancellationToken token)
+            [FromQuery] bool amendedReturn, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var (summary, employees) = await _reportService.GetMonthlyRemittanceReturnAsync(
-                DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), amendedReturn, token);
+                DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), amendedReturn, token, clientId);
             return Ok(new { data = employees, summary, total = employees.Count });
         }
 
@@ -272,11 +273,12 @@ namespace Hrms.Api.Controllers
             [FromQuery] DateTime from, [FromQuery] DateTime to,
             [FromQuery] bool amendedReturn,
             [FromQuery] bool debug,
+            [FromQuery] Guid? clientId,
             CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var (summary, _) = await _reportService.GetMonthlyRemittanceReturnAsync(fromDate, toDate, amendedReturn, token);
+            var (summary, _) = await _reportService.GetMonthlyRemittanceReturnAsync(fromDate, toDate, amendedReturn, token, clientId);
             var company = await _companyService.FineOneAsync(token);
             var bytes = new MonthlyRemittanceReturnOverlayDocument(summary, company, _environment.WebRootPath)
                 .Generate(debug && _environment.IsDevelopment());
@@ -289,9 +291,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("alphalist")]
         [RequirePermission("BIR Reports:View")]
-        public async Task<IActionResult> Alphalist([FromQuery] int year, CancellationToken token)
+        public async Task<IActionResult> Alphalist([FromQuery] int year, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetAlphalistAsync(year, token);
+            var data = await _reportService.GetAlphalistAsync(year, token, clientId);
             return Ok(new { data, total = data.Count });
         }
 
@@ -300,9 +302,9 @@ namespace Hrms.Api.Controllers
         [HttpGet("alphalist/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> AlphalistPrint([FromQuery] int year, CancellationToken token)
+        public async Task<IActionResult> AlphalistPrint([FromQuery] int year, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetAlphalistAsync(year, token);
+            var data = await _reportService.GetAlphalistAsync(year, token, clientId);
             var company = await _companyService.FineOneAsync(token);
             var bytes = new AlphalistPreviewDocument(data, year, company).GeneratePdf();
             return File(bytes, "application/pdf", $"bir-alphalist-{year}.pdf");
@@ -313,9 +315,9 @@ namespace Hrms.Api.Controllers
         [HttpGet("alphalist/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> AlphalistExport([FromQuery] int year, CancellationToken token)
+        public async Task<IActionResult> AlphalistExport([FromQuery] int year, [FromQuery] Guid? clientId, CancellationToken token)
         {
-            var data = await _reportService.GetAlphalistAsync(year, token);
+            var data = await _reportService.GetAlphalistAsync(year, token, clientId);
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("TIN,Employee Name,Employee No.,Gross Compensation,Non-Taxable,Taxable,13th Month Pay,SSS,PhilHealth,Pag-IBIG,Tax Withheld");
             foreach (var r in data)
@@ -369,11 +371,11 @@ namespace Hrms.Api.Controllers
         [HttpGet("sss-r3/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> SssR3Print([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> SssR3Print([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var data = await _sssService.GetRemittanceReportAsync(fromDate, toDate, token);
+            var data = await _sssService.GetRemittanceReportAsync(fromDate, toDate, token, clientId);
             var company = await _companyService.FineOneAsync(token);
             var bytes = new ContributionFilePreviewDocument(data, "SSS Contribution Collection List (R3)", "SS Number", fromDate, toDate, company).GeneratePdf();
             return File(bytes, "application/pdf", $"sss-r3-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
@@ -383,11 +385,11 @@ namespace Hrms.Api.Controllers
         [HttpGet("sss-r3/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> SssR3Export([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> SssR3Export([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var bytes = await _sssService.GenerateR3FileAsync(fromDate, toDate, token);
+            var bytes = await _sssService.GenerateR3FileAsync(fromDate, toDate, token, clientId);
             return File(bytes, "text/csv", $"sss-r3-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.csv");
         }
 
@@ -397,11 +399,11 @@ namespace Hrms.Api.Controllers
         [HttpGet("philhealth-eprs/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> PhilHealthEprsPrint([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> PhilHealthEprsPrint([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var data = await _phicService.GetRemittanceReportAsync(fromDate, toDate, token);
+            var data = await _phicService.GetRemittanceReportAsync(fromDate, toDate, token, clientId);
             var company = await _companyService.FineOneAsync(token);
             var bytes = new ContributionFilePreviewDocument(data, "PhilHealth Electronic Premium Remittance (EPRS)", "PhilHealth No.", fromDate, toDate, company).GeneratePdf();
             return File(bytes, "application/pdf", $"philhealth-eprs-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
@@ -411,11 +413,11 @@ namespace Hrms.Api.Controllers
         [HttpGet("philhealth-eprs/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> PhilHealthEprsExport([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> PhilHealthEprsExport([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var bytes = await _phicService.GenerateEprsFileAsync(fromDate, toDate, token);
+            var bytes = await _phicService.GenerateEprsFileAsync(fromDate, toDate, token, clientId);
             return File(bytes, "text/csv", $"philhealth-eprs-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.csv");
         }
 
@@ -425,11 +427,11 @@ namespace Hrms.Api.Controllers
         [HttpGet("pagibig-mcrf/print")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> PagIbigMcrfPrint([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> PagIbigMcrfPrint([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var data = await _hdmfService.GetRemittanceReportAsync(fromDate, toDate, token);
+            var data = await _hdmfService.GetRemittanceReportAsync(fromDate, toDate, token, clientId);
             var company = await _companyService.FineOneAsync(token);
             var bytes = new ContributionFilePreviewDocument(data, "Pag-IBIG Member's Contribution Remittance Form (MCRF)", "Pag-IBIG MID", fromDate, toDate, company).GeneratePdf();
             return File(bytes, "application/pdf", $"pagibig-mcrf-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.pdf");
@@ -439,11 +441,11 @@ namespace Hrms.Api.Controllers
         [HttpGet("pagibig-mcrf/export")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("BIR Reports:Export")]
-        public async Task<IActionResult> PagIbigMcrfExport([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken token)
+        public async Task<IActionResult> PagIbigMcrfExport([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
         {
             var fromDate = DateOnly.FromDateTime(from);
             var toDate = DateOnly.FromDateTime(to);
-            var bytes = await _hdmfService.GenerateMcrfFileAsync(fromDate, toDate, token);
+            var bytes = await _hdmfService.GenerateMcrfFileAsync(fromDate, toDate, token, clientId);
             return File(bytes, "text/csv", $"pagibig-mcrf-{fromDate:yyyyMMdd}-{toDate:yyyyMMdd}.csv");
         }
     }

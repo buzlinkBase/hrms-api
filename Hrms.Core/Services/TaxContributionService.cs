@@ -23,11 +23,14 @@ public class TaxContributionService : BaseService<WTaxContribution>
 
     // WTaxContribution.PayrollDate is set from PostingPeriod (the BIR-specific cross-month
     // credit date), not StatutoryCreditDate — see PayrollProcessorService.SaveStatutoryContributionsAsync.
-    public async Task<List<ContributionRemittanceModel>> GetRemittanceReportAsync(DateOnly from, DateOnly to, CancellationToken token)
+    public async Task<List<ContributionRemittanceModel>> GetRemittanceReportAsync(
+        DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
     {
         var rows = await GetQueryable(x => x.PayrollDate >= from && x.PayrollDate <= to).ToListAsync(token);
         var employees = await _employeeService.FindByIds(rows.Select(x => x.EmployeeId).Distinct().ToList(), token);
         var employeeMap = employees.ToDictionary(x => x.Id);
+        if (clientId is { } client)
+            rows = rows.Where(r => employeeMap.TryGetValue(r.EmployeeId, out var emp) && emp.ClientId == client).ToList();
         return rows.Select(r => new ContributionRemittanceModel
         {
             EmployeeId = r.EmployeeId,

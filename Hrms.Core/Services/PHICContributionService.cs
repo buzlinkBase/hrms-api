@@ -22,11 +22,14 @@ public class PHICContributionService : BaseService<PHICContribution>
         _employeeService = employeeService;
     }
 
-    public async Task<List<ContributionRemittanceModel>> GetRemittanceReportAsync(DateOnly from, DateOnly to, CancellationToken token)
+    public async Task<List<ContributionRemittanceModel>> GetRemittanceReportAsync(
+        DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
     {
         var rows = await GetQueryable(x => x.PayrollDate >= from && x.PayrollDate <= to).ToListAsync(token);
         var employees = await _employeeService.FindByIds(rows.Select(x => x.EmployeeId).Distinct().ToList(), token);
         var employeeMap = employees.ToDictionary(x => x.Id);
+        if (clientId is { } client)
+            rows = rows.Where(r => employeeMap.TryGetValue(r.EmployeeId, out var emp) && emp.ClientId == client).ToList();
         return rows.Select(r => new ContributionRemittanceModel
         {
             EmployeeId = r.EmployeeId,
@@ -93,11 +96,13 @@ public class PHICContributionService : BaseService<PHICContribution>
     // PhilHealth EPRS (Electronic Premium Remittance System) upload file. Column layout
     // implemented from general knowledge of the EPRS CSV template, NOT against a live
     // reference spec — diff against the current portal template before first real submission.
-    public async Task<byte[]> GenerateEprsFileAsync(DateOnly from, DateOnly to, CancellationToken token)
+    public async Task<byte[]> GenerateEprsFileAsync(DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
     {
         var rows = await GetQueryable(x => x.PayrollDate >= from && x.PayrollDate <= to).ToListAsync(token);
         var employees = await _employeeService.FindByIds(rows.Select(x => x.EmployeeId).Distinct().ToList(), token);
         var employeeMap = employees.ToDictionary(x => x.Id);
+        if (clientId is { } client)
+            rows = rows.Where(r => employeeMap.TryGetValue(r.EmployeeId, out var emp) && emp.ClientId == client).ToList();
 
         var sb = new StringBuilder();
         sb.AppendLine("PhilHealth No.,Last Name,First Name,Middle Name,EE Share,ER Share,Total Premium,Applicable Period");

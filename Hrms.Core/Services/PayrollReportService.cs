@@ -33,9 +33,26 @@ public class PayrollReportService : BaseService<Payroll>
         return Context.IgnoringConfidentiality<Payroll>().AsNoTracking().Where(x => !hidden.Contains(x.EmployeeId));
     }
 
-    public async Task<List<BankDisbursementModel>> GetBankDisbursementAsync(DateOnly from, DateOnly to, CancellationToken token)
+    // The optional client filter every report here takes: it narrows to employees whose CURRENT client
+    // is that one (the same rule the Uniform Allowance ledger uses), applied in SQL as an employee-id
+    // subquery. A null clientId means everyone and adds nothing to the query.
+    private IQueryable<Guid> ClientEmployeeIds(Guid clientId) =>
+        _uow.Repository.FindAll<Employee>().AsNoTracking().Where(x => x.ClientId == clientId).Select(x => x.Id);
+
+    private IQueryable<Payroll> ForClient(IQueryable<Payroll> payrolls, Guid? clientId) =>
+        clientId is { } c ? payrolls.Where(x => ClientEmployeeIds(c).Contains(x.EmployeeId)) : payrolls;
+
+    // For reports that fold in per-employee dictionaries (opening balances) after the SQL step.
+    private async Task<HashSet<Guid>?> ClientEmployeeSetAsync(Guid? clientId, CancellationToken token) =>
+        clientId is { } c ? (await ClientEmployeeIds(c).ToListAsync(token)).ToHashSet() : null;
+
+    private static Dictionary<Guid, T> OnlyClient<T>(Dictionary<Guid, T> map, HashSet<Guid>? clientEmployees) =>
+        clientEmployees == null ? map : map.Where(x => clientEmployees.Contains(x.Key)).ToDictionary(x => x.Key, x => x.Value);
+
+    public async Task<List<BankDisbursementModel>> GetBankDisbursementAsync(
+        DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
     {
-        var rows = await GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted)
+        var rows = await ForClient(GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted), clientId)
             .Select(x => new { x.EmployeeId, x.PayPeriodStart, x.PayPeriodEnd, x.NetPay })
             .ToListAsync(token);
         var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);
@@ -64,12 +81,13 @@ public class PayrollReportService : BaseService<Payroll>
     // an amortization schedule (one row per installment), not one row per application. Not
     // filtered to any single DeductionType category — covers Loans, Cash Advances, Cash Bond,
     // and any other installment-based deduction alike.
-    public async Task<List<DeductionLedgerModel>> GetDeductionLedgerAsync(DateOnly asOf, CancellationToken token)
+    public async Task<List<DeductionLedgerModel>> GetDeductionLedgerAsync(DateOnly asOf, CancellationToken token, Guid? clientId = null)
     {
         // The latest open installment per schedule is picked in SQL (no later open row exists),
         // reading only the columns used -- instead of loading every open installment row.
         // A skipped attendance installment is forgiven, not owed, so it never counts as open.
         var details = Context.DeductionApplicationDetails.AsNoTracking().Where(x => !x.IsSkipped);
+        if (clientId is { } client) details = details.Where(x => ClientEmployeeIds(client).Contains(x.EmployeeId));
         var latestCandidates = await details
             .Where(x => x.Date <= asOf && x.Balance > 0 &&
                 !details.Any(y =>
@@ -130,15 +148,18 @@ public class PayrollReportService : BaseService<Payroll>
     // opening balance from before this system) dated up to asOf, alongside the employee's current
     // per-run rate. Optionally scoped to a subset of employees (used by LastPayrollService's
     // informational status line, which therefore counts the opening balance too).
-    public async Task<List<CashBondReportModel>> GetCashBondReportAsync(DateOnly asOf, CancellationToken token, List<Guid>? employeeIds = null)
+    public async Task<List<CashBondReportModel>> GetCashBondReportAsync(
+        DateOnly asOf, CancellationToken token, List<Guid>? employeeIds = null, Guid? clientId = null)
     {
-        var fromPayroll = await CashBondPayrolls()
+        var fromPayroll = await ForClient(CashBondPayrolls(), clientId)
             .Where(x => x.CashBondDeduction > 0 && x.PayPeriodEnd <= asOf
                 && (employeeIds == null || employeeIds.Contains(x.EmployeeId)))
             .GroupBy(x => x.EmployeeId)
             .Select(g => new { EmployeeId = g.Key, Collected = g.Sum(x => x.CashBondDeduction), RunsCount = g.Count() })
             .ToDictionaryAsync(x => x.EmployeeId, token);
-        var adjustments = await Context.CashBondAdjustments.AsNoTracking()
+        var adjustmentRows = Context.CashBondAdjustments.AsNoTracking();
+        if (clientId is { } client) adjustmentRows = adjustmentRows.Where(x => ClientEmployeeIds(client).Contains(x.EmployeeId));
+        var adjustments = await adjustmentRows
             .Where(x => x.EntryDate <= asOf && (employeeIds == null || employeeIds.Contains(x.EmployeeId)))
             .GroupBy(x => x.EmployeeId)
             .Select(g => new { EmployeeId = g.Key, Net = g.Sum(x => x.Amount) })
@@ -293,9 +314,10 @@ public class PayrollReportService : BaseService<Payroll>
     }
 
     // Retirement Ledger main list — one row per employee with entries dated up to asOf.
-    public async Task<List<FundLedgerSummaryModel>> GetRetirementSummaryAsync(DateOnly asOf, CancellationToken token) =>
+    public async Task<List<FundLedgerSummaryModel>> GetRetirementSummaryAsync(DateOnly asOf, CancellationToken token, Guid? clientId = null) =>
         await SummarizeFundAsync(await Context.RetirementLedgers.AsNoTracking()
             .Where(x => x.EntryDate <= asOf)
+            .Where(x => clientId == null || x.Employee.ClientId == clientId)
             .Select(x => new FundMovement(x.EmployeeId, x.EntryDate, x.Amount))
             .ToListAsync(token), token);
 
@@ -446,9 +468,10 @@ public class PayrollReportService : BaseService<Payroll>
     // Grouped and summed in SQL. Department/Branch come from the employee's CURRENT record
     // (Payroll has neither column) via a left join, so payroll of a deleted/missing employee lands
     // in the "Unassigned" (null) group, as before.
-    public async Task<List<CostSummaryModel>> GetCostSummaryAsync(DateOnly from, DateOnly to, string groupBy, CancellationToken token)
+    public async Task<List<CostSummaryModel>> GetCostSummaryAsync(
+        DateOnly from, DateOnly to, string groupBy, CancellationToken token, Guid? clientId = null)
     {
-        var payrolls = GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted);
+        var payrolls = ForClient(GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted), clientId);
 
         IQueryable<CostRow> rows;
         if (groupBy == "client")
@@ -525,12 +548,13 @@ public class PayrollReportService : BaseService<Payroll>
         public decimal EmployerCost { get; init; }
     }
 
-    public async Task<List<YtdPayrollSummaryModel>> GetYtdSummaryAsync(int year, Guid? employeeId, CancellationToken token)
+    public async Task<List<YtdPayrollSummaryModel>> GetYtdSummaryAsync(int year, Guid? employeeId, CancellationToken token, Guid? clientId = null)
     {
         var (yearStart, yearEnd) = YearRange(year);
-        var payrollTotals = await SumByEmployeeAsync(GetQueryable(x =>
+        var clientEmployees = await ClientEmployeeSetAsync(clientId, token);
+        var payrollTotals = await SumByEmployeeAsync(ForClient(GetQueryable(x =>
             x.PayPeriodStart >= yearStart && x.PayPeriodStart < yearEnd && x.IsPosted &&
-            (employeeId == null || x.EmployeeId == employeeId)), token);
+            (employeeId == null || x.EmployeeId == employeeId)), clientId), token);
 
         // Fold in each employee's pre-system-cutover Opening Balance (see
         // PayrollOpeningBalance) so a company onboarding mid-year isn't understated for the
@@ -541,6 +565,7 @@ public class PayrollReportService : BaseService<Payroll>
         {
             openingBalances = openingBalances.Where(x => x.Key == employeeId).ToDictionary(x => x.Key, x => x.Value);
         }
+        openingBalances = OnlyClient(openingBalances, clientEmployees);
 
         var employeeIds = payrollTotals.Keys.Union(openingBalances.Keys).ToList();
         var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
@@ -597,13 +622,15 @@ public class PayrollReportService : BaseService<Payroll>
     // employeeId, when given, scopes every query to that one employee instead of computing for
     // the whole company — used by MeController.GetMy13thMonth so a self-service lookup doesn't
     // pay the cost of (and can never accidentally leak) every other employee's figures.
-    public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(int year, CancellationToken token, DateOnly? asOfDate = null, Guid? employeeId = null)
+    public async Task<List<ThirteenthMonthModel>> GetThirteenthMonthAsync(
+        int year, CancellationToken token, DateOnly? asOfDate = null, Guid? employeeId = null, Guid? clientId = null)
     {
         var (yearStart, yearEnd) = YearRange(year);
-        var payrollTotals = await SumByEmployeeAsync(GetQueryable(x =>
+        var clientEmployees = await ClientEmployeeSetAsync(clientId, token);
+        var payrollTotals = await SumByEmployeeAsync(ForClient(GetQueryable(x =>
                 x.PostingPeriod >= yearStart && x.PostingPeriod < yearEnd && x.IsPosted && x.PayrollType == PayrollType.Regular &&
                 (asOfDate == null || x.PayPeriodStart <= asOfDate) &&
-                (employeeId == null || x.EmployeeId == employeeId)), token);
+                (employeeId == null || x.EmployeeId == employeeId)), clientId), token);
 
         // Opening Balance (pre-system-cutover) BasicPay/Bonuses are always fully in the past
         // relative to any asOfDate within the same year, so they're folded in unconditionally
@@ -613,14 +640,15 @@ public class PayrollReportService : BaseService<Payroll>
         {
             openingBalances = openingBalances.Where(x => x.Key == employeeId).ToDictionary(x => x.Key, x => x.Value);
         }
+        openingBalances = OnlyClient(openingBalances, clientEmployees);
 
         // This year's own 13th month payout row, if generated — used to surface a
         // released/unreleased Status per employee (NotGenerated/Draft/Posted), independent
         // of the `rows` query above (which deliberately excludes ThirteenthMonth rows so a
         // payout can never fold into its own entitlement calculation).
-        var thirteenthMonthRuns = await GetQueryable(x =>
+        var thirteenthMonthRuns = await ForClient(GetQueryable(x =>
                 x.PayrollType == PayrollType.ThirteenthMonth && x.PayPeriodStart >= yearStart && x.PayPeriodStart < yearEnd &&
-                (employeeId == null || x.EmployeeId == employeeId))
+                (employeeId == null || x.EmployeeId == employeeId)), clientId)
             .Select(x => new { x.Id, x.EmployeeId, x.IsPosted, x.NetPay, x.AcknowledgedAt })
             .ToListAsync(token);
         var runByEmployee = thirteenthMonthRuns
@@ -759,14 +787,14 @@ public class PayrollReportService : BaseService<Payroll>
     // the exact Line 15/16A/16B/16C/17/18/19 mapping. amendedReturn is a pass-through filing
     // declaration, not derived from payroll data.
     public async Task<(MonthlyRemittanceReturnModel Summary, List<MonthlyRemittanceReturnEmployeeModel> Employees)>
-        GetMonthlyRemittanceReturnAsync(DateOnly from, DateOnly to, bool amendedReturn, CancellationToken token)
+        GetMonthlyRemittanceReturnAsync(DateOnly from, DateOnly to, bool amendedReturn, CancellationToken token, Guid? clientId = null)
     {
         // One query for all three run types, reading only the columns the return uses (the MWE
         // classification needs row-level data, so rows -- narrow ones -- are still fetched).
-        var periodRows = await GetQueryable(x =>
+        var periodRows = await ForClient(GetQueryable(x =>
                 (x.PayrollType == PayrollType.Regular || x.PayrollType == PayrollType.ThirteenthMonth ||
                  x.PayrollType == PayrollType.YearEndAdjustment) &&
-                x.IsPosted && x.PostingPeriod >= from && x.PostingPeriod <= to)
+                x.IsPosted && x.PostingPeriod >= from && x.PostingPeriod <= to), clientId)
             .Select(x => new Payroll
             {
                 EmployeeId = x.EmployeeId, PayrollType = x.PayrollType, PostingPeriod = x.PostingPeriod, DailyRate = x.DailyRate,
@@ -925,15 +953,16 @@ public class PayrollReportService : BaseService<Payroll>
     // BIR Alphalist — one row per employee for the year. TaxableIncome/NonTaxableIncome only
     // exist on Payroll rows generated after that migration landed (see Payroll.cs); earlier
     // rows read as 0 here.
-    public async Task<List<AlphalistEntryModel>> GetAlphalistAsync(int year, CancellationToken token)
+    public async Task<List<AlphalistEntryModel>> GetAlphalistAsync(int year, CancellationToken token, Guid? clientId = null)
     {
         var (yearStart, yearEnd) = YearRange(year);
         var payrollTotals = await SumByEmployeeAsync(
-            GetQueryable(x => x.PostingPeriod >= yearStart && x.PostingPeriod < yearEnd && x.IsPosted), token);
+            ForClient(GetQueryable(x => x.PostingPeriod >= yearStart && x.PostingPeriod < yearEnd && x.IsPosted), clientId), token);
 
         // See PayrollOpeningBalance's doc comment — folds pre-system-cutover figures into
         // this full-year BIR return so a mid-year onboarded company isn't understated.
-        var openingBalances = await _payrollOpeningBalanceService.FindAllByYearAsync(year, token);
+        var openingBalances = OnlyClient(
+            await _payrollOpeningBalanceService.FindAllByYearAsync(year, token), await ClientEmployeeSetAsync(clientId, token));
 
         var employeeIds = payrollTotals.Keys.Union(openingBalances.Keys).ToList();
         var employeeMap = await LoadEmployeeMapAsync(employeeIds, token);
@@ -1013,10 +1042,12 @@ public class PayrollReportService : BaseService<Payroll>
     // nothing for it to be reimbursed for. Sourced straight from LeaveApplication (not posted
     // Payroll rows, unlike this service's other reports) since the claim exists independently
     // of whether this run's payroll has been posted yet.
-    public async Task<List<ReimbursementListModel>> GetReimbursementListAsync(DateOnly from, DateOnly to, CancellationToken token)
+    public async Task<List<ReimbursementListModel>> GetReimbursementListAsync(
+        DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
     {
-        var apps = await Context.leaveApplications
-            .Include(x => x.Leave)
+        var applications = Context.leaveApplications.Include(x => x.Leave).AsQueryable();
+        if (clientId is { } client) applications = applications.Where(x => ClientEmployeeIds(client).Contains(x.EmployeeId));
+        var apps = await applications
             .Where(x =>
                 x.PayoutMode == PayoutMode.OneTime &&
                 x.ApprovalStatus == ApprovalStatus.Approved &&

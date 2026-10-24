@@ -43,9 +43,17 @@ public class PayrollReportServiceTests
         BasicPay = basicPay,
     };
 
-    private static PayrollReportService BuildService(params Payroll[] payrolls)
+    private static PayrollReportService BuildService(params Payroll[] payrolls) => BuildService(null, payrolls);
+
+    // clients maps an employee to their client; an employee not listed has none.
+    private static PayrollReportService BuildService(Dictionary<Guid, Guid>? clients, params Payroll[] payrolls)
     {
-        var employees = payrolls.Select(p => BuildEmployee(p.EmployeeId, p.EmployeeId.ToString()[..8])).ToList();
+        var employees = payrolls.Select(p =>
+        {
+            var employee = BuildEmployee(p.EmployeeId, p.EmployeeId.ToString()[..8]);
+            if (clients != null && clients.TryGetValue(p.EmployeeId, out var clientId)) employee.ClientId = clientId;
+            return employee;
+        }).ToList();
 
         var repo = Substitute.For<IRepository>();
         repo.FindAll<Payroll>().Returns(_ => payrolls.ToList().BuildMockDbSet());
@@ -96,5 +104,41 @@ public class PayrollReportServiceTests
         var result = await service.GetThirteenthMonthAsync(2026, CancellationToken.None);
 
         result.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetThirteenthMonthAsync_WithClientId_OnlyReturnsThatClientsEmployees()
+    {
+        var client = Guid.NewGuid();
+        var inClient = BuildPayroll(Guid.NewGuid(), 2026, 120_000);
+        var otherClient = BuildPayroll(Guid.NewGuid(), 2026, 240_000);
+        var noClient = BuildPayroll(Guid.NewGuid(), 2026, 360_000);
+        var service = BuildService(
+            new Dictionary<Guid, Guid> { [inClient.EmployeeId] = client, [otherClient.EmployeeId] = Guid.NewGuid() },
+            inClient, otherClient, noClient);
+
+        var result = await service.GetThirteenthMonthAsync(2026, CancellationToken.None, clientId: client);
+
+        result.Should().ContainSingle();
+        result[0].EmployeeId.Should().Be(inClient.EmployeeId);
+    }
+
+    [Fact]
+    public async Task GetBankDisbursementAsync_WithClientId_OnlyReturnsThatClientsEmployees()
+    {
+        var client = Guid.NewGuid();
+        var inClient = BuildPayroll(Guid.NewGuid(), 2026, 120_000);
+        var otherClient = BuildPayroll(Guid.NewGuid(), 2026, 240_000);
+        var service = BuildService(
+            new Dictionary<Guid, Guid> { [inClient.EmployeeId] = client, [otherClient.EmployeeId] = Guid.NewGuid() },
+            inClient, otherClient);
+
+        var filtered = await service.GetBankDisbursementAsync(
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), CancellationToken.None, client);
+        var everyone = await service.GetBankDisbursementAsync(
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), CancellationToken.None);
+
+        filtered.Should().ContainSingle().Which.EmployeeId.Should().Be(inClient.EmployeeId);
+        everyone.Should().HaveCount(2);
     }
 }

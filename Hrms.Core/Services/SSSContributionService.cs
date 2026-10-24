@@ -24,11 +24,14 @@ public class SSSContributionService : BaseService<SSSContribution>
 
     // Remittance report — proper from/to range (unlike LoadContributionsAsync below, whose
     // toDate filter is dead code), joined with Employee for name/SSS No.
-    public async Task<List<ContributionRemittanceModel>> GetRemittanceReportAsync(DateOnly from, DateOnly to, CancellationToken token)
+    public async Task<List<ContributionRemittanceModel>> GetRemittanceReportAsync(
+        DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
     {
         var rows = await GetQueryable(x => x.PayrollDate >= from && x.PayrollDate <= to).ToListAsync(token);
         var employees = await _employeeService.FindByIds(rows.Select(x => x.EmployeeId).Distinct().ToList(), token);
         var employeeMap = employees.ToDictionary(x => x.Id);
+        if (clientId is { } client)
+            rows = rows.Where(r => employeeMap.TryGetValue(r.EmployeeId, out var emp) && emp.ClientId == client).ToList();
         return rows.Select(r => new ContributionRemittanceModel
         {
             EmployeeId = r.EmployeeId,
@@ -105,11 +108,13 @@ public class SSSContributionService : BaseService<SSSContribution>
     // template before first real submission. ER Share here already folds in EC (SSSHelper
     // reports them separately, but the shared ContributionRemittanceModel this reuses
     // combines them — see GetRemittanceReportAsync above).
-    public async Task<byte[]> GenerateR3FileAsync(DateOnly from, DateOnly to, CancellationToken token)
+    public async Task<byte[]> GenerateR3FileAsync(DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
     {
         var rows = await GetQueryable(x => x.PayrollDate >= from && x.PayrollDate <= to).ToListAsync(token);
         var employees = await _employeeService.FindByIds(rows.Select(x => x.EmployeeId).Distinct().ToList(), token);
         var employeeMap = employees.ToDictionary(x => x.Id);
+        if (clientId is { } client)
+            rows = rows.Where(r => employeeMap.TryGetValue(r.EmployeeId, out var emp) && emp.ClientId == client).ToList();
 
         var sb = new StringBuilder();
         sb.AppendLine("SS Number,Last Name,First Name,Middle Name,EE Share,ER Share (incl. EC),Total Contribution,Applicable Period");
