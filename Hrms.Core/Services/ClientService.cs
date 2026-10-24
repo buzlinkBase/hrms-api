@@ -41,6 +41,60 @@ public class ClientService : BaseService<Client>
         await StagePortalAsync(model, ClientPortalClientChangeService.Created, token);
         await CommitChangesAsync(token);
     }
+    // Creates the client and tags its areas in the same commit.
+    public async Task AddAsync(Client model, List<Guid>? areaIds, bool reassignAreas, CancellationToken token)
+    {
+        await CreateAsync(model, token);
+        await SetAreasAsync(model, areaIds, reassignAreas, token);
+        await StagePortalAsync(model, ClientPortalClientChangeService.Created, token);
+        await CommitChangesAsync(token);
+    }
+
+    // Tags exactly areaIds to the client (null = leave as is). Staged only -- the caller commits.
+    // A site already tagged to a different client is rejected unless reassign is set, so one
+    // client can't silently take another's billing site.
+    public async Task SetAreasAsync(Client client, List<Guid>? areaIds, bool reassign, CancellationToken token)
+    {
+        if (areaIds is null) return;
+        var wanted = areaIds.ToHashSet();
+        var areas = await Context.Areas.AsTracking()
+            .Where(a => wanted.Contains(a.Id) || a.ClientId == client.Id)
+            .ToListAsync(token);
+
+        if (wanted.Except(areas.Select(a => a.Id)).Any())
+        {
+            throw new NotFoundException("One or more areas were not found");
+        }
+        var taken = areas.Where(a => wanted.Contains(a.Id) && a.ClientId != null && a.ClientId != client.Id).ToList();
+        if (taken.Count > 0 && !reassign)
+        {
+            var names = string.Join(", ", taken.Select(a => a.Name));
+            throw new ValidationException($"These areas are already tagged to another client: {names}.");
+        }
+
+        foreach (var area in areas)
+        {
+            if (wanted.Contains(area.Id))
+            {
+                area.Client = client;
+            }
+            else
+            {
+                area.Client = null;
+                area.ClientId = null;
+            }
+        }
+    }
+
+    // The client list/detail: each client with the areas tagged to it.
+    public async Task<List<Client>> FindAllWithAreasAsync(CancellationToken token)
+    {
+        return await GetQueryable().Include(x => x.Areas).ToListAsync(token);
+    }
+    public async Task<Client?> FindOneWithAreasAsync(Guid id, CancellationToken token)
+    {
+        return await GetQueryable(x => x.Id == id).Include(x => x.Areas).FirstOrDefaultAsync(token);
+    }
     public async Task AddRangeAsync(List<Client> models, CancellationToken token)
     {
         await CreateRangeAsync(models, token);
@@ -57,6 +111,7 @@ public class ClientService : BaseService<Client>
         }
         payload.Adapt(existing);
         await ModifyAsync(existing, token);
+        await SetAreasAsync(existing, payload.AreaIds, payload.ReassignAreas, token);
         await StagePortalAsync(existing, ClientPortalClientChangeService.Updated, token);
         await CommitChangesAsync(token);
 

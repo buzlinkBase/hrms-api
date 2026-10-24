@@ -37,7 +37,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<List<ClientModel>>), 200)]
         public async Task<IActionResult> Get(CancellationToken token)
         {
-            var data = await _service.FindAllAsync(token);
+            var data = await _service.FindAllWithAreasAsync(token);
             var models = new List<ClientModel>();
             foreach (var client in data)
             {
@@ -52,7 +52,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<ClientModel>), 200)]
         public async Task<IActionResult> Get(Guid id, CancellationToken token)
         {
-            var data = await _service.FineOneAsync(id, token);
+            var data = await _service.FindOneWithAreasAsync(id, token);
             var model = _mapper.Map<ClientModel>(data);
             if (model != null) model.LogoUrl = await _imageUrls.DisplayUrlAsync(data?.LogoKey, token);
             return Ok(model);
@@ -87,8 +87,8 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Post([FromBody] CreateClient payload, CancellationToken token)
         {
             var data = _mapper.Map<Client>(payload);
-            await _service.AddAsync(data, token);
-            var respModel = _mapper.Map<ClientModel>(data);
+            await _service.AddAsync(data, payload.AreaIds, payload.ReassignAreas, token);
+            var respModel = _mapper.Map<ClientModel>(await _service.FindOneWithAreasAsync(data.Id, token) ?? data);
             return Ok(respModel);
         }
 
@@ -99,7 +99,8 @@ namespace Hrms.Api.Controllers
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
             await _service.UpdateAsync(payload, token);
-            return Ok(_mapper.Map<ClientModel>(payload));
+            var reloaded = await _service.FindOneWithAreasAsync(payload.Id, token);
+            return Ok(reloaded is null ? _mapper.Map<ClientModel>(payload) : _mapper.Map<ClientModel>(reloaded));
         }
 
         [HttpDelete("{id}")]

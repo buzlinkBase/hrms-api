@@ -14,4 +14,8 @@ public class CostCenters : BaseEntity
     // app (Employee, DTR, Attendance, Biometric Devices, etc.) filters Area options by this.
     public Guid? BranchId { get; set; }
     public virtual Branch? Branch { get; set; }
+    // Optional: the one Client this Project Site is run for (and later billed to). Null for
+    // companies that don't split clients by area, and for sites not yet tagged.
+    public Guid? ClientId { get; set; }
+    public virtual Client? Client { get; set; }
 }

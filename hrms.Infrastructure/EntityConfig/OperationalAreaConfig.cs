@@ -12,6 +12,11 @@ namespace Hrms.Infrastructure.EntityConfig
                 .WithMany()
                 .HasForeignKey(x => x.BranchId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(x => x.Client)
+                .WithMany(x => x.Areas)
+                .HasForeignKey(x => x.ClientId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

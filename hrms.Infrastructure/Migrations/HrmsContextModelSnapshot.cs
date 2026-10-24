@@ -1694,6 +1694,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid?>("BranchId")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid?>("ClientId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -1721,6 +1724,8 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
+
+                    b.HasIndex("ClientId");
 
                     b.HasIndex("TenantId", "DeletedAt");
 
@@ -7758,7 +7763,14 @@ namespace Hrms.Infrastructure.Migrations
                         .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Hrms.Domain.Entities.Client", "Client")
+                        .WithMany("Areas")
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Branch");
+
+                    b.Navigation("Client");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.CutoffDay", b =>
@@ -8355,6 +8367,11 @@ namespace Hrms.Infrastructure.Migrations
             modelBuilder.Entity("Hrms.Domain.Entities.Approvals.ApprovalWorkflowStep", b =>
                 {
                     b.Navigation("NamedApprovers");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Client", b =>
+                {
+                    b.Navigation("Areas");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.DailyRecord", b =>

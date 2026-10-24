@@ -24,4 +24,8 @@ public class CostCenterModel : UpdateCostCenter
     // property names don't match CostCenters.Branch.Name/Code for Mapster's convention map.
     public string? BranchName { get; set; }
     public string? BranchCode { get; set; }
+    // The client this site is tagged to, if any. Response-only: it is edited from the client
+    // form, so it is not on CreateCostCenter/UpdateCostCenter and a site PUT can't change it.
+    public Guid? ClientId { get; set; }
+    public string? ClientName { get; set; }
 }

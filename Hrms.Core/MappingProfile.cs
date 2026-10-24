@@ -239,6 +239,7 @@ public class MappingProfile : IRegister
             .Map(dest => dest.Boundary, src => src.Boundary)
             .Map(dest => dest.BranchName, src => src.Branch != null ? src.Branch.Name : null)
             .Map(dest => dest.BranchCode, src => src.Branch != null ? src.Branch.Code : null)
+            .Map(dest => dest.ClientName, src => src.Client != null ? src.Client.Name : null)
             .TwoWays();
 
         config.NewConfig<CreatePosition, Position>();
@@ -251,7 +252,9 @@ public class MappingProfile : IRegister
 
         config.NewConfig<CreateClient, Client>().TwoWays();
         config.NewConfig<UpdateClient, Client>();
-        config.NewConfig<Client, ClientModel>();
+        config.NewConfig<Client, ClientModel>()
+            .Map(dest => dest.AreaIds, src => src.Areas.OrderBy(a => a.Name).Select(a => a.Id).ToList())
+            .Map(dest => dest.AreaNames, src => src.Areas.OrderBy(a => a.Name).Select(a => a.Name).ToList());
 
         config.NewConfig<CreateSection, Section>();
         config.NewConfig<UpdateSection, Section>();

@@ -23,4 +23,8 @@ public class Client : BaseEntity
     public decimal? RetirementDaysPerYear { get; set; }
     public decimal? UniformAllowance { get; set; }   // per-month rate; accrues as a balance since HireDate in a later phase
     public BenefitAccrualBasis UniformAllowanceBasis { get; set; } = BenefitAccrualBasis.TenureMonths;
+
+    // Project Sites (Areas) tagged to this client; owned by CostCenters.ClientId, so empty when
+    // the client has none or when the query didn't Include them.
+    public virtual ICollection<CostCenters> Areas { get; set; } = new List<CostCenters>();
 }
