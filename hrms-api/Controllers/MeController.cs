@@ -104,17 +104,18 @@ namespace Hrms.Api.Controllers
             return Ok(employee);
         }
 
-        // Coworkers celebrating today who opted in to being greeted (no DOB/age is exposed).
-        [HttpGet("birthdays/today")]
+        // Coworkers celebrating today or within the next week who opted in to being greeted (no
+        // DOB/age is exposed, only how many days away it is).
+        [HttpGet("birthdays/upcoming")]
         [ProducesResponseType(typeof(List<CoworkerBirthdayModel>), 200)]
-        public async Task<IActionResult> GetTodayBirthdays([FromServices] BirthdayService birthdays, CancellationToken token)
+        public async Task<IActionResult> GetUpcomingBirthdays([FromServices] BirthdayService birthdays, CancellationToken token)
         {
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null) return NotFound();
 
             var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
                 DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila")));
-            var data = await birthdays.GetTodayAsync(today, token);
+            var data = await birthdays.GetUpcomingForCoworkersAsync(today, BirthdayService.CoworkerLookAheadDays, token);
             return Ok(data.Where(c => c.Id != employeeId.Value).ToList());
         }
 
@@ -132,6 +133,13 @@ namespace Hrms.Api.Controllers
 
         private static DateOnly PhToday() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
             DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila")));
+
+        // Which optional My Pay & Benefits pages the company switched on (Company Settings >
+        // Payroll Settings), so the portal menu only lists those.
+        [HttpGet("portal-visibility")]
+        [ProducesResponseType(typeof(ResponseModel<PortalVisibilityModel>), 200)]
+        public async Task<IActionResult> GetPortalVisibility([FromServices] PortalVisibilityService visibility) =>
+            Ok(await visibility.GetAsync());
 
         // Which Coworkers widgets the company switched on, so the page only shows those tabs.
         [HttpGet("coworkers/settings")]
@@ -688,8 +696,9 @@ namespace Hrms.Api.Controllers
         [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpGet("cash-bond")]
         [ProducesResponseType(typeof(ResponseModel<MyCashBondModel>), 200)]
-        public async Task<IActionResult> GetMyCashBond(CancellationToken token)
+        public async Task<IActionResult> GetMyCashBond([FromServices] PortalVisibilityService visibility, CancellationToken token)
         {
+            if (!(await visibility.GetAsync()).ShowCashBond) return NotFound();
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null) return NotFound();
 
@@ -702,8 +711,9 @@ namespace Hrms.Api.Controllers
         [RequireFeature(EntitlementKeys.PayrollLoansIncome)]
         [HttpGet("uniform-allowance")]
         [ProducesResponseType(typeof(ResponseModel<MyUniformAllowanceModel>), 200)]
-        public async Task<IActionResult> GetMyUniformAllowance(CancellationToken token)
+        public async Task<IActionResult> GetMyUniformAllowance([FromServices] PortalVisibilityService visibility, CancellationToken token)
         {
+            if (!(await visibility.GetAsync()).ShowUniformAllowance) return NotFound();
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null || _uniformAllowanceSchedule == null) return NotFound();
 
@@ -715,8 +725,10 @@ namespace Hrms.Api.Controllers
         [RequireFeature(EntitlementKeys.PayrollCore)]
         [HttpGet("13th-month")]
         [ProducesResponseType(typeof(ResponseModel<ThirteenthMonthModel>), 200)]
-        public async Task<IActionResult> GetMy13thMonth([FromQuery] int? year, CancellationToken token)
+        public async Task<IActionResult> GetMy13thMonth(
+            [FromQuery] int? year, [FromServices] PortalVisibilityService visibility, CancellationToken token)
         {
+            if (!(await visibility.GetAsync()).ShowThirteenthMonth) return NotFound();
             var employeeId = await ResolveMyEmployeeIdAsync(token);
             if (employeeId == null) return NotFound();
 

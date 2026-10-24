@@ -100,7 +100,7 @@ public class CoworkerServiceTests
     }
 
     [Fact]
-    public async Task NewHires_AreTheLast30DaysOfCurrentEmployees()
+    public async Task NewHires_AreTheLast7DaysOfCurrentEmployees()
     {
         using var db = new SqliteHrmsContext();
         await using (var seed = db.NewContext())
@@ -109,6 +109,8 @@ public class CoworkerServiceTests
             seed.PayrollGroups.Add(group);
             seed.Employees.AddRange(
                 Emp(group.Id, "Recent", Today.AddDays(-3)),
+                Emp(group.Id, "Edge", Today.AddDays(-7)),
+                Emp(group.Id, "JustPast", Today.AddDays(-8)),
                 Emp(group.Id, "Old", Today.AddDays(-90)),
                 Emp(group.Id, "Left", Today.AddDays(-5), resigned: new DateTime(2026, 10, 10)));
             await Enable(seed, SettingKey.CoworkerShowNewHires);
@@ -117,7 +119,7 @@ public class CoworkerServiceTests
         await using var context = db.NewContext();
         var hires = await Service(context).GetNewHiresAsync(Today, default);
 
-        hires.Select(h => h.FullName).Should().Equal("Recent Test");
+        hires.Select(h => h.FullName).Should().Equal("Recent Test", "Edge Test");
     }
 
     [Fact]

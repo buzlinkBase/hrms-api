@@ -11,4 +11,9 @@ public static class PayrollSettingsIdentity
     // warning in Preview (informational only, never blocks Generate). Default 1.0 — see
     // TaxAnnualizationService.ComputeAsync.
     public const string KeyLargeTaxCollectionWarningMultiplier = "LargeTaxCollectionWarningMultiplier";
+    // Employee Portal ("My Pay & Benefits") pages the company can switch off. Default on when
+    // unset — see PortalVisibilityService.
+    public const string KeyPortalShowThirteenthMonth = "PortalShowThirteenthMonth";
+    public const string KeyPortalShowCashBond = "PortalShowCashBond";
+    public const string KeyPortalShowUniformAllowance = "PortalShowUniformAllowance";
 }

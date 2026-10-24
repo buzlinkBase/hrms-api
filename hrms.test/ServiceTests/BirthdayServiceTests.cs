@@ -45,7 +45,7 @@ public class BirthdayServiceTests
         };
 
     [Fact]
-    public async Task GetToday_ListsOnlyOptedInCurrentEmployeesCelebratingToday()
+    public async Task GetUpcomingForCoworkers_ListsOnlyOptedInCurrentEmployeesWithinTheWeek_NearestFirst()
     {
         using var db = new SqliteHrmsContext();
         await using (var seed = db.NewContext())
@@ -53,18 +53,40 @@ public class BirthdayServiceTests
             var group = new PayrollGroup { Id = Guid.NewGuid() };
             seed.PayrollGroups.Add(group);
             seed.Employees.AddRange(
-                Emp(group.Id, "Shared", new DateTime(1990, 10, 17), share: true),
+                Emp(group.Id, "Today", new DateTime(1990, 10, 17), share: true),
                 Emp(group.Id, "Private", new DateTime(1991, 10, 17), share: false),
                 Emp(group.Id, "Resigned", new DateTime(1992, 10, 17), share: true, resigned: new DateTime(2026, 1, 1)),
-                Emp(group.Id, "Tomorrow", new DateTime(1993, 10, 18), share: true),
+                Emp(group.Id, "Edge", new DateTime(1993, 10, 24), share: true), // day 7
+                Emp(group.Id, "Soon", new DateTime(1994, 10, 19), share: true), // day 2
+                Emp(group.Id, "TooFar", new DateTime(1995, 10, 25), share: true), // day 8
+                Emp(group.Id, "Passed", new DateTime(1996, 10, 16), share: true), // a year away
                 Emp(group.Id, "NoDob", null, share: true));
             await seed.SaveChangesAsync();
         }
 
         await using var context = db.NewContext();
-        var today = await Service(context).GetTodayAsync(Today, default);
+        var week = await Service(context).GetUpcomingForCoworkersAsync(Today, BirthdayService.CoworkerLookAheadDays, default);
 
-        today.Select(c => c.FullName).Should().Equal("Shared Test");
+        week.Select(c => (c.FullName, c.DaysUntil)).Should().Equal(
+            ("Today Test", 0), ("Soon Test", 2), ("Edge Test", 7));
+    }
+
+    [Fact]
+    public async Task GetUpcomingForCoworkers_LooksAcrossTheYearEnd()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var seed = db.NewContext())
+        {
+            var group = new PayrollGroup { Id = Guid.NewGuid() };
+            seed.PayrollGroups.Add(group);
+            seed.Employees.Add(Emp(group.Id, "NewYear", new DateTime(1990, 1, 2), share: true));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var week = await Service(context).GetUpcomingForCoworkersAsync(new DateOnly(2026, 12, 29), 7, default);
+
+        week.Select(c => (c.FullName, c.DaysUntil)).Should().Equal(("NewYear Test", 4));
     }
 
     [Fact]

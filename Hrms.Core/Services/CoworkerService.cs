@@ -12,7 +12,7 @@ namespace Hrms.Core.Services;
 // no pay, DOB, age or ids. Contact details need the employee's own opt-in (ShareContact).
 public class CoworkerService
 {
-    public const int NewHireDays = 30;
+    public const int NewHireDays = 7;
     public const int AnniversaryLookAheadDays = 7;
     public const int DirectoryPageSize = 24;
     private const int MaxOrgNodes = 2000;

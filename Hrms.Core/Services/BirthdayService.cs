@@ -8,6 +8,9 @@ namespace Hrms.Core.Services;
 // so a confidential employee the caller may not see never shows up. Only current employees count.
 public class BirthdayService
 {
+    // How many days ahead the portal starts showing a coworker's birthday.
+    public const int CoworkerLookAheadDays = 7;
+
     private readonly IUnitOfWorkService _uow;
     private readonly ImageUrlResolver _imageUrls;
 
@@ -17,8 +20,9 @@ public class BirthdayService
         _imageUrls = imageUrls;
     }
 
-    // Coworkers to greet today: only those who opted in.
-    public async Task<List<CoworkerBirthdayModel>> GetTodayAsync(DateOnly today, CancellationToken token)
+    // Coworkers to greet this week (today included): only those who opted in, nearest first.
+    public async Task<List<CoworkerBirthdayModel>> GetUpcomingForCoworkersAsync(
+        DateOnly today, int days, CancellationToken token)
     {
         var rows = await _uow.Repository
             .Find<Employee>(e => e.DateResigned == null && e.ShareBirthday && e.DOB != null)
@@ -36,16 +40,19 @@ public class BirthdayService
             .ToListAsync(token);
 
         var celebrants = rows
-            .Where(r => DaysUntilNextBirthday(DateOnly.FromDateTime(r.Dob), today) == 0)
-            .OrderBy(r => r.FirstName).ThenBy(r => r.LastName)
+            .Select(r => new { Row = r, DaysUntil = DaysUntilNextBirthday(DateOnly.FromDateTime(r.Dob), today) })
+            .Where(r => r.DaysUntil <= days)
+            .OrderBy(r => r.DaysUntil).ThenBy(r => r.Row.FirstName).ThenBy(r => r.Row.LastName)
             .ToList();
 
         var result = new List<CoworkerBirthdayModel>(celebrants.Count);
-        foreach (var r in celebrants)
+        foreach (var c in celebrants)
         {
+            var r = c.Row;
             result.Add(new CoworkerBirthdayModel
             {
                 Id = r.Id,
+                DaysUntil = c.DaysUntil,
                 FullName = $"{r.FirstName} {r.LastName}".Trim(),
                 ProfileImg = await _imageUrls.DisplayUrlAsync(r.ProfileImg, token),
                 DepartmentName = r.Department,

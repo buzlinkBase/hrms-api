@@ -25,6 +25,10 @@ public class PayrollSettingsController : ControllerBase
         _settingService = settingService;
     }
 
+    // Unsaved portal switches read as on, so existing companies keep their current portal.
+    private static bool ReadFlag(Dictionary<string, GeneralSettingModel> settings, string key) =>
+        !settings.TryGetValue(key, out var setting) || GeneralSettingsUtil.ParseBool(setting.Value, true);
+
     [HttpGet]
     [ProducesResponseType(typeof(ResponseModel<PayrollSettingsDto>), 200)]
     public async Task<IActionResult> Get(CancellationToken token)
@@ -42,6 +46,9 @@ public class PayrollSettingsController : ControllerBase
             LargeTaxCollectionWarningMultiplier = settings.TryGetValue(KeyLargeTaxCollectionWarningMultiplier, out var multiplier) && multiplier.Value != null
                 ? GeneralSettingsUtil.ParseDouble(multiplier.Value, 1.0)
                 : 1.0,
+            PortalShowThirteenthMonth = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowThirteenthMonth),
+            PortalShowCashBond = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowCashBond),
+            PortalShowUniformAllowance = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowUniformAllowance),
         });
     }
 
@@ -54,6 +61,9 @@ public class PayrollSettingsController : ControllerBase
             new() { IdentityType = IdentityType, Description = KeyFiscalYearStartMonth, Value = request.FiscalYearStartMonth.ToString() },
             new() { IdentityType = IdentityType, Description = KeyThirteenthMonthExemptionCeiling, Value = request.ThirteenthMonthExemptionCeiling.ToString() },
             new() { IdentityType = IdentityType, Description = KeyLargeTaxCollectionWarningMultiplier, Value = request.LargeTaxCollectionWarningMultiplier.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowThirteenthMonth, Value = request.PortalShowThirteenthMonth.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowCashBond, Value = request.PortalShowCashBond.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowUniformAllowance, Value = request.PortalShowUniformAllowance.ToString() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync(IdentityType, incoming, null, token);
@@ -67,4 +77,7 @@ public class PayrollSettingsDto
     public int FiscalYearStartMonth { get; set; }
     public double ThirteenthMonthExemptionCeiling { get; set; }
     public double LargeTaxCollectionWarningMultiplier { get; set; }
+    public bool PortalShowThirteenthMonth { get; set; } = true;
+    public bool PortalShowCashBond { get; set; } = true;
+    public bool PortalShowUniformAllowance { get; set; } = true;
 }
