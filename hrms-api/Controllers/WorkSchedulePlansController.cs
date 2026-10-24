@@ -102,6 +102,11 @@ public class WorkSchedulePlansController : ControllerBase
         var scopeViolation = await ValidateTeamScopeAsync(User, payload.EmployeeIds, token);
         if (scopeViolation != null) return scopeViolation;
 
+        if (payload.OperationAreaId is { } areaId && !await _service.AreaExistsAsync(areaId, token))
+        {
+            return BadRequest("The selected area does not exist.");
+        }
+
         var data = new List<WorkSchedulePlan>();
         foreach (var employeeId in payload.EmployeeIds)
         {
@@ -112,6 +117,7 @@ public class WorkSchedulePlansController : ControllerBase
                     EmployeeId = employeeId,
                     PayrollDate = payrollDate,
                     TimeShiftId = payload.TimeShiftId,
+                    OperationAreaId = payload.OperationAreaId,
                 });
             }
         }

@@ -15,6 +15,14 @@ public class CurrentShift
     public ScheduleSource Source { get; set; }
     public Guid? OverrideId { get; set; }
 
+    // The project site tagged on the Work Rotation Plan row (Source == Override only), with
+    // that site's branch/client. When AreaId is set the day's DTR is recorded under it,
+    // ahead of the punch's site and the employee's own.
+    public Guid? AreaId { get; set; }
+    public string? AreaName { get; set; }
+    public Guid? AreaBranchId { get; set; }
+    public Guid? AreaClientId { get; set; }
+
     //morning
     public BreakMode WithAMBreak { get; set; }
     public DateTime? AMBreakStartTime { get; set; }

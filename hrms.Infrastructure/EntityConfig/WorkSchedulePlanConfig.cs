@@ -11,5 +11,11 @@ public class WorkSchedulePlanConfig : IEntityTypeConfiguration<WorkSchedulePlan>
         // WorkSchedulePlanService.GetAllCustomShiftsAync filters by PayrollDate range (and the
         // GroupBy keys off EmployeeId+PayrollDate) on every DTR run and roster report call.
         builder.HasIndex(x => new { x.EmployeeId, x.PayrollDate });
+
+        // Removing a project site just untags the days scheduled there.
+        builder.HasOne(x => x.OperationArea)
+            .WithMany()
+            .HasForeignKey(x => x.OperationAreaId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

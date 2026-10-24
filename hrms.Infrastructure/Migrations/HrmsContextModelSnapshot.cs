@@ -7219,6 +7219,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid?>("OperationAreaId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateOnly>("PayrollDate")
                         .HasColumnType("date");
 
@@ -7236,6 +7239,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OperationAreaId");
 
                     b.HasIndex("TimeShiftId");
 
@@ -8336,6 +8341,11 @@ namespace Hrms.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Hrms.Domain.Entities.CostCenters", "OperationArea")
+                        .WithMany()
+                        .HasForeignKey("OperationAreaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Hrms.Domain.Entities.TimeShift", "TimeShift")
                         .WithMany()
                         .HasForeignKey("TimeShiftId")
@@ -8343,6 +8353,8 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Employee");
+
+                    b.Navigation("OperationArea");
 
                     b.Navigation("TimeShift");
                 });

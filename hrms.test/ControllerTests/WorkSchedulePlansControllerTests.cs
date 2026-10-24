@@ -4,6 +4,7 @@ using System.Security.Claims;
 using Hrms.Api.Controllers;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.EmployeeEntities;
+using Hrms.Domain.ValueObjects;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.Mvc;
@@ -38,10 +39,14 @@ public class WorkSchedulePlansControllerTests
         return new ClaimsPrincipal(new ClaimsIdentity(claims));
     }
 
-    private static WorkSchedulePlansController BuildController(params Employee[] employees)
+    private static WorkSchedulePlansController BuildController(params Employee[] employees) =>
+        BuildController([], employees);
+
+    private static WorkSchedulePlansController BuildController(List<CostCenters> areas, params Employee[] employees)
     {
         var repo = Substitute.For<IRepository>();
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
+        repo.FindAll<CostCenters>().Returns(_ => areas.BuildMockDbSet());
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
@@ -146,5 +151,40 @@ public class WorkSchedulePlansControllerTests
         var result = await controller.ValidateTeamScopeAsync(user, [Guid.NewGuid()], CancellationToken.None);
 
         result.Should().BeOfType<ForbidResult>();
+    }
+
+    // A tagged project site must exist; rejected before anything is deleted or saved.
+    [Fact]
+    public async Task PostBatch_RejectsAnAreaThatDoesNotExist()
+    {
+        var controller = BuildController([new CostCenters { Id = Guid.NewGuid() }]);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = BuildUser(Guid.NewGuid(), "Work Rotation:Create") },
+        };
+
+        var result = await controller.PostBatch(new CreateWorkRotationPlanBatch
+        {
+            EmployeeIds = [Guid.NewGuid()],
+            PayrollDates = [new DateOnly(2026, 10, 1)],
+            TimeShiftId = Guid.NewGuid(),
+            OperationAreaId = Guid.NewGuid(),
+        }, CancellationToken.None);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task AreaExistsAsync_FindsOnlyKnownAreas()
+    {
+        var area = new CostCenters { Id = Guid.NewGuid() };
+        var repo = Substitute.For<IRepository>();
+        repo.FindAll<CostCenters>().Returns(_ => new List<CostCenters> { area }.BuildMockDbSet());
+        var uow = Substitute.For<IUnitOfWorkService>();
+        uow.Repository.Returns(repo);
+        var service = new WorkSchedulePlanService(uow, TypeAdapterConfig.GlobalSettings, Substitute.For<IMapper>());
+
+        (await service.AreaExistsAsync(area.Id, CancellationToken.None)).Should().BeTrue();
+        (await service.AreaExistsAsync(Guid.NewGuid(), CancellationToken.None)).Should().BeFalse();
     }
 }

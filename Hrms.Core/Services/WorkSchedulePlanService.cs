@@ -84,6 +84,7 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
 
         var data = await GetQueryable()
            .AsNoTracking()
+           .Include(x => x.OperationArea)
            .Where(x => (!filter.EmployeeId.HasValue || x.EmployeeId == filter.EmployeeId.Value)
                     && x.CreatedAt >= fromDateTime
                     && x.CreatedAt <= toDateTime)
@@ -99,7 +100,14 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
                 FullName = x.Employee.FullName(),
                 ShiftName = x.Employee?.TimeShift?.ShiftName,
                 PayrollDate = x.PayrollDate,
+                OperationAreaId = x.OperationAreaId,
+                AreaName = x.OperationArea?.Name,
             }).ToList();
+    }
+
+    public Task<bool> AreaExistsAsync(Guid areaId, CancellationToken token)
+    {
+        return _uow.Repository.FindAll<CostCenters>().AsNoTracking().AnyAsync(x => x.Id == areaId, token);
     }
 
     //public async Task<List<WorkSchedulePlanModel>> FindRange(DateRequestPayload payload,
@@ -134,15 +142,16 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
 
     public async Task<Dictionary<CurrentTimeShiftKey, WorkSchedulePlan?>> GetAllCustomShiftsAync(DateOnly fromDate, DateOnly toDate, CancellationToken token)
     {
-        return await _uow.Repository
+        var plans = await _uow.Repository
               .FindAll<WorkSchedulePlan>()
-              //.Include(x => x.Employee)
-              //.ThenInclude(x => x.TimeShift)
+              // The day's project site (with its branch/client) rides along with the shift.
+              .Include(x => x.OperationArea)
               .AsNoTracking()
               .Where(x => x.PayrollDate >= fromDate && x.PayrollDate <= toDate)
+              .ToListAsync(token);
+        return plans
               .GroupBy(x => new CurrentTimeShiftKey(x.EmployeeId, x.PayrollDate))
-              .ToDictionaryAsync(key => key.Key, val => val.FirstOrDefault(), token)
-              ;
+              .ToDictionary(key => key.Key, val => val.FirstOrDefault());
     }
 }
 

@@ -99,11 +99,20 @@ public class ClientPortalSyncService : BaseService<DailyRecord>
                 .Where(p => p.EmployeeId != null && workedEmployees.Contains(p.EmployeeId.Value) && p.WorkDateTime >= fromTime && p.WorkDateTime <= toTime)
                 .ToListAsync(token);
 
+            // A day tagged with a project site counts toward that site (and its client); an
+            // untagged day counts toward the employee's own site, as the DTR does.
             var plans = await Context.WorkSchedulePlans.AsNoTracking()
-                .Where(p => p.PayrollDate >= from && p.PayrollDate <= to && p.Employee.ClientId != null && p.Employee.AreaId != null && clientIds.Contains(p.Employee.ClientId.Value))
-                .Select(p => new { ClientId = p.Employee.ClientId!.Value, AreaId = p.Employee.AreaId!.Value, p.PayrollDate, ShiftName = p.TimeShift.ShiftName })
+                .Where(p => p.PayrollDate >= from && p.PayrollDate <= to)
+                .Select(p => new
+                {
+                    ClientId = p.OperationAreaId != null ? p.OperationArea!.ClientId ?? p.Employee.ClientId : p.Employee.ClientId,
+                    AreaId = p.OperationAreaId ?? p.Employee.AreaId,
+                    p.PayrollDate,
+                    ShiftName = p.TimeShift.ShiftName,
+                })
+                .Where(p => p.ClientId != null && p.AreaId != null && clientIds.Contains(p.ClientId.Value))
                 .ToListAsync(token);
-            scheduled = plans.GroupBy(p => (p.ClientId, p.AreaId, p.PayrollDate, p.ShiftName))
+            scheduled = plans.GroupBy(p => (ClientId: p.ClientId!.Value, AreaId: p.AreaId!.Value, p.PayrollDate, p.ShiftName))
                 .Select(g => new ScheduledHeadcount(g.Key.ClientId, g.Key.AreaId, g.Key.PayrollDate, g.Key.ShiftName, g.Count()))
                 .ToList();
         }

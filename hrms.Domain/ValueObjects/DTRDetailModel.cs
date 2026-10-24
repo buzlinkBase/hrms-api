@@ -269,6 +269,10 @@ public class RosterReportModel
     // Null when the shift instead resolved from Fixed Schedule or the employee's
     // Permanent Shift, which have no per-date row here to remove.
     public Guid? OverrideId { get; set; }
+    // Project site tagged on that override for this date; null when the day isn't tagged
+    // (the employee then reports to their own site).
+    public Guid? AreaId { get; set; }
+    public string? AreaName { get; set; }
 }
 
 public class LeaveMetaDataModel

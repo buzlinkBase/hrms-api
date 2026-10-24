@@ -557,6 +557,42 @@ public class ClientPortalSyncTests
     }
 
     [Fact]
+    public async Task Scheduled_headcount_counts_a_tagged_rotation_day_at_its_site_and_an_untagged_one_at_the_employee_site()
+    {
+        using var db = new SqliteHrmsContext();
+        var protection = new EphemeralDataProtectionProvider();
+        var (batchId, batchCode) = await SeedBatchAsync(db);
+        var port = new CostCenters { Id = Guid.NewGuid(), Code = "PORT", Name = "Port Area" };
+        var shift = new TimeShift { Id = Guid.NewGuid(), ShiftName = "Day" };
+        await using (var seed = db.NewContext())
+        {
+            var emp = await seed.Employees.SingleAsync();
+            var hall = emp.AreaId!.Value;
+            port.ClientId = emp.ClientId;
+            var other = new Employee { Id = Guid.NewGuid(), PayrollGroupId = emp.PayrollGroupId, EmployeeNo = "E-2", FirstName = "Maria", LastName = "Santos", ClientId = emp.ClientId, AreaId = hall };
+            seed.Areas.Add(port);
+            seed.TimeShifts.Add(shift);
+            seed.Employees.Add(other);
+            // A worked day at the Port so the portal knows the site.
+            seed.DailyTimeRecords.Add(Record(other.Id, emp.ClientId!.Value, port.Id, batchCode));
+            seed.WorkSchedulePlans.AddRange(
+                new WorkSchedulePlan { Id = Guid.NewGuid(), BatchCode = "WRP", EmployeeId = emp.Id, PayrollDate = Day, TimeShiftId = shift.Id, OperationAreaId = port.Id },
+                new WorkSchedulePlan { Id = Guid.NewGuid(), BatchCode = "WRP", EmployeeId = other.Id, PayrollDate = Day, TimeShiftId = shift.Id });
+            await seed.SaveChangesAsync();
+        }
+        await EnableAsync(db, protection);
+        var publisher = Substitute.For<IPublishEndpoint>();
+
+        await using (var ctx = db.NewContext())
+            await SyncFor(new UnitOfWorkService(ctx), protection, publisher, Guid.NewGuid()).SyncBatchAsync(batchId, ClientPortalSyncRequested.Approved, CancellationToken.None);
+
+        var message = (ClientPortalAttendanceUpserted)publisher.ReceivedCalls().Single().GetArguments()[0]!;
+        message.Schedules.Should().HaveCount(2);
+        message.Schedules.Should().OnlyContain(s => s.RequiredHeadcount == 1);
+        message.Schedules.Should().Contain(s => s.PostExternalId == $"post-{port.Id:D}", "the tagged day counts at the Port, not the employee's own City Hall");
+    }
+
+    [Fact]
     public async Task Send_again_refuses_a_batch_that_is_not_posted()
     {
         using var db = new SqliteHrmsContext();

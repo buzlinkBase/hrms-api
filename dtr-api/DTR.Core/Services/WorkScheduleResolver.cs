@@ -112,6 +112,10 @@ public class OverrideSchedule : WorkScheduleHandler
             EndTime = endTime,
             Source = ScheduleSource.Override,
             OverrideId = result.Id,
+            AreaId = result.OperationAreaId,
+            AreaName = result.OperationArea?.Name,
+            AreaBranchId = result.OperationArea?.BranchId,
+            AreaClientId = result.OperationArea?.ClientId,
 
             //PunchMode = shift.PunchMode,
 

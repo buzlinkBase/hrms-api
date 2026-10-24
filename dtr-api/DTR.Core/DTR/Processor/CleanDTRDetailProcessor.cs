@@ -108,6 +108,7 @@ public class DailyRecordBuilder : IDailyRecordBuilder
         SetMetaInfo(leaveInfo, GetLeaveInfo(pipeline.Leave, "PaidLeave"));
         SetMetaInfo(leaveInfo, GetLeaveInfo(unpaidLeaveRange, "UnpaidLeave"));
         var xsx = NightDiff.Regular.TotalMinutes + NightDiff.RegOT.TotalMinutes;
+        var location = DTRLocationResolver.Resolve(context.Payload.Data.CurrentShift, currentAtt, emp);
 
         var dtr = new DTRDetailModel
         {
@@ -181,11 +182,11 @@ public class DailyRecordBuilder : IDailyRecordBuilder
             RestDoubleLegalNDHours = (NightDiff.RestDoubleLegal.TotalMinutes + NightDiff.RestDoubleLegalOT.TotalMinutes).ToHour(),
             RestDoubleLegalNDOTHours = NightDiff.RestDoubleLegalOT.TotalMinutes.ToHour(),
 
-            ClientId = currentAtt?.ClientId ?? emp?.ClientId,
+            ClientId = location.ClientId,
             DepartmentId = currentAtt?.DepartmentId ?? emp?.DepartmentId,
             PayrollGroupId = emp?.PayrollGroupId,
-            AreaId = currentAtt?.OperationAreaId ?? emp?.AreaId,
-            BranchId = currentAtt?.BranchId ?? emp?.BranchId,
+            AreaId = location.AreaId,
+            BranchId = location.BranchId,
         };
 
         return dtr;

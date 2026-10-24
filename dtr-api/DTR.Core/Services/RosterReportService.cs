@@ -30,7 +30,11 @@ public class RosterReportService
         var fromDate = payload.FromDate;
         var toDate = payload.ToDate;
 
-        var employees = await _employeeService.GetForDTRRunAsync(payload, token);
+        // An area filter matches the site each day is actually scheduled at (a tagged Work
+        // Rotation day, else the employee's own site), so employees from other sites who are
+        // rostered there must be loaded too -- the filter is applied per day below.
+        var areaFilter = payload.OperationAreaId;
+        var employees = await _employeeService.GetForDTRRunAsync(payload with { OperationAreaId = null }, token);
         if (employees.Count == 0) return new List<RosterReportModel>();
 
         var shifts = await _workScheduleResolver.Resolve(fromDate, toDate, employees, token);
@@ -43,6 +47,7 @@ public class RosterReportService
             {
                 shifts.TryGetValue(new CurrentTimeShiftKey(employee.Id, date), out var shift);
                 var isRestDay = restDays.ContainsKey(new ResDaykey(employee.Id, date));
+                if (areaFilter.HasValue && (shift?.AreaId ?? employee.AreaId) != areaFilter) continue;
 
                 results.Add(new RosterReportModel
                 {
@@ -58,6 +63,8 @@ public class RosterReportService
                     IsRestDay = isRestDay,
                     ScheduleSource = shift?.Source ?? ScheduleSource.OpenShift,
                     OverrideId = shift?.OverrideId,
+                    AreaId = shift?.AreaId,
+                    AreaName = shift?.AreaName,
                 });
             }
         }
