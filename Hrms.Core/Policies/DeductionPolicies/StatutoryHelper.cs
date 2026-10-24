@@ -12,8 +12,26 @@ public class StatutoryHelper
         // independently-approximated MonthlyRate formula for Fixed employees, which
         // silently omitted rest-day/holiday/ND pay and other components already
         // included in GrossIncome. Monthly has a single cutoff, so no prior-this-month
-        // accumulation is needed.
-        return context.PayrollLine.GrossIncome;
+        // accumulation is needed -- except the earnings-only runs of a reliever paid by several
+        // per-client runs that month (DeductionCarrierMode): this run carries their statutory
+        // deductions, so the month's gross from those runs belongs in the bracket lookup too.
+        return context.PayrollLine.GrossIncome + GetEarningsOnlyPriorGross(context);
+    }
+
+    // Gross already paid by this employee's earnings-only (non-carrier) regular runs inside the
+    // deduction period this run belongs to (a cutoff of their own payroll group), which exist only
+    // under a deduction-carrier company. Zero for everyone else, so ordinary payrolls are
+    // unaffected. The carrier run brackets its contributions and tax off this plus its own gross,
+    // because those earnings were paid in the same period but in another client's run.
+    public static decimal GetEarningsOnlyPriorGross(DeductionPayloadContext context)
+    {
+        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var prior))
+            return 0m;
+        var period = DeductionPeriodResolver.Resolve(context.Employee.PayrollGroup, context.Payload.ToDate);
+        return prior
+            .Where(x => !x.IsDeductionCarrier && x.PayrollType == PayrollType.Regular
+                && x.PayPeriodEnd >= period.Start && x.PayPeriodEnd <= period.End)
+            .Sum(x => x.GrossIncome);
     }
     public static decimal GetSemiMonthlyGrossBaseRate(DeductionPayloadContext context)
     {

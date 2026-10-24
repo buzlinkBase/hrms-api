@@ -1,5 +1,6 @@
 using Hrms.Api.Documents.Shared;
 using Hrms.Domain.Entities;
+using Hrms.Domain.ValueObjects;
 
 namespace hrms.test.PayrollRunTests;
 
@@ -34,6 +35,51 @@ public class PayslipSectionsTests
         };
 
         PayslipSections.DaysWorked(payroll).Should().Be(3);
+    }
+
+    private static PayrollBreakdownItem Item(string label, decimal amount, bool isLoan) =>
+        new(Guid.NewGuid(), label, amount, isLoan);
+
+    [Fact]
+    public void DeductionRows_ItemizesLoansThenOthers_WhenItemsCoverTheTotals()
+    {
+        var payroll = new Payroll
+        {
+            TotalLoans = 1500m,
+            OtherDeductions = 1800m,
+            DeductionItems =
+            [
+                Item("Union Dues", 300m, false),
+                Item("SSS Loan", 1000m, true),
+                Item("Pag-IBIG Loan", 500m, true),
+            ],
+        };
+
+        PayslipSections.DeductionRows(payroll).Should().Equal(
+            ("SSS Loan", 1000m), ("Pag-IBIG Loan", 500m), ("Union Dues", 300m));
+    }
+
+    [Fact]
+    public void DeductionRows_AddsOneLineForWhatTheItemsDontCover()
+    {
+        // 200 of Other Deductions is a Salary Adjustment: no installment row, so no item.
+        var payroll = new Payroll
+        {
+            TotalLoans = 1000m,
+            OtherDeductions = 1500m,
+            DeductionItems = [Item("SSS Loan", 1000m, true), Item("Union Dues", 300m, false)],
+        };
+
+        PayslipSections.DeductionRows(payroll).Should().Equal(
+            ("SSS Loan", 1000m), ("Union Dues", 300m), ("Other Deductions", 200m));
+    }
+
+    [Fact]
+    public void DeductionRows_FallsBackToTheTotals_WhenThereAreNoItems()
+    {
+        var payroll = new Payroll { TotalLoans = 1000m, OtherDeductions = 1300m };
+
+        PayslipSections.DeductionRows(payroll).Should().Equal(("Loans", 1000m), ("Other Deductions", 300m));
     }
 
     [Fact]

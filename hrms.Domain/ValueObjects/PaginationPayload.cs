@@ -11,9 +11,12 @@ public record PayrollCalcPayload(DateOnly FromDate, DateOnly ToDate, Guid? Depar
 
 // Which DTR days a cutoff-mode run pays: the range, the payroll group, and optional narrowing by
 // the employee's own tags -- see DailyRecordService.CutoffPayableFilter.
+// UseDayClient: ClientIds narrows by the client stamped on each DTR day (a reliever's days at
+// another client belong to that client's run) instead of the employee's own client tag.
 public record CutoffScope(
     DateOnly From, DateOnly To, Guid? PayrollGroupId,
-    List<Guid>? EmployeeIds = null, List<Guid>? DepartmentIds = null, List<Guid>? ClientIds = null);
+    List<Guid>? EmployeeIds = null, List<Guid>? DepartmentIds = null, List<Guid>? ClientIds = null,
+    bool UseDayClient = false);
 
 // Payload for the UI-driven payroll run. Two selection modes:
 //  * Cutoff mode (BatchCodes null/empty) -- only FromDate and ToDate are required; the run pays
@@ -36,10 +39,16 @@ public record PayrollRunPayload
     // (not the department/client stamped on their DTR rows). Combined with EmployeeIds by AND.
     public List<Guid>? DepartmentIds { get; init; }
     public List<Guid>? ClientIds { get; init; }
+    // Deduction-carrier overrides (DeductionCarrierMode): employees this run must / must not take
+    // deductions for, whatever the company rule would decide. A skip beats a carry; neither can
+    // override a deduction period another run has already claimed.
+    public List<Guid>? CarryDeductionEmployeeIds { get; init; }
+    public List<Guid>? SkipDeductionEmployeeIds { get; init; }
     public bool IsCutoffMode => BatchCodes == null || BatchCodes.Count == 0;
-    // Valid only in cutoff mode (ProcessorService validates first).
-    public CutoffScope ToCutoffScope() =>
-        new(FromDate!.Value, ToDate!.Value, PayrollGroupId, EmployeeIds, DepartmentIds, ClientIds);
+    // Valid only in cutoff mode (ProcessorService validates first). useDayClient is on whenever the
+    // company runs a deduction-carrier mode, so a per-client run pays the days worked for that client.
+    public CutoffScope ToCutoffScope(bool useDayClient = false) =>
+        new(FromDate!.Value, ToDate!.Value, PayrollGroupId, EmployeeIds, DepartmentIds, ClientIds, useDayClient);
 
     // Optional Pay/Release Date, used when CrossMonthStatutoryCreditPolicy or
     // WTaxCrossMonthCreditPolicy is set to PayDate; falls back to the cutoff end date.
@@ -107,6 +116,7 @@ public class CompanyPolicyRule
     public decimal RequiredTakehomePercentage { get; set; } = 10;
     public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default;
     public HourlyRateDivisor HourlyRateDivisor { get; set; } = HourlyRateDivisorDefaults.Default;
+    public DeductionCarrierMode DeductionCarrierMode { get; set; } = DeductionCarrierMode.EveryRun;
     //public int RequiredWorkingDays { get; set; } = 22;
     //public int TotalDaysInaYear { get; set; } = 264;//22*12 use for daily rate computation for fix rate
     //public decimal StatutoryCap { get; set; }

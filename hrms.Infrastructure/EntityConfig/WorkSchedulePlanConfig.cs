@@ -17,5 +17,11 @@ public class WorkSchedulePlanConfig : IEntityTypeConfiguration<WorkSchedulePlan>
             .WithMany()
             .HasForeignKey(x => x.OperationAreaId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Same for a client picked directly on the day.
+        builder.HasOne(x => x.Client)
+            .WithMany()
+            .HasForeignKey(x => x.ClientId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -86,15 +86,13 @@ public class PayslipFixedDocument : IDocument
             PayslipSections.TwoColRow(col,
                 ("Client / Site", _e.ClientName),
                 ("Payroll Group", _e.PayrollGroupName));
+            // The pay period is already in the page header, so it isn't repeated here.
             PayslipSections.TwoColRow(col,
-                ("Salary Type", _p.SalaryType.ToString()),
+                ("Basic Salary", basic > 0 ? PayslipSections.Money(basic) : "—"),
                 ("Daily Rate", _p.DailyRate > 0 ? PayslipSections.Money(_p.DailyRate) : "—"));
             PayslipSections.TwoColRow(col,
                 ("Payroll Date", _p.PayrollDate.ToString("MMM dd, yyyy")),
                 ("Pay Date", _p.PayDate?.ToString("MMM dd, yyyy") ?? "—"));
-            PayslipSections.TwoColRow(col,
-                ("Basic Salary", basic > 0 ? PayslipSections.Money(basic) : "—"),
-                ("Period", $"{_p.PayPeriodStart:MMM dd} – {_p.PayPeriodEnd:MMM dd, yyyy}"));
         });
     }
 

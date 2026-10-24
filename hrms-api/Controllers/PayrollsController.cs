@@ -97,10 +97,43 @@ namespace Hrms.Api.Controllers
             [FromQuery] DateOnly from,
             [FromQuery] DateOnly to,
             [FromQuery] Guid? payrollGroupId,
+            [FromQuery] List<Guid>? clientIds,
             CancellationToken token)
         {
-            var data = await _service.GetReadinessAsync(from, to, payrollGroupId, token);
-            return Ok(new { data, total = data.Count });
+            var data = await _service.GetReadinessAsync(from, to, payrollGroupId, token, clientIds);
+            // dayClientMode: the company runs payroll per client by the client each day was worked
+            // for, so the screen must not narrow these rows by the employee's own client tag.
+            return Ok(new { data, total = data.Count, dayClientMode = await _service.UsesDayClientAsync() });
+        }
+
+        // Cutoff Tracker: per employee, the days worked for each client in the cutoff and which saved
+        // run carries their deductions. Empty (with the mode) when deductions aren't gated.
+        [HttpGet("cutoff-tracker")]
+        [RequirePermission("Payroll Run:View")]
+        [ProducesResponseType(typeof(ResponseModel<CutoffTrackerResult>), 200)]
+        public async Task<IActionResult> CutoffTracker(
+            [FromQuery] DateOnly from,
+            [FromQuery] DateOnly to,
+            [FromQuery] Guid? payrollGroupId,
+            CancellationToken token)
+        {
+            var data = await _service.GetCutoffTrackerAsync(from, to, payrollGroupId, token);
+            return Ok(data);
+        }
+
+        // Cutoff Statement: one employee's regular runs for a cutoff (a reliever is paid by several),
+        // with the run that took their deductions marked and one set of totals.
+        [HttpGet("cutoff-statement")]
+        [RequirePermission("Payroll Run:View")]
+        [ProducesResponseType(typeof(ResponseModel<CutoffStatementModel>), 200)]
+        public async Task<IActionResult> CutoffStatement(
+            [FromQuery] Guid employeeId,
+            [FromQuery] DateOnly from,
+            [FromQuery] DateOnly to,
+            CancellationToken token)
+        {
+            var data = await _service.GetCutoffStatementAsync(employeeId, from, to, token);
+            return Ok(data);
         }
 
         //// Employees with DTR in the pay period, for picking who this run pays.
@@ -350,6 +383,8 @@ namespace Hrms.Api.Controllers
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
+            // Loans / Other Deductions itemized by name -- see PayslipSections.DeductionRows.
+            await _payrollService.AttachDeductionItemsAsync([payroll], token);
             // Other Income itemized by name -- see PayslipOtherIncome.
             var otherIncome = new PayslipOtherIncome(await otherIncomeService.GetPayslipLinesAsync(payroll.Id, token));
             // Layout (Fixed-salary / Hours / Standard) is chosen by PayslipDocumentFactory from the

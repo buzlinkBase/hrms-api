@@ -116,6 +116,8 @@ public class OverrideSchedule : WorkScheduleHandler
             AreaName = result.OperationArea?.Name,
             AreaBranchId = result.OperationArea?.BranchId,
             AreaClientId = result.OperationArea?.ClientId,
+            ClientId = result.ClientId,
+            ClientName = result.Client?.Name,
 
             //PunchMode = shift.PunchMode,
 

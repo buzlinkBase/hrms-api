@@ -1,6 +1,16 @@
 
 namespace Hrms.Core.Calculators.Payloads;
 
+// One other client an employee worked for in the deduction period: days worked, and how many of
+// those no run has paid yet (UnpaidDays == 0 means every day is already in a saved run).
+public class OtherClientDays
+{
+    // Null = days with no client stamped.
+    public Guid? ClientId { get; set; }
+    public int WorkedDays { get; set; }
+    public int UnpaidDays { get; set; }
+}
+
 public class PayrollSummaryLine
 {
     public DateOnly PayPeriodStart { get; set; }
@@ -28,6 +38,18 @@ public class PayrollSummaryLine
     // Free-text identity for the whole run — see Payroll.Remarks.
     public string? Remarks { get; set; }
     public Guid EmployeeId { get; set; }
+    // See Payroll.IsDeductionCarrier. False = earnings-only run; deductions ride on another run.
+    public bool IsDeductionCarrier { get; set; } = true;
+    // Why the carrier resolver decided as it did -- shown on the run preview. Preview-only: Payroll
+    // has no member of this name, so Mapster never persists it.
+    public string? DeductionCarrierReason { get; set; }
+    // Days this employee worked for OTHER clients in the same deduction period that no run has paid
+    // yet. A carrier run brackets contributions and tax off what has been paid so far, so these
+    // days are not in its base. Preview-only, like the reason above.
+    public int OtherUnpaidDays { get; set; }
+    // The other clients this employee worked in the same deduction period (not paid by this run),
+    // for the preview's "also worked at" chips. Preview-only.
+    public List<OtherClientDays> OtherClients { get; set; } = [];
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;
     public SalaryType SalaryType { get; set; }

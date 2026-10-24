@@ -22,6 +22,10 @@ public class CurrentShift
     public string? AreaName { get; set; }
     public Guid? AreaBranchId { get; set; }
     public Guid? AreaClientId { get; set; }
+    // The client picked directly on the Work Rotation Plan row, for when the project site is not
+    // tied to one client. When set it wins over AreaClientId for the day's DTR client.
+    public Guid? ClientId { get; set; }
+    public string? ClientName { get; set; }
 
     //morning
     public BreakMode WithAMBreak { get; set; }

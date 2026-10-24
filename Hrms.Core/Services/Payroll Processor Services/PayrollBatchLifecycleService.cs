@@ -21,6 +21,7 @@ public class PayrollBatchLifecycleService
     private readonly YearLockService _yearLockService;
     private readonly ApprovalEngineService _approvalEngine;
     private readonly DTRBatchService _dtrBatchService;
+    private readonly PayrollDeductionClaimService _claimService;
 
     public PayrollBatchLifecycleService(
         IUnitOfWorkService uow,
@@ -34,8 +35,10 @@ public class PayrollBatchLifecycleService
         PayrollInputConsumptionService consumptionService,
         YearLockService yearLockService,
         ApprovalEngineService approvalEngine,
-        DTRBatchService dtrBatchService)
+        DTRBatchService dtrBatchService,
+        PayrollDeductionClaimService claimService)
     {
+        _claimService = claimService;
         _uow = uow;
         _payrollBatchService = payrollBatchService;
         _payrollService = payrollService;
@@ -270,6 +273,8 @@ public class PayrollBatchLifecycleService
         await _payrollService.DeleteDtrDetailsByPayrollIdsAsync(payrollIds, token);
         await _payrollService.DeleteByBatchIdAsync(payrollBatchId, token);
         await _consumptionService.ReleaseAsync(payrollIds, token);
+        // Frees every deduction period this run carried so another run can take them.
+        await _claimService.ReleaseByBatchAsync(payrollBatchId, token);
 
         // Deleting a run releases the DTR days it had paid so a new run can pay them again --
         // the inverse of PayrollProcessorService.GenerateAsync's per-day PayrollBatchId stamp. The

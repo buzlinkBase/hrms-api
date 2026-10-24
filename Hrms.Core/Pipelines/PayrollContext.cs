@@ -64,6 +64,10 @@ public class PayrollContext : BasePayloadContext
     // Method). Stamped by the DTR day-type pay calculator pricing the day, so the day-type policies
     // (DayTypeHours) always branch the same way as the OT/ND buckets they pair with.
     public OtNdCalculationMethod OtNdCalculationMethod { get; set; } = OtNdCalculationMethodDefaults.Default;
+    // True on an earnings-only run of an employee whose deductions another run carries
+    // (DeductionCarrierMode). Per-payroll flat amounts such as COLA are paid once per cutoff, so the
+    // carrier run pays them and this run does not.
+    public bool IsEarningsOnly { get; set; }
 }
 public class DeductionPayloadContext : BasePayloadContext
 {

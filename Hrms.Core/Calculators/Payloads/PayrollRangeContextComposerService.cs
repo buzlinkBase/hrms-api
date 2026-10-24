@@ -67,11 +67,25 @@ public class PayrollRangeContextComposerService
         _generalSettingService = generalSettingService;
         _clientService = clientService;
     }
+    // Setup > Company Policy > Deduction Carrier. Read on its own (ahead of the DTR load) because it
+    // decides how a run selects its days; unset means EveryRun, today's behaviour.
+    public async Task<DeductionCarrierMode> GetDeductionCarrierModeAsync()
+    {
+        var companySettings = await _generalSettingService.GetSettingsAsync("Company");
+        return companySettings.TryGetValue(SettingKey.DeductionCarrierMode.ToString(), out var setting)
+            ? GeneralSettingsUtil.ParseEnum(setting.Value, DeductionCarrierMode.EveryRun)
+            : DeductionCarrierMode.EveryRun;
+    }
+
+    // deductionEmployeeIds: the employees whose deductions / other income / salary adjustments this
+    // run carries. Null = everyone (the default). Earnings-only employees are left out of those
+    // three loads entirely, so a run full of relievers does less work, not more.
     public async Task<CalculatorPayload?> ComposePayload(
     DateRangePayload dtrPayload,
     List<EmployeeModelPayrollRun> employees,
     CancellationToken token,
-    DateOnly? payDate = null)
+    DateOnly? payDate = null,
+    IReadOnlyCollection<Guid>? deductionEmployeeIds = null)
     {
         // 1. Validate inputs early to avoid unnecessary DB calls
         if (employees == null || !employees.Any()) return null;
@@ -88,9 +102,10 @@ public class PayrollRangeContextComposerService
             var clientRetirementDaysPerYearTask = await _clientService.FindRetirementDaysPerYearAsync(clientIds, token);
             var leavesTask = await _leaveService.FindByDateRangeAsync(dtrPayload.FromDate, dtrPayload.ToDate, hasEmpIds, token);
             var leaveCreditsTask = await _leaveLedgerService.LoadCreditsAsync(empIds, token);
-            var otherIncomeTask = await _otherIncomeService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var deductionsTask = await _deductionService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var salaryAdjTask = await _salaryAdjService.LoadAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var deductionIds = deductionEmployeeIds == null ? empIds : deductionEmployeeIds.Where(hasEmpIds.Contains).ToList();
+            var otherIncomeTask = await _otherIncomeService.LoadAsync(deductionIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var deductionsTask = await _deductionService.LoadAsync(deductionIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
+            var salaryAdjTask = await _salaryAdjService.LoadAsync(deductionIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var oneTimeLeavePayoutsTask = await _leaveService.LoadOneTimePayoutsAsync(empIds, dtrPayload.FromDate, dtrPayload.ToDate, token);
             var companyTask = await _companyService.FineOneAsync(token);
             var companySettings = await _generalSettingService.GetSettingsAsync("Company");
@@ -204,6 +219,9 @@ public class PayrollRangeContextComposerService
                     RequiredTakehomePercentage = (decimal)requiredTakehomePercentage,
                     OtNdCalculationMethod = otNdCalculationMethod,
                     HourlyRateDivisor = hourlyRateDivisor,
+                    DeductionCarrierMode = companySettings.TryGetValue(SettingKey.DeductionCarrierMode.ToString(), out var carrierSetting)
+                        ? GeneralSettingsUtil.ParseEnum(carrierSetting.Value, DeductionCarrierMode.EveryRun)
+                        : DeductionCarrierMode.EveryRun,
                 }
             };
         }

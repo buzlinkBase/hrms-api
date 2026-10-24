@@ -31,6 +31,11 @@ public class PayrollContextBuilder
         _context.Payload = payload;
         return this;
     }
+    public PayrollContextBuilder SetEarningsOnly(bool earningsOnly)
+    {
+        _context.IsEarningsOnly = earningsOnly;
+        return this;
+    }
     public PayrollContext Build() => _context;
 }
 public class DeductionPayloadContextBuilder

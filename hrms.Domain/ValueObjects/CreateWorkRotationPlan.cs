@@ -6,6 +6,8 @@ public class CreateWorkRotationPlan
     public Guid EmployeeId { get; set; }
     public Guid TimeShiftId { get; set; }
     public Guid? OperationAreaId { get; set; }
+    // Client picked directly on the day; wins over the site's client. Null = none.
+    public Guid? ClientId { get; set; }
 }
 
 public class CreateWorkRotationPlanBatch
@@ -14,6 +16,7 @@ public class CreateWorkRotationPlanBatch
     public List<DateOnly> PayrollDates { get; set; }
     public Guid TimeShiftId { get; set; }
     public Guid? OperationAreaId { get; set; }
+    public Guid? ClientId { get; set; }
 }
 
 public class UpdateWorkSchedulePlan : CreateWorkRotationPlan
@@ -32,6 +35,8 @@ public class WorkSchedulePlanModel
     public string? ShiftName { get; set; }
     public Guid? OperationAreaId { get; set; }
     public string? AreaName { get; set; }
+    public Guid? ClientId { get; set; }
+    public string? ClientName { get; set; }
 }
 
 public record WorkRotationPlanFilter(DateOnly FromDate, DateOnly ToDate, Guid? EmployeeId);

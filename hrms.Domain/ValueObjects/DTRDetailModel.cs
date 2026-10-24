@@ -273,6 +273,10 @@ public class RosterReportModel
     // (the employee then reports to their own site).
     public Guid? AreaId { get; set; }
     public string? AreaName { get; set; }
+    // Client picked directly on that override for this date (when the site isn't tied to one);
+    // null when the day carries none.
+    public Guid? ClientId { get; set; }
+    public string? ClientName { get; set; }
 }
 
 public class LeaveMetaDataModel

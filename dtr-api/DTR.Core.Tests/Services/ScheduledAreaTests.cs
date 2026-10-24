@@ -57,7 +57,58 @@ public class ScheduledAreaTests
         shift.AreaClientId.Should().BeNull();
     }
 
+    [Fact]
+    public void OverrideSchedule_CarriesTheClientPickedOnTheDay_WithOrWithoutASite()
+    {
+        var employee = new EmployeeDTRRun { Id = Guid.NewGuid() };
+        var client = new Client { Id = Guid.NewGuid(), Name = "Client B" };
+        var plan = new WorkSchedulePlan { Id = Guid.NewGuid(), EmployeeId = employee.Id, PayrollDate = Day, TimeShiftId = ShiftId, ClientId = client.Id, Client = client };
+
+        var shift = Resolve(employee, plan);
+
+        shift.ClientId.Should().Be(client.Id);
+        shift.ClientName.Should().Be("Client B");
+        shift.AreaId.Should().BeNull("no site was picked -- the client stands on its own");
+    }
+
     // --- DTRLocationResolver -----------------------------------------------------------------
+
+    [Fact]
+    public void DTRLocation_ClientPickedOnTheDay_BeatsTheSitesOwnClient()
+    {
+        var shift = new CurrentShift
+        {
+            AreaId = Guid.NewGuid(), AreaBranchId = Guid.NewGuid(), AreaClientId = Guid.NewGuid(),
+            ClientId = Guid.NewGuid(),
+        };
+
+        var location = DTRLocationResolver.Resolve(shift, DevicePunch, Employee);
+
+        location.Should().Be(new DTRLocation(shift.AreaBranchId, shift.ClientId, shift.AreaId));
+    }
+
+    [Fact]
+    public void DTRLocation_ClientPickedOnASiteWithNoClient_UsesThePickedClient()
+    {
+        // The project site isn't tied to a client, so without the pick the day would fall back to the
+        // punch's or the employee's client.
+        var shift = new CurrentShift { AreaId = Guid.NewGuid(), ClientId = Guid.NewGuid() };
+
+        var location = DTRLocationResolver.Resolve(shift, DevicePunch, Employee);
+
+        location.Should().Be(new DTRLocation(DevicePunch.BranchId, shift.ClientId, shift.AreaId));
+    }
+
+    [Fact]
+    public void DTRLocation_ClientWithoutASite_KeepsThePunchsBranchAndSite()
+    {
+        var shift = new CurrentShift { ClientId = Guid.NewGuid() };
+
+        DTRLocationResolver.Resolve(shift, DevicePunch, Employee)
+            .Should().Be(new DTRLocation(DevicePunch.BranchId, shift.ClientId, DevicePunch.OperationAreaId));
+        DTRLocationResolver.Resolve(shift, null, Employee)
+            .Should().Be(new DTRLocation(Employee.BranchId, shift.ClientId, Employee.AreaId));
+    }
 
     private static readonly EmployeeDTRRun Employee = new()
     {

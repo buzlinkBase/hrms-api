@@ -100,12 +100,14 @@ public class ClientPortalSyncService : BaseService<DailyRecord>
                 .ToListAsync(token);
 
             // A day tagged with a project site counts toward that site (and its client); an
-            // untagged day counts toward the employee's own site, as the DTR does.
+            // untagged day counts toward the employee's own site, as the DTR does. A client picked
+            // directly on the day wins over the site's, the same order the DTR uses.
             var plans = await Context.WorkSchedulePlans.AsNoTracking()
                 .Where(p => p.PayrollDate >= from && p.PayrollDate <= to)
                 .Select(p => new
                 {
-                    ClientId = p.OperationAreaId != null ? p.OperationArea!.ClientId ?? p.Employee.ClientId : p.Employee.ClientId,
+                    ClientId = p.ClientId
+                        ?? (p.OperationAreaId != null ? p.OperationArea!.ClientId ?? p.Employee.ClientId : p.Employee.ClientId),
                     AreaId = p.OperationAreaId ?? p.Employee.AreaId,
                     p.PayrollDate,
                     ShiftName = p.TimeShift.ShiftName,

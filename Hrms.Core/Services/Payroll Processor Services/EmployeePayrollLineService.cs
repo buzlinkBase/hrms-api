@@ -40,7 +40,8 @@ public class EmployeePayrollLineService
         DateOnly? payDate,
         string? remarks,
         List<LeaveMetaDataModel>? empLeaveInfo,
-        Dictionary<Guid, PaySource> leavePaySourceMap)
+        Dictionary<Guid, PaySource> leavePaySourceMap,
+        bool carriesDeductions = true)
     {
         employee.DailyRate = _dailyRateResolver.Resolve(employee, dateRange.FromDate);
         var payrollLine = InitializePayrollLine(
@@ -58,19 +59,25 @@ public class EmployeePayrollLineService
         rangePayload.Leaves.TryGetValue(new Leavekey(employee.Id), out var employeeLeaveApps);
         var employeeOneTimeLeaveApps = employeeLeaveApps?.Where(a => a.PayoutMode == PayoutMode.OneTime).ToList();
         ComputeNonCompanyPaidLeaves(empLeaveInfo, leavePaySourceMap, employeeOneTimeLeaveApps, payrollLine);
-        ComputeAllowances(dateRange, rangePayload, employee, payrollLine);
+        ComputeAllowances(dateRange, rangePayload, employee, payrollLine, earningsOnly: !carriesDeductions);
         // Deliberately before ComputeDeductions (unlike ApplySalaryAdjustments, which runs
         // after) — the Company-funded portion must already be part of GrossIncome so the
         // SSS/PHIC/HDMF/WTax calculators below see it via StatutoryHelper.Get*GrossBaseRate.
         var employerAdvancedGovPay = ApplyOneTimeLeavePayoutsToGross(rangePayload, employee, payrollLine);
         payrollLine.GrossIncome = PayrollProcessorUtil.GetGross(payrollLine);
-        ComputeDeductions(rangePayload, employee, payrollLine);
+        payrollLine.IsDeductionCarrier = carriesDeductions;
+        if (carriesDeductions)
+            ComputeDeductions(rangePayload, employee, payrollLine);
+        else
+            ComputeEarningsOnly(payrollLine);
         // ComputeDeductions just freshly recomputed NetPay from GrossIncome (not an
         // increment), so the employer-advanced government portion — deliberately kept out
         // of GrossIncome/statutory bases above — can only be added to NetPay here, after.
         // Direct-deposit payouts (government pays the employee, not this employer) are
         // excluded — see ApplyOneTimeLeavePayoutsToGross's doc comment.
         payrollLine.NetPay += employerAdvancedGovPay;
+        // Salary adjustments (credits and deductions alike) belong to the carrier run only; the
+        // composer already left non-carriers out of that load, so this is a no-op for them.
         ApplySalaryAdjustments(rangePayload, employee, payrollLine);
         return payrollLine;
     }
@@ -526,12 +533,14 @@ public class EmployeePayrollLineService
         DateRangePayload payload,
         CalculatorPayload rangePayload,
         EmployeeModelPayrollRun employee,
-        PayrollSummaryLine payrollLine)
+        PayrollSummaryLine payrollLine,
+        bool earningsOnly = false)
     {
         var pp = new PayrollCalcPayload(payload.FromDate, payload.ToDate, null, null, null, null);
         var context = new PayrollContextBuilder()
             .SetEmployee(employee)
             .SetPayload(rangePayload)
+            .SetEarningsOnly(earningsOnly)
             .Build();
 
         AllowancePipeData IncomeCalcResult = _allowancesCalculator.Calculate(context);
@@ -547,6 +556,16 @@ public class EmployeePayrollLineService
         payrollLine.TotalAllIncome = IncomeCalcResult.RunningTotal;
         IdentifyTaxableIncome(payrollLine, IncomeCalcResult);
         return IncomeCalcResult;
+    }
+
+    // An earnings-only run of a reliever whose deductions another run carries (see
+    // DeductionCarrierMode): no statutory, tax, loan or other deduction is computed or ledgered
+    // here, so the whole gross is the take-home. The taxable/non-taxable split is still stored so
+    // this run's earnings count toward the annual tax rollups.
+    internal static void ComputeEarningsOnly(PayrollSummaryLine payrollLine)
+    {
+        payrollLine.NetPay = payrollLine.GrossIncome;
+        ApplyTaxableIncomeSplit(payrollLine);
     }
 
     private void ComputeDeductions(

@@ -26,6 +26,78 @@ public class PayrollService : BaseService<Payroll>
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
     }
 
+    // Cutoff Statement: every regular run that paid the employee for a pay period ending inside the
+    // window, oldest first, with one set of totals. Runs of every approval state are included (a
+    // draft is still money about to be paid) -- each row carries its own status.
+    public async Task<CutoffStatementModel> GetCutoffStatementAsync(
+        Guid employeeId, DateOnly from, DateOnly to, CancellationToken token)
+    {
+        var rows = await GetQueryable(x => x.EmployeeId == employeeId
+                && x.PayrollType == PayrollType.Regular
+                && x.PayPeriodEnd >= from && x.PayPeriodEnd <= to)
+            .OrderBy(x => x.PayPeriodEnd).ThenBy(x => x.CreatedAt)
+            .Select(x => new CutoffStatementRun
+            {
+                PayrollBatchId = x.PayrollBatchId,
+                ClientId = x.ClientId,
+                PayPeriodStart = x.PayPeriodStart,
+                PayPeriodEnd = x.PayPeriodEnd,
+                PayDate = x.PayDate,
+                Remarks = x.Remarks,
+                IsPosted = x.IsPosted,
+                ApprovalStatus = x.ApprovalStatus.ToString(),
+                IsDeductionCarrier = x.IsDeductionCarrier,
+                GrossIncome = x.GrossIncome,
+                SssContribution = x.SSSContribution,
+                PhilHealthContribution = x.PhilHealthContribution,
+                PagIbigContribution = x.PagIbigContribution,
+                WithholdingTax = x.WithholdingTax,
+                CashBondDeduction = x.CashBondDeduction,
+                TotalLoans = x.TotalLoans,
+                OtherDeductions = x.OtherDeductions - x.TotalLoans,
+                TotalDeductions = x.TotalDeductions,
+                NetPay = x.NetPay,
+            })
+            .ToListAsync(token);
+
+        var name = await GetQueryable(x => x.EmployeeId == employeeId)
+            .OrderByDescending(x => x.PayPeriodEnd)
+            .Select(x => x.FullName)
+            .FirstOrDefaultAsync(token);
+
+        return new CutoffStatementModel
+        {
+            EmployeeId = employeeId,
+            FullName = name,
+            From = from,
+            To = to,
+            Runs = rows,
+            Totals = new CutoffStatementTotals
+            {
+                GrossIncome = rows.Sum(x => x.GrossIncome),
+                TotalDeductions = rows.Sum(x => x.TotalDeductions),
+                NetPay = rows.Sum(x => x.NetPay),
+            },
+        };
+    }
+
+    // The carrier rows of the given runs -- which client each paid and when -- for the Cutoff
+    // Tracker. Keyed (employee, run) since a run holds one row per employee.
+    public async Task<Dictionary<(Guid EmployeeId, Guid BatchId), (Guid? ClientId, DateOnly? PayDate, string? Remarks)>>
+        GetCarrierRowsAsync(IReadOnlyCollection<Guid> batchIds, CancellationToken token)
+    {
+        var result = new Dictionary<(Guid, Guid), (Guid?, DateOnly?, string?)>();
+        foreach (var chunk in batchIds.Chunk(1000))
+        {
+            var ids = chunk.ToList();
+            var rows = await GetQueryable(x => ids.Contains(x.PayrollBatchId) && x.IsDeductionCarrier)
+                .Select(x => new { x.EmployeeId, x.PayrollBatchId, x.ClientId, x.PayDate, x.Remarks })
+                .ToListAsync(token);
+            foreach (var r in rows) result[(r.EmployeeId, r.PayrollBatchId)] = (r.ClientId, r.PayDate, r.Remarks);
+        }
+        return result;
+    }
+
     public async Task<Payroll?> FineOneAsync(Guid Id, CancellationToken token)
     {
         return await GetOneAsync(Id, token);

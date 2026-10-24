@@ -65,6 +65,8 @@ public class RosterReportService
                     OverrideId = shift?.OverrideId,
                     AreaId = shift?.AreaId,
                     AreaName = shift?.AreaName,
+                    ClientId = shift?.ClientId,
+                    ClientName = shift?.ClientName,
                 });
             }
         }

@@ -106,6 +106,10 @@ public class WorkSchedulePlansController : ControllerBase
         {
             return BadRequest("The selected area does not exist.");
         }
+        if (payload.ClientId is { } clientId && !await _service.ClientExistsAsync(clientId, token))
+        {
+            return BadRequest("The selected client does not exist.");
+        }
 
         var data = new List<WorkSchedulePlan>();
         foreach (var employeeId in payload.EmployeeIds)
@@ -118,6 +122,7 @@ public class WorkSchedulePlansController : ControllerBase
                     PayrollDate = payrollDate,
                     TimeShiftId = payload.TimeShiftId,
                     OperationAreaId = payload.OperationAreaId,
+                    ClientId = payload.ClientId,
                 });
             }
         }
@@ -126,14 +131,40 @@ public class WorkSchedulePlansController : ControllerBase
         return Ok(respModel);
     }
 
-    //[HttpPut("{id}")]
-    //[ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
-    //public async Task<IActionResult> Put(Guid id, [FromBody] UpdateWorkSchedulePlan payload, CancellationToken token)
-    //{
-    //    payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
-    //    await _service.UpdateAsync(payload, token);
-    //    return Ok(_mapper.Map<WorkSchedulePlanModel>(payload));
-    //}
+    [HttpGet("{id:guid}")]
+    [RequirePermission("Work Rotation:View")]
+    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
+    public async Task<IActionResult> GetOne(Guid id, CancellationToken token)
+    {
+        var data = await _service.GetModelAsync(id, token);
+        return data == null ? NotFound() : Ok(data);
+    }
+
+    // Edit follows Create's rule (there is no separate Edit permission): unscoped for anyone with
+    // Work Rotation:Create or neither permission, restricted to direct reports for ManageOwnTeam.
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
+    public async Task<IActionResult> Put(Guid id, [FromBody] UpdateWorkSchedulePlan payload, CancellationToken token)
+    {
+        var existing = await _service.GetModelAsync(id, token);
+        if (existing == null) return NotFound();
+
+        var scopeViolation = await ValidateTeamScopeAsync(User, [existing.EmployeeId], token);
+        if (scopeViolation != null) return scopeViolation;
+
+        if (payload.OperationAreaId is { } areaId && !await _service.AreaExistsAsync(areaId, token))
+        {
+            return BadRequest("The selected area does not exist.");
+        }
+        if (payload.ClientId is { } clientId && !await _service.ClientExistsAsync(clientId, token))
+        {
+            return BadRequest("The selected client does not exist.");
+        }
+
+        payload.Id = id;
+        await _service.UpdateAsync(payload, token);
+        return Ok(await _service.GetModelAsync(id, token));
+    }
 
     [HttpDelete("{id}")]
     [RequirePermission("Work Rotation:Delete")]

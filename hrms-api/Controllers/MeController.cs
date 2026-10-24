@@ -219,7 +219,8 @@ namespace Hrms.Api.Controllers
             var employee = await _employeeService.GetFullByIdAsync(payroll.EmployeeId, token);
             if (employee == null) return NotFound();
             var company = await _companyService.FineOneAsync(token);
-            // Same layout and Other Income rules as PayrollsController.PrintPayslip.
+            // Same layout, Other Income and itemized deduction rules as PayrollsController.PrintPayslip.
+            await _payrollService.AttachDeductionItemsAsync([payroll], token);
             var otherIncome = new PayslipOtherIncome(await otherIncomeService.GetPayslipLinesAsync(payroll.Id, token));
             var logo = await letterhead.LoadLogoAsync(company, token);
             var document = PayslipDocumentFactory.Create(payroll, employee, company, otherIncome, logo);

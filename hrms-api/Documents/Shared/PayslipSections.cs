@@ -1,4 +1,3 @@
-using System.Globalization;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using QuestPDF.Fluent;
@@ -139,14 +138,11 @@ internal static class PayslipSections
                 ("Client / Site", e.ClientName),
                 ("Payroll Group", e.PayrollGroupName));
             TwoColRow(col,
-                ("Salary Type", p.SalaryType.ToString()),
-                ("Daily Rate", p.DailyRate > 0 ? Money(p.DailyRate) : "—"));
+                ("Daily Rate", p.DailyRate > 0 ? Money(p.DailyRate) : "—"),
+                ("Days Worked", $"{DaysWorked(p)} days"));
             TwoColRow(col,
                 ("Payroll Date", p.PayrollDate.ToString("MMM dd, yyyy")),
                 ("Pay Date", p.PayDate?.ToString("MMM dd, yyyy") ?? "—"));
-            TwoColRow(col,
-                ("Week #", ISOWeek.GetWeekOfYear(p.PayPeriodStart.ToDateTime(TimeOnly.MinValue)).ToString()),
-                ("Days Worked", $"{DaysWorked(p)} days"));
         });
     }
 
@@ -193,6 +189,32 @@ internal static class PayslipSections
 
     internal static int RegularDaysWorked(Payroll p) => DaysWorked(p) - HolidayDaysWorked(p);
 
+    // Loans and Other Deductions itemized by name from the installments this payroll withheld
+    // (Payroll.DeductionItems, attached by PayrollService.AttachDeductionItemsAsync), loans first.
+    // Whatever the items don't cover -- Salary Adjustment deductions have no detail row, and runs
+    // saved before detail rows existed have none at all -- is printed on one "Loans" /
+    // "Other Deductions" line, so the box always adds up to the totals saved on the row. Internal
+    // so hrms.test can check the rows without rendering a PDF.
+    internal static List<(string Label, decimal Amount)> DeductionRows(Payroll p)
+    {
+        const decimal tolerance = 0.005m;
+        var rows = new List<(string Label, decimal Amount)>();
+
+        var loans = p.DeductionItems.Where(x => x.IsLoan && x.Amount != 0m).ToList();
+        rows.AddRange(loans.Select(x => (x.Label, x.Amount)));
+        var loanRest = p.TotalLoans - loans.Sum(x => x.Amount);
+        if (loans.Count == 0 || Math.Abs(loanRest) >= tolerance)
+            rows.Add(("Loans", loanRest));
+
+        var others = p.DeductionItems.Where(x => !x.IsLoan && x.Amount != 0m).ToList();
+        rows.AddRange(others.Select(x => (x.Label, x.Amount)));
+        var otherRest = p.OtherDeductions - p.TotalLoans - others.Sum(x => x.Amount);
+        if (others.Count == 0 || Math.Abs(otherRest) >= tolerance)
+            rows.Add(("Other Deductions", otherRest));
+
+        return rows;
+    }
+
     public static void ComposeDeductions(IContainer c, Payroll p)
     {
         c.Border(1).BorderColor(ReportDocumentStyle.BorderColor).Column(col =>
@@ -229,8 +251,8 @@ internal static class PayslipSections
                 }
                 if (isRegular)
                 {
-                    AmountRow(table, "Loans", p.TotalLoans);
-                    AmountRow(table, "Other Deductions", p.OtherDeductions - p.TotalLoans);
+                    foreach (var row in DeductionRows(p))
+                        AmountRow(table, row.Label, row.Amount);
                     // Late/Under Time/Absences are deliberately NOT listed here for FIXED: they're
                     // already taken off Basic Salary before Gross Income (see
                     // PayslipFixedDocument), never part of TOTAL DEDUCTIONS, so listing them

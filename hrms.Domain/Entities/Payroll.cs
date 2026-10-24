@@ -239,6 +239,11 @@ public class Payroll: BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, IC
     public Guid? PayrollGroupId { get; set; }
     public Guid? AreaId { get; set; }
     public Guid? ClientId { get; set; }
+    // False on an earnings-only run of a reliever whose deductions another run carries (see
+    // DeductionCarrierMode / PayrollDeductionClaim). Defaults true so every row written before
+    // this existed -- and every run under the EveryRun mode -- reads as deducting. Name matches
+    // PayrollSummaryLine.IsDeductionCarrier for Mapster's convention mapping.
+    public bool IsDeductionCarrier { get; set; } = true;
 
     public decimal NonTaxableBenefits { get; set; }
     public decimal TaxableBenefits { get; set; }

@@ -588,6 +588,28 @@ public enum SettingKey
     CoworkerShowAnniversaries,
     CoworkerShowWhosOut,
     CoworkerShowDirectory,
+    // Company-wide only. Which payroll run takes an employee's deductions and general other income
+    // when they are paid by several runs in one deduction period -- see DeductionCarrierMode.
+    DeductionCarrierMode,
+}
+
+// Which of an employee's payroll runs in one deduction period (a cutoff of their own payroll
+// group) carries the statutory contributions, tax, loans/deductions and general other income.
+// Every other run that period is earnings-only. Hrms.Core/Services/Payroll Processor Services/
+// DeductionCarrierResolver decides; PayrollDeductionClaim's unique index guarantees it.
+// - EveryRun (default): no gating, every run deducts -- the behaviour before relievers existed.
+// - PrimaryClient: the run that pays the employee's own client (Employee.ClientId); an employee who
+//   never worked that client in the period falls back to the client with the most days.
+// - MostDays: the run of the client the employee worked the most days for in the period.
+// - FirstRunGenerated: whichever run is generated first.
+// - Manual: only runs that name the employee in PayrollRunPayload.CarryDeductionEmployeeIds.
+public enum DeductionCarrierMode
+{
+    EveryRun,
+    PrimaryClient,
+    MostDays,
+    FirstRunGenerated,
+    Manual,
 }
 
 // What a day's daily rate is divided by to get the hourly rate that every payroll hour bucket

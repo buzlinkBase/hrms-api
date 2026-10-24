@@ -30,6 +30,33 @@ namespace hrms.test.TestSupport;
 // exercises would (a) risk a lock conflict against that IUnitOfWorkService's own ambient
 // transaction, and (b) put the seed inside that same transaction, so a later rollback in the
 // method under test would incorrectly wipe the seed too.
+/// <summary>Counts every SQL command EF runs (reads, writes and scalars).</summary>
+public sealed class SqlCommandCounter : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+{
+    public int Count { get; private set; }
+
+    public void Reset() => Count = 0;
+
+    public override Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> ReaderExecuting(
+        System.Data.Common.DbCommand command,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+        Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result)
+    {
+        Count++;
+        return result;
+    }
+
+    public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+        System.Data.Common.DbCommand command,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+        Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result,
+        CancellationToken cancellationToken = default)
+    {
+        Count++;
+        return ValueTask.FromResult(result);
+    }
+}
+
 public sealed class SqliteHrmsContext : IDisposable
 {
     private readonly SqliteConnection _keepAlive;
@@ -52,6 +79,18 @@ public sealed class SqliteHrmsContext : IDisposable
         NewContext(new FakeTenantProvider(tenantId ?? Guid.Empty));
 
     public HrmsContext NewContext(ITenantProvider tenantProvider) => NewContext(tenantProvider, null);
+
+    /// <summary>A context whose SQL commands are counted -- for proving a code path's query count
+    /// does not grow with the amount of data.</summary>
+    public HrmsContext NewCountingContext(SqlCommandCounter counter)
+    {
+        var tenantProvider = new FakeTenantProvider(Guid.Empty);
+        var options = new DbContextOptionsBuilder<HrmsContext>()
+            .UseSqlite(_connectionString, x => x.UseNetTopologySuite())
+            .AddInterceptors(counter)
+            .Options;
+        return new HrmsContext(options, null!, tenantProvider, null!, null);
+    }
 
     /// <summary>A context whose query filter reads the given confidential-access scope.</summary>
     public HrmsContext NewContext(IConfidentialAccess? confidentialAccess, Guid? tenantId = null) =>

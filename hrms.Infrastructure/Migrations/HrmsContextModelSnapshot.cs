@@ -5044,6 +5044,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<decimal>("HolidayPay")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<bool>("IsDeductionCarrier")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsPosted")
                         .HasColumnType("tinyint(1)");
 
@@ -5563,6 +5566,52 @@ namespace Hrms.Infrastructure.Migrations
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("PayrollBatches");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.PayrollDeductionClaim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("PayrollBatchId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PayrollBatchId");
+
+                    b.HasIndex("EmployeeId", "PeriodStart")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("PayrollDeductionClaims");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.PayrollDeductionDetail", b =>
@@ -7210,6 +7259,9 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid?>("ClientId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -7239,6 +7291,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
 
                     b.HasIndex("OperationAreaId");
 
@@ -8196,6 +8250,17 @@ namespace Hrms.Infrastructure.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.PayrollDeductionClaim", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.PayrollDeductionDetail", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.Payroll", null)
@@ -8335,6 +8400,11 @@ namespace Hrms.Infrastructure.Migrations
 
             modelBuilder.Entity("Hrms.Domain.Entities.WorkSchedulePlan", b =>
                 {
+                    b.HasOne("Hrms.Domain.Entities.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
                         .WithMany()
                         .HasForeignKey("EmployeeId")
@@ -8351,6 +8421,8 @@ namespace Hrms.Infrastructure.Migrations
                         .HasForeignKey("TimeShiftId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Client");
 
                     b.Navigation("Employee");
 

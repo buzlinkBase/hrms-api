@@ -1170,11 +1170,18 @@ public class MeControllerTests
     public async Task GetMy13thMonth_NoLinkedEmployee_ReturnsNotFound()
     {
         var (controller, _) = BuildController(caller: null);
+        using var db = new SqliteHrmsContext();
+        await using var settings = db.NewContext();
 
-        var result = await controller.GetMy13thMonth(2026, CancellationToken.None);
+        var result = await controller.GetMy13thMonth(2026, AllPagesVisible(settings), CancellationToken.None);
 
         result.Should().BeOfType<NotFoundResult>();
     }
+
+    // Every portal pay page is on until the company saves a switch off, so an empty settings table
+    // is the "all visible" case these tests want.
+    private static Hrms.Core.Services.PortalVisibilityService AllPagesVisible(Hrms.Infrastructure.HrmsContext context) =>
+        new(new DTR.Core.GeneralSettingService(new Hrms.Core.Services.UnitOfWorkService(context)));
 
     [Fact]
     public async Task GetMy13thMonth_ReturnsOnlyCallersOwnFigure()
@@ -1184,8 +1191,10 @@ public class MeControllerTests
         var mine = BuildRegularPayroll(caller.Id, 2026, 120_000);
         var others = BuildRegularPayroll(someoneElse.Id, 2026, 240_000);
         var (controller, _) = BuildController(caller, payrollRows: [mine, others]);
+        using var db = new SqliteHrmsContext();
+        await using var settings = db.NewContext();
 
-        var result = await controller.GetMy13thMonth(2026, CancellationToken.None);
+        var result = await controller.GetMy13thMonth(2026, AllPagesVisible(settings), CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         var model = ok.Value.Should().BeOfType<ThirteenthMonthModel>().Subject;

@@ -47,6 +47,7 @@ public class WorkSchedulePlansControllerTests
         var repo = Substitute.For<IRepository>();
         repo.FindAll<Employee>().Returns(_ => employees.ToList().BuildMockDbSet());
         repo.FindAll<CostCenters>().Returns(_ => areas.BuildMockDbSet());
+        repo.FindAll<Client>().Returns(_ => new List<Client>().BuildMockDbSet());
 
         var uow = Substitute.For<IUnitOfWorkService>();
         uow.Repository.Returns(repo);
@@ -172,6 +173,27 @@ public class WorkSchedulePlansControllerTests
         }, CancellationToken.None);
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    // Same for a client picked directly on the day.
+    [Fact]
+    public async Task PostBatch_RejectsAClientThatDoesNotExist()
+    {
+        var controller = BuildController();
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = BuildUser(Guid.NewGuid(), "Work Rotation:Create") },
+        };
+
+        var result = await controller.PostBatch(new CreateWorkRotationPlanBatch
+        {
+            EmployeeIds = [Guid.NewGuid()],
+            PayrollDates = [new DateOnly(2026, 10, 1)],
+            TimeShiftId = Guid.NewGuid(),
+            ClientId = Guid.NewGuid(),
+        }, CancellationToken.None);
+
+        result.Should().BeOfType<BadRequestObjectResult>().Which.Value.Should().Be("The selected client does not exist.");
     }
 
     [Fact]

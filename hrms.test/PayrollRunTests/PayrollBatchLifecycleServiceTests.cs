@@ -70,7 +70,8 @@ public class PayrollBatchLifecycleServiceTests
 
         return new PayrollBatchLifecycleService(
             uow, payrollBatchService, payrollService, sssService, phicService, hdmfService, taxService,
-            dtrService, consumptionService, yearLockService, approvalEngine, dtrBatchService);
+            dtrService, consumptionService, yearLockService, approvalEngine, dtrBatchService,
+            new PayrollDeductionClaimService(uow));
     }
 
     [Fact]

@@ -20,6 +20,28 @@ public class StatutoryHelperTests : TestContextBase
         StatutoryHelper.GetMonthlyGrossBaseRate(ctx).Should().Be(27_500);
     }
 
+    [Fact]
+    public void GetMonthlyGrossBaseRate_AddsThisMonthsEarningsOnlyRuns_ButNotCarrierRuns()
+    {
+        // A reliever paid by two per-client runs in a monthly cutoff: the run that carries their
+        // statutory deductions brackets off the whole month's gross, not just its own client's days.
+        var ctx = CreateContext(SalaryType.VARIABLE, PayrollFrequency.MONTHLY, 10_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 31));
+        var key = new EmployeeKey(ctx.Employee.Id);
+        var inPeriod = new DateOnly(2025, 3, 31);
+        ctx.Payload.PostedPriorPayrolls[key] =
+        [
+            new Payroll { EmployeeId = ctx.Employee.Id, GrossIncome = 6_000, IsDeductionCarrier = false, PayPeriodEnd = inPeriod },
+            new Payroll { EmployeeId = ctx.Employee.Id, GrossIncome = 4_000, IsDeductionCarrier = true, PayPeriodEnd = inPeriod },
+            new Payroll
+            {
+                EmployeeId = ctx.Employee.Id, GrossIncome = 9_000, IsDeductionCarrier = false,
+                PayrollType = PayrollType.ThirteenthMonth, PayPeriodEnd = inPeriod,
+            },
+        ];
+
+        StatutoryHelper.GetMonthlyGrossBaseRate(ctx).Should().Be(16_000);
+    }
+
     [Theory]
     [InlineData(SalaryType.FIXED)]
     [InlineData(SalaryType.VARIABLE)]

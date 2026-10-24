@@ -106,6 +106,7 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     public DbSet<Dependent> Dependents { get; set; }
     public DbSet<PriorEmployerTaxRecord> PriorEmployerTaxRecords { get; set; }
     public DbSet<PayrollOpeningBalance> PayrollOpeningBalances { get; set; }
+    public DbSet<PayrollDeductionClaim> PayrollDeductionClaims { get; set; }
     public DbSet<EmploymentHistory> Employments { get; set; }
     public DbSet<EmployeeRecord> EmployeeRecords { get; set; }
     public DbSet<AssignAsset> AssignAssets { get; set; }

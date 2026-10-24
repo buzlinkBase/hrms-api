@@ -14,4 +14,9 @@ public class WorkSchedulePlan : BaseEntity, IEmployeeOwned
     // employee's own; null keeps today's behavior.
     public Guid? OperationAreaId { get; set; }
     public virtual CostCenters? OperationArea { get; set; }
+    // Client the employee works for on this date, picked directly for when a project site is not
+    // tied to one client. When set it wins over the site's client (then the punch's, then the
+    // employee's) for the day's DTR, billing and per-client payroll; null keeps today's behavior.
+    public Guid? ClientId { get; set; }
+    public virtual Client? Client { get; set; }
 }

@@ -457,7 +457,50 @@ public class DailyRecordService : BaseService<DailyRecord>
             && (c.PayrollGroupId == null || x.Employee!.PayrollGroupId == c.PayrollGroupId)
             && (c.EmployeeIds == null || c.EmployeeIds.Count == 0 || c.EmployeeIds.Contains(x.EmployeeId))
             && (c.DepartmentIds == null || c.DepartmentIds.Count == 0 || (x.Employee!.DepartmentId != null && c.DepartmentIds.Contains(x.Employee!.DepartmentId.Value)))
-            && (c.ClientIds == null || c.ClientIds.Count == 0 || (x.Employee!.ClientId != null && c.ClientIds.Contains(x.Employee!.ClientId.Value)));
+            && (c.ClientIds == null || c.ClientIds.Count == 0
+                // UseDayClient (a deduction-carrier company): a reliever's day belongs to the run of
+                // the client it was worked for, not of the client on the employee's own record.
+                || (c.UseDayClient
+                    ? (x.ClientId != null && c.ClientIds.Contains(x.ClientId.Value))
+                    : (x.Employee!.ClientId != null && c.ClientIds.Contains(x.Employee!.ClientId.Value))));
+
+    // Days actually worked per employee per client over a window -- what the deduction-carrier rules
+    // rank. One grouped query for the whole employee set; a day with no client counts under
+    // Guid.Empty. Any DTR status counts (approved, draft or already paid) because the carrier is
+    // chosen from the whole period, not just the days this run happens to pay.
+    // unpaidOnly: leave out days a saved run has already paid (the "still to be paid" view).
+    public async Task<Dictionary<Guid, Dictionary<Guid, int>>> CountWorkedDaysByClientAsync(
+        IReadOnlyCollection<Guid> employeeIds, DateOnly from, DateOnly to, CancellationToken token,
+        bool unpaidOnly = false)
+    {
+        var result = new Dictionary<Guid, Dictionary<Guid, int>>();
+        foreach (var chunk in employeeIds.Chunk(1000))
+        {
+            var ids = chunk.ToList();
+            // DailyRecord.TotalHours is a get-only sum EF can't translate, so the same sum is spelled out.
+            var rows = await GetQueryable(x => ids.Contains(x.EmployeeId)
+                    && x.WorkDate >= from && x.WorkDate <= to
+                    && (!unpaidOnly || x.PayrollBatchId == null)
+                    && (x.RegularNetHours + x.RegularOTHours
+                        + x.RestDayHours + x.RestDayOTHours
+                        + x.LegalHolHours + x.LegalHolOTHours
+                        + x.SpecialHolHours + x.SpecialHolOTHours
+                        + x.RestLegalDayHours + x.RestLegalDayOTHours
+                        + x.RestSpecialDayHours + x.RestSpecialDayOTHours
+                        + x.DoubleLegalHours + x.DoubleLegalOTHours
+                        + x.RestDoubleLegalHours + x.RestDoubleLegalOTHours) > 0)
+                .GroupBy(x => new { x.EmployeeId, x.ClientId })
+                .Select(g => new { g.Key.EmployeeId, g.Key.ClientId, Days = g.Count() })
+                .ToListAsync(token);
+            foreach (var r in rows)
+            {
+                if (!result.TryGetValue(r.EmployeeId, out var byClient))
+                    result[r.EmployeeId] = byClient = new Dictionary<Guid, int>();
+                byClient[r.ClientId ?? Guid.Empty] = r.Days;
+            }
+        }
+        return result;
+    }
 
     // Per-employee payroll run: every payable DTR day of the group's employees in the range,
     // regardless of which DTR batch or client it was reported under. The requested range is
@@ -504,15 +547,89 @@ public class DailyRecordService : BaseService<DailyRecord>
             .ToList();
     }
 
+    // Cutoff Tracker rows: per employee and client, how many days were worked, how many approved
+    // days no run has paid, and how many a run has. One grouped query for the window; days with no
+    // hours (absent, holiday placeholders) are not "worked" for a client and are left out.
+    public async Task<List<CutoffTrackerEmployee>> GetCutoffTrackerRowsAsync(
+        DateOnly from, DateOnly to, Guid? payrollGroupId, CancellationToken token)
+    {
+        var grouped = await GetQueryable(x => x.WorkDate >= from && x.WorkDate <= to
+                && (payrollGroupId == null || x.Employee!.PayrollGroupId == payrollGroupId)
+                && (x.RegularNetHours + x.RegularOTHours
+                    + x.RestDayHours + x.RestDayOTHours
+                    + x.LegalHolHours + x.LegalHolOTHours
+                    + x.SpecialHolHours + x.SpecialHolOTHours
+                    + x.RestLegalDayHours + x.RestLegalDayOTHours
+                    + x.RestSpecialDayHours + x.RestSpecialDayOTHours
+                    + x.DoubleLegalHours + x.DoubleLegalOTHours
+                    + x.RestDoubleLegalHours + x.RestDoubleLegalOTHours) > 0)
+            .GroupBy(x => new { x.EmployeeId, x.ClientId })
+            .Select(g => new
+            {
+                g.Key.EmployeeId,
+                g.Key.ClientId,
+                Worked = g.Count(),
+                Unpaid = g.Count(x => x.Posted && x.PayrollBatchId == null),
+                Paid = g.Count(x => x.PayrollBatchId != null),
+            })
+            .ToListAsync(token);
+        if (grouped.Count == 0) return [];
+
+        var employeeIds = grouped.Select(x => x.EmployeeId).Distinct().ToList();
+        var people = new Dictionary<Guid, (string? No, string? Name, Guid? Client)>();
+        foreach (var chunk in employeeIds.Chunk(1000))
+        {
+            var ids = chunk.ToList();
+            var rows = await Context.Employees
+                .AsNoTracking()
+                .Where(e => ids.Contains(e.Id))
+                .Select(e => new { e.Id, e.EmployeeNo, e.FirstName, e.LastName, e.ClientId })
+                .ToListAsync(token);
+            foreach (var e in rows)
+                people[e.Id] = (e.EmployeeNo, $"{e.LastName}, {e.FirstName}", e.ClientId);
+        }
+
+        return grouped
+            .GroupBy(x => x.EmployeeId)
+            .Select(g =>
+            {
+                people.TryGetValue(g.Key, out var person);
+                return new CutoffTrackerEmployee
+                {
+                    EmployeeId = g.Key,
+                    EmployeeNo = person.No,
+                    FullName = person.Name,
+                    HomeClientId = person.Client,
+                    Clients = g.OrderByDescending(x => x.Worked)
+                        .Select(x => new CutoffTrackerClientDays
+                        {
+                            ClientId = x.ClientId,
+                            WorkedDays = x.Worked,
+                            UnpaidApprovedDays = x.Unpaid,
+                            PaidDays = x.Paid,
+                        }).ToList(),
+                };
+            })
+            .OrderBy(x => x.FullName)
+            .ToList();
+    }
+
     // Per-employee day counts behind the Payroll Run screen's readiness list (and the Calculate
     // DTR screen's coverage view): every DTR day in the
     // range, split into approved-and-unpaid, pending (not approved, unpaid) and already paid.
     // Group is optional and, like CutoffFilter, read from the Employee record. Status is left for
     // the caller (PayrollProcessorService.GetReadinessAsync), which also knows about FIXED pay.
-    public async Task<List<PayrollReadinessEmployee>> GetPayrollReadinessAsync(DateOnly from, DateOnly to, Guid? payrollGroupId, CancellationToken token)
+    // clientIds narrows to the days worked for those clients (useDayClient, a deduction-carrier
+    // company: a reliever's days belong to the client they were worked for). Without useDayClient the
+    // caller narrows by the employee's own client tag, as before, so it is ignored here.
+    public async Task<List<PayrollReadinessEmployee>> GetPayrollReadinessAsync(
+        DateOnly from, DateOnly to, Guid? payrollGroupId, CancellationToken token,
+        IReadOnlyCollection<Guid>? clientIds = null, bool useDayClient = false)
     {
+        var narrowByDayClient = useDayClient && clientIds is { Count: > 0 };
         var rows = await GetQueryable(x => x.WorkDate >= from && x.WorkDate <= to
-                && (payrollGroupId == null || x.Employee!.PayrollGroupId == payrollGroupId))
+                && (payrollGroupId == null || x.Employee!.PayrollGroupId == payrollGroupId)
+                && (!narrowByDayClient || (x.ClientId != null && clientIds!.Contains(x.ClientId.Value))))
             .Select(x => new
             {
                 x.EmployeeId,

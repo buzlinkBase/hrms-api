@@ -14,7 +14,10 @@ namespace Hrms.Core.Policies.DeductionPolicies.WtaxCalculators
         {
             if (line.IsLimit) return line;
 
+            // Plus what the employee earned in the same deduction period from other clients' runs
+            // (earnings-only, no tax withheld there): this run withholds for the whole period.
             var taxableIncome = context.PayrollLine.GrossIncome
+                         + StatutoryHelper.GetEarningsOnlyPriorGross(context)
                          - (line.SSS?.EE ?? 0)
                          - (line.PHIC?.EE ?? 0)
                          - (line.HDMF?.EE ?? 0);

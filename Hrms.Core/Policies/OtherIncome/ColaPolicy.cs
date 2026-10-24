@@ -9,6 +9,9 @@ internal class ColaPolicy : PayrollPolicyBase<AllowancePipeData, PayrollContext>
         //var days = context.Payload.DaysDiffPayrollPeriod(context) 
         //    + 1
         //    - (context.Payload.);
+        // COLA is a flat amount per payroll, so a reliever paid by several per-client runs in one
+        // cutoff gets it once, in the run that carries their deductions.
+        if (context.IsEarningsOnly) return line;
         var cola = context.Employee.Cola;
         //switch (context.Employee.PayrollFrequency)
         //{

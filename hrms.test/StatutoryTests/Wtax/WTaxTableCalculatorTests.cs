@@ -55,6 +55,29 @@ public class WTaxTableCalculatorTests : TestContextBase
     }
 
     [Fact]
+    public void SemiMonthly_CarrierRun_WithholdsOnTheWholePeriod_NotJustItsOwnClientsGross()
+    {
+        // A reliever paid by two per-client runs for the 1st-15th: this run (the carrier) has 12,000
+        // (0% bracket alone); an earlier earnings-only run paid 10,000. Tax is for the 22,000 the
+        // employee earned that cutoff -- (22,000-20,000)*15% = 300. The other cutoff's run (ends
+        // the 31st) and a carrier row are not part of it.
+        var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.SEMI_MONTHLY, 12_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 15));
+        AddCutoff(ctx, 15); AddCutoff(ctx, 31, isEndOfMonth: true);
+        SeedTaxTable(ctx, SemiMonthlyBrackets);
+        ctx.Payload.PostedPriorPayrolls[new EmployeeKey(ctx.Employee.Id)] =
+        [
+            new Payroll { EmployeeId = ctx.Employee.Id, GrossIncome = 10_000, IsDeductionCarrier = false, PayPeriodEnd = new DateOnly(2025, 3, 15) },
+            new Payroll { EmployeeId = ctx.Employee.Id, GrossIncome = 50_000, IsDeductionCarrier = false, PayPeriodEnd = new DateOnly(2025, 3, 31) },
+            new Payroll { EmployeeId = ctx.Employee.Id, GrossIncome = 50_000, IsDeductionCarrier = true, PayPeriodEnd = new DateOnly(2025, 3, 15) },
+        ];
+
+        var result = new TableWTaxCalculator().Calculate(ctx, Seed(ctx));
+
+        result.TaxInfo.TaxableIncome.Should().Be(22_000);
+        result.TaxInfo.TaxDue.Should().Be(300);
+    }
+
+    [Fact]
     public void Monthly_ComputesFromOwnGross()
     {
         var ctx = CreateContext(SalaryType.FIXED, PayrollFrequency.MONTHLY, 75_000, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 31));
