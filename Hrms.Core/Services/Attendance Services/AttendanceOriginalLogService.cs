@@ -112,6 +112,43 @@ public class AttendanceOriginalLogService
             .ToListAsync(token);
     }
 
+    /// <summary>The edited/removed logs of one upload batch with who changed them, oldest punch first.</summary>
+    public async Task<List<UploadBatchChangeModel>> ListForUploadBatchAsync(string batch, CancellationToken token)
+    {
+        var originals = await Context.AttendanceOriginalLogs
+            .AsNoTracking()
+            .Where(x => x.BatchCode == batch && x.BatchCode != "" && x.LogSource == LOGSOURCE.UPLOADED)
+            .OrderBy(x => x.WorkDateTime)
+            .ToListAsync(token);
+        if (originals.Count == 0) return [];
+
+        var employeeIds = originals.Where(x => x.EmployeeId != null).Select(x => x.EmployeeId!.Value).Distinct().ToList();
+        var names = await Context.Employees.AsNoTracking()
+            .Where(x => employeeIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.LastName, x.FirstName })
+            .ToDictionaryAsync(x => x.Id, x => $"{x.LastName}, {x.FirstName}".Trim(' ', ','), token);
+
+        var liveIds = originals.Where(x => x.AttendanceId != null).Select(x => x.AttendanceId!.Value).ToList();
+        var current = await Context.Attendances.AsNoTracking()
+            .Where(x => liveIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.WorkDateTime })
+            .ToDictionaryAsync(x => x.Id, x => x.WorkDateTime, token);
+
+        return originals.Select(x => new UploadBatchChangeModel
+        {
+            Id = x.Id,
+            Action = x.Action.ToString(),
+            EmployeeId = x.EmployeeId,
+            EmployeeName = x.EmployeeId != null && names.TryGetValue(x.EmployeeId.Value, out var name) ? name : string.Empty,
+            BioId = x.BioId,
+            OriginalDateTime = x.WorkDateTime,
+            CurrentDateTime = x.AttendanceId != null && current.TryGetValue(x.AttendanceId.Value, out var at) ? at : null,
+            Reason = x.Reason,
+            ChangedBy = x.ActedByName,
+            ChangedAt = PhTime.AsUtc(x.ActedAt),
+        }).ToList();
+    }
+
     /// <summary>Drops every saved original of one upload batch, so re-importing the file starts clean.</summary>
     public async Task RemoveForUploadBatchAsync(string batch, CancellationToken token)
     {

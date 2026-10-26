@@ -204,4 +204,33 @@ public class AttendanceOriginalLogTests
         allRemoved.LogCount.Should().Be(0);
         allRemoved.ChangedCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task UploadBatchChanges_ListsEditedAndRemovedLogs_OfThatUploadOnly()
+    {
+        var edited = Log(LOGSOURCE.UPLOADED, At, "A");
+        var removed = Log(LOGSOURCE.UPLOADED, At.AddHours(1), "A");
+        var untouched = Log(LOGSOURCE.UPLOADED, At.AddHours(2), "A");
+        var otherUpload = Log(LOGSOURCE.UPLOADED, At, "B");
+        var (db, _) = await SeedAsync(edited, removed, untouched, otherUpload);
+        using var _db = db;
+        await RunAsync(db, s => s.Update(MoveTo(edited.Id, At.AddMinutes(5), "late punch"), Hr, CancellationToken.None));
+        await RunAsync(db, s => s.Remove(removed.Id, Hr, "duplicate", CancellationToken.None));
+        await RunAsync(db, s => s.Update(MoveTo(otherUpload.Id, At.AddMinutes(9)), Hr, CancellationToken.None));
+
+        List<UploadBatchChangeModel> changes = [];
+        await RunAsync(db, async s => changes = await s.GetUploadBatchChanges("A", CancellationToken.None));
+
+        changes.Should().HaveCount(2);
+        var edit = changes.Single(x => x.Action == "EDITED");
+        edit.OriginalDateTime.Should().Be(At);
+        edit.CurrentDateTime.Should().Be(At.AddMinutes(5));
+        edit.Reason.Should().Be("late punch");
+        edit.EmployeeName.Should().StartWith("Dela Cruz");
+        edit.ChangedBy.Should().Be("hr@example.com");
+        var removal = changes.Single(x => x.Action == "DELETED");
+        removal.OriginalDateTime.Should().Be(At.AddHours(1));
+        removal.CurrentDateTime.Should().BeNull();
+        removal.Reason.Should().Be("duplicate");
+    }
 }

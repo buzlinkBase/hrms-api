@@ -255,6 +255,9 @@ public class AttendanceService : BaseService<Attendance>
         return removed;
     }
 
+    public Task<List<UploadBatchChangeModel>> GetUploadBatchChanges(string batch, CancellationToken ct) =>
+        _originals.ListForUploadBatchAsync(batch, ct);
+
     public async Task<List<AttendanceModel>> GetAllLogsInRange(Guid employeeId, CurrentShiftInfo current, CurrentShiftInfo next, CancellationToken ct)
     {
         var (from, to) = await ShiftCaptureWindowAsync(current, next, ct);

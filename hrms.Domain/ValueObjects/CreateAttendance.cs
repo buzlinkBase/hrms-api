@@ -104,6 +104,26 @@ public class UploadBatchModel
     public List<string> SavedDtrBatches { get; set; } = [];
 }
 
+// One saved original of an upload batch: a log a user edited or removed (Upload History > Changed).
+public class UploadBatchChangeModel
+{
+    // The saved original; restoring it goes through originals/{id}/restore.
+    public Guid Id { get; set; }
+    // EDITED or DELETED.
+    public string Action { get; set; } = string.Empty;
+    public Guid? EmployeeId { get; set; }
+    public string EmployeeName { get; set; } = string.Empty;
+    public int? BioId { get; set; }
+    // The punch as the file had it.
+    public DateTime OriginalDateTime { get; set; }
+    // The punch as it stands now; null once removed.
+    public DateTime? CurrentDateTime { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string ChangedBy { get; set; } = string.Empty;
+    // UTC.
+    public DateTime ChangedAt { get; set; }
+}
+
 public record UploadBatchFilter
 {
     public DateOnly? FromDate { get; set; }

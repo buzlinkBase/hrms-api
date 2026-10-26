@@ -241,6 +241,17 @@ public class AttendanceController : ControllerBase
         return Ok(batches);
     }
 
+    // The edited/removed logs behind an upload's "Changed" count.
+    [HttpGet("upload-batch/{batch}/changes")]
+    [RequirePermission(AttendanceLogPermissions.UploadView)]
+    [ProducesResponseType(typeof(ResponseModel<List<UploadBatchChangeModel>>), 200)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadBatchChanges([FromRoute] string batch, CancellationToken ct)
+    {
+        var changes = await _attendanceService.GetUploadBatchChanges(batch, ct);
+        return Ok(changes);
+    }
+
     [HttpGet("raw-logs")]
     [RequirePermission("Raw Logs:View")]
     [ProducesResponseType(typeof(ResponseModel<List<AttendanceModel>>), 200)]
