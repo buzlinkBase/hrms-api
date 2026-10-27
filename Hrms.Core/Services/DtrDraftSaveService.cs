@@ -117,7 +117,9 @@ public class DtrDraftSaveService
             request.GeneratedByEmployeeId, token,
             beforeCommit: (batch, ct) => _approvals.NotifyApplicantAsync(ApprovalApplicationType.Dtr, batch.Id,
                 request.GeneratedByEmployeeId, DraftSavedStatusLabel,
-                $"{employees} employee(s), {models.Count} day record(s) saved as a draft awaiting approval.", ct, allowEmail: false));
+                $"{employees} employee(s), {models.Count} day record(s) saved as a draft awaiting approval.", ct, allowEmail: false,
+                // The poster started the save, so the success notice isn't news to them; failures still reach them.
+                actorEmployeeId: request.GeneratedByEmployeeId));
 
         return new DtrDraftSaveResult(employees, models.Count, batchCode);
     }

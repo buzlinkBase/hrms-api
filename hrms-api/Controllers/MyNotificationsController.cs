@@ -35,6 +35,11 @@ public class MyNotificationsController : ControllerBase
             ? NoContent()
             : NotFound();
 
+    [HttpDelete]
+    [ProducesResponseType(typeof(ResponseModel<int>), 200)]
+    public async Task<IActionResult> ClearAll(CancellationToken token) =>
+        Ok(await _service.ClearAllAsync(User.GetRequiredUserId(), User.GetUserClaim("email"), token));
+
     [HttpPost("read-all")]
     [ProducesResponseType(typeof(ResponseModel<int>), 200)]
     public async Task<IActionResult> MarkAllRead(CancellationToken token) =>

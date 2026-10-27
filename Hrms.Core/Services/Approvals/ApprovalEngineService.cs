@@ -48,8 +48,11 @@ public class ApprovalEngineService
         ApprovalApplicationType applicationType,
         Guid applicationId,
         Guid applicantEmployeeId,
-        CancellationToken token = default)
+        CancellationToken token = default,
+        Guid? actorEmployeeId = null)
     {
+        // Whoever filed it already knows -- they're never told "Pending Your Approval" for their own filing.
+        var filedBy = actorEmployeeId ?? applicantEmployeeId;
         var applicant = await _uow.Repository.Find<Employee>(e => e.Id == applicantEmployeeId)
             .AsNoTracking()
             .FirstOrDefaultAsync(token)
@@ -80,7 +83,7 @@ public class ApprovalEngineService
 
             var restartStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
             if (restartStep != null)
-                await PublishStepNotificationAsync(existing, restartStep, applicant, token);
+                await PublishStepNotificationAsync(existing, restartStep, applicant, filedBy, token);
             else
                 await PublishPoolNotificationAsync(existing, applicant, token);
 
@@ -105,7 +108,7 @@ public class ApprovalEngineService
 
         var firstStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
         if (firstStep != null)
-            await PublishStepNotificationAsync(instance, firstStep, applicant, token);
+            await PublishStepNotificationAsync(instance, firstStep, applicant, filedBy, token);
         else
             await PublishPoolNotificationAsync(instance, applicant, token);
 
@@ -176,7 +179,7 @@ public class ApprovalEngineService
 
         var firstStep = instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
         if (firstStep != null)
-            await PublishStepNotificationAsync(instance, firstStep, applicant, token);
+            await PublishStepNotificationAsync(instance, firstStep, applicant, applicant.Id, token);
         else
             await PublishPoolNotificationAsync(instance, applicant, token);
 
@@ -269,7 +272,7 @@ public class ApprovalEngineService
         // coverage). Guard every Update(instance) call below on NOT being this self-heal path;
         // the existing-instance path's own Update() calls are untouched.
         var isNewInstance = instance == null;
-        instance ??= await StartAsync(type, applicationId, applicantEmployeeId, token);
+        instance ??= await StartAsync(type, applicationId, applicantEmployeeId, token, callerEmployeeId);
         if (instance.Status != ApprovalInstanceStatus.InProgress)
             throw new InvalidOperationException("This application is no longer awaiting approval.");
 
@@ -332,7 +335,7 @@ public class ApprovalEngineService
             instance.Status = ApprovalInstanceStatus.Declined;
             instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
-            await PublishResolutionNotificationAsync(instance, applicant, note, token);
+            await PublishResolutionNotificationAsync(instance, applicant, callerEmployeeId, note, token);
             await OnInstanceClosedAsync(instance, token);
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
         }
@@ -359,7 +362,7 @@ public class ApprovalEngineService
             instance.Status = ApprovalInstanceStatus.Approved;
             instance.ReassignedApproverEmployeeId = null;
             if (!isNewInstance) _uow.Repository.Update(instance);
-            await PublishResolutionNotificationAsync(instance, applicant, note, token);
+            await PublishResolutionNotificationAsync(instance, applicant, callerEmployeeId, note, token);
             await OnInstanceClosedAsync(instance, token);
         }
         else
@@ -370,10 +373,10 @@ public class ApprovalEngineService
             if (!isNewInstance) _uow.Repository.Update(instance);
             var nextStep = CurrentStep(instance);
             if (nextStep != null)
-                await PublishStepNotificationAsync(instance, nextStep, applicant, token);
+                await PublishStepNotificationAsync(instance, nextStep, applicant, callerEmployeeId, token);
             // The applicant used to hear nothing between filing and the final decision, however
             // many steps cleared in between -- tell them each time the chain moves forward.
-            await PublishProgressNotificationAsync(instance, applicant, completedStepNumber, note, token);
+            await PublishProgressNotificationAsync(instance, applicant, completedStepNumber, callerEmployeeId, note, token);
         }
 
         return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
@@ -421,7 +424,7 @@ public class ApprovalEngineService
             Note = note,
         }, token);
 
-        if (!string.IsNullOrWhiteSpace(newApprover.Email) || newApprover.UserId != null)
+        if (newApprover.Id != reassignedByEmployeeId && (!string.IsNullOrWhiteSpace(newApprover.Email) || newApprover.UserId != null))
         {
             var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(newApprover.Id, instance.ApplicationType, token);
 
@@ -533,9 +536,12 @@ public class ApprovalEngineService
     }
 
     private async Task PublishStepNotificationAsync(
-        ApprovalInstance instance, ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
+        ApprovalInstance instance, ApprovalWorkflowStep step, Employee applicant, Guid excludeEmployeeId, CancellationToken token)
     {
-        var recipients = await ResolveNotificationRecipientsAsync(step, applicant, token);
+        // Never the person who just filed or acted: they caused this, so it isn't news to them.
+        var recipients = (await ResolveNotificationRecipientsAsync(step, applicant, token))
+            .Where(c => c.Id != excludeEmployeeId)
+            .ToList();
         var totalSteps = instance.Workflow?.Steps.Count ?? 1;
         var applicantName = $"{applicant.FirstName} {applicant.LastName}".Trim();
 
@@ -589,8 +595,9 @@ public class ApprovalEngineService
     // PublishResolutionNotificationAsync instead). Same channels/preferences as the resolution
     // notice, so an applicant who opted out of email for this type still gets the push.
     private async Task PublishProgressNotificationAsync(
-        ApprovalInstance instance, Employee applicant, int completedStepNumber, string? note, CancellationToken token)
+        ApprovalInstance instance, Employee applicant, int completedStepNumber, Guid actorEmployeeId, string? note, CancellationToken token)
     {
+        if (applicant.Id == actorEmployeeId) return; // approving your own request isn't news to you
         if (string.IsNullOrWhiteSpace(applicant.Email) && applicant.UserId == null) return;
 
         var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(applicant.Id, instance.ApplicationType, token);
@@ -627,8 +634,9 @@ public class ApprovalEngineService
     /// </summary>
     public async Task NotifyApplicantAsync(
         ApprovalApplicationType type, Guid applicationId, Guid applicantEmployeeId, string statusLabel, string? note,
-        CancellationToken token = default, bool allowEmail = true)
+        CancellationToken token = default, bool allowEmail = true, Guid? actorEmployeeId = null)
     {
+        if (actorEmployeeId == applicantEmployeeId) return; // the person who caused it isn't told about it
         var applicant = await _uow.Repository.Find<Employee>(e => e.Id == applicantEmployeeId)
             .AsNoTracking().FirstOrDefaultAsync(token);
         if (applicant == null || (string.IsNullOrWhiteSpace(applicant.Email) && applicant.UserId == null)) return;
@@ -655,8 +663,9 @@ public class ApprovalEngineService
     }
 
     private async Task PublishResolutionNotificationAsync(
-        ApprovalInstance instance, Employee applicant, string? note, CancellationToken token)
+        ApprovalInstance instance, Employee applicant, Guid actorEmployeeId, string? note, CancellationToken token)
     {
+        if (applicant.Id == actorEmployeeId) return; // deciding your own request isn't news to you
         if (string.IsNullOrWhiteSpace(applicant.Email) && applicant.UserId == null) return;
 
         var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(applicant.Id, instance.ApplicationType, token);

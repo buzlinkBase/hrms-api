@@ -114,6 +114,16 @@ public class UserNotificationService : BaseService<UserNotification>
         return unread.Count;
     }
 
+    /// <summary>Removes every saved entry of the caller's own; returns how many.</summary>
+    public async Task<int> ClearAllAsync(Guid userId, string? email, CancellationToken token)
+    {
+        var mine = await Mine(userId, email, tracked: true).ToListAsync(token);
+        if (mine.Count == 0) return 0;
+        await RemoveRangeAsync(mine, token);
+        await CommitChangesAsync(token);
+        return mine.Count;
+    }
+
     private IQueryable<UserNotification> Mine(Guid userId, string? email, bool tracked = false)
     {
         var normalized = NormalizeEmail(email);

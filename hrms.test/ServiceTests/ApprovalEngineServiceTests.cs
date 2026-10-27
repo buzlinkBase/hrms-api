@@ -1197,4 +1197,134 @@ public class ApprovalEngineServiceTests
         restarted.Should().BeFalse();
         instances.Single().Status.Should().Be(ApprovalInstanceStatus.Declined);
     }
+
+    // ---- the person who caused an event isn't notified about it ----
+
+    private static ApprovalWorkflow SingleStepWorkflow(Employee approver) => new()
+    {
+        Id = Guid.NewGuid(),
+        ApplicationType = ApprovalApplicationType.Leave,
+        IsActive = true,
+        Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NoteRequirement = NoteRequirement.Optional, NamedApprovers = [] }],
+    };
+
+    [Fact]
+    public async Task RecordActionAsync_ApplicantApprovesOwnRequest_IsNotNotified()
+    {
+        var applicant = BuildEmployee(email: "me@test.com");
+        var (service, _, _, publisher) = BuildService([applicant], [SingleStepWorkflow(applicant)]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, applicant.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_ApplicantDeclinesOwnRequest_IsNotNotified()
+    {
+        var applicant = BuildEmployee(email: "me@test.com");
+        var (service, _, _, publisher) = BuildService([applicant], [SingleStepWorkflow(applicant)]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, applicant.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Declined, note: null, CancellationToken.None);
+
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StartAsync_FilerWhoIsTheFirstStepApprover_IsNotToldPendingTheirOwnApproval()
+    {
+        var applicant = BuildEmployee(email: "me@test.com");
+        var (service, _, _, publisher) = BuildService([applicant], [SingleStepWorkflow(applicant)]);
+
+        await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None);
+
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StartAsync_FiledOnBehalf_StillNotifiesTheApproverWhoIsNotTheFiler()
+    {
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee(email: "approver@test.com");
+        var (service, _, _, publisher) = BuildService([applicant, approver], [SingleStepWorkflow(approver)]);
+
+        await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None, actorEmployeeId: Guid.NewGuid());
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "approver@test.com"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StartAsync_FiledOnBehalfByTheApprover_DoesNotNotifyThatApprover()
+    {
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee(email: "approver@test.com");
+        var (service, _, _, publisher) = BuildService([applicant, approver], [SingleStepWorkflow(approver)]);
+
+        await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None, actorEmployeeId: approver.Id);
+
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_StepOneApproverAlsoStepTwoApprover_IsNotToldPendingAfterTheirOwnApproval()
+    {
+        var applicant = BuildEmployee(email: "applicant@test.com");
+        var both = BuildEmployee(email: "both@test.com");
+        var (service, _, _, publisher) = BuildService([applicant, both], [TwoStepWorkflow(both, both)]);
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Overtime, applicationId, applicant.Id, CancellationToken.None);
+        publisher.ClearReceivedCalls();
+
+        await service.RecordActionAsync(
+            ApprovalApplicationType.Overtime, applicationId, applicant.Id, both.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        await publisher.DidNotReceive().Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "both@test.com"),
+            Arg.Any<CancellationToken>());
+        // The applicant is still told their request moved forward.
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "applicant@test.com"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task NotifyApplicantAsync_WhenTheApplicantIsTheActor_PublishesNothing()
+    {
+        var applicant = BuildEmployee(email: "me@test.com");
+        var (service, _, _, publisher) = BuildService([applicant], []);
+
+        await service.NotifyApplicantAsync(
+            ApprovalApplicationType.Dtr, Guid.NewGuid(), applicant.Id, "Draft Saved", note: null,
+            CancellationToken.None, actorEmployeeId: applicant.Id);
+
+        await publisher.DidNotReceive().Publish(Arg.Any<ApprovalNotificationRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task NotifyApplicantAsync_WhenSomeoneElseActed_StillNotifiesTheApplicant()
+    {
+        var applicant = BuildEmployee(email: "me@test.com");
+        var (service, _, _, publisher) = BuildService([applicant], []);
+
+        await service.NotifyApplicantAsync(
+            ApprovalApplicationType.PassSlip, Guid.NewGuid(), applicant.Id, ApprovalEngineService.CancelledStatusLabel, note: null,
+            CancellationToken.None, actorEmployeeId: Guid.NewGuid());
+
+        await publisher.Received(1).Publish(
+            Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "me@test.com"),
+            Arg.Any<CancellationToken>());
+    }
 }

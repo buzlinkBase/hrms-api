@@ -150,7 +150,7 @@ public class DtrDraftSaveServiceTests
     }
 
     [Fact]
-    public async Task Save_TellsTheRequesterTheDraftWasSaved()
+    public async Task Save_DoesNotTellTheRequesterTheirOwnDraftWasSaved()
     {
         using var db = new SqliteHrmsContext();
         var employees = await SeedEmployeesAsync(db, 1);
@@ -159,11 +159,10 @@ public class DtrDraftSaveServiceTests
 
         await SaveAsync(db, rows, publisher, Request(employees[0].Id, employees[0]));
 
-        await publisher.Received(1).Publish(
+        // The poster started the save, so the success notice isn't news to them.
+        await publisher.DidNotReceive().Publish(
             Arg.Is<ApprovalNotificationRequested>(m =>
-                m.StatusLabel == DtrDraftSaveService.DraftSavedStatusLabel &&
-                m.ApplicationType == "Dtr" && m.RecipientEmail == "emp0@acme.com" &&
-                !m.DeliverEmail),
+                m.StatusLabel == DtrDraftSaveService.DraftSavedStatusLabel && m.RecipientEmail == "emp0@acme.com"),
             Arg.Any<CancellationToken>());
     }
 

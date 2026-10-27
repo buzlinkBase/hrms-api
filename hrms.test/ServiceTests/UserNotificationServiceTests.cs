@@ -115,6 +115,31 @@ public class UserNotificationServiceTests
     }
 
     [Fact]
+    public async Task ClearAll_RemovesMyEntries_ReadOrNot_AndLeavesOthersAlone()
+    {
+        using var db = new SqliteHrmsContext();
+        var others = Entry(Guid.NewGuid(), "ben@acme.com", DateTime.UtcNow);
+        var otherCompany = Entry(AnaId, AnaEmail, DateTime.UtcNow, tenantId: Guid.NewGuid());
+        await SeedAsync(db, Entry(AnaId, null, DateTime.UtcNow), Entry(null, AnaEmail, DateTime.UtcNow, readAt: DateTime.UtcNow), others, otherCompany);
+
+        var removed = await Sut(db).ClearAllAsync(AnaId, AnaEmail, default);
+
+        removed.Should().Be(2);
+        (await Sut(db).GetMineAsync(AnaId, AnaEmail, 1, 20, false, default)).Total.Should().Be(0);
+        await using var check = db.NewContext();
+        (await check.UserNotifications.IgnoreQueryFilters().Select(x => x.Id).ToListAsync())
+            .Should().BeEquivalentTo(new[] { others.Id, otherCompany.Id });
+    }
+
+    [Fact]
+    public async Task ClearAll_WithNothingSaved_RemovesNothing()
+    {
+        using var db = new SqliteHrmsContext();
+
+        (await Sut(db).ClearAllAsync(AnaId, AnaEmail, default)).Should().Be(0);
+    }
+
+    [Fact]
     public async Task Retention_RemovesOnlyEntriesOlderThanTheCutoff_InEveryCompany()
     {
         using var db = new SqliteHrmsContext();
