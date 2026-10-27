@@ -32,7 +32,8 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
         // Files the form uploaded before the pass slip existed now belong to it.
         if (attachments != null)
             await attachments.Service.LinkAsync(AttachmentOwnerType.PassSlip, model.Id, attachmentIds, attachments.Caller, token);
-        await _approvalEngine.StartAsync(ApprovalApplicationType.PassSlip, model.Id, model.EmployeeId, token);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PassSlip, model.Id, model.EmployeeId, token,
+            attributes: ApprovalRequestAttributes.ForPassSlip(model.DepartureTime, model.ReturnTime));
         await CommitChangesAsync(token);
     }
 
@@ -51,7 +52,8 @@ public class PassSlipApplicationService : BaseService<PassSlipApplication>
 
         // Changed content goes back to the first approver if anyone already signed off.
         if (existing.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.PassSlip, existing.Id, token);
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.PassSlip, existing.Id, token,
+                ApprovalRequestAttributes.ForPassSlip(existing.DepartureTime, existing.ReturnTime));
 
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

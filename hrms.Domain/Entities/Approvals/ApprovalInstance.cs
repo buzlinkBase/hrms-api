@@ -43,6 +43,23 @@ public class ApprovalInstance : BaseEntity
     // can collide with a stale action from before the restart without this.
     public int CycleNumber { get; set; } = 1;
 
+    // The request's measurable facts (days, hours, amount, leave type) as of filing or its last edit,
+    // as JSON -- what conditional steps and leave-type scopes are decided on. See
+    // ApprovalRequestAttributes. Null for a request filed before routing existed.
+    public string? AttributesJson { get; set; }
+
+    // When the request reached its CURRENT step, and what the reminder/escalation sweep has already
+    // done for it (see ApprovalSlaPolicy). All reset whenever the step changes. StepEnteredAt is null
+    // for a request that predates the timer -- the sweep then falls back to the last approval/filing.
+    public DateTime? StepEnteredAt { get; set; }
+    public DateTime? LastReminderAt { get; set; }
+    public int ReminderCount { get; set; }
+
+    // An extra eligible approver for the current step, set when the step waited past its escalation
+    // time. Unlike ReassignedApproverEmployeeId it adds to the step's approvers instead of replacing
+    // them. Cleared with the step.
+    public Guid? EscalatedToEmployeeId { get; set; }
+
     // Owner/Admin override for the CURRENT step only -- when set, this employee is the sole
     // eligible approver for CurrentStepNumber, replacing whatever the step's own ApproverType
     // would normally resolve to (see ApproverEligibilityResolver.IsEligible). Cleared
@@ -71,8 +88,20 @@ public class ApprovalAction : BaseEntity
     // resolved cycle.
     public int CycleNumber { get; set; } = 1;
 
-    public Guid ActorEmployeeId { get; set; }
+    // Null for a system entry (a skipped step) -- nobody acted.
+    public Guid? ActorEmployeeId { get; set; }
     public virtual Employee? Actor { get; set; }
+
+    // Set when the actor approved/declined for someone else under a delegation (ApprovalDelegation):
+    // the delegator. Quorum and the same-step repeat guard count this person, not the actor, so a
+    // delegator and their delegate can never both count toward one step.
+    public Guid? OnBehalfOfEmployeeId { get; set; }
+    public virtual Employee? OnBehalfOf { get; set; }
+
+    // Which pool of a step with several (ApprovalWorkflowStepGroup) this approval counts for: null =
+    // the step's own approver, a group id = that group, Guid.Empty = the whole step (an override).
+    // See ApprovalStepPools. Always null on an ordinary single-pool step.
+    public Guid? GroupId { get; set; }
 
     public ApprovalActionType Action { get; set; }
     public string? Note { get; set; }

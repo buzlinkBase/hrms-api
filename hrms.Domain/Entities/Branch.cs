@@ -11,6 +11,9 @@ public class Branch : BaseEntity
     public string? Address { get; set; }
     public string? Contact { get; set; }
     public string? ManagerName { get; set; }
+    // The employee who heads this branch -- what the approval workflow type "Applicant's branch
+    // head" resolves to. ManagerName above is only free text.
+    public Guid? HeadEmployeeId { get; set; }
     public string? Email { get; set; } = string.Empty;
     public Polygon? Boundary { get; set; }
     // DOLE regional wage order region (NCR, CAR, Region I-XIII, BARMM) — used to look up the

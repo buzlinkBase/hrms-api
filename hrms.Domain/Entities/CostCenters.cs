@@ -18,4 +18,6 @@ public class CostCenters : BaseEntity
     // companies that don't split clients by area, and for sites not yet tagged.
     public Guid? ClientId { get; set; }
     public virtual Client? Client { get; set; }
+    // The employee who heads this site -- what "Applicant's project site head" resolves to.
+    public Guid? HeadEmployeeId { get; set; }
 }

@@ -33,15 +33,21 @@ public class ApprovalEngineService
     private readonly IUnitOfWorkService _uow;
     private readonly IPublishEndpoint _publisher;
     private readonly IAuditWriter? _audit;
+    private readonly IApprovalDelegationLookup? _delegations;
+    private readonly ApprovalApproverResolver _approvers;
     private readonly ApproverEligibilityResolver _eligibility = new();
 
-    // auditWriter is optional so the many direct constructions in tests stay valid; the
-    // container always supplies it (AddHrmsAuditTrail).
-    public ApprovalEngineService(IUnitOfWorkService uow, IPublishEndpoint publisher, IAuditWriter? auditWriter = null)
+    // auditWriter and delegations are optional so the many direct constructions in tests stay
+    // valid; the container always supplies them (AddHrmsAuditTrail / ApprovalDelegationService).
+    public ApprovalEngineService(
+        IUnitOfWorkService uow, IPublishEndpoint publisher, IAuditWriter? auditWriter = null,
+        IApprovalDelegationLookup? delegations = null, ApprovalApproverResolver? approverResolver = null)
     {
         _uow = uow;
         _publisher = publisher;
         _audit = auditWriter;
+        _delegations = delegations;
+        _approvers = approverResolver ?? new ApprovalApproverResolver(new RepositoryOrgLookup(uow));
     }
 
     public async Task<ApprovalInstance> StartAsync(
@@ -49,7 +55,9 @@ public class ApprovalEngineService
         Guid applicationId,
         Guid applicantEmployeeId,
         CancellationToken token = default,
-        Guid? actorEmployeeId = null)
+        Guid? actorEmployeeId = null,
+        ApprovalScopeContext? scope = null,
+        ApprovalRequestAttributes? attributes = null)
     {
         // Whoever filed it already knows -- they're never told "Pending Your Approval" for their own filing.
         var filedBy = actorEmployeeId ?? applicantEmployeeId;
@@ -58,7 +66,10 @@ public class ApprovalEngineService
             .FirstOrDefaultAsync(token)
             ?? throw new NotFoundException("Applicant not found.");
 
-        var workflow = await ResolveActiveWorkflowAsync(applicationType, applicant.DepartmentId, token);
+        // Batch approvals (DTR, payroll) pass their own scope; everything else is scoped by the applicant.
+        // The request's own measures (days, hours, amount, leave type) route it too: a workflow can be
+        // scoped to a leave type, and individual steps can apply only above a threshold.
+        var workflow = await ResolveActiveWorkflowAsync(applicationType, scope ?? ApprovalScopeContext.FromEmployee(applicant, attributes), token);
 
         // IX_ApprovalInstances_ApplicationType_ApplicationId is unique -- "one live instance per
         // application record" (see ApprovalInstanceConfig). A prior cycle for this exact
@@ -79,6 +90,9 @@ public class ApprovalEngineService
             existing.CurrentStepNumber = 1;
             existing.Status = ApprovalInstanceStatus.InProgress;
             existing.CycleNumber += 1;
+            ClearStepAssignments(existing);
+            EnterStep(existing);
+            existing.AttributesJson = attributes?.ToJson();
             _uow.Repository.Update(existing);
 
             var restartStep = workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
@@ -103,6 +117,8 @@ public class ApprovalEngineService
             Workflow = workflow,
             CurrentStepNumber = 1,
             Status = ApprovalInstanceStatus.InProgress,
+            StepEnteredAt = DateTime.UtcNow,
+            AttributesJson = attributes?.ToJson(),
         };
         await _uow.Repository.AddAsync(instance, token);
 
@@ -126,7 +142,7 @@ public class ApprovalEngineService
         if (instance is null || instance.Status != ApprovalInstanceStatus.InProgress) return;
 
         instance.Status = ApprovalInstanceStatus.Cancelled;
-        instance.ReassignedApproverEmployeeId = null;
+        ClearStepAssignments(instance);
         _uow.Repository.Update(instance);
         await OnInstanceClosedAsync(instance, token);
     }
@@ -157,24 +173,53 @@ public class ApprovalEngineService
     // application nobody has approved yet is left alone: its first approvers were already
     // notified and nothing they signed off on changed. Doesn't commit -- callers own the
     // transaction, as with StartAsync.
+    //
+    // attributes: the edited request's new measures (days, hours, amount, leave type). They replace
+    // the instance's snapshot, and the workflow is chosen again -- an edit that moves a request into
+    // another workflow (a different leave type, say) starts it afresh on that one, even if nobody
+    // had approved yet. Steps that depend on a measure are decided when the request reaches them, so
+    // a later edit of the days or amount is picked up without a restart.
     public async Task<bool> RestartIfProgressedAsync(
-        ApprovalApplicationType type, Guid applicationId, CancellationToken token = default)
+        ApprovalApplicationType type, Guid applicationId, CancellationToken token = default,
+        ApprovalRequestAttributes? attributes = null)
     {
         var instance = await GetInstanceAsync(type, applicationId, token);
         if (instance is null || instance.Status != ApprovalInstanceStatus.InProgress) return false;
 
-        var progressed = instance.CurrentStepNumber > 1 || instance.Actions.Any(a =>
-            a.CycleNumber == instance.CycleNumber && a.Action == ApprovalActionType.Approved);
-        if (!progressed) return false;
-
-        instance.CycleNumber += 1;
-        instance.CurrentStepNumber = 1;
-        instance.ReassignedApproverEmployeeId = null;
-        _uow.Repository.Update(instance);
-
         var applicant = await _uow.Repository.Find<Employee>(e => e.Id == instance.ApplicantEmployeeId)
             .AsNoTracking()
             .FirstOrDefaultAsync(token);
+
+        var workflowChanged = false;
+        if (attributes != null)
+        {
+            instance.AttributesJson = attributes.ToJson();
+            if (applicant != null)
+            {
+                var resolved = await ResolveActiveWorkflowAsync(type, ApprovalScopeContext.FromEmployee(applicant, attributes), token);
+                workflowChanged = resolved?.Id != instance.ApprovalWorkflowId;
+                if (workflowChanged)
+                {
+                    instance.ApprovalWorkflowId = resolved?.Id;
+                    instance.Workflow = resolved;
+                }
+            }
+        }
+
+        var progressed = instance.CurrentStepNumber > 1 || instance.Actions.Any(a =>
+            a.CycleNumber == instance.CycleNumber && a.Action == ApprovalActionType.Approved);
+        if (!progressed && !workflowChanged)
+        {
+            if (attributes != null) _uow.Repository.Update(instance);
+            return false;
+        }
+
+        instance.CycleNumber += 1;
+        instance.CurrentStepNumber = 1;
+        ClearStepAssignments(instance);
+        EnterStep(instance);
+        _uow.Repository.Update(instance);
+
         if (applicant is null) return true;
 
         var firstStep = instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == 1);
@@ -186,24 +231,19 @@ public class ApprovalEngineService
         return true;
     }
 
-    // Applicant's own department override first, else the tenant-wide default, else null (the
-    // implicit single-step legacy fallback -- see ApprovalInstance.ApprovalWorkflowId).
+    // Several workflows can be active for a type at once, each limited to some scope (branch,
+    // department, site...). The one the application runs on is the best match among them -- see
+    // ApprovalScopeMatching. None matching = null, the implicit single-step fallback (see
+    // ApprovalInstance.ApprovalWorkflowId). The few active rows are loaded and matched in memory.
     private async Task<ApprovalWorkflow?> ResolveActiveWorkflowAsync(
-        ApprovalApplicationType type, Guid? applicantDepartmentId, CancellationToken token)
+        ApprovalApplicationType type, ApprovalScopeContext scope, CancellationToken token)
     {
-        if (applicantDepartmentId is { } departmentId)
-        {
-            var scoped = await _uow.Repository.Find<ApprovalWorkflow>(w =>
-                    w.ApplicationType == type && w.IsActive && w.ScopeDepartmentId == departmentId)
-                .Include(w => w.Steps).ThenInclude(s => s.NamedApprovers)
-                .FirstOrDefaultAsync(token);
-            if (scoped != null) return scoped;
-        }
-
-        return await _uow.Repository.Find<ApprovalWorkflow>(w =>
-                w.ApplicationType == type && w.IsActive && w.ScopeDepartmentId == null)
+        var active = await _uow.Repository.Find<ApprovalWorkflow>(w => w.ApplicationType == type && w.IsActive)
+            .Include(w => w.Scopes)
             .Include(w => w.Steps).ThenInclude(s => s.NamedApprovers)
-            .FirstOrDefaultAsync(token);
+            .Include(w => w.Steps).ThenInclude(s => s.Groups)
+            .ToListAsync(token);
+        return ApprovalScopeMatching.Select(active, scope);
     }
 
     // Tracked: the write paths (Start/Restart/RecordAction/Reassign) modify what this returns.
@@ -221,6 +261,8 @@ public class ApprovalEngineService
     private IQueryable<ApprovalInstance> InstanceQuery(ApprovalApplicationType type, Guid applicationId) =>
         _uow.Repository.Find<ApprovalInstance>(i => i.ApplicationType == type && i.ApplicationId == applicationId)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.NamedApprovers)
+            .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.Groups).ThenInclude(g => g.ApproverDepartment)
+            .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.Groups).ThenInclude(g => g.ApproverPosition)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverEmployee)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverDepartment)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.ApproverPosition)
@@ -239,10 +281,164 @@ public class ApprovalEngineService
         var applicant = await _uow.Repository.Find<Employee>(e => e.Id == instance.ApplicantEmployeeId).AsNoTracking().FirstOrDefaultAsync(token);
         if (applicant is null) return false;
 
+        var delegators = await LoadDelegatorsAsync(callerEmployeeId, type, token);
+        return (await GetStandingAsync(instance, caller, applicant, delegators, token)).Eligible;
+    }
+
+    /// <summary>
+    /// Who the instance's current step points at for its applicant, when that step is one of the
+    /// dynamic types (manager level, a head...). Null when the step is a fixed person/department/
+    /// position or there is no step (the single-step fallback).
+    /// </summary>
+    public async Task<ResolvedApprovers?> ResolveCurrentApproversAsync(
+        ApprovalInstance instance, Employee applicant, CancellationToken token)
+    {
+        var step = CurrentStep(instance);
+        if (step == null || !ApprovalApproverResolver.IsDynamic(step.ApproverType)) return null;
+        return await _approvers.ResolveAsync(step, applicant, token);
+    }
+
+    /// <summary>The same for any step of a workflow (labels in the timeline), loading the applicant itself.</summary>
+    public async Task<ResolvedApprovers?> ResolveStepApproversAsync(
+        ApprovalWorkflowStep step, Guid applicantEmployeeId, CancellationToken token)
+    {
+        if (!ApprovalApproverResolver.IsDynamic(step.ApproverType)) return null;
+        var applicant = await _uow.Repository.Find<Employee>(e => e.Id == applicantEmployeeId).AsNoTracking().FirstOrDefaultAsync(token);
+        return applicant == null ? null : await _approvers.ResolveAsync(step, applicant, token);
+    }
+
+    /// <summary>Resolves the current step's dynamic approvers, then decides the caller's standing.</summary>
+    public async Task<ApprovalStanding> GetStandingAsync(
+        ApprovalInstance instance, Employee caller, Employee applicant, IReadOnlyCollection<Employee> delegators, CancellationToken token)
+    {
+        var step = CurrentStep(instance);
+        if (step != null && ApprovalStepPools.IsParallel(step))
+            return await GetParallelStandingAsync(instance, step, caller, applicant, delegators, token);
+
+        var resolved = await ResolveCurrentApproversAsync(instance, applicant, token);
+        return GetStanding(instance, caller, applicant, delegators, resolved?.EmployeeIds);
+    }
+
+    /// <summary>Who one pool's dynamic approver resolves to for the applicant; null for a fixed person/department/position.</summary>
+    public async Task<ResolvedApprovers?> ResolvePoolApproversAsync(
+        ApprovalWorkflowStep effective, Employee applicant, CancellationToken token) =>
+        ApprovalApproverResolver.IsDynamic(effective.ApproverType)
+            ? await _approvers.ResolveAsync(effective, applicant, token)
+            : null;
+
+    /// <summary>
+    /// The caller's standing on the first step after the current one that they (or a delegator) would
+    /// approve -- "it's coming to me, just not yet". None when no later step names them. Reassignment and
+    /// escalation only ever apply to the current step, so they play no part here.
+    /// </summary>
+    public async Task<ApprovalStanding> GetLaterStepStandingAsync(
+        ApprovalInstance instance, Employee caller, Employee applicant, IReadOnlyCollection<Employee> delegators, CancellationToken token)
+    {
+        var laterSteps = (instance.Workflow?.Steps ?? [])
+            .Where(s => s.StepNumber > instance.CurrentStepNumber)
+            .OrderBy(s => s.StepNumber);
+        foreach (var step in laterSteps)
+        {
+            foreach (var pool in ApprovalStepPools.Of(step))
+            {
+                var resolved = await ResolvePoolApproversAsync(pool.Effective, applicant, token);
+                var named = pool.GroupId == null ? step.NamedApprovers.Select(a => a.EmployeeId).ToArray() : [];
+                var standing = _eligibility.Resolve(new ApprovalEligibilityContext(
+                    caller, applicant, pool.Effective, named, null, delegators, resolved?.EmployeeIds));
+                if (standing.Eligible) return standing;
+            }
+        }
+        return ApprovalStanding.None;
+    }
+
+    // A step with several pools: the caller is eligible when they could act for a pool that still
+    // needs approvals, and their approval will count for that pool. A reassigned approver or an
+    // escalation person decides for the whole step (the admin escape hatches must be able to unblock it).
+    private async Task<ApprovalStanding> GetParallelStandingAsync(
+        ApprovalInstance instance, ApprovalWorkflowStep step, Employee caller, Employee applicant,
+        IReadOnlyCollection<Employee> delegators, CancellationToken token)
+    {
+        if (instance.EscalatedToEmployeeId == caller.Id)
+            return ApprovalStanding.Escalated with { ClearsWholeStep = true };
+        if (instance.ReassignedApproverEmployeeId is { } reassignedId)
+            return caller.Id == reassignedId ? ApprovalStanding.Direct with { ClearsWholeStep = true } : ApprovalStanding.None;
+
+        var progress = await PoolProgressAsync(instance, step, applicant, token);
+        foreach (var entry in progress.Where(p => !p.Satisfied))
+        {
+            var pool = entry.Pool;
+            IReadOnlyCollection<Guid>? resolved = ApprovalApproverResolver.IsDynamic(pool.Effective.ApproverType)
+                ? (await _approvers.ResolveAsync(pool.Effective, applicant, token)).EmployeeIds
+                : null;
+            var named = pool.GroupId == null ? step.NamedApprovers.Select(a => a.EmployeeId).ToArray() : [];
+            var standing = _eligibility.Resolve(new ApprovalEligibilityContext(
+                caller, applicant, pool.Effective, named, null, delegators, resolved));
+            if (standing.Eligible) return standing with { PoolId = pool.GroupId };
+        }
+        return ApprovalStanding.None;
+    }
+
+    /// <summary>Pool progress of the instance's current step; null when it is an ordinary single-pool step.</summary>
+    public async Task<List<PoolProgress>?> CurrentPoolProgressAsync(ApprovalInstance instance, CancellationToken token)
+    {
+        var step = CurrentStep(instance);
+        if (step == null || !ApprovalStepPools.IsParallel(step) || instance.Status != ApprovalInstanceStatus.InProgress) return null;
+        var applicant = await _uow.Repository.Find<Employee>(e => e.Id == instance.ApplicantEmployeeId).AsNoTracking().FirstOrDefaultAsync(token);
+        return applicant == null ? null : await PoolProgressAsync(instance, step, applicant, token);
+    }
+
+    /// <summary>
+    /// Where each pool of the current step stands: approvals so far this cycle, how many it needs, and
+    /// whether it was dropped (a per-applicant approver nobody could be found for, on a pool that skips).
+    /// </summary>
+    public async Task<List<PoolProgress>> PoolProgressAsync(
+        ApprovalInstance instance, ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
+    {
+        var pools = ApprovalStepPools.Of(step);
+        var dropped = await DroppedPoolIdsAsync(pools, applicant, token);
+        var thisStep = instance.Actions.Where(a => a.StepNumber == step.StepNumber && a.CycleNumber == instance.CycleNumber);
+        return ApprovalStepPools.Progress(pools, thisStep, dropped);
+    }
+
+    // Pools set to skip whose per-applicant approver can't be found: they no longer count.
+    private async Task<HashSet<Guid>> DroppedPoolIdsAsync(
+        IReadOnlyList<ApprovalStepPool> pools, Employee applicant, CancellationToken token)
+    {
+        var dropped = new HashSet<Guid>();
+        foreach (var pool in pools)
+        {
+            if (pool.Effective.OnUnresolved == UnresolvedApproverPolicy.Skip &&
+                ApprovalApproverResolver.IsDynamic(pool.Effective.ApproverType) &&
+                (await _approvers.ResolveAsync(pool.Effective, applicant, token)).Unresolved)
+                dropped.Add(pool.GroupId ?? Guid.Empty);
+        }
+        return dropped;
+    }
+
+    /// <summary>
+    /// Whether the caller may act on the instance's current step -- as themself, or for a delegator.
+    /// Pure over what the caller already loaded, so a list screen can evaluate many instances
+    /// without a query per row.
+    /// </summary>
+    public ApprovalStanding GetStanding(
+        ApprovalInstance instance, Employee caller, Employee applicant, IReadOnlyCollection<Employee> delegators,
+        IReadOnlyCollection<Guid>? resolvedApprovers = null)
+    {
         var currentStep = CurrentStep(instance);
         var namedApproverIds = currentStep?.NamedApprovers.Select(a => a.EmployeeId).ToArray() ?? [];
-        return _eligibility.IsEligible(new ApprovalEligibilityContext(
-            caller, applicant, currentStep, namedApproverIds, instance.ReassignedApproverEmployeeId));
+        return _eligibility.Resolve(new ApprovalEligibilityContext(
+            caller, applicant, currentStep, namedApproverIds, instance.ReassignedApproverEmployeeId, delegators, resolvedApprovers,
+            instance.EscalatedToEmployeeId));
+    }
+
+    /// <summary>The employees who have delegated their approvals of this type to the caller right now.</summary>
+    public async Task<IReadOnlyCollection<Employee>> LoadDelegatorsAsync(
+        Guid callerEmployeeId, ApprovalApplicationType type, CancellationToken token)
+    {
+        if (_delegations == null) return [];
+        var ids = await _delegations.GetActiveDelegatorIdsAsync(callerEmployeeId, type, token);
+        if (ids.Count == 0) return [];
+        return await _uow.Repository.Find<Employee>(e => ids.Contains(e.Id)).AsNoTracking().ToListAsync(token);
     }
 
     // callerHasOverrideAccess: true for Owner/Admin, who may act on any pending step regardless
@@ -300,40 +496,53 @@ public class ApprovalEngineService
         // legitimately reassign more than once), and applies regardless of
         // callerHasOverrideAccess -- an override doesn't make a repeat submission any less of a
         // repeat.
+        //
+        // Delegation: a delegate acts "as" the delegator, so the guard and the quorum below count
+        // the delegator -- a person who has already decided (themself or through their delegate)
+        // can't count twice.
+        var delegators = await LoadDelegatorsAsync(callerEmployeeId, type, token);
+        var standing = await GetStandingAsync(instance, caller, applicant, delegators, token);
+        var onBehalfOf = standing.OnBehalfOfEmployeeId;
+        var callerKey = onBehalfOf ?? callerEmployeeId;
         var alreadyActedOnCurrentStep = instance.Actions.Any(a =>
             a.StepNumber == instance.CurrentStepNumber &&
             a.CycleNumber == instance.CycleNumber &&
-            a.ActorEmployeeId == callerEmployeeId &&
+            (a.OnBehalfOfEmployeeId ?? a.ActorEmployeeId) == callerKey &&
             a.Action != ApprovalActionType.Reassigned);
         if (alreadyActedOnCurrentStep)
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
 
-        var namedApproverIds = currentStep?.NamedApprovers.Select(a => a.EmployeeId).ToArray() ?? [];
-        var eligibilityContext = new ApprovalEligibilityContext(
-            caller, applicant, currentStep, namedApproverIds, instance.ReassignedApproverEmployeeId);
-
-        if (!callerHasOverrideAccess && !_eligibility.IsEligible(eligibilityContext))
+        if (!callerHasOverrideAccess && !standing.Eligible)
             throw new UnauthorizedAccessException("You are not an eligible approver for this step.");
 
         var noteRequirement = currentStep?.NoteRequirement ?? NoteRequirement.None;
         if (noteRequirement == NoteRequirement.Required && string.IsNullOrWhiteSpace(note))
             throw new InvalidOperationException("A note is required to act on this step.");
 
-        await _uow.Repository.AddAsync(new ApprovalAction
+        // With several pools on the step, an approval counts for the pool the caller acted for; an admin
+        // override, a reassigned approver or an escalation decides for the whole step.
+        var parallel = currentStep != null && ApprovalStepPools.IsParallel(currentStep);
+        Guid? groupId = !parallel ? null
+            : callerHasOverrideAccess || standing.ClearsWholeStep ? ApprovalStepPools.WholeStep
+            : standing.PoolId;
+        var recorded = new ApprovalAction
         {
             ApprovalInstanceId = instance.Id,
             StepNumber = instance.CurrentStepNumber,
             CycleNumber = instance.CycleNumber,
             ActorEmployeeId = callerEmployeeId,
+            OnBehalfOfEmployeeId = onBehalfOf,
+            GroupId = groupId,
             Action = action,
             Note = noteRequirement == NoteRequirement.None ? null : note,
-        }, token);
-        await AuditActionAsync(instance, applicant, action, noteRequirement == NoteRequirement.None ? null : note, token);
+        };
+        await _uow.Repository.AddAsync(recorded, token);
+        await AuditActionAsync(instance, applicant, action, noteRequirement == NoteRequirement.None ? null : note, onBehalfOf, token);
 
         if (action == ApprovalActionType.Declined)
         {
             instance.Status = ApprovalInstanceStatus.Declined;
-            instance.ReassignedApproverEmployeeId = null;
+            ClearStepAssignments(instance);
             if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, callerEmployeeId, note, token);
             await OnInstanceClosedAsync(instance, token);
@@ -347,20 +556,41 @@ public class ApprovalEngineService
             .Where(a => a.StepNumber == instance.CurrentStepNumber
                 && a.CycleNumber == instance.CycleNumber
                 && a.Action == ApprovalActionType.Approved)
-            .Select(a => a.ActorEmployeeId)
-            .Append(callerEmployeeId); // the action added above isn't in instance.Actions yet
+            .Select(a => a.OnBehalfOfEmployeeId ?? a.ActorEmployeeId)
+            .OfType<Guid>()
+            .Append(callerKey); // the action added above isn't in instance.Actions yet
 
-        if (!ApprovalQuorum.IsStepCleared(minApprovals, approverIdsForStep))
+        // A step with several pools clears only when every pool has its own quorum (the action just
+        // recorded included); an ordinary step counts distinct approvers as before.
+        bool stepCleared;
+        if (parallel)
+        {
+            var pools = ApprovalStepPools.Of(currentStep!);
+            var dropped = await DroppedPoolIdsAsync(pools, applicant, token);
+            var thisStep = instance.Actions
+                .Where(a => a.StepNumber == instance.CurrentStepNumber && a.CycleNumber == instance.CycleNumber)
+                .Where(a => a.Id != recorded.Id)
+                .Append(recorded);
+            stepCleared = ApprovalStepPools.IsCleared(ApprovalStepPools.Progress(pools, thisStep, dropped));
+        }
+        else
+        {
+            stepCleared = ApprovalQuorum.IsStepCleared(minApprovals, approverIdsForStep);
+        }
+
+        if (!stepCleared)
         {
             if (!isNewInstance) _uow.Repository.Update(instance);
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
         }
 
-        var totalSteps = instance.Workflow?.Steps.Count ?? 1;
-        if (instance.CurrentStepNumber >= totalSteps)
+        // The next step that actually applies: a step whose approver can't be found and which says
+        // "skip" is passed over (recorded as a system entry). None left = the request is approved.
+        var nextStepNumber = await FindNextStepNumberAsync(instance, applicant, token);
+        if (nextStepNumber is null)
         {
             instance.Status = ApprovalInstanceStatus.Approved;
-            instance.ReassignedApproverEmployeeId = null;
+            ClearStepAssignments(instance);
             if (!isNewInstance) _uow.Repository.Update(instance);
             await PublishResolutionNotificationAsync(instance, applicant, callerEmployeeId, note, token);
             await OnInstanceClosedAsync(instance, token);
@@ -368,8 +598,9 @@ public class ApprovalEngineService
         else
         {
             var completedStepNumber = instance.CurrentStepNumber;
-            instance.CurrentStepNumber += 1;
-            instance.ReassignedApproverEmployeeId = null;
+            instance.CurrentStepNumber = nextStepNumber.Value;
+            ClearStepAssignments(instance);
+            EnterStep(instance);
             if (!isNewInstance) _uow.Repository.Update(instance);
             var nextStep = CurrentStep(instance);
             if (nextStep != null)
@@ -380,6 +611,135 @@ public class ApprovalEngineService
         }
 
         return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
+    }
+
+    /// <summary>
+    /// Tells the current step's approvers (and anyone covering for them) it is still waiting. Same
+    /// notice as when the step opened, with a note saying how long. Records that a reminder went out,
+    /// so the sweep doesn't send it again too soon. Publishes through the outbox: call it before the
+    /// caller commits.
+    /// </summary>
+    public async Task SendReminderAsync(ApprovalInstance instance, Employee applicant, TimeSpan waited, CancellationToken token)
+    {
+        var step = CurrentStep(instance);
+        if (step == null) return;
+
+        await PublishStepNotificationAsync(instance, step, applicant, Guid.Empty, token,
+            note: $"Reminder: waiting {ApprovalSlaPolicy.DescribeWait(waited)}");
+        instance.LastReminderAt = DateTime.UtcNow;
+        instance.ReminderCount += 1;
+    }
+
+    /// <summary>
+    /// The current step waited past its escalation time: its escalation person may now act as well as
+    /// the step's own approvers, and is told. A system entry on the timeline records it. Does nothing
+    /// when the step names no one or the person can't be found.
+    /// </summary>
+    public async Task EscalateAsync(ApprovalInstance instance, Employee applicant, TimeSpan waited, CancellationToken token)
+    {
+        var step = CurrentStep(instance);
+        if (step?.EscalateToEmployeeId is not { } targetId) return;
+        var target = await _uow.Repository.Find<Employee>(e => e.Id == targetId).AsNoTracking().FirstOrDefaultAsync(token);
+        if (target == null) return;
+
+        var waitedText = ApprovalSlaPolicy.DescribeWait(waited);
+        instance.EscalatedToEmployeeId = targetId;
+        await _uow.Repository.AddAsync(new ApprovalAction
+        {
+            ApprovalInstanceId = instance.Id,
+            StepNumber = instance.CurrentStepNumber,
+            CycleNumber = instance.CycleNumber,
+            ActorEmployeeId = null,
+            Action = ApprovalActionType.Escalated,
+            Note = $"Waiting {waitedText}: escalated to {target.FirstName} {target.LastName}.".Replace("  ", " "),
+        }, token);
+
+        if (string.IsNullOrWhiteSpace(target.Email) && target.UserId == null) return;
+        var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(target.Id, instance.ApplicationType, token);
+        await _publisher.Publish(new ApprovalNotificationRequested
+        {
+            RecipientEmail = target.Email ?? string.Empty,
+            RecipientName = $"{target.FirstName} {target.LastName}".Trim(),
+            ApplicationTypeLabel = ApplicationTypeLabel(instance.ApplicationType),
+            ApplicantName = $"{applicant.FirstName} {applicant.LastName}".Trim(),
+            StatusLabel = PendingApprovalStatusLabel,
+            StepNumber = instance.CurrentStepNumber,
+            TotalSteps = instance.Workflow?.Steps.Count ?? 1,
+            Note = $"Escalated: waiting {waitedText}",
+            ApplicationType = instance.ApplicationType.ToString(),
+            ApplicationId = instance.ApplicationId,
+            ApprovalInstanceId = instance.Id,
+            RecipientUserId = target.UserId,
+            DeliverEmail = deliverEmail && !string.IsNullOrWhiteSpace(target.Email),
+            DeliverPush = deliverPush && IsPushReachable(target),
+        }, token);
+    }
+
+    // Per-step state that must not outlive the step: a reassignment and an escalation both belong to the
+    // step they were made for.
+    private static void ClearStepAssignments(ApprovalInstance instance)
+    {
+        instance.ReassignedApproverEmployeeId = null;
+        instance.EscalatedToEmployeeId = null;
+    }
+
+    // The request just reached a step: the reminder/escalation clock starts over.
+    private static void EnterStep(ApprovalInstance instance)
+    {
+        instance.StepEnteredAt = DateTime.UtcNow;
+        instance.LastReminderAt = null;
+        instance.ReminderCount = 0;
+    }
+
+    // The first step after the current one that isn't skipped. A dynamic step set to Skip whose
+    // approver can't be found for this applicant is passed over, leaving a Skipped entry (no actor)
+    // so the timeline shows it. Null = no step is left, so the request is fully approved.
+    private async Task<int?> FindNextStepNumberAsync(ApprovalInstance instance, Employee applicant, CancellationToken token)
+    {
+        var attributes = ApprovalRequestAttributes.FromJson(instance.AttributesJson);
+        var later = (instance.Workflow?.Steps ?? [])
+            .Where(s => s.StepNumber > instance.CurrentStepNumber)
+            .OrderBy(s => s.StepNumber);
+        foreach (var step in later)
+        {
+            // A step that depends on a measure of the request ("5 days or more") and isn't met is
+            // passed over, with the reason on the timeline.
+            if (!ApprovalStepCondition.Applies(step, attributes))
+            {
+                await _uow.Repository.AddAsync(new ApprovalAction
+                {
+                    ApprovalInstanceId = instance.Id,
+                    StepNumber = step.StepNumber,
+                    CycleNumber = instance.CycleNumber,
+                    ActorEmployeeId = null,
+                    Action = ApprovalActionType.Skipped,
+                    Note = "Not needed for this request.",
+                }, token);
+                continue;
+            }
+
+            // A step with several pools is passed over only when every pool was dropped (no approver found
+            // and set to skip); otherwise the pools that remain are still needed.
+            var allPoolsDropped = ApprovalStepPools.IsParallel(step)
+                ? (await DroppedPoolIdsAsync(ApprovalStepPools.Of(step), applicant, token)).Count == ApprovalStepPools.Of(step).Count
+                : step.OnUnresolved == UnresolvedApproverPolicy.Skip && ApprovalApproverResolver.IsDynamic(step.ApproverType)
+                    && (await _approvers.ResolveAsync(step, applicant, token)).Unresolved;
+            if (allPoolsDropped)
+            {
+                await _uow.Repository.AddAsync(new ApprovalAction
+                {
+                    ApprovalInstanceId = instance.Id,
+                    StepNumber = step.StepNumber,
+                    CycleNumber = instance.CycleNumber,
+                    ActorEmployeeId = null,
+                    Action = ApprovalActionType.Skipped,
+                    Note = "No approver found for this step.",
+                }, token);
+                continue;
+            }
+            return step.StepNumber;
+        }
+        return null;
     }
 
     // Owner/Admin-only escape hatch for a step whose configured/resolved approver can't
@@ -451,7 +811,7 @@ public class ApprovalEngineService
     // where eligibility has just been confirmed, so it commits with the action itself. The actor
     // (the approver's account) is resolved from the request by the audit pipeline.
     private Task AuditActionAsync(
-        ApprovalInstance instance, Employee applicant, ApprovalActionType action, string? note, CancellationToken token)
+        ApprovalInstance instance, Employee applicant, ApprovalActionType action, string? note, Guid? onBehalfOf, CancellationToken token)
     {
         if (_audit == null) return Task.CompletedTask;
 
@@ -463,6 +823,7 @@ public class ApprovalEngineService
             ["TotalSteps"] = totalSteps.ToString(),
         };
         if (!string.IsNullOrWhiteSpace(note)) metadata["Note"] = note;
+        if (onBehalfOf is { } delegator) metadata["OnBehalfOfEmployeeId"] = delegator.ToString();
 
         return _audit.WriteAsync(new AuditEvent
         {
@@ -483,6 +844,19 @@ public class ApprovalEngineService
     // same resolution rules ApproverEligibilityResolver checks against a single caller, just
     // materialized into the full candidate list here since a notification may need to reach
     // several people (a whole department/position pool) rather than approve/reject one.
+    // Everyone to tell about a step: its approver, and -- on a step with several pools -- every pool's,
+    // each person once.
+    private async Task<List<Employee>> ResolveStepRecipientsAsync(
+        ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
+    {
+        if (!ApprovalStepPools.IsParallel(step)) return await ResolveNotificationRecipientsAsync(step, applicant, token);
+
+        var everyone = new List<Employee>();
+        foreach (var pool in ApprovalStepPools.Of(step))
+            everyone.AddRange(await ResolveNotificationRecipientsAsync(pool.Effective, applicant, token));
+        return everyone.DistinctBy(e => e.Id).ToList();
+    }
+
     private async Task<List<Employee>> ResolveNotificationRecipientsAsync(
         ApprovalWorkflowStep step, Employee applicant, CancellationToken token)
     {
@@ -509,10 +883,19 @@ public class ApprovalEngineService
                     : [];
                 break;
             case ApproverType.ApplicantManager:
-                candidates = applicant.ManagerId is { } managerId
-                    ? await _uow.Repository.Find<Employee>(e => e.Id == managerId).AsNoTracking().ToListAsync(token)
-                    : [];
+            case ApproverType.ApplicantManagerLevel:
+            case ApproverType.ApplicantDepartmentHead:
+            case ApproverType.ApplicantSectionHead:
+            case ApproverType.ApplicantBranchHead:
+            case ApproverType.ApplicantAreaHead:
+            case ApproverType.ApplicantClientHead:
+            {
+                var resolved = (await _approvers.ResolveAsync(step, applicant, token)).EmployeeIds;
+                candidates = resolved.Count == 0
+                    ? []
+                    : await _uow.Repository.Find<Employee>(e => resolved.Contains(e.Id)).AsNoTracking().ToListAsync(token);
                 break;
+            }
             case ApproverType.ApplicantDepartment:
                 candidates = applicant.DepartmentId is { } applicantDeptId
                     ? await _uow.Repository.Find<Employee>(e => e.DepartmentId == applicantDeptId && (e.UserId != null || (e.Email != null && e.Email != ""))).AsNoTracking().ToListAsync(token)
@@ -536,16 +919,22 @@ public class ApprovalEngineService
     }
 
     private async Task PublishStepNotificationAsync(
-        ApprovalInstance instance, ApprovalWorkflowStep step, Employee applicant, Guid excludeEmployeeId, CancellationToken token)
+        ApprovalInstance instance, ApprovalWorkflowStep step, Employee applicant, Guid excludeEmployeeId, CancellationToken token,
+        string? note = null)
     {
         // Never the person who just filed or acted: they caused this, so it isn't news to them.
-        var recipients = (await ResolveNotificationRecipientsAsync(step, applicant, token))
+        var resolved = await ResolveStepRecipientsAsync(step, applicant, token);
+        var recipients = resolved
             .Where(c => c.Id != excludeEmployeeId)
+            .Select(c => (Recipient: c, CoveringFor: (string?)null))
             .ToList();
         var totalSteps = instance.Workflow?.Steps.Count ?? 1;
         var applicantName = $"{applicant.FirstName} {applicant.LastName}".Trim();
 
-        foreach (var recipient in recipients)
+        // People covering for an approver are told too, with a note saying whose queue it is.
+        recipients.AddRange(await ResolveDelegateRecipientsAsync(resolved, instance.ApplicationType, excludeEmployeeId, token));
+
+        foreach (var (recipient, coveringFor) in recipients)
         {
             var (deliverEmail, deliverPush) = await ResolveDeliveryFlagsAsync(recipient.Id, instance.ApplicationType, token);
 
@@ -558,6 +947,7 @@ public class ApprovalEngineService
                 StatusLabel = PendingApprovalStatusLabel,
                 StepNumber = instance.CurrentStepNumber,
                 TotalSteps = totalSteps,
+                Note = note ?? (coveringFor == null ? null : $"Delegated from {coveringFor}"),
                 ApplicationType = instance.ApplicationType.ToString(),
                 ApplicationId = instance.ApplicationId,
                 ApprovalInstanceId = instance.Id,
@@ -566,6 +956,32 @@ public class ApprovalEngineService
                 DeliverPush = deliverPush && IsPushReachable(recipient),
             }, token);
         }
+    }
+
+    // The people covering, right now, for any of these approvers -- each paired with the name of
+    // the approver they cover. Anyone already addressed as an approver in their own right, and
+    // whoever caused the event, is left out.
+    private async Task<List<(Employee Recipient, string? CoveringFor)>> ResolveDelegateRecipientsAsync(
+        IReadOnlyCollection<Employee> approvers, ApprovalApplicationType type, Guid excludeEmployeeId, CancellationToken token)
+    {
+        if (_delegations == null || approvers.Count == 0) return [];
+        var pairs = await _delegations.GetActiveDelegatesAsync(approvers.Select(a => a.Id).ToList(), type, token);
+        if (pairs.Count == 0) return [];
+
+        var alreadyAddressed = approvers.Select(a => a.Id).Append(excludeEmployeeId).ToHashSet();
+        var delegateIds = pairs.Select(p => p.DelegateId).Where(id => !alreadyAddressed.Contains(id)).Distinct().ToList();
+        if (delegateIds.Count == 0) return [];
+
+        var delegates = await _uow.Repository.Find<Employee>(e => delegateIds.Contains(e.Id)).AsNoTracking().ToListAsync(token);
+        var result = new List<(Employee, string?)>();
+        foreach (var employee in delegates.Where(e => !string.IsNullOrWhiteSpace(e.Email) || e.UserId != null))
+        {
+            var delegator = pairs.Where(p => p.DelegateId == employee.Id)
+                .Select(p => approvers.FirstOrDefault(a => a.Id == p.DelegatorId))
+                .FirstOrDefault(a => a != null);
+            result.Add((employee, delegator == null ? null : $"{delegator.FirstName} {delegator.LastName}".Trim()));
+        }
+        return result;
     }
 
     /// <summary>StatusLabel for "an approver needs to act" -- the frontend keys its

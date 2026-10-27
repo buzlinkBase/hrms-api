@@ -52,6 +52,8 @@ public static class RabbitMqConfiguration
             x.AddConsumer<AnnouncementLifecycleWorker, AnnouncementLifecycleWorkerDefinition>();
             // One company's daily benefits steps, in order -- queued by the Quartz DailyBenefitsJob.
             x.AddConsumer<DailyBenefitsWorker, DailyBenefitsWorkerDefinition>();
+            // Reminds and escalates approvals that wait too long -- queued hourly by the Quartz ApprovalSlaJob.
+            x.AddConsumer<Messaging.ApprovalSla.ApprovalSlaWorker, Messaging.ApprovalSla.ApprovalSlaWorkerDefinition>();
             // Calculate DTR "Save Draft" for a whole cutoff, outside the HTTP request -- see DtrDraftSaveService.
             x.AddConsumer<SaveDtrDraftWorker, SaveDtrDraftWorkerDefinition>();
             // Sends posted DTR rows to the Client Portal over the bus -- see ClientPortalSyncService.
@@ -133,6 +135,14 @@ public static class QuartzConfiguration
                 .WithIdentity(DailyBenefitsJob.TriggerKey)
                 .WithCronSchedule($"0 0 {runAtHour} * * ?", cron => cron
                     .InTimeZone(PhTime.Zone)
+                    .WithMisfireHandlingInstructionFireAndProceed()));
+
+            // Approval reminders / escalation: hourly, at five past.
+            q.AddJob<Messaging.ApprovalSla.ApprovalSlaJob>(Messaging.ApprovalSla.ApprovalSlaJob.Key, job => job.StoreDurably());
+            q.AddTrigger(trigger => trigger
+                .ForJob(Messaging.ApprovalSla.ApprovalSlaJob.Key)
+                .WithIdentity(Messaging.ApprovalSla.ApprovalSlaJob.TriggerKey)
+                .WithCronSchedule("0 5 * * * ?", cron => cron
                     .WithMisfireHandlingInstructionFireAndProceed()));
 
             // Old notification-bell entries (Notifications:RetentionDays), daily at 02:00 Philippine time.

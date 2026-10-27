@@ -129,6 +129,7 @@ public sealed class ConfidentialAccessScope : IConfidentialAccess
             .Where(i => i.TenantId == tenantId && i.DeletedAt == null && hidden.Contains(i.ApplicantEmployeeId))
             .Include(i => i.Actions)
             .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.NamedApprovers)
+            .Include(i => i.Workflow).ThenInclude(w => w!.Steps).ThenInclude(s => s.Groups)
             .ToListAsync(token);
         if (instances.Count == 0) return;
 
@@ -137,12 +138,15 @@ public sealed class ConfidentialAccessScope : IConfidentialAccess
             .ToDictionaryAsync(e => e.Id, token);
 
         var resolver = new ApproverEligibilityResolver();
+        var approvers = new ApprovalApproverResolver(new DbContextOrgLookup(db));
+        var delegatorsByType = await LoadDelegatorsAsync(db, tenantId, caller.Id, instances.Select(i => i.ApplicationType).Distinct(), token);
         var records = new HashSet<Guid>();
         var employees = new HashSet<Guid>();
         foreach (var instance in instances)
         {
             if (!applicants.TryGetValue(instance.ApplicantEmployeeId, out var applicant)) continue;
-            if (!IsCallersRequest(instance, applicant, caller, resolver)) continue;
+            if (!await IsCallersRequestAsync(instance, applicant, caller, resolver, approvers,
+                    delegatorsByType.GetValueOrDefault(instance.ApplicationType) ?? [], token)) continue;
             records.Add(instance.Id);
             records.Add(instance.ApplicationId);
             employees.Add(instance.ApplicantEmployeeId);
@@ -152,15 +156,68 @@ public sealed class ConfidentialAccessScope : IConfidentialAccess
         ApprovalVisibleEmployeeIds = employees.ToArray();
     }
 
-    private static bool IsCallersRequest(ApprovalInstance instance, Employee applicant, Employee caller, ApproverEligibilityResolver resolver)
+    private static async Task<bool> IsCallersRequestAsync(
+        ApprovalInstance instance, Employee applicant, Employee caller, ApproverEligibilityResolver resolver,
+        ApprovalApproverResolver approvers, IReadOnlyCollection<Employee> delegators, CancellationToken token)
     {
-        if (instance.Actions.Any(a => a.ActorEmployeeId == caller.Id)) return true;
+        if (instance.Actions.Any(a => a.ActorEmployeeId == caller.Id || a.OnBehalfOfEmployeeId == caller.Id)) return true;
         if (instance.ReassignedApproverEmployeeId == caller.Id) return true;
         if (instance.Status != ApprovalInstanceStatus.InProgress) return false;
+        if (instance.EscalatedToEmployeeId == caller.Id) return true;
 
         var step = instance.Workflow?.Steps.FirstOrDefault(s => s.StepNumber == instance.CurrentStepNumber);
         if (step == null) return false;
-        return resolver.IsEligible(new ApprovalEligibilityContext(
-            caller, applicant, step, step.NamedApprovers.Select(a => a.EmployeeId).ToArray(), instance.ReassignedApproverEmployeeId));
+
+        // Dynamic steps point at someone per applicant; delegation extends "the caller" to the
+        // people who have delegated to them -- so a delegate can open the request they act on.
+        // A step with several pools: the caller may open the request if they could act for any of them.
+        foreach (var pool in ApprovalStepPools.Of(step))
+        {
+            var resolved = ApprovalApproverResolver.IsDynamic(pool.Effective.ApproverType)
+                ? (await approvers.ResolveAsync(pool.Effective, applicant, token)).EmployeeIds
+                : null;
+            var named = pool.GroupId == null ? step.NamedApprovers.Select(a => a.EmployeeId).ToArray() : [];
+            if (resolver.IsEligible(new ApprovalEligibilityContext(
+                    caller, applicant, pool.Effective, named, instance.ReassignedApproverEmployeeId, delegators, resolved)))
+                return true;
+        }
+        return false;
+    }
+
+    // The people who have delegated their approvals to the caller right now, per application type.
+    // Mirrors ApprovalDelegationService, but over the raw context this scope runs on.
+    private static async Task<Dictionary<ApprovalApplicationType, IReadOnlyCollection<Employee>>> LoadDelegatorsAsync(
+        HrmsContext db, Guid tenantId, Guid callerEmployeeId, IEnumerable<ApprovalApplicationType> types, CancellationToken token)
+    {
+        var result = new Dictionary<ApprovalApplicationType, IReadOnlyCollection<Employee>>();
+        var delegations = await db.ApprovalDelegations.IgnoreQueryFilters().AsNoTracking()
+            .Where(d => d.TenantId == tenantId && d.DelegateEmployeeId == callerEmployeeId && d.IsActive)
+            .ToListAsync(token);
+        if (delegations.Count == 0) return result;
+
+        var today = PhTime.Today(DateTime.UtcNow);
+        var needLeave = delegations.Where(d => d.OnlyWhileOnLeave).Select(d => d.DelegatorEmployeeId).Distinct().ToList();
+        var onLeave = needLeave.Count == 0
+            ? new List<Guid>()
+            : await db.leaveApplications.IgnoreQueryFilters().AsNoTracking()
+                .Where(a => a.TenantId == tenantId && needLeave.Contains(a.EmployeeId) && a.ApprovalStatus == ApprovalStatus.Approved &&
+                            a.LeaveDateFrom <= today && a.LeaveDateTo >= today)
+                .Select(a => a.EmployeeId).Distinct().ToListAsync(token);
+
+        var delegators = await db.Employees.IgnoreQueryFilters().AsNoTracking()
+            .Where(e => delegations.Select(d => d.DelegatorEmployeeId).Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, token);
+
+        foreach (var type in types)
+        {
+            var inForce = delegations
+                .Where(d => ApprovalDelegationRules.IsInForce(d, type, today, onLeave.Contains(d.DelegatorEmployeeId)))
+                .Select(d => delegators.GetValueOrDefault(d.DelegatorEmployeeId))
+                .OfType<Employee>()
+                .DistinctBy(e => e.Id)
+                .ToList();
+            if (inForce.Count > 0) result[type] = inForce;
+        }
+        return result;
     }
 }

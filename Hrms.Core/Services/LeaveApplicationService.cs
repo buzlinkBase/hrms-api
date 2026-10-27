@@ -65,7 +65,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
         // Starts the configurable approval workflow (or, if this tenant hasn't configured one
         // for Leave, the implicit single-step legacy instance) -- see ApprovalEngineService.
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.StartAsync(ApprovalApplicationType.Leave, model.Id, model.EmployeeId, token);
+            await _approvalEngine.StartAsync(ApprovalApplicationType.Leave, model.Id, model.EmployeeId, token,
+                attributes: ApprovalRequestAttributes.ForLeave(model.LeaveDateFrom, model.LeaveDateTo, model.DayFraction, model.LeaveId));
 
         await CommitChangesAsync(token);
 
@@ -284,7 +285,8 @@ public class LeaveApplicationService : BaseService<LeaveApplication>
 
         // Changed content goes back to the first approver if anyone already signed off.
         if (existing.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Leave, existing.Id, token);
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Leave, existing.Id, token,
+                ApprovalRequestAttributes.ForLeave(existing.LeaveDateFrom, existing.LeaveDateTo, existing.DayFraction, existing.LeaveId));
 
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

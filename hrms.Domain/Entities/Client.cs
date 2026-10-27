@@ -8,6 +8,8 @@ public class Client : BaseEntity
     public string Phone { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string ContactPerson { get; set; } = string.Empty;
+    // The employee who heads this client's account -- what "Applicant's client head" resolves to.
+    public Guid? HeadEmployeeId { get; set; }
 
     // File-storage key of the client's logo (tenants/{companyId}/client-logos/…); null = none.
     public string? LogoKey { get; set; }

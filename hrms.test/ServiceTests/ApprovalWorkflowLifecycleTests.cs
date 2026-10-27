@@ -257,4 +257,174 @@ public class ApprovalWorkflowLifecycleTests : IDisposable
         (await ReloadAsync(next.Id)).IsActive.Should().BeTrue();
         (await ReloadAsync(current.Id)).IsActive.Should().BeFalse("its pending request finishes on it, new ones don't start there");
     }
+
+    // ---- several active workflows per type, one per scope slot ----
+
+    private static readonly Guid BranchA = Guid.NewGuid();
+    private static readonly Guid BranchB = Guid.NewGuid();
+
+    private async Task<ApprovalWorkflow> AddScopedAsync(string name, bool active, int priority, params (ApprovalScopeDimension Dimension, Guid Id)[] conditions)
+    {
+        var workflow = Workflow(name, active);
+        workflow.Priority = priority;
+        workflow.Scopes = conditions.Select(c => new ApprovalWorkflowScope
+        {
+            Id = Guid.NewGuid(), ApprovalWorkflowId = workflow.Id, Dimension = c.Dimension, TargetId = c.Id,
+        }).ToList();
+        await using var seed = _db.NewContext();
+        seed.ApprovalWorkflows.Add(workflow);
+        await seed.SaveChangesAsync();
+        return workflow;
+    }
+
+    private static ApprovalWorkflow ScopedEdit(string name, int priority, params (ApprovalScopeDimension Dimension, Guid Id)[] conditions)
+    {
+        var edited = Edited(name);
+        edited.Priority = priority;
+        edited.Scopes = conditions.Select(c => new ApprovalWorkflowScope { Dimension = c.Dimension, TargetId = c.Id }).ToList();
+        return edited;
+    }
+
+    [Fact]
+    public async Task WorkflowsInDifferentSlots_StayActiveTogether()
+    {
+        var everyone = await AddScopedAsync("Default", active: true, 100);
+        var branchA = await AddScopedAsync("Branch A", active: false, 10, (ApprovalScopeDimension.Branch, BranchA));
+        var branchB = await AddScopedAsync("Branch B", active: false, 10, (ApprovalScopeDimension.Branch, BranchB));
+
+        await WithServiceAsync(s => s.ActivateAsync(branchA.Id, default));
+        await WithServiceAsync(s => s.ActivateAsync(branchB.Id, default));
+
+        (await ReloadAsync(everyone.Id)).IsActive.Should().BeTrue();
+        (await ReloadAsync(branchA.Id)).IsActive.Should().BeTrue();
+        (await ReloadAsync(branchB.Id)).IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Activating_ANewVersion_ReplacesOnlyTheOneInItsOwnSlot()
+    {
+        var branchA = await AddScopedAsync("Branch A", active: true, 10, (ApprovalScopeDimension.Branch, BranchA));
+        var branchB = await AddScopedAsync("Branch B", active: true, 10, (ApprovalScopeDimension.Branch, BranchB));
+        var branchAv2 = await AddScopedAsync("Branch A v2", active: false, 10, (ApprovalScopeDimension.Branch, BranchA));
+
+        await WithServiceAsync(s => s.ActivateAsync(branchAv2.Id, default));
+
+        (await ReloadAsync(branchAv2.Id)).IsActive.Should().BeTrue();
+        (await ReloadAsync(branchA.Id)).IsActive.Should().BeFalse();
+        (await ReloadAsync(branchB.Id)).IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ScheduleActivation_WaitsOnTheWorkflowInTheSameSlot_NotOnOthers()
+    {
+        var branchA = await AddScopedAsync("Branch A", active: true, 10, (ApprovalScopeDimension.Branch, BranchA));
+        var branchB = await AddScopedAsync("Branch B", active: true, 10, (ApprovalScopeDimension.Branch, BranchB));
+        await FileLeaveAsync(branchB.Id); // busy, but in another slot
+        var branchAv2 = await AddScopedAsync("Branch A v2", active: false, 10, (ApprovalScopeDimension.Branch, BranchA));
+
+        var activatedAtOnce = false;
+        await WithServiceAsync(async s => activatedAtOnce = await s.ScheduleActivationAsync(branchAv2.Id, default));
+
+        activatedAtOnce.Should().BeTrue("Branch A has nothing in progress, whatever Branch B is doing");
+        (await ReloadAsync(branchA.Id)).IsActive.Should().BeFalse();
+        (await ReloadAsync(branchB.Id)).IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task EditingAnActiveWorkflow_IntoAnotherActiveOnesSlot_IsRefused()
+    {
+        var branchA = await AddScopedAsync("Branch A", active: true, 10, (ApprovalScopeDimension.Branch, BranchA));
+        await AddScopedAsync("Branch B", active: true, 10, (ApprovalScopeDimension.Branch, BranchB));
+
+        var clash = () => WithServiceAsync(s => s.UpdateWorkflowAsync(
+            branchA.Id, ScopedEdit("Branch A", 10, (ApprovalScopeDimension.Branch, BranchB)), default));
+
+        (await clash.Should().ThrowAsync<GuardException>()).WithMessage("Another active workflow already applies*");
+    }
+
+    [Fact]
+    public async Task EditingScopeAndPriority_ReplacesTheConditions()
+    {
+        var workflow = await AddScopedAsync("Branch A", active: false, 10, (ApprovalScopeDimension.Branch, BranchA));
+
+        await WithServiceAsync(s => s.UpdateWorkflowAsync(
+            workflow.Id, ScopedEdit("Branch B", 20, (ApprovalScopeDimension.Branch, BranchB), (ApprovalScopeDimension.Department, Guid.NewGuid())), default));
+
+        await using var read = _db.NewContext();
+        var saved = await read.ApprovalWorkflows.Include(w => w.Scopes).AsNoTracking().SingleAsync(w => w.Id == workflow.Id);
+        saved.Priority.Should().Be(20);
+        saved.Scopes.Should().HaveCount(2);
+        saved.Scopes.Should().ContainSingle(c => c.Dimension == ApprovalScopeDimension.Branch && c.TargetId == BranchB);
+    }
+
+    [Fact]
+    public async Task Saving_RejectsBadPriorityAndBadConditions()
+    {
+        var badPriority = () => WithServiceAsync(s => s.CreateWorkflowAsync(
+            ScopedWorkflow(priority: 0), default));
+        await badPriority.Should().ThrowAsync<InvalidOperationException>().WithMessage("Priority must be between*");
+
+        var noTarget = () => WithServiceAsync(s => s.CreateWorkflowAsync(
+            ScopedWorkflow(priority: 10, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.Branch }), default));
+        await noTarget.Should().ThrowAsync<InvalidOperationException>();
+
+        var badStatus = () => WithServiceAsync(s => s.CreateWorkflowAsync(
+            ScopedWorkflow(priority: 10, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.EmploymentStatus, TargetValue = "Wizard" }), default));
+        await badStatus.Should().ThrowAsync<InvalidOperationException>().WithMessage("*not an employment status*");
+    }
+
+    private static ApprovalWorkflow ScopedWorkflow(int priority, params ApprovalWorkflowScope[] scopes)
+    {
+        var workflow = Workflow("Scoped", active: false);
+        workflow.Priority = priority;
+        workflow.Scopes = scopes.ToList();
+        return workflow;
+    }
+
+    [Fact]
+    public async Task ResolveForEmployee_PicksTheBestActiveMatch_AndListsTheCandidates()
+    {
+        Guid groupId;
+        await using (var read = _db.NewContext())
+            groupId = (await read.Employees.AsNoTracking().SingleAsync(e => e.Id == _employeeId)).PayrollGroupId;
+        var everyone = await AddScopedAsync("Default", active: true, 100);
+        var mine = await AddScopedAsync("My payroll group", active: true, 10, (ApprovalScopeDimension.PayrollGroup, groupId));
+        await AddScopedAsync("Someone else's branch", active: true, 5, (ApprovalScopeDimension.Branch, BranchA));
+        await AddScopedAsync("Inactive", active: false, 1);
+
+        WorkflowResolution? resolution = null;
+        await WithServiceAsync(async s => resolution = await s.ResolveForEmployeeAsync(ApprovalApplicationType.Leave, _employeeId, default));
+
+        resolution!.Winner!.Id.Should().Be(mine.Id);
+        resolution.Candidates.Select(c => (c.Workflow.Name, c.Matched)).Should().Equal(
+            ("Someone else's branch", false), ("My payroll group", true), ("Default", true));
+        resolution.Candidates.Should().NotContain(c => c.Workflow.Id == everyone.Id && !c.Matched);
+    }
+
+    [Fact]
+    public async Task ResolveForEmployee_WithNothingMatching_IsTheFallback()
+    {
+        await AddScopedAsync("Branch A only", active: true, 10, (ApprovalScopeDimension.Branch, BranchA));
+
+        WorkflowResolution? resolution = null;
+        await WithServiceAsync(async s => resolution = await s.ResolveForEmployeeAsync(ApprovalApplicationType.Leave, _employeeId, default));
+
+        resolution!.Winner.Should().BeNull();
+    }
+
+    [Fact]
+    public void SamePriorityOverlaps_AreReported_OnlyBetweenActiveWorkflowsThatCanCollide()
+    {
+        var a = new ApprovalWorkflow { Id = Guid.NewGuid(), Name = "A", IsActive = true, Priority = 10, Scopes = [new() { Dimension = ApprovalScopeDimension.Branch, TargetId = BranchA }] };
+        var hr = new ApprovalWorkflow { Id = Guid.NewGuid(), Name = "HR", IsActive = true, Priority = 10, Scopes = [new() { Dimension = ApprovalScopeDimension.Department, TargetId = Guid.NewGuid() }] };
+        var b = new ApprovalWorkflow { Id = Guid.NewGuid(), Name = "B", IsActive = true, Priority = 10, Scopes = [new() { Dimension = ApprovalScopeDimension.Branch, TargetId = BranchB }] };
+        var other = new ApprovalWorkflow { Id = Guid.NewGuid(), Name = "Other priority", IsActive = true, Priority = 20 };
+
+        var overlaps = ApprovalWorkflowService.FindSamePriorityOverlaps([a, hr, b, other]);
+
+        overlaps[a.Id].Should().BeEquivalentTo(["HR"]);
+        overlaps[b.Id].Should().BeEquivalentTo(["HR"]);
+        overlaps[hr.Id].Should().BeEquivalentTo(["A", "B"]);
+        overlaps[other.Id].Should().BeEmpty();
+    }
 }

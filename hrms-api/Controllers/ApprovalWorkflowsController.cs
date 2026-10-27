@@ -63,7 +63,34 @@ namespace Hrms.Api.Controllers
             await _service.ReconcileAsync(applicationType, token);
             var workflows = await _service.ListAsync(applicationType, token);
             var usage = await _service.GetUsageAsync(workflows.Select(w => w.Id).ToList(), token);
-            return Ok(workflows.Select(w => ToResponse(w, usage[w.Id], workflows)));
+            var overlaps = ApprovalWorkflowService.FindSamePriorityOverlaps(workflows);
+            return Ok(workflows.Select(w => ToResponse(w, usage[w.Id], workflows, overlaps)));
+        }
+
+        /// <summary>
+        /// Which active workflow an employee's applications of this type would run on right now --
+        /// the Setup screen's "which workflow applies?" check.
+        /// </summary>
+        [HttpGet("resolve")]
+        [RequirePermission("Approval Workflows:View")]
+        [ProducesResponseType(typeof(ResponseModel<ApprovalWorkflowResolutionResponse>), 200)]
+        public async Task<IActionResult> Resolve(
+            [FromQuery] ApprovalApplicationType applicationType, [FromQuery] Guid employeeId, CancellationToken token)
+        {
+            var resolution = await _service.ResolveForEmployeeAsync(applicationType, employeeId, token);
+            return Ok(new ApprovalWorkflowResolutionResponse
+            {
+                WorkflowId = resolution.Winner?.Id,
+                WorkflowName = resolution.Winner?.Name,
+                IsFallback = resolution.Winner == null,
+                Candidates = resolution.Candidates.Select(c => new ApprovalWorkflowCandidateResponse
+                {
+                    Id = c.Workflow.Id,
+                    Name = c.Workflow.Name,
+                    Priority = c.Workflow.Priority,
+                    Matched = c.Matched,
+                }).ToList(),
+            });
         }
 
         [HttpGet("{id}")]
@@ -75,7 +102,7 @@ namespace Hrms.Api.Controllers
             if (workflow == null) return NotFound();
             var usage = await _service.GetUsageAsync([id], token);
             var siblings = await _service.ListAsync(workflow.ApplicationType, token);
-            var response = ToResponse(workflow, usage[id], siblings);
+            var response = ToResponse(workflow, usage[id], siblings, ApprovalWorkflowService.FindSamePriorityOverlaps(siblings));
             response.ApproverNames = await ApproverNamesAsync(workflow, token);
             return Ok(response);
         }
@@ -84,6 +111,10 @@ namespace Hrms.Api.Controllers
             _employeeService.GetDisplayNamesAsync(
                 workflow.Steps
                     .Where(s => s.ApproverEmployeeId != null).Select(s => s.ApproverEmployeeId!.Value)
+                    .Concat(workflow.Steps.Where(s => s.FallbackEmployeeId != null).Select(s => s.FallbackEmployeeId!.Value))
+                    .Concat(workflow.Steps.Where(s => s.EscalateToEmployeeId != null).Select(s => s.EscalateToEmployeeId!.Value))
+                    .Concat(workflow.Steps.SelectMany(s => s.Groups)
+                        .SelectMany(g => new[] { g.ApproverEmployeeId, g.FallbackEmployeeId }).OfType<Guid>())
                     .Concat(workflow.Steps.SelectMany(s => s.NamedApprovers.Select(a => a.EmployeeId))),
                 token);
 
@@ -100,7 +131,7 @@ namespace Hrms.Api.Controllers
             workflow.IsActive = false;
 
             var created = await _service.CreateWorkflowAsync(workflow, token);
-            return Ok(ToResponse(created, WorkflowUsage.None, []));
+            return Ok(ToResponse(created, WorkflowUsage.None, [], new Dictionary<Guid, List<string>>()));
         }
 
         [HttpPut("{id}")]
@@ -112,7 +143,7 @@ namespace Hrms.Api.Controllers
             var workflow = FromRequest(payload);
             var updated = await _service.UpdateWorkflowAsync(id, workflow, token);
             var usage = await _service.GetUsageAsync([id], token);
-            var response = ToResponse(updated, usage[id], []);
+            var response = ToResponse(updated, usage[id], [], new Dictionary<Guid, List<string>>());
             response.ApproverNames = await ApproverNamesAsync(updated, token);
             return Ok(response);
         }
@@ -172,7 +203,10 @@ namespace Hrms.Api.Controllers
         {
             ApplicationType = payload.ApplicationType,
             Name = payload.Name,
-            ScopeDepartmentId = payload.ScopeDepartmentId,
+            Priority = payload.Priority,
+            // The single legacy department is folded into the scope rows, and the legacy column cleared.
+            ScopeDepartmentId = null,
+            Scopes = ToScopeRows(payload),
             Steps = payload.Steps.Select(s => new ApprovalWorkflowStep
             {
                 StepNumber = s.StepNumber,
@@ -181,16 +215,66 @@ namespace Hrms.Api.Controllers
                 ApproverDepartmentId = s.ApproverDepartmentId,
                 ApproverPositionId = s.ApproverPositionId,
                 MinApprovals = s.MinApprovals,
+                ApproverLevel = s.ApproverLevel,
+                OnUnresolved = s.OnUnresolved,
+                FallbackEmployeeId = s.OnUnresolved == UnresolvedApproverPolicy.FallbackPerson ? s.FallbackEmployeeId : null,
+                ConditionMetric = s.ConditionMetric,
+                ConditionOperator = s.ConditionOperator,
+                ConditionValue = s.ConditionMetric == ApprovalStepConditionMetric.None ? null : s.ConditionValue,
+                RemindAfterHours = s.RemindAfterHours,
+                RemindRepeatHours = s.RemindAfterHours.HasValue ? s.RemindRepeatHours : null,
+                EscalateAfterHours = s.EscalateToEmployeeId.HasValue ? s.EscalateAfterHours : null,
+                EscalateToEmployeeId = s.EscalateAfterHours.HasValue ? s.EscalateToEmployeeId : null,
                 NoteRequirement = s.NoteRequirement,
                 NamedApprovers = s.NamedApproverEmployeeIds
                     .Select(empId => new ApprovalWorkflowStepApprover { EmployeeId = empId })
                     .ToList(),
+                Groups = s.Groups.Select((g, index) => new ApprovalWorkflowStepGroup
+                {
+                    GroupNumber = index + 1,
+                    ApproverType = g.ApproverType,
+                    ApproverEmployeeId = g.ApproverEmployeeId,
+                    ApproverDepartmentId = g.ApproverDepartmentId,
+                    ApproverPositionId = g.ApproverPositionId,
+                    ApproverLevel = g.ApproverLevel,
+                    OnUnresolved = g.OnUnresolved,
+                    FallbackEmployeeId = g.OnUnresolved == UnresolvedApproverPolicy.FallbackPerson ? g.FallbackEmployeeId : null,
+                    MinApprovals = g.MinApprovals,
+                }).ToList(),
             }).ToList(),
         };
 
+        private static List<ApprovalWorkflowScope> ToScopeRows(ApprovalWorkflowRequest payload)
+        {
+            var dtos = payload.Scopes.ToList();
+            if (payload.ScopeDepartmentId is { } legacy &&
+                !dtos.Any(s => s.Dimension == ApprovalScopeDimension.Department && s.TargetIds.Contains(legacy)))
+                dtos.Add(new ApprovalWorkflowScopeDto { Dimension = ApprovalScopeDimension.Department, TargetIds = [legacy] });
+
+            return dtos.SelectMany(s => s.Dimension == ApprovalScopeDimension.EmploymentStatus
+                    ? s.Values.Distinct().Select(v => new ApprovalWorkflowScope { Dimension = s.Dimension, TargetValue = v })
+                    : s.TargetIds.Distinct().Select(id => new ApprovalWorkflowScope { Dimension = s.Dimension, TargetId = id }))
+                .ToList();
+        }
+
+        // The stored rows back as one entry per dimension, with the legacy single department folded in.
+        private static List<ApprovalWorkflowScopeDto> ToScopeDtos(ApprovalWorkflow workflow) =>
+            ApprovalScopeMatching.ConditionsOf(workflow)
+                .OrderBy(c => c.Key.ToString(), StringComparer.Ordinal)
+                .Select(c => new ApprovalWorkflowScopeDto
+                {
+                    Dimension = c.Key,
+                    TargetIds = c.Key == ApprovalScopeDimension.EmploymentStatus
+                        ? []
+                        : c.Value.Select(Guid.Parse).ToList(),
+                    Values = c.Key == ApprovalScopeDimension.EmploymentStatus ? c.Value.OrderBy(v => v).ToList() : [],
+                })
+                .ToList();
+
         // siblings: the other workflows of the same type, to name the one this replaces / is replaced by.
         private static ApprovalWorkflowResponse ToResponse(
-            ApprovalWorkflow workflow, WorkflowUsage usage, IReadOnlyCollection<ApprovalWorkflow> siblings) => new()
+            ApprovalWorkflow workflow, WorkflowUsage usage, IReadOnlyCollection<ApprovalWorkflow> siblings,
+            IReadOnlyDictionary<Guid, List<string>> overlaps) => new()
         {
             Id = workflow.Id,
             ApplicationType = workflow.ApplicationType,
@@ -198,6 +282,10 @@ namespace Hrms.Api.Controllers
             IsActive = workflow.IsActive,
             ScopeDepartmentId = workflow.ScopeDepartmentId,
             ScopeDepartmentName = workflow.ScopeDepartment?.Name,
+            Priority = workflow.Priority,
+            Scopes = ToScopeDtos(workflow),
+            SlotKey = ApprovalScopeMatching.Signature(workflow),
+            OverlapsWith = overlaps.GetValueOrDefault(workflow.Id) ?? [],
             IsEditable = usage.CanEdit,
             InProgressCount = usage.InProgress,
             HasBeenUsed = usage.HasBeenUsed,
@@ -215,8 +303,29 @@ namespace Hrms.Api.Controllers
                 ApproverDepartmentId = s.ApproverDepartmentId,
                 ApproverPositionId = s.ApproverPositionId,
                 MinApprovals = s.MinApprovals,
+                ApproverLevel = s.ApproverLevel,
+                OnUnresolved = s.OnUnresolved,
+                FallbackEmployeeId = s.FallbackEmployeeId,
+                ConditionMetric = s.ConditionMetric,
+                ConditionOperator = s.ConditionOperator,
+                ConditionValue = s.ConditionValue,
+                RemindAfterHours = s.RemindAfterHours,
+                RemindRepeatHours = s.RemindRepeatHours,
+                EscalateAfterHours = s.EscalateAfterHours,
+                EscalateToEmployeeId = s.EscalateToEmployeeId,
                 NoteRequirement = s.NoteRequirement,
                 NamedApproverEmployeeIds = s.NamedApprovers.Select(a => a.EmployeeId).ToList(),
+                Groups = s.Groups.OrderBy(g => g.GroupNumber).Select(g => new ApprovalWorkflowStepGroupDto
+                {
+                    ApproverType = g.ApproverType,
+                    ApproverEmployeeId = g.ApproverEmployeeId,
+                    ApproverDepartmentId = g.ApproverDepartmentId,
+                    ApproverPositionId = g.ApproverPositionId,
+                    ApproverLevel = g.ApproverLevel,
+                    OnUnresolved = g.OnUnresolved,
+                    FallbackEmployeeId = g.FallbackEmployeeId,
+                    MinApprovals = g.MinApprovals,
+                }).ToList(),
             }).ToList(),
         };
     }

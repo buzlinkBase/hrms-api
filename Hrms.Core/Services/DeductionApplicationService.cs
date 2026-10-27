@@ -82,7 +82,8 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         LoanScheduleReconciler.ForNewLoan.Reconcile(model, model.Breakdown, rows, _ => { });
         await CreateAsync(model, token);
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.StartAsync(ApprovalApplicationType.Loan, model.Id, model.EmployeeId, token);
+            await _approvalEngine.StartAsync(ApprovalApplicationType.Loan, model.Id, model.EmployeeId, token,
+                attributes: ApprovalRequestAttributes.ForLoan(model.TotalPrincipal));
         await CommitChangesAsync(token);
         return model;
     }
@@ -122,7 +123,8 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
 
         // Changed content goes back to the first approver if anyone already signed off.
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Loan, model.Id, token);
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Loan, model.Id, token,
+                ApprovalRequestAttributes.ForLoan(model.TotalPrincipal));
 
         await CommitChangesAsync(token);
         return (await FineOneAsync(model.Id, token))!;

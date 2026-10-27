@@ -18,7 +18,8 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
     {
         await CreateAsync(model, token);
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.StartAsync(ApprovalApplicationType.Overtime, model.Id, model.EmployeeId, token);
+            await _approvalEngine.StartAsync(ApprovalApplicationType.Overtime, model.Id, model.EmployeeId, token,
+                attributes: ApprovalRequestAttributes.ForOvertime(model.ManualOTMinutes, model.StartTime, model.EndTime));
         await CommitChangesAsync(token);
     }
 
@@ -36,7 +37,8 @@ public class OvertimeApplicationService : BaseService<OverTimeApplication>
 
         // Changed content goes back to the first approver if anyone already signed off.
         if (existing.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Overtime, existing.Id, token);
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.Overtime, existing.Id, token,
+                ApprovalRequestAttributes.ForOvertime(existing.ManualOTMinutes, existing.StartTime, existing.EndTime));
 
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

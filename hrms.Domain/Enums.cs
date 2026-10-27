@@ -718,6 +718,65 @@ public enum ApproverType
     Position,
     ApplicantManager,
     ApplicantDepartment,
+    // The applicant's manager N levels up the reporting line (ApproverLevel 1 = their manager).
+    ApplicantManagerLevel,
+    // Head of the applicant's department (ApproverLevel 1) or of its parent department (2), and so on.
+    ApplicantDepartmentHead,
+    ApplicantSectionHead,
+    ApplicantBranchHead,
+    // Head of the applicant's project site (Employee.AreaId).
+    ApplicantAreaHead,
+    ApplicantClientHead,
+}
+
+// What a step does when its approver can't be worked out for an applicant (no manager recorded, no
+// head set on their branch...). Block keeps the step pending for an admin to reassign; Skip moves
+// on to the next step (never allowed on step 1); FallbackPerson hands the step to a named person.
+public enum UnresolvedApproverPolicy
+{
+    Block,
+    Skip,
+    FallbackPerson,
+}
+
+// What a workflow's scope condition is about -- see ApprovalWorkflowScope. Each value is matched
+// against the same attribute of the applicant (or, for batch types, of the batch).
+public enum ApprovalScopeDimension
+{
+    Branch,
+    Department,
+    Client,
+    /// <summary>Project site / cost center (Employee.AreaId).</summary>
+    Area,
+    PayrollGroup,
+    Position,
+    Section,
+    EmploymentStatus,
+    /// <summary>Hand-picked employees; doubles as a custom employee group.</summary>
+    Employee,
+    /// <summary>Leave requests only: which leave type was filed.</summary>
+    LeaveType,
+}
+
+// A measure of the request itself that a workflow step can be conditioned on (see
+// ApprovalWorkflowStep.ConditionMetric). Which ones a request type has is in ApprovalStepCondition.
+public enum ApprovalStepConditionMetric
+{
+    None,
+    /// <summary>Calendar days covered (leave, official business).</summary>
+    Days,
+    /// <summary>Hours (overtime, pass slip).</summary>
+    Hours,
+    /// <summary>Money (loan principal, official business cost).</summary>
+    Amount,
+}
+
+public enum ApprovalConditionOperator
+{
+    GreaterOrEqual,
+    GreaterThan,
+    LessOrEqual,
+    LessThan,
 }
 
 public enum NoteRequirement
@@ -742,6 +801,12 @@ public enum ApprovalActionType
     // Audit-trail marker for ApprovalEngineService.ReassignApproverAsync -- never counted by
     // ApprovalQuorum.IsStepCleared (that only sums Approved rows), purely a timeline entry.
     Reassigned,
+    // A step that was passed over because its approver could not be worked out and the step says
+    // to skip (see UnresolvedApproverPolicy). A system entry: no actor.
+    Skipped,
+    // A step waited too long and was also opened to its escalation person (ApprovalWorkflowStep
+    // .EscalateToEmployeeId). A system entry: no actor.
+    Escalated,
 }
 
 public enum OutBoxState

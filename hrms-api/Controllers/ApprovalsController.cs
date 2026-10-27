@@ -90,10 +90,28 @@ namespace Hrms.Api.Controllers
             var steps = instance.Workflow?.Steps ?? [];
             // Actors, Person-step approvers and a reassigned approver, in one lookup -- a
             // confidential one the caller can't see comes back as "Confidential", not an id.
+            // Dynamic steps (manager level, a head...) resolve per applicant, so work each one out
+            // here to name the person -- or to flag that nobody was found.
+            // A step may have several pools of approvers (see ApprovalStepPools); each is resolved on its own.
+            var resolvedByPool = new Dictionary<(int Step, Guid? Group), ResolvedApprovers>();
+            foreach (var step in steps)
+            {
+                foreach (var pool in ApprovalStepPools.Of(step))
+                {
+                    if (await _approvalEngine.ResolveStepApproversAsync(pool.Effective, instance.ApplicantEmployeeId, token) is { } resolved)
+                        resolvedByPool[(step.StepNumber, pool.GroupId)] = resolved;
+                }
+            }
+            var resolvedByStep = resolvedByPool.Where(p => p.Key.Group == null).ToDictionary(p => p.Key.Step, p => p.Value);
+            var poolProgress = await _approvalEngine.CurrentPoolProgressAsync(instance, token);
+
             var names = await _employeeService.GetDisplayNamesAsync(
-                instance.Actions.Select(a => a.ActorEmployeeId)
+                instance.Actions.Select(a => a.ActorEmployeeId).OfType<Guid>()
+                    .Concat(instance.Actions.Where(a => a.OnBehalfOfEmployeeId != null).Select(a => a.OnBehalfOfEmployeeId!.Value))
                     .Concat(steps.Where(s => s.ApproverEmployeeId != null).Select(s => s.ApproverEmployeeId!.Value))
-                    .Concat(instance.ReassignedApproverEmployeeId is { } reassigned ? [reassigned] : []),
+                    .Concat(steps.SelectMany(s => s.Groups).Where(g => g.ApproverEmployeeId != null).Select(g => g.ApproverEmployeeId!.Value))
+                    .Concat(resolvedByPool.Values.SelectMany(r => r.EmployeeIds))
+                    .Concat(instance.ReassignedApproverEmployeeId is { } reassigned ? new[] { reassigned } : []),
                 token);
 
             return Ok(new ApprovalInstanceResponse
@@ -101,21 +119,34 @@ namespace Hrms.Api.Controllers
                 ApplicationType = instance.ApplicationType,
                 ApplicationId = instance.ApplicationId,
                 ApprovalWorkflowId = instance.ApprovalWorkflowId,
+                ApprovalWorkflowName = instance.Workflow?.Name,
                 CurrentStepNumber = instance.CurrentStepNumber,
                 TotalSteps = instance.Workflow?.Steps.Count ?? 1,
                 Status = instance.Status,
                 CurrentStepNoteRequirement = currentStep?.NoteRequirement ?? NoteRequirement.None,
                 CurrentStepApproverType = currentStep?.ApproverType,
+                CurrentStepNoApprover = instance.ReassignedApproverEmployeeId == null && currentStep != null &&
+                    ApprovalStepPools.Of(currentStep).Any(p =>
+                        p.Effective.OnUnresolved != UnresolvedApproverPolicy.Skip &&
+                        resolvedByPool.TryGetValue((currentStep.StepNumber, p.GroupId), out var poolResolved) && poolResolved.Unresolved),
                 CurrentStepApproverLabel = instance.ReassignedApproverEmployeeId is { } reassignedId
                     ? names.GetValueOrDefault(reassignedId)
-                    : ResolveApproverLabel(currentStep, names),
+                    : ApprovalStepLabeler.StepLabel(currentStep, names, resolvedByPool),
+                CurrentStepPools = (poolProgress ?? []).Select(p => new ApprovalPoolProgressResponse
+                {
+                    Label = ApprovalStepLabeler.PoolLabel(p.Pool.Effective, names, resolvedByPool.GetValueOrDefault((p.Pool.Effective.StepNumber, p.Pool.GroupId))),
+                    Approved = p.Approved,
+                    Required = p.Required,
+                    Satisfied = p.Satisfied,
+                }).ToList(),
                 Actions = instance.Actions
                     .OrderBy(a => a.CreatedAt)
                     .Select(a => new ApprovalActionResponse
                     {
                         StepNumber = a.StepNumber,
                         ActorEmployeeId = a.ActorEmployeeId,
-                        ActorName = names.GetValueOrDefault(a.ActorEmployeeId),
+                        ActorName = a.ActorEmployeeId is { } actor ? names.GetValueOrDefault(actor) : null,
+                        OnBehalfOfName = a.OnBehalfOfEmployeeId is { } onBehalf ? names.GetValueOrDefault(onBehalf) : null,
                         Action = a.Action,
                         Note = a.Note,
                         CreatedAt = a.CreatedAt,
@@ -129,24 +160,12 @@ namespace Hrms.Api.Controllers
                     {
                         StepNumber = s.StepNumber,
                         ApproverType = s.ApproverType,
-                        ApproverLabel = ResolveApproverLabel(s, names),
+                        ApproverLabel = ApprovalStepLabeler.StepLabel(s, names, resolvedByPool),
                         NoteRequirement = s.NoteRequirement,
                     })
                     .ToList(),
             });
         }
-
-        private static string? ResolveApproverLabel(ApprovalWorkflowStep? step, IReadOnlyDictionary<Guid, string> names) => step?.ApproverType switch
-        {
-            ApproverType.Person => step.ApproverEmployeeId is { } approverId
-                ? names.GetValueOrDefault(approverId)
-                : null,
-            ApproverType.Department => step.ApproverDepartment?.Name,
-            ApproverType.Position => step.ApproverPosition?.Name,
-            ApproverType.ApplicantManager => "Your Manager",
-            ApproverType.ApplicantDepartment => "Your Department",
-            _ => null,
-        };
 
         // Lets the frontend show/hide the Approve/Decline modal for the current caller without
         // guessing client-side -- mirrors ApprovalEngineService.RecordActionAsync's own

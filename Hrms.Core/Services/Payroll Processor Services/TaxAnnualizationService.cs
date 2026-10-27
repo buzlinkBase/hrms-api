@@ -137,7 +137,8 @@ public class TaxAnnualizationService
             Remarks = payload.Remarks,
             GeneratedByEmployeeId = generatedByEmployeeId,
         }, token, commit: false);
-        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchId, generatedByEmployeeId, token);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchId, generatedByEmployeeId, token,
+            scope: ApprovalScopeContext.ForPayrollGroups(lines.Select(l => l.PayrollGroupId)));
 
         var payrolls = _mapper.Map<List<Payroll>>(lines);
         foreach (var payroll in payrolls)

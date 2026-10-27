@@ -303,7 +303,9 @@ public class PayrollBatchLifecycleService
         batch.PendingDeletion = true;
         batch.RequestedDeletionByEmployeeId = requestedByEmployeeId;
         await _payrollBatchService.UpdateAsync(batch, token, commit: false);
-        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPostingDeletion, batch.Id, requestedByEmployeeId, token);
+        var rows = await _payrollService.GetWholeBatchAsync(payrollBatchId, token);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPostingDeletion, batch.Id, requestedByEmployeeId, token,
+            scope: ApprovalScopeContext.ForPayrollGroups(rows.Select(r => r.PayrollGroupId)));
         await _payrollBatchService.CommitChangesAsync(token);
     }
 

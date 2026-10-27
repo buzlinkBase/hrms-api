@@ -144,7 +144,8 @@ public class PayrollProcessorService
         // Starts the PayrollPosting approval instance the moment this draft is Generated/Saved,
         // same as every other application type -- see PayrollBatchLifecycleService.
         // ApproveBatchAsync/DeclineBatchAsync, which act on it once submitted.
-        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchHeader.Id, generatedByEmployeeId, token);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.PayrollPosting, batchHeader.Id, generatedByEmployeeId, token,
+            scope: ApprovalScopeContext.ForPayrollGroups(lines.Select(l => l.PayrollGroupId)));
 
         // Generating no longer marks payroll as posted — a run stays an editable/deletable
         // draft (PayrollBatch.IsPosted defaults to false) until explicitly posted via

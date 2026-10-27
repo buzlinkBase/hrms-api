@@ -26,7 +26,8 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
         if (attachments != null)
             await attachments.Service.LinkAsync(AttachmentOwnerType.TravelOrder, model.Id, attachmentIds, attachments.Caller, token);
         if (model.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.StartAsync(ApprovalApplicationType.OfficialBusiness, model.Id, model.EmployeeId, token);
+            await _approvalEngine.StartAsync(ApprovalApplicationType.OfficialBusiness, model.Id, model.EmployeeId, token,
+                attributes: ApprovalRequestAttributes.ForOfficialBusiness(model.StartDate, model.EndDate, model.Cost));
         await CommitChangesAsync(token);
     }
 
@@ -42,7 +43,8 @@ public class TravelOrderApplicationService : BaseService<TravelOrderApplication>
 
         // Changed content goes back to the first approver if anyone already signed off.
         if (existing.ApprovalStatus == ApprovalStatus.ForApproval)
-            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.OfficialBusiness, existing.Id, token);
+            await _approvalEngine.RestartIfProgressedAsync(ApprovalApplicationType.OfficialBusiness, existing.Id, token,
+                ApprovalRequestAttributes.ForOfficialBusiness(existing.StartDate, existing.EndDate, existing.Cost));
 
         await ModifyAsync(existing, token);
         await CommitChangesAsync(token);

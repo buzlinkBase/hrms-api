@@ -9,6 +9,7 @@ public class CreateClient
     public string Phone { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string ContactPerson { get; set; } = string.Empty;
+    public Guid? HeadEmployeeId { get; set; }
     public decimal? RetirementDaysPerYear { get; set; }
     public decimal? UniformAllowance { get; set; }
     public BenefitAccrualBasis UniformAllowanceBasis { get; set; } = BenefitAccrualBasis.TenureMonths;

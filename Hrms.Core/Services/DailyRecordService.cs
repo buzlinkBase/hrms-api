@@ -183,7 +183,8 @@ public class DailyRecordService : BaseService<DailyRecord>
             GeneratedByEmployeeId = generatedByEmployeeId,
         };
         await _dtrBatchService.AddAsync(batch, token, commit: false);
-        await _approvalEngine.StartAsync(ApprovalApplicationType.Dtr, batch.Id, generatedByEmployeeId, token);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.Dtr, batch.Id, generatedByEmployeeId, token,
+            scope: ApprovalScopeContext.ForPayrollGroup(payrollGroupId));
         if (beforeCommit != null) await beforeCommit(batch, token);
 
         await CommitChangesAsync(token);
@@ -377,7 +378,8 @@ public class DailyRecordService : BaseService<DailyRecord>
         batch.PendingDeletion = true;
         batch.RequestedDeletionByEmployeeId = requestedByEmployeeId;
         await _dtrBatchService.UpdateAsync(batch, token, commit: false);
-        await _approvalEngine.StartAsync(ApprovalApplicationType.DtrDeletion, batch.Id, requestedByEmployeeId, token);
+        await _approvalEngine.StartAsync(ApprovalApplicationType.DtrDeletion, batch.Id, requestedByEmployeeId, token,
+            scope: ApprovalScopeContext.ForPayrollGroup(batch.PayrollGroupId));
         await CommitChangesAsync(token);
     }
 

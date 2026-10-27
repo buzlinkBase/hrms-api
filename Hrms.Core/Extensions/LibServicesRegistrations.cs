@@ -14,6 +14,15 @@ public static class LibServicesRegistrations
         AddLibraryAssemblyDependencies(services, "Hrms.Core");
         AddLibraryAssemblyDependencies(services, "DTR.Core");
         services.AddScoped<IUnitOfWorkService, UnitOfWorkService>();
+        // Delegation: the approval engine reads it through this interface (see ApprovalEngineService).
+        services.AddScoped<Services.Approvals.IApprovalDelegationLookup>(sp => sp.GetRequiredService<Services.Approvals.ApprovalDelegationService>());
+        // My Approvals -- one adapter per employee request type; see IApprovalRequestAdapter.
+        services.AddScoped<Services.Approvals.IApprovalRequestAdapter, Services.Approvals.LeaveApprovalAdapter>();
+        services.AddScoped<Services.Approvals.IApprovalRequestAdapter, Services.Approvals.OvertimeApprovalAdapter>();
+        services.AddScoped<Services.Approvals.IApprovalRequestAdapter, Services.Approvals.OfficialBusinessApprovalAdapter>();
+        services.AddScoped<Services.Approvals.IApprovalRequestAdapter, Services.Approvals.PassSlipApprovalAdapter>();
+        services.AddScoped<Services.Approvals.IApprovalRequestAdapter, Services.Approvals.LoanApprovalAdapter>();
+        services.AddScoped<Services.Approvals.IApprovalRequestAdapter, Services.Approvals.ProfileUpdateApprovalAdapter>();
         services.AddScoped<IMigrationService, EvolveMigrationService>();
         services.AddScoped<EmployeePayrollInclusionResolver>();
         services.AddScoped<Messaging.InstanceProvisioner>();

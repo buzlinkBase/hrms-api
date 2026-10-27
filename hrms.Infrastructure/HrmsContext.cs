@@ -169,6 +169,9 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     public DbSet<ApprovalWorkflow> ApprovalWorkflows { get; set; }
     public DbSet<ApprovalWorkflowStep> ApprovalWorkflowSteps { get; set; }
     public DbSet<ApprovalWorkflowStepApprover> ApprovalWorkflowStepApprovers { get; set; }
+    public DbSet<ApprovalWorkflowStepGroup> ApprovalWorkflowStepGroups { get; set; }
+    public DbSet<ApprovalWorkflowScope> ApprovalWorkflowScopes { get; set; }
+    public DbSet<ApprovalDelegation> ApprovalDelegations { get; set; }
     public DbSet<ApprovalInstance> ApprovalInstances { get; set; }
     public DbSet<ApprovalAction> ApprovalActions { get; set; }
     public DbSet<NotificationPreference> NotificationPreferences { get; set; }

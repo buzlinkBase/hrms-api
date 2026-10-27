@@ -10,6 +10,7 @@ public class CreateCostCenter
     public Polygon? Boundary { get; set; }
     public string Status { get; set; } = "Active";
     public Guid? BranchId { get; set; }
+    public Guid? HeadEmployeeId { get; set; }
 }
 
 public class UpdateCostCenter : CreateCostCenter

@@ -1327,4 +1327,84 @@ public class ApprovalEngineServiceTests
             Arg.Is<ApprovalNotificationRequested>(m => m.RecipientEmail == "me@test.com"),
             Arg.Any<CancellationToken>());
     }
+
+    // ---- several active workflows per type, chosen by scope ----
+
+    private static ApprovalWorkflow ScopedWorkflow(string name, int priority, Employee approver, params ApprovalWorkflowScope[] scopes) => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = name,
+        ApplicationType = ApprovalApplicationType.Leave,
+        IsActive = true,
+        Priority = priority,
+        Scopes = scopes.ToList(),
+        Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
+    };
+
+    [Fact]
+    public async Task StartAsync_PicksTheWorkflowWhoseScopeMatchesTheApplicant()
+    {
+        var branchId = Guid.NewGuid();
+        var applicant = BuildEmployee();
+        applicant.BranchId = branchId;
+        var approver = BuildEmployee();
+        var branchFlow = ScopedWorkflow("Branch", 10, approver, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.Branch, TargetId = branchId });
+        var otherBranchFlow = ScopedWorkflow("Other branch", 10, approver, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.Branch, TargetId = Guid.NewGuid() });
+        var defaultFlow = ScopedWorkflow("Default", 100, approver);
+        var (service, _, _, _) = BuildService([applicant, approver], [defaultFlow, otherBranchFlow, branchFlow]);
+
+        var instance = await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None);
+
+        instance.ApprovalWorkflowId.Should().Be(branchFlow.Id);
+    }
+
+    [Fact]
+    public async Task StartAsync_ApplicantMatchingNoScope_FallsToTheDefaultWorkflow()
+    {
+        var applicant = BuildEmployee();
+        applicant.BranchId = Guid.NewGuid();
+        var approver = BuildEmployee();
+        var branchFlow = ScopedWorkflow("Branch", 10, approver, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.Branch, TargetId = Guid.NewGuid() });
+        var defaultFlow = ScopedWorkflow("Default", 100, approver);
+        var (service, _, _, _) = BuildService([applicant, approver], [branchFlow, defaultFlow]);
+
+        var instance = await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None);
+
+        instance.ApprovalWorkflowId.Should().Be(defaultFlow.Id);
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenSeveralMatch_TheLowestPriorityNumberWins()
+    {
+        var branchId = Guid.NewGuid();
+        var deptId = Guid.NewGuid();
+        var applicant = BuildEmployee(departmentId: deptId);
+        applicant.BranchId = branchId;
+        var approver = BuildEmployee();
+        var byBranch = ScopedWorkflow("Branch", 50, approver, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.Branch, TargetId = branchId });
+        var byDept = ScopedWorkflow("Department", 20, approver, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.Department, TargetId = deptId });
+        var (service, _, _, _) = BuildService([applicant, approver], [byBranch, byDept]);
+
+        var instance = await service.StartAsync(ApprovalApplicationType.Leave, Guid.NewGuid(), applicant.Id, CancellationToken.None);
+
+        instance.ApprovalWorkflowId.Should().Be(byDept.Id);
+    }
+
+    [Fact]
+    public async Task StartAsync_ABatchApproval_IsRoutedByItsPayrollGroup_NotTheGeneratorsOrgUnit()
+    {
+        var groupId = Guid.NewGuid();
+        var generator = BuildEmployee();
+        generator.BranchId = Guid.NewGuid();
+        var approver = BuildEmployee();
+        var byGroup = ScopedWorkflow("Group", 10, approver, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.PayrollGroup, TargetId = groupId });
+        var byGeneratorBranch = ScopedWorkflow("Generator's branch", 5, approver, new ApprovalWorkflowScope { Dimension = ApprovalScopeDimension.Branch, TargetId = generator.BranchId!.Value });
+        var (service, _, _, _) = BuildService([generator, approver], [byGeneratorBranch, byGroup]);
+
+        var instance = await service.StartAsync(
+            ApprovalApplicationType.Leave, Guid.NewGuid(), generator.Id, CancellationToken.None,
+            scope: ApprovalScopeContext.ForPayrollGroup(groupId));
+
+        instance.ApprovalWorkflowId.Should().Be(byGroup.Id);
+    }
 }

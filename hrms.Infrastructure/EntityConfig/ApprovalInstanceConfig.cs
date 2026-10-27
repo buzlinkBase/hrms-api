@@ -49,5 +49,7 @@ public class ApprovalActionConfig : IEntityTypeConfiguration<ApprovalAction>
             .HasForeignKey(x => x.ApprovalInstanceId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Actor).WithMany()
             .HasForeignKey(x => x.ActorEmployeeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.OnBehalfOf).WithMany()
+            .HasForeignKey(x => x.OnBehalfOfEmployeeId).OnDelete(DeleteBehavior.Restrict);
     }
 }

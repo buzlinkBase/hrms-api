@@ -15,6 +15,7 @@ public class CreateBranch
     public string Status { get; set; } = "Active";
     public string? RegionCode { get; set; }
     public string? WageOrderClass { get; set; }
+    public Guid? HeadEmployeeId { get; set; }
 }
 public class UpdateBranch : CreateBranch
 {

@@ -21,18 +21,31 @@ public static class ApprovalWorkflowSwitch
                              i.Id != excludingInstanceId, token);
 
     /// <summary>
-    /// Makes <paramref name="workflow"/> the active one for its application type and scope: any
-    /// other active one there is switched off, and schedules waiting on those are dropped (what
-    /// they were waiting to replace is gone).
+    /// The other active workflows of the same type holding the same slot -- identical scope
+    /// conditions (see ApprovalScopeMatching.Signature). Workflows with different conditions are
+    /// not in competition: they stay active side by side and are told apart by priority.
+    /// </summary>
+    public static async Task<List<ApprovalWorkflow>> FindSlotHoldersAsync(
+        HrmsContext context, ApprovalWorkflow workflow, CancellationToken token)
+    {
+        await context.Entry(workflow).Collection(w => w.Scopes).LoadAsync(token);
+        var signature = ApprovalScopeMatching.Signature(workflow);
+        var actives = await context.ApprovalWorkflows
+            .Include(w => w.Scopes)
+            .Where(w => w.Id != workflow.Id && w.ApplicationType == workflow.ApplicationType && w.IsActive)
+            .ToListAsync(token);
+        return actives.Where(w => ApprovalScopeMatching.Signature(w) == signature).ToList();
+    }
+
+    /// <summary>
+    /// Makes <paramref name="workflow"/> the active one for its slot (application type + scope
+    /// conditions): any other active one in the same slot is switched off, and schedules waiting
+    /// on those are dropped (what they were waiting to replace is gone). Workflows in other
+    /// slots are untouched.
     /// </summary>
     public static async Task ActivateAsync(HrmsContext context, ApprovalWorkflow workflow, CancellationToken token)
     {
-        var holders = await context.ApprovalWorkflows
-            .Where(w => w.Id != workflow.Id &&
-                        w.ApplicationType == workflow.ApplicationType &&
-                        w.ScopeDepartmentId == workflow.ScopeDepartmentId &&
-                        w.IsActive)
-            .ToListAsync(token);
+        var holders = await FindSlotHoldersAsync(context, workflow, token);
         foreach (var holder in holders)
         {
             holder.IsActive = false;

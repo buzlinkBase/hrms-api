@@ -58,7 +58,9 @@ public class RequestAnalyticsService
 
         return rows.Select(r => new RequestFact(
             r.ApplicationType, r.Status, r.CreatedAt,
-            r.Actions.Select(a => new RequestActionFact(a.ActorEmployeeId, a.Action, a.CreatedAt)).OrderBy(a => a.At).ToList())).ToList();
+            // A skipped step has no actor and isn't a decision, so it never counts as one.
+            r.Actions.Where(a => a.ActorEmployeeId != null)
+                .Select(a => new RequestActionFact(a.ActorEmployeeId!.Value, a.Action, a.CreatedAt)).OrderBy(a => a.At).ToList())).ToList();
     }
 
     public async Task<AnalyticsResult> GetAsync(AnalyticsFilter filter, CancellationToken token)
