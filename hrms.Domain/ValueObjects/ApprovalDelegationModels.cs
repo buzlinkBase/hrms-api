@@ -50,3 +50,37 @@ public class MyApprovalResponse
     /// <summary>Who the current step is waiting on ("Ben Cruz", "HR Department", "HR + Finance").</summary>
     public string? CurrentApproverLabel { get; set; }
 }
+
+public class MyApprovalHistoryResponse
+{
+    public ApprovalApplicationType ApplicationType { get; set; }
+    public Guid ApplicationId { get; set; }
+    public Guid ApplicantEmployeeId { get; set; }
+    public string ApplicantName { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public DateTime FiledAt { get; set; }
+    /// <summary>Where the request ended up: Approved, Declined or Cancelled.</summary>
+    public ApprovalInstanceStatus FinalStatus { get; set; }
+    /// <summary>What the caller (or their delegate) decided: Approved or Declined.</summary>
+    public ApprovalActionType MyDecision { get; set; }
+    public DateTime DecidedAt { get; set; }
+    public string? Note { get; set; }
+    /// <summary>Set when the caller decided for someone who delegated to them.</summary>
+    public string? OnBehalfOfName { get; set; }
+    /// <summary>Set when the caller's delegate decided in their place.</summary>
+    public string? DecidedByName { get; set; }
+    /// <summary>Who approved or declined each step, in step order.</summary>
+    public List<MyApprovalTrailResponse> Trail { get; set; } = [];
+}
+
+public class MyApprovalTrailResponse
+{
+    public int StepNumber { get; set; }
+    public ApprovalActionType Action { get; set; }
+    /// <summary>Null for a step the system skipped.</summary>
+    public string? ApproverName { get; set; }
+    /// <summary>Set when the approver acted for someone who delegated to them.</summary>
+    public string? OnBehalfOfName { get; set; }
+    public DateTime At { get; set; }
+    public string? Note { get; set; }
+}

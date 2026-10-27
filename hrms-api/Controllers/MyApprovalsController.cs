@@ -44,14 +44,59 @@ public class MyApprovalsController : ControllerBase
         return Ok(items.Select(ToResponse).ToList());
     }
 
-    // Still being approved but on someone else's step: what the caller can follow, not act on.
+    // Still being approved but on someone else's step: what the caller is part of and can follow, not
+    // act on. Owners and Admins see every request in flight.
     [HttpGet("in-progress")]
     [ProducesResponseType(typeof(ResponseModel<List<MyApprovalResponse>>), 200)]
     public async Task<IActionResult> GetInProgress(CancellationToken token)
     {
         var employeeId = await CallerEmployeeIdAsync(token);
-        var items = await _service.GetInProgressAsync(employeeId, prefix => User.HasAnyPermission($"{prefix}:Approve"), token);
+        var items = await _service.GetInProgressAsync(
+            employeeId, prefix => User.HasAnyPermission($"{prefix}:Approve"), token, seesEverything: User.IsOwnerOrAdmin());
         return Ok(items.Select(ToResponse).ToList());
+    }
+
+    private const int MaxHistorySpanDays = 366;
+    private const int MaxHistoryRows = 500;
+
+    // Finished requests the caller decided (themself or through a delegate) between two dates,
+    // newest first. Defaults to the current month; the range is capped so one call stays small.
+    [HttpGet("history")]
+    [ProducesResponseType(typeof(ResponseModel<List<MyApprovalHistoryResponse>>), 200)]
+    public async Task<IActionResult> GetHistory([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken token)
+    {
+        var today = PhTime.Today(DateTime.UtcNow);
+        var start = from ?? new DateOnly(today.Year, today.Month, 1);
+        var end = to ?? start.AddMonths(1).AddDays(-1);
+        if (end < start) return BadRequest("The end date can't be before the start date.");
+        if (end.DayNumber - start.DayNumber >= MaxHistorySpanDays) return BadRequest("Choose a range of one year or less.");
+
+        var employeeId = await CallerEmployeeIdAsync(token);
+        var items = await _service.GetHistoryAsync(employeeId, start, end, MaxHistoryRows, token);
+        return Ok(items.Select(i => new MyApprovalHistoryResponse
+        {
+            ApplicationType = i.ApplicationType,
+            ApplicationId = i.ApplicationId,
+            ApplicantEmployeeId = i.ApplicantEmployeeId,
+            ApplicantName = i.ApplicantName,
+            Summary = i.Summary,
+            FiledAt = PhTime.AsUtc(i.FiledAt),
+            FinalStatus = i.FinalStatus,
+            MyDecision = i.MyDecision,
+            DecidedAt = PhTime.AsUtc(i.DecidedAt),
+            Note = i.Note,
+            OnBehalfOfName = i.OnBehalfOfName,
+            DecidedByName = i.DecidedByName,
+            Trail = i.Trail.Select(t => new MyApprovalTrailResponse
+            {
+                StepNumber = t.StepNumber,
+                Action = t.Action,
+                ApproverName = t.ApproverName,
+                OnBehalfOfName = t.OnBehalfOfName,
+                At = PhTime.AsUtc(t.At),
+                Note = t.Note,
+            }).ToList(),
+        }).ToList());
     }
 
     private static MyApprovalResponse ToResponse(MyApprovalItem i) => new()

@@ -20,6 +20,31 @@ public sealed record MyApprovalItem(
     string? OnBehalfOfName,
     string? CurrentApproverLabel = null);
 
+/// <summary>One finished request the signed-in person decided (as themself or through a delegate).</summary>
+public sealed record MyApprovalHistoryItem(
+    ApprovalApplicationType ApplicationType,
+    Guid ApplicationId,
+    Guid ApplicantEmployeeId,
+    string ApplicantName,
+    string Summary,
+    DateTime FiledAt,
+    ApprovalInstanceStatus FinalStatus,
+    ApprovalActionType MyDecision,
+    DateTime DecidedAt,
+    string? Note,
+    string? OnBehalfOfName,
+    string? DecidedByName,
+    IReadOnlyList<MyApprovalTrailEntry> Trail);
+
+/// <summary>One step's decision in a finished request's trail: who approved or declined it, and when.</summary>
+public sealed record MyApprovalTrailEntry(
+    int StepNumber,
+    ApprovalActionType Action,
+    string? ApproverName,
+    string? OnBehalfOfName,
+    DateTime At,
+    string? Note);
+
 /// <summary>Who may act on a request: as themself, for a delegator, or not at all.</summary>
 public sealed record CallerStanding(ApprovalStanding Standing, bool IsFallbackStep);
 
@@ -68,12 +93,13 @@ public class MyApprovalsService
     }
 
     /// <summary>
-    /// Requests still being approved that aren't the caller's turn: ones they hold the type's Approve
-    /// permission for (HR's overview), ones they already acted on this cycle, and ones a later step of the
-    /// workflow will bring to them (or to someone who delegated to them).
+    /// Requests still being approved that aren't the caller's turn but that they're part of: ones they
+    /// already acted on this cycle, and ones a later step of the workflow will bring to them (or to
+    /// someone who delegated to them). An Owner or Admin (<paramref name="seesEverything"/>) sees every
+    /// request still in flight.
     /// </summary>
     public async Task<List<MyApprovalItem>> GetInProgressAsync(
-        Guid callerEmployeeId, Func<string, bool> hasApprovePermission, CancellationToken token)
+        Guid callerEmployeeId, Func<string, bool> hasApprovePermission, CancellationToken token, bool seesEverything = false)
     {
         var snapshot = await LoadAsync(callerEmployeeId, token);
         if (snapshot == null) return [];
@@ -82,10 +108,89 @@ public class MyApprovalsService
         foreach (var instance in snapshot.Instances)
         {
             if (await WaitingOnCallerAsync(snapshot, instance, hasApprovePermission, token) != null) continue;
-            if (await FollowsAsync(snapshot, instance, hasApprovePermission, token))
+            if (seesEverything || await FollowsAsync(snapshot, instance, token))
                 followed.Add((instance, ApprovalStanding.None));
         }
         return await BuildItemsAsync(snapshot, followed, token);
+    }
+
+    /// <summary>
+    /// Requests that are finished (approved, declined or cancelled) and that the caller decided -- as
+    /// themself or through a delegate -- newest first. What <see cref="GetPendingAsync"/> and
+    /// <see cref="GetInProgressAsync"/> drop once the request leaves InProgress.
+    /// </summary>
+    public async Task<List<MyApprovalHistoryItem>> GetHistoryAsync(
+        Guid callerEmployeeId, DateOnly from, DateOnly to, int take, CancellationToken token)
+    {
+        // Decisions are stamped in UTC; the range is Manila days, so bound it by Manila midnights.
+        var start = PhTime.StartOfDayUtc(from);
+        var end = PhTime.StartOfDayUtc(to.AddDays(1));
+
+        var types = _adapters.Keys.ToList();
+        var instances = await _uow.Repository.Find<ApprovalInstance>(i =>
+                i.Status != ApprovalInstanceStatus.InProgress && types.Contains(i.ApplicationType) &&
+                i.Actions.Any(a => (a.Action == ApprovalActionType.Approved || a.Action == ApprovalActionType.Declined) &&
+                                   (a.ActorEmployeeId == callerEmployeeId || a.OnBehalfOfEmployeeId == callerEmployeeId) &&
+                                   a.CreatedAt >= start && a.CreatedAt < end))
+            .Include(i => i.Actions)
+            .AsNoTracking()
+            .OrderByDescending(i => i.Actions.Max(a => a.CreatedAt))
+            .Take(take)
+            .ToListAsync(token);
+        if (instances.Count == 0) return [];
+
+        // The caller's latest decision in the range on each request (they may have decided in an earlier cycle too).
+        var decided = instances.Select(i => (Instance: i, Action: i.Actions
+                .Where(a => (a.Action == ApprovalActionType.Approved || a.Action == ApprovalActionType.Declined) &&
+                            (a.ActorEmployeeId == callerEmployeeId || a.OnBehalfOfEmployeeId == callerEmployeeId) &&
+                            a.CreatedAt >= start && a.CreatedAt < end)
+                .OrderByDescending(a => a.CreatedAt).First()))
+            .ToList();
+
+        var summaries = new Dictionary<(ApprovalApplicationType, Guid), ApprovalRequestSummary>();
+        foreach (var group in decided.GroupBy(d => d.Instance.ApplicationType))
+        {
+            var described = await _adapters[group.Key].DescribeAsync(group.Select(d => d.Instance.ApplicationId).ToList(), token);
+            foreach (var (id, summary) in described) summaries[(group.Key, id)] = summary;
+        }
+
+        // Every step's decision of the request's latest cycle, so the trail can say who approved each step.
+        static bool IsTrailAction(ApprovalInstance i, ApprovalAction a) =>
+            a.CycleNumber == i.CycleNumber &&
+            a.Action is ApprovalActionType.Approved or ApprovalActionType.Declined or ApprovalActionType.Skipped;
+
+        var nameIds = decided.Select(d => d.Instance.ApplicantEmployeeId)
+            .Concat(decided.Select(d => d.Action.OnBehalfOfEmployeeId).OfType<Guid>())
+            .Concat(decided.Select(d => d.Action.ActorEmployeeId).OfType<Guid>())
+            .Concat(decided.SelectMany(d => d.Instance.Actions.Where(a => IsTrailAction(d.Instance, a)))
+                .SelectMany(a => new[] { a.ActorEmployeeId, a.OnBehalfOfEmployeeId }).OfType<Guid>())
+            .Distinct().ToList();
+        var names = (await _uow.Repository.Find<Employee>(e => nameIds.Contains(e.Id)).AsNoTracking().ToListAsync(token))
+            .ToDictionary(e => e.Id, e => $"{e.FirstName} {e.LastName}".Trim());
+
+        var items = new List<MyApprovalHistoryItem>();
+        foreach (var (instance, action) in decided)
+        {
+            // Left out when the caller isn't allowed to see the record itself (confidential applicant).
+            if (!summaries.TryGetValue((instance.ApplicationType, instance.ApplicationId), out var summary)) continue;
+            var actedForOther = action.ActorEmployeeId == callerEmployeeId && action.OnBehalfOfEmployeeId is not null;
+            var decidedByDelegate = action.OnBehalfOfEmployeeId == callerEmployeeId && action.ActorEmployeeId != callerEmployeeId;
+            items.Add(new MyApprovalHistoryItem(
+                instance.ApplicationType, instance.ApplicationId, instance.ApplicantEmployeeId,
+                names.GetValueOrDefault(instance.ApplicantEmployeeId) ?? string.Empty,
+                summary.Summary, summary.FiledAt, instance.Status, action.Action, action.CreatedAt, action.Note,
+                actedForOther ? names.GetValueOrDefault(action.OnBehalfOfEmployeeId!.Value) : null,
+                decidedByDelegate && action.ActorEmployeeId is { } actor ? names.GetValueOrDefault(actor) : null,
+                instance.Actions.Where(a => IsTrailAction(instance, a))
+                    .OrderBy(a => a.StepNumber).ThenBy(a => a.CreatedAt)
+                    .Select(a => new MyApprovalTrailEntry(
+                        a.StepNumber, a.Action,
+                        a.ActorEmployeeId is { } who ? names.GetValueOrDefault(who) : null,
+                        a.OnBehalfOfEmployeeId is { } onBehalf && onBehalf != a.ActorEmployeeId ? names.GetValueOrDefault(onBehalf) : null,
+                        a.CreatedAt, a.Note))
+                    .ToList()));
+        }
+        return items.OrderByDescending(i => i.DecidedAt).ToList();
     }
 
     private async Task<Snapshot?> LoadAsync(Guid callerEmployeeId, CancellationToken token)
@@ -139,13 +244,11 @@ public class MyApprovalsService
     }
 
     // Whether a request that isn't the caller's turn still belongs on their In Progress list.
-    private async Task<bool> FollowsAsync(
-        Snapshot snapshot, ApprovalInstance instance, Func<string, bool> hasApprovePermission, CancellationToken token)
+    private async Task<bool> FollowsAsync(Snapshot snapshot, ApprovalInstance instance, CancellationToken token)
     {
         if (!snapshot.Applicants.TryGetValue(instance.ApplicantEmployeeId, out var applicant)) return false;
-        var hasPermission = hasApprovePermission(_adapters[instance.ApplicationType].PermissionPrefix);
-        if (hasPermission) return true;
-
+        // Only requests the caller is part of: holding the type's Approve permission is not enough on
+        // its own (Owner/Admin and HR see the whole record in the module's own Applications list).
         var delegators = snapshot.DelegatorsByType[instance.ApplicationType];
         var actedFor = delegators.Select(d => d.Id).Append(snapshot.Caller.Id).ToHashSet();
         if (instance.Actions.Any(a => a.CycleNumber == instance.CycleNumber && a.Action != ApprovalActionType.Reassigned &&

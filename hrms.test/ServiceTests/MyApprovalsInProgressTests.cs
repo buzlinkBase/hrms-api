@@ -1,3 +1,4 @@
+using Hrms.Core.Services;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
 using Hrms.Domain.Entities.Approvals;
@@ -12,8 +13,8 @@ namespace hrms.test.ServiceTests;
 
 /// <summary>
 /// My Approvals splits the requests still being approved: "For Approval" holds only the ones on the
-/// caller's step right now; "In Progress" holds the rest they follow -- the type's Approve permission
-/// (HR's overview), a step they already acted on, or a later step that will come to them. Both say which
+/// caller's step right now; "In Progress" holds the rest they follow -- a step they
+/// already acted on, or a later step that will come to them. Both say which
 /// step a request is on and who it waits for.
 /// </summary>
 public class MyApprovalsInProgressTests : IDisposable
@@ -94,11 +95,21 @@ public class MyApprovalsInProgressTests : IDisposable
         return await new MyApprovalsService(uow, engine, [new FakeAdapter()]).GetPendingAsync(who.Id, _ => hasPermission, default);
     }
 
-    private async Task<List<MyApprovalItem>> InProgressFor(Employee who, bool hasPermission)
+    private async Task<List<MyApprovalItem>> InProgressFor(Employee who, bool hasPermission, bool seesEverything = false)
     {
         var (engine, uow, context) = NewEngine();
         await using var _ = context;
-        return await new MyApprovalsService(uow, engine, [new FakeAdapter()]).GetInProgressAsync(who.Id, _ => hasPermission, default);
+        return await new MyApprovalsService(uow, engine, [new FakeAdapter()])
+            .GetInProgressAsync(who.Id, _ => hasPermission, default, seesEverything);
+    }
+
+    [Fact]
+    public async Task OwnerOrAdmin_SeesEveryRequestInFlight_EvenOneTheyAreNotPartOf()
+    {
+        await SeedTwoStepLeaveAsync();
+
+        (await InProgressFor(_eve, hasPermission: false, seesEverything: true)).Should().ContainSingle();
+        (await InProgressFor(_eve, hasPermission: false)).Should().BeEmpty("without the Owner/Admin role only involved requests show");
     }
 
     private async Task ApproveAsync(Guid applicationId, Employee who)
@@ -142,6 +153,73 @@ public class MyApprovalsInProgressTests : IDisposable
         (await InProgressFor(_ben, hasPermission: false)).Should().ContainSingle("Ben approved step 1 and follows it");
     }
 
+    private async Task<List<MyApprovalHistoryItem>> HistoryFor(Employee who, DateOnly? from = null, DateOnly? to = null)
+    {
+        var today = PhTime.Today(DateTime.UtcNow);
+        var (engine, uow, context) = NewEngine();
+        await using var _ = context;
+        return await new MyApprovalsService(uow, engine, [new FakeAdapter()])
+            .GetHistoryAsync(who.Id, from ?? today.AddDays(-1), to ?? today.AddDays(1), 100, default);
+    }
+
+    [Fact]
+    public async Task History_OnlyIncludesDecisionsInsideTheDateRange()
+    {
+        var applicationId = await SeedTwoStepLeaveAsync();
+        await ApproveAsync(applicationId, _ben);
+        await ApproveAsync(applicationId, _cara);
+        var today = PhTime.Today(DateTime.UtcNow);
+
+        (await HistoryFor(_ben, today, today)).Should().ContainSingle("a one-day range ending today includes today's decision");
+        (await HistoryFor(_ben, today.AddDays(-30), today.AddDays(-1))).Should().BeEmpty("the decision was made after the range");
+        (await HistoryFor(_ben, today.AddDays(1), today.AddDays(30))).Should().BeEmpty("the decision was made before the range");
+    }
+
+    [Fact]
+    public async Task History_HoldsFinishedRequestsTheCallerDecided_NotOnesStillInProgress()
+    {
+        var applicationId = await SeedTwoStepLeaveAsync();
+        await ApproveAsync(applicationId, _ben);
+
+        (await HistoryFor(_ben)).Should().BeEmpty("step 2 is still open, so it stays under In Progress");
+
+        await ApproveAsync(applicationId, _cara);
+
+        var ben = (await HistoryFor(_ben)).Should().ContainSingle().Subject;
+        ben.FinalStatus.Should().Be(ApprovalInstanceStatus.Approved);
+        ben.MyDecision.Should().Be(ApprovalActionType.Approved);
+        ben.ApplicantName.Should().Be("Ana Reyes");
+        ben.Trail.Select(t => (t.StepNumber, t.ApproverName)).Should()
+            .Equal([(1, "Ben Cruz"), (2, "Cara Lim")], "the trail names who approved each step");
+        (await HistoryFor(_cara)).Should().ContainSingle();
+        (await HistoryFor(_eve)).Should().BeEmpty("Eve never decided it");
+        (await PendingFor(_cara)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task History_ShowsDelegatedDecisionsToBothTheDelegateAndTheDelegator()
+    {
+        var applicationId = await SeedTwoStepLeaveAsync();
+        await using (var seed = _db.NewContext())
+        {
+            seed.ApprovalDelegations.Add(new ApprovalDelegation
+            {
+                Id = Guid.NewGuid(), DelegatorEmployeeId = _ben.Id, DelegateEmployeeId = _dan.Id, IsActive = true,
+            });
+            await seed.SaveChangesAsync();
+        }
+        await ApproveAsync(applicationId, _dan);
+        await ApproveAsync(applicationId, _cara);
+
+        var dan = (await HistoryFor(_dan)).Should().ContainSingle().Subject;
+        dan.OnBehalfOfName.Should().Be("Ben Cruz");
+        dan.DecidedByName.Should().BeNull();
+
+        var ben = (await HistoryFor(_ben)).Should().ContainSingle().Subject;
+        ben.DecidedByName.Should().Be("Dan Yu");
+        ben.OnBehalfOfName.Should().BeNull();
+    }
+
     [Fact]
     public async Task ADelegateOfALaterStepsApprover_FollowsItWithoutThePermission()
     {
@@ -160,13 +238,13 @@ public class MyApprovalsInProgressTests : IDisposable
     }
 
     [Fact]
-    public async Task SomeoneUninvolvedWithoutThePermission_SeesNothing_ButThePermissionShowsEverything()
+    public async Task SomeoneUninvolved_SeesNothing_EvenWithTheApprovePermission()
     {
         await SeedTwoStepLeaveAsync();
 
         (await PendingFor(_eve, hasPermission: false)).Should().BeEmpty();
         (await InProgressFor(_eve, hasPermission: false)).Should().BeEmpty();
-        (await InProgressFor(_eve, hasPermission: true)).Should().ContainSingle("Approve permission gives HR the whole in-progress view");
+        (await InProgressFor(_eve, hasPermission: true)).Should().BeEmpty("the Approve permission alone doesn't make a request theirs to follow");
     }
 
     [Fact]
