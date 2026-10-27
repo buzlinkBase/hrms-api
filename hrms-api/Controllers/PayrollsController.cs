@@ -331,8 +331,9 @@ namespace Hrms.Api.Controllers
         }
 
         // Takes the same filters as the Payroll Summary screen (batch, status, client, payroll
-        // group) so the printout lists exactly the rows on screen. payrollBatchId replaces the
-        // date range the same way it does on Get above.
+        // group, employees) so the printout lists exactly the rows on screen. payrollBatchId
+        // replaces the date range the same way it does on Get above. employeeIds is a
+        // comma-separated list of employee ids.
         [HttpGet("print-summary")]
         [EnableRateLimiting(RateLimitPolicies.DocumentRender)]
         [RequirePermission("Payroll Summary:Export")]
@@ -344,16 +345,25 @@ namespace Hrms.Api.Controllers
             [FromQuery] Guid? payrollGroupId,
             [FromQuery] Guid? payrollBatchId,
             [FromQuery] ApprovalStatus? status,
+            [FromQuery] string? employeeIds,
             [FromServices] IncomeAplDtlService otherIncomeService,
             CancellationToken token)
         {
             if (payrollBatchId == null && (from == null || to == null))
                 return BadRequest("Provide either a date range (from/to) or a payrollBatchId.");
 
+            var employeeIdList = (employeeIds ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(id => Guid.TryParse(id, out var guid) ? guid : (Guid?)null)
+                .ToList();
+            if (employeeIdList.Any(id => id == null))
+                return BadRequest("employeeIds must be a comma-separated list of ids.");
+
             var data = await _payrollService.GetAsync(
                 from.HasValue ? DateOnly.FromDateTime(from.Value) : null,
                 to.HasValue ? DateOnly.FromDateTime(to.Value) : null,
-                employeeId, clientId, payrollGroupId, payrollBatchId, token, status);
+                employeeId, clientId, payrollGroupId, payrollBatchId, token, status,
+                employeeIdList.Select(id => id!.Value).ToList());
             await AttachBreakdownsAsync(data, otherIncomeService, token);
             // Header period: the query dates when given, otherwise the selected batch's own period
             // read off its rows.

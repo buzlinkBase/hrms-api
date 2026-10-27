@@ -534,12 +534,17 @@ public class PayrollService : BaseService<Payroll>
         DateOnly? from, DateOnly? to,
         Guid? employeeId, Guid? clientId, Guid? payrollGroupId, Guid? payrollBatchId,
         CancellationToken token,
-        ApprovalStatus? status = null)
+        ApprovalStatus? status = null,
+        IReadOnlyCollection<Guid>? employeeIds = null)
     {
+        // Payroll Summary's employee multi-select; empty means every employee.
+        var hasEmployeeIds = employeeIds is { Count: > 0 };
+        var employeeIdList = employeeIds?.ToList() ?? [];
         return await GetQueryable(x =>
                 (payrollBatchId == null || x.PayrollBatchId == payrollBatchId) &&
                 (payrollBatchId != null || (x.PayPeriodStart >= from && x.PayPeriodEnd <= to)) &&
                 (employeeId == null || x.EmployeeId == employeeId) &&
+                (!hasEmployeeIds || employeeIdList.Contains(x.EmployeeId)) &&
                 (clientId == null || x.ClientId == clientId) &&
                 (payrollGroupId == null || x.PayrollGroupId == payrollGroupId) &&
                 (status == null || x.ApprovalStatus == status))

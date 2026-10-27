@@ -68,4 +68,31 @@ public class PayrollServiceSummaryFilterTests
             new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 15), null, null, null, null, CancellationToken.None, ApprovalStatus.ForApproval);
         byDateAndStatus.Select(x => x.FullName).Should().Equal("Other batch pending");
     }
+
+    [Fact]
+    public async Task GetAsync_EmployeeIds_KeepsOnlyThoseEmployees_AndEmptyMeansAll()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var picked = Row(batchId, ApprovalStatus.Approved, null, null, "Picked");
+        var alsoPicked = Row(batchId, ApprovalStatus.Approved, null, null, "Also picked");
+        var notPicked = Row(batchId, ApprovalStatus.Approved, null, null, "Not picked");
+
+        await using (var seed = db.NewContext())
+        {
+            seed.Payrolls.AddRange(picked, alsoPicked, notPicked);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var service = new PayrollService(new UnitOfWorkService(context), Substitute.For<IMapper>());
+
+        var filtered = await service.GetAsync(null, null, null, null, null, batchId, CancellationToken.None,
+            employeeIds: [picked.EmployeeId, alsoPicked.EmployeeId]);
+        filtered.Select(x => x.FullName).Should().BeEquivalentTo("Picked", "Also picked");
+
+        var none = await service.GetAsync(null, null, null, null, null, batchId, CancellationToken.None,
+            employeeIds: []);
+        none.Should().HaveCount(3);
+    }
 }
