@@ -9,6 +9,8 @@
     "TotalSpecialBonusesForYear": 735,
     "Status": "NotGenerated",
     "NetPay": null,
+    "PaidGross": null,
+    "StillUnpaid": 0,
     "PayrollId": null,
     "AcknowledgedAt": null
   }

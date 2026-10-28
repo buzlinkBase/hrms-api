@@ -14,13 +14,14 @@ namespace Hrms.adms.Messages;
 /// Tenant Service's data purge reached a locked company: remove what the device service holds for it --
 /// its devices, device users, punches and, above all, the biometric templates. The payroll-relevant
 /// copy of the punches is in hrms-api's database, which archives it before deleting; this service keeps
-/// nothing the law asks employers to retain, so it deletes outright and stays silent (hrms-api's
-/// <c>CompanyDataPurged</c> is the one answer Tenant Service waits for).
+/// nothing the law asks employers to retain, so for the yearly purge it deletes outright and stays
+/// silent (hrms-api's <c>CompanyDataPurged</c> is the answer Tenant Service waits for).
 /// Does nothing for a company that is not read-only. Tenant Service asks again each day until the whole
 /// purge is done, so a skipped or failed run is retried.
 /// An operator's erasure of a (test) account (<see cref="CompanyPurgeStage.HardDelete"/>, approved by two
 /// operators) skips the read-only check -- the company may still be live -- and takes the company's
-/// audit trail too.
+/// audit trail too. It ANSWERS, success or failure, marked with <see cref="SourceHeader"/>: Tenant
+/// Service only finishes the erasure once every service holding the company's data has confirmed.
 /// </summary>
 public class PurgeCompanyDataWorker(
     AdmsContext db,
@@ -28,6 +29,10 @@ public class PurgeCompanyDataWorker(
     ITenantProvider tenantProvider,
     ILogger<PurgeCompanyDataWorker> logger) : IConsumer<PurgeCompanyData>
 {
+    /// <summary>The header that tells Tenant Service which service answered; hrms-api's answers carry none.</summary>
+    public const string SourceHeader = "X-Purge-Source";
+    public const string Source = "adms";
+
     public async Task Consume(ConsumeContext<PurgeCompanyData> context)
     {
         var request = context.Message;
@@ -36,6 +41,7 @@ public class PurgeCompanyDataWorker(
         if (request.TenantId == Guid.Empty || request.TenantId != tenantProvider.TenantId)
         {
             logger.LogWarning("Data purge for {Tenant} ignored: it doesn't match the tenant header", request.TenantId);
+            if (erasing) await AnswerAsync(context, 0, "The request's company doesn't match its tenant header.");
             return;
         }
 
@@ -47,15 +53,47 @@ public class PurgeCompanyDataWorker(
                 logger.LogWarning("Data purge for {Tenant} skipped: the company isn't read-only (status {Status})", request.TenantId, snapshot.Status);
                 return;
             }
+            var purged = await AdmsCompanyData.DeleteAsync(db, request.TenantId, context.CancellationToken);
+            logger.LogInformation("Data purge [{Tenant}] {Stage}: {Rows} device-service rows deleted", request.TenantId, request.Stage, purged);
+            return;
         }
 
-        var deleted = await AdmsCompanyData.DeleteAsync(db, request.TenantId, context.CancellationToken);
-        if (erasing)
+        long deleted;
+        try
         {
+            deleted = await AdmsCompanyData.DeleteAsync(db, request.TenantId, context.CancellationToken);
             deleted += await AdmsCompanyData.DeleteAuditTrailAsync(db, request.TenantId, context.CancellationToken);
             await entitlements.InvalidateAsync([request.TenantId]);
         }
-        logger.LogInformation("Data purge [{Tenant}] {Stage}: {Rows} device-service rows deleted", request.TenantId, request.Stage, deleted);
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Reported, not retried here: the operator's Retry asks again.
+            logger.LogError(ex, "Data erasure [{Tenant}] failed in the device service", request.TenantId);
+            await AnswerAsync(context, 0, $"{ex.GetType().Name}: {ex.Message}");
+            return;
+        }
+        logger.LogInformation("Data erasure [{Tenant}]: {Rows} device-service rows deleted", request.TenantId, deleted);
+        await AnswerAsync(context, deleted, error: null);
+    }
+
+    private static Task AnswerAsync(ConsumeContext<PurgeCompanyData> context, long deleted, string? error)
+    {
+        var request = context.Message;
+        return context.Publish(new CompanyDataPurged
+        {
+            OwnerUserId = request.OwnerUserId,
+            SubscriptionId = request.SubscriptionId,
+            TenantId = request.TenantId,
+            Stage = request.Stage,
+            Succeeded = error == null,
+            Error = error,
+            RowsDeleted = deleted,
+            CompletedAtUtc = DateTime.UtcNow,
+        }, ctx =>
+        {
+            ctx.Headers.Set(SourceHeader, Source);
+            ctx.Headers.Set("X-Tenant-ID", request.TenantId.ToString());
+        }, context.CancellationToken);
     }
 }
 

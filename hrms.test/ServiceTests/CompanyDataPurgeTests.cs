@@ -9,7 +9,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Onepunch.AuditEngine.EntityFrameworkCore;
+using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.DTO;
 using Onepunch.Common.Lib.Subscriptions;
 
@@ -78,6 +80,8 @@ public class CompanyDataPurgeTests : IDisposable
 
     private readonly FakeJobScheduler _scheduler = new();
     private readonly FakeEntitlements _liveEntitlements = new(readOnly: false);
+    private readonly ICacheService _cache = Substitute.For<ICacheService>();
+    private readonly IStorageUsageMeter _meter = Substitute.For<IStorageUsageMeter>();
 
     /// <summary>Hands back different bytes than were stored, as a failing disk or network would.</summary>
     private sealed class CorruptingStorage(IFileStorage inner) : IFileStorage
@@ -106,7 +110,7 @@ public class CompanyDataPurgeTests : IDisposable
             new DeleteRecordsStep(),
             new DeleteAuditTrailStep(),
             new DeleteFilesStep(storage),
-            new ForgetCompanyCachesStep(_liveEntitlements),
+            new ForgetCompanyCachesStep(_liveEntitlements, _cache, _meter),
         ];
         return new CompanyDataPurgeService(db, storage, steps, NullLogger<CompanyDataPurgeService>.Instance);
     }
@@ -471,6 +475,8 @@ public class CompanyDataPurgeTests : IDisposable
         result.Succeeded.Should().BeTrue(result.Error);
         _scheduler.Canceled.Should().BeEquivalentTo([publishJob, expireJob]);
         _liveEntitlements.Invalidated.Should().Equal(CompanyA);
+        await _cache.Received(1).RemoveAsync($"connection:{CompanyA}");
+        _meter.Received(1).Removed(CompanyA);
     }
 
     [Fact]

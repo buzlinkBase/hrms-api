@@ -1,9 +1,28 @@
-﻿using Hrms.Domain.Entities;
+﻿using Hrms.Core.Calculators.Payloads;
+using Hrms.Domain.Entities;
 
 namespace Hrms.Core.Policies.DeductionPolicies;
 
 public class StatutoryHelper
 {
+    /// <summary>
+    /// The income classes that never count toward the SSS / PhilHealth / Pag-IBIG bracket base, for
+    /// every payroll frequency: De Minimis (tax- and contribution-exempt benefits), Reimbursement (a
+    /// refund of the employee's own expense, not pay) and Special Bonus (13th-month-type bonuses).
+    /// Regular, Commission and Others classes do count. The Other Income setup screen shows this
+    /// same list -- keep them in step.
+    /// </summary>
+    public static readonly IReadOnlyList<IncomeClassType> NonStatutoryIncomeClasses =
+        [IncomeClassType.Deminimis, IncomeClassType.Reimbursement, IncomeClassType.SpecialBonus];
+
+    /// <summary>A cutoff's gross without the <see cref="NonStatutoryIncomeClasses"/>.</summary>
+    public static decimal StatutoryGross(PayrollSummaryLine line) =>
+        Math.Max(0, line.GrossIncome - line.TotalDeminimises - line.Reimbursement - line.TotalBonuses);
+
+    /// <summary>A posted payroll's gross without the <see cref="NonStatutoryIncomeClasses"/>.</summary>
+    public static decimal StatutoryGross(Payroll payroll) =>
+        Math.Max(0, payroll.GrossIncome - payroll.TotalDeminimises - payroll.Reimbursement - payroll.TotalBonuses);
+
     public static decimal GetMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
         // Bracket lookup uses the gross already computed upstream by
@@ -15,7 +34,7 @@ public class StatutoryHelper
         // accumulation is needed -- except the earnings-only runs of a reliever paid by several
         // per-client runs that month (DeductionCarrierMode): this run carries their statutory
         // deductions, so the month's gross from those runs belongs in the bracket lookup too.
-        return context.PayrollLine.GrossIncome + GetEarningsOnlyPriorGross(context);
+        return StatutoryGross(context.PayrollLine) + GetEarningsOnlyPriorStatutoryGross(context);
     }
 
     // Gross already paid by this employee's earnings-only (non-carrier) regular runs inside the
@@ -23,28 +42,26 @@ public class StatutoryHelper
     // under a deduction-carrier company. Zero for everyone else, so ordinary payrolls are
     // unaffected. The carrier run brackets its contributions and tax off this plus its own gross,
     // because those earnings were paid in the same period but in another client's run.
-    public static decimal GetEarningsOnlyPriorGross(DeductionPayloadContext context)
+    public static decimal GetEarningsOnlyPriorGross(DeductionPayloadContext context) =>
+        EarningsOnlyPriorPayrolls(context).Sum(x => x.GrossIncome);
+
+    // The same earnings-only runs, counted toward the SSS / PhilHealth / Pag-IBIG base (the
+    // NonStatutoryIncomeClasses left out). Withholding tax keeps GetEarningsOnlyPriorGross.
+    public static decimal GetEarningsOnlyPriorStatutoryGross(DeductionPayloadContext context) =>
+        EarningsOnlyPriorPayrolls(context).Sum(StatutoryGross);
+
+    private static IEnumerable<Payroll> EarningsOnlyPriorPayrolls(DeductionPayloadContext context)
     {
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var prior))
-            return 0m;
+            return [];
         var period = DeductionPeriodResolver.Resolve(context.Employee.PayrollGroup, context.Payload.ToDate);
-        return prior
-            .Where(x => !x.IsDeductionCarrier && x.PayrollType == PayrollType.Regular
-                && x.PayPeriodEnd >= period.Start && x.PayPeriodEnd <= period.End)
-            .Sum(x => x.GrossIncome);
+        return prior.Where(x => !x.IsDeductionCarrier && x.PayrollType == PayrollType.Regular
+            && x.PayPeriodEnd >= period.Start && x.PayPeriodEnd <= period.End);
     }
     public static decimal GetSemiMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
-        var prioGross = payrol.Sum(x => x.GrossIncome
-            - x.TotalDeminimises
-            - x.Reimbursement
-            - x.TotalBonuses);
-        return Math.Max(0, context.PayrollLine.GrossIncome
-            - context.PayrollLine.TotalDeminimises
-            - context.PayrollLine.Reimbursement
-            - context.PayrollLine.TotalBonuses
-            + prioGross);
+        return StatutoryGross(context.PayrollLine) + payrol.Sum(StatutoryGross);
     }
     // Projected whole-month gross for a FIXED employee releasing a full-month statutory
     // contribution before the month is actually finished — MonthlyRate adjusted for
@@ -86,7 +103,7 @@ public class StatutoryHelper
             var oneTimeFund = IsOneTimePayLeave(context);
             if (oneTimeFund)
             {
-                return context.PayrollLine.GrossIncome;
+                return StatutoryGross(context.PayrollLine);
             }
 
             if (context.Employee.SalaryType == SalaryType.FIXED && !resolver.IsLastCutoff(context))
@@ -109,7 +126,7 @@ public class StatutoryHelper
             var oneTimeFund = IsOneTimePayLeave(context);
             if (oneTimeFund)
             {
-                return context.PayrollLine.GrossIncome;
+                return StatutoryGross(context.PayrollLine);
             }
             if (context.Employee.SalaryType == SalaryType.FIXED && !resolver.IsLastCutoff(context))
             {
@@ -136,11 +153,10 @@ public class StatutoryHelper
         var oneTimeFund = IsOneTimePayLeave(context);
         if (oneTimeFund)
         {
-            return context.PayrollLine.GrossIncome;
+            return StatutoryGross(context.PayrollLine);
         }
         if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
-        var prioGross = payrol.Sum(x => x.GrossIncome);
-        return context.PayrollLine.GrossIncome + prioGross;
+        return StatutoryGross(context.PayrollLine) + payrol.Sum(StatutoryGross);
     }
     public static bool IsHiredThisMonth(DeductionPayloadContext context)
     {
@@ -186,7 +202,8 @@ public class StatutoryHelper
         var oneTimeFund = IsOneTimePayLeave(context);
         if (oneTimeFund)
         {
-            return new PayrollProjection(context.PayrollLine.GrossIncome, 1, context.PayrollLine.GrossIncome, context.PayrollLine.GrossIncome, context.PayrollLine.GrossIncome);
+            var gross = StatutoryGross(context.PayrollLine);
+            return new PayrollProjection(gross, 1, gross, gross, gross);
         }
 
         decimal baseRate = 0m;
@@ -201,11 +218,11 @@ public class StatutoryHelper
             payrolls = new List<Payroll>();
         }
 
+        // The statutory income classes only (see NonStatutoryIncomeClasses): no De Minimis,
+        // Reimbursement or Special Bonus.
         var actualOtherIncome = payrolls.Sum(x =>
             x.TotalRegularAllowances
-          + x.TotalBonuses
           + x.TotalCommissions
-          + x.TotalDeminimises
           + x.TotalOtherIncome
           + x.OvertimePay
           + x.Cola);

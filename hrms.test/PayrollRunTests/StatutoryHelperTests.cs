@@ -69,6 +69,104 @@ public class StatutoryHelperTests : TestContextBase
         StatutoryHelper.GetWeeklyGrossBaseRate(ctx).Should().Be(15_000);
     }
 
+    // ── Which income classes count toward SSS / PhilHealth / Pag-IBIG ───────
+    // One rule for every payroll frequency: Regular, Commission and Others count; De Minimis,
+    // Reimbursement and Special Bonus don't (StatutoryHelper.NonStatutoryIncomeClasses).
+
+    /// <summary>A cutoff of 20,000 gross, of which 1,000 De Minimis, 500 Reimbursement and 2,000 Special Bonus.</summary>
+    private static DeductionPayloadContext WithNonStatutoryIncome(PayrollFrequency frequency, DateOnly from, DateOnly to)
+    {
+        var ctx = CreateContext(SalaryType.VARIABLE, frequency, 20_000, from, to);
+        ctx.PayrollLine.TotalDeminimises = 1_000;
+        ctx.PayrollLine.Reimbursement = 500;
+        ctx.PayrollLine.TotalBonuses = 2_000;
+        return ctx;
+    }
+
+    private static Payroll PriorWithNonStatutoryIncome(Guid employeeId, DateOnly end) => new()
+    {
+        EmployeeId = employeeId, GrossIncome = 10_000, TotalDeminimises = 300, Reimbursement = 200, TotalBonuses = 500,
+        IsDeductionCarrier = false,
+        PayPeriodEnd = end,
+    };
+
+    [Fact]
+    public void TheNonStatutoryClasses_AreDeMinimisReimbursementAndSpecialBonus()
+    {
+        StatutoryHelper.NonStatutoryIncomeClasses.Should().BeEquivalentTo(
+            [IncomeClassType.Deminimis, IncomeClassType.Reimbursement, IncomeClassType.SpecialBonus]);
+    }
+
+    [Fact]
+    public void Monthly_LeavesOutDeMinimisReimbursementAndSpecialBonus()
+    {
+        var ctx = WithNonStatutoryIncome(PayrollFrequency.MONTHLY, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 31));
+        StatutoryHelper.GetMonthlyGrossBaseRate(ctx).Should().Be(16_500);
+    }
+
+    [Fact]
+    public void Monthly_LeavesThemOutOfThisMonthsEarningsOnlyRunsToo()
+    {
+        var ctx = WithNonStatutoryIncome(PayrollFrequency.MONTHLY, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 31));
+        ctx.Payload.PostedPriorPayrolls[new EmployeeKey(ctx.Employee.Id)] =
+            [PriorWithNonStatutoryIncome(ctx.Employee.Id, new DateOnly(2025, 3, 31))];
+
+        StatutoryHelper.GetMonthlyGrossBaseRate(ctx).Should().Be(16_500 + 9_000);
+    }
+
+    [Fact]
+    public void Monthly_EarningsOnlyGrossForWithholdingTax_StillCountsEverything()
+    {
+        var ctx = WithNonStatutoryIncome(PayrollFrequency.MONTHLY, new DateOnly(2025, 3, 1), new DateOnly(2025, 3, 31));
+        ctx.Payload.PostedPriorPayrolls[new EmployeeKey(ctx.Employee.Id)] =
+            [PriorWithNonStatutoryIncome(ctx.Employee.Id, new DateOnly(2025, 3, 31))];
+
+        StatutoryHelper.GetEarningsOnlyPriorGross(ctx).Should().Be(10_000, "tax has its own exemptions; only contributions use this rule");
+    }
+
+    [Fact]
+    public void SemiMonthly_LeavesOutDeMinimisReimbursementAndSpecialBonus()
+    {
+        var ctx = WithNonStatutoryIncome(PayrollFrequency.SEMI_MONTHLY, new DateOnly(2025, 3, 16), new DateOnly(2025, 3, 31));
+        ctx.Payload.PostedPriorPayrolls[new EmployeeKey(ctx.Employee.Id)] =
+            [PriorWithNonStatutoryIncome(ctx.Employee.Id, new DateOnly(2025, 3, 15))];
+
+        StatutoryHelper.GetSemiMonthlyGrossBaseRate(ctx).Should().Be(16_500 + 9_000);
+    }
+
+    [Fact]
+    public void Weekly_LeavesOutDeMinimisReimbursementAndSpecialBonus()
+    {
+        var ctx = WithNonStatutoryIncome(PayrollFrequency.WEEKLY, new DateOnly(2025, 3, 8), new DateOnly(2025, 3, 14));
+        ctx.Payload.PostedPriorPayrolls[new EmployeeKey(ctx.Employee.Id)] =
+            [PriorWithNonStatutoryIncome(ctx.Employee.Id, new DateOnly(2025, 3, 7))];
+
+        StatutoryHelper.GetWeeklyGrossBaseRate(ctx).Should().Be(16_500 + 9_000);
+    }
+
+    [Fact]
+    public void Daily_CountsOnlyTheStatutoryClassesOfThePriorPayrolls()
+    {
+        var ctx = CreateContext(SalaryType.VARIABLE, PayrollFrequency.DAILY, 0, new DateOnly(2025, 3, 10), new DateOnly(2025, 3, 10));
+        ctx.Payload.PostedPriorPayrolls[new EmployeeKey(ctx.Employee.Id)] =
+        [
+            new Payroll
+            {
+                EmployeeId = ctx.Employee.Id, TotalRegularAllowances = 100, TotalCommissions = 200, TotalOtherIncome = 300,
+                TotalDeminimises = 1_000, Reimbursement = 2_000, TotalBonuses = 4_000,
+            },
+        ];
+
+        StatutoryHelper.GetDailyProjectedGrossRate(ctx).ActualPayroll.Should().Be(600);
+    }
+
+    [Fact]
+    public void AStatutoryGross_NeverGoesBelowZero()
+    {
+        var line = new PayrollSummaryLine { GrossIncome = 100, TotalDeminimises = 300 };
+        StatutoryHelper.StatutoryGross(line).Should().Be(0);
+    }
+
     [Fact]
     public void IsHiredThisMonth_TrueWhenHireDateSharesYearAndMonthWithFromDate()
     {

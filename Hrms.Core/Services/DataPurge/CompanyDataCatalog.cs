@@ -47,6 +47,11 @@ public sealed class CompanyDataCatalog
     // The company's own row stays, so signing in to a purged company still shows its name.
     private static readonly HashSet<string> KeptEntities = ["Company"];
 
+    /// <summary>The only tables expected in <see cref="Unscoped"/>: messaging, and the audit trail (an
+    /// erasure deletes it by organization). Anything else there is company data the purge would leave.</summary>
+    public static readonly IReadOnlySet<string> InfrastructureTables =
+        new HashSet<string>(StringComparer.Ordinal) { "InboxState", "OutboxMessage", "OutboxState", "AuditEvents" };
+
     public IReadOnlyList<CompanyTable> Tables { get; }
 
     /// <summary>Tables that hold company data but couldn't be tied to a company -- not touched, so

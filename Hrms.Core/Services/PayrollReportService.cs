@@ -699,7 +699,7 @@ public class PayrollReportService : BaseService<Payroll>
         var thirteenthMonthRuns = await ForClient(GetQueryable(x =>
                 x.PayrollType == PayrollType.ThirteenthMonth && x.PayPeriodStart >= yearStart && x.PayPeriodStart < yearEnd &&
                 (employeeId == null || x.EmployeeId == employeeId)), clientId)
-            .Select(x => new { x.Id, x.EmployeeId, x.IsPosted, x.NetPay, x.AcknowledgedAt })
+            .Select(x => new { x.Id, x.EmployeeId, x.IsPosted, x.NetPay, x.GrossIncome, x.AcknowledgedAt })
             .ToListAsync(token);
         var runByEmployee = thirteenthMonthRuns
             .GroupBy(x => x.EmployeeId)
@@ -716,6 +716,7 @@ public class PayrollReportService : BaseService<Payroll>
             var totalBasic = g.BasicPay + (ob?.BasicPay ?? 0);
             var totalSpecialBonuses = g.Bonuses + (ob?.Bonuses ?? 0);
             runByEmployee.TryGetValue(id, out var run);
+            var thirteenthMonth = totalBasic / 12;
             return new ThirteenthMonthModel
             {
                 EmployeeId = id,
@@ -723,10 +724,14 @@ public class PayrollReportService : BaseService<Payroll>
                 FullName = e.FullName(),
                 Year = year,
                 TotalBasicPayForYear = totalBasic,
-                ThirteenthMonthPay = totalBasic / 12,
+                ThirteenthMonthPay = thirteenthMonth,
                 TotalSpecialBonusesForYear = totalSpecialBonuses,
                 Status = run == null ? "NotGenerated" : run.IsPosted ? "Posted" : "Draft",
                 NetPay = run?.NetPay,
+                PaidGross = run?.GrossIncome,
+                // A payout is a snapshot of the 13th month on the day it was generated; cutoffs
+                // posted after that raise the live figure but not the payout.
+                StillUnpaid = run == null ? 0 : Math.Max(0, Math.Round(thirteenthMonth - run.GrossIncome, 2)),
                 PayrollId = run?.Id,
                 AcknowledgedAt = run?.AcknowledgedAt,
             };

@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Onepunch.AuditEngine.EntityFrameworkCore;
+using Onepunch.Common.Lib.Cache;
 using Onepunch.Common.Lib.Subscriptions;
 
 namespace Hrms.Core.Services.DataPurge;
@@ -253,14 +254,19 @@ public sealed class DeleteFilesStep(IFileStorage storage) : ICompanyPurgeStep
     }
 }
 
-/// <summary>Drops the cached entitlements of an erased company, so nothing keeps answering for it.</summary>
-public sealed class ForgetCompanyCachesStep(IEntitlementProvider entitlements) : ICompanyPurgeStep
+/// <summary>Drops what is cached about an erased company -- its entitlements, its database connection
+/// string and its storage usage -- so nothing keeps answering for it.</summary>
+public sealed class ForgetCompanyCachesStep(IEntitlementProvider entitlements, ICacheService cache, IStorageUsageMeter meter) : ICompanyPurgeStep
 {
     public int Order => 50;
     public bool RunsFor(CompanyPurgeStage stage) => stage == CompanyPurgeStage.HardDelete;
 
-    public Task RunAsync(CompanyPurgeContext context, CancellationToken token) =>
-        entitlements.InvalidateAsync([context.TenantId]);
+    public async Task RunAsync(CompanyPurgeContext context, CancellationToken token)
+    {
+        await entitlements.InvalidateAsync([context.TenantId]);
+        await cache.RemoveAsync($"connection:{context.TenantId}");
+        meter.Removed(context.TenantId);
+    }
 }
 
 /// <summary>
@@ -321,6 +327,10 @@ public sealed class CompanyDataPurgeService(
     private async Task RunStepsAsync(CompanyPurgeContext context, CancellationToken token)
     {
         context.Catalog = CompanyDataCatalog.Build(db.Model, db.GetService<ISqlGenerationHelper>());
+        var unscoped = context.Catalog.Unscoped.Where(t => !CompanyDataCatalog.InfrastructureTables.Contains(t)).ToList();
+        if (unscoped.Count > 0)
+            logger.LogWarning("Data purge [{Tenant}] can't tie these tables to a company, so they are left: {Tables}",
+                context.TenantId, string.Join(", ", unscoped));
         foreach (var step in steps.Where(s => s.RunsFor(context.Stage)).OrderBy(s => s.Order))
         {
             await step.RunAsync(context, token);

@@ -241,6 +241,13 @@ public class ThirteenthMonthModel
     public string Status { get; set; } = "NotGenerated";
     // Only set once a 13th month payout row exists (Status != "NotGenerated").
     public decimal? NetPay { get; set; }
+    // The payout row's gross (before withholding tax), frozen when it was generated. Null when
+    // Status == "NotGenerated".
+    public decimal? PaidGross { get; set; }
+    // ThirteenthMonthPay (live: basic pay earned so far / 12) minus PaidGross, floored at 0: the
+    // 13th month earned in cutoffs posted AFTER the payout was generated, which it didn't cover.
+    // 0 when there is no payout yet (nothing has been paid, so nothing is "still unpaid" either).
+    public decimal StillUnpaid { get; set; }
     // The generated Payroll row's own Id — needed to print its payslip (GET payrolls/{id}/print).
     // Null when Status == "NotGenerated".
     public Guid? PayrollId { get; set; }

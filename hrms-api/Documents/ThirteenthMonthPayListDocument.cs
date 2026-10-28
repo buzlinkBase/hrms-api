@@ -82,11 +82,14 @@ public class ThirteenthMonthPayListDocument : IDocument
         });
     }
 
+    // 13th month earned after the payout was generated (ThirteenthMonthModel.StillUnpaid).
+    const string UnpaidColor = "#d46b08";
+
     static string StatusLabel(string status) => status switch
     {
-        "Posted" => "Posted",
-        "Draft" => "Draft",
-        _ => "Not Generated",
+        "Posted" => "Released",
+        "Draft" => "Generated, not released",
+        _ => "Not yet generated",
     };
 
     void ComposeTable(IContainer c)
@@ -99,11 +102,12 @@ public class ThirteenthMonthPayListDocument : IDocument
             {
                 cols.RelativeColumn(1.2f); // Employee No
                 cols.RelativeColumn(2.6f); // Full Name
-                cols.RelativeColumn(1.3f); // Total Basic Pay
-                cols.RelativeColumn(1.3f); // Special Bonuses
-                cols.RelativeColumn(1.3f); // 13th Month Pay
-                cols.RelativeColumn(1);    // Status
-                cols.RelativeColumn(1.3f); // Net Pay
+                cols.RelativeColumn(1.3f); // Basic Pay Earned (Year to Date)
+                cols.RelativeColumn(1.3f); // Special Bonuses Paid
+                cols.RelativeColumn(1.3f); // 13th Month Earned
+                cols.RelativeColumn(1.3f); // Status
+                cols.RelativeColumn(1.3f); // Amount Released (after tax)
+                cols.RelativeColumn(1.2f); // Still Unpaid
             });
 
             static IContainer HeaderCell(IContainer c) =>
@@ -115,11 +119,12 @@ public class ThirteenthMonthPayListDocument : IDocument
             {
                 header.Cell().Element(HeaderCell).Text("Employee No").Bold();
                 header.Cell().Element(HeaderCell).Text("Full Name").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Total Basic Pay").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Special Bonuses").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("13th Month Pay").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("Basic Pay Earned (YTD)").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("Special Bonuses Paid").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("13th Month Earned").Bold();
                 header.Cell().Element(HeaderCell).Text("Status").Bold();
-                header.Cell().Element(HeaderCell).AlignRight().Text("Net Pay").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("Amount Released (after tax)").Bold();
+                header.Cell().Element(HeaderCell).AlignRight().Text("Still Unpaid").Bold();
             });
 
             foreach (var r in _rows)
@@ -131,6 +136,8 @@ public class ThirteenthMonthPayListDocument : IDocument
                 table.Cell().Element(DataCell).AlignRight().Text(Money(r.ThirteenthMonthPay)).Bold();
                 table.Cell().Element(DataCell).Text(StatusLabel(r.Status));
                 table.Cell().Element(DataCell).AlignRight().Text(r.NetPay.HasValue ? Money(r.NetPay.Value) : "—").Bold().FontColor(Primary);
+                var unpaid = table.Cell().Element(DataCell).AlignRight().Text(r.StillUnpaid > 0 ? Money(r.StillUnpaid) : "—");
+                if (r.StillUnpaid > 0) unpaid.Bold().FontColor(UnpaidColor);
             }
 
             static IContainer TotalCell(IContainer c) =>
@@ -143,6 +150,7 @@ public class ThirteenthMonthPayListDocument : IDocument
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.ThirteenthMonthPay))).Bold();
             table.Cell().Element(TotalCell).Text("");
             table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.NetPay ?? 0))).Bold().FontColor(Primary);
+            table.Cell().Element(TotalCell).AlignRight().Text(Money(_rows.Sum(r => r.StillUnpaid))).Bold().FontColor(UnpaidColor);
         });
     }
 }

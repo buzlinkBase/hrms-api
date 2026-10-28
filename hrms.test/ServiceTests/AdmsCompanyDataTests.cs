@@ -100,7 +100,8 @@ public class AdmsCompanyDataTests : IDisposable
 
     // ── The worker ───────────────────────────────────────────────────────────
 
-    private async Task ConsumeAsync(Guid tenantId, CompanyPurgeStage stage, bool readOnly, IEntitlementProvider? entitlements = null)
+    private async Task<ConsumeContext<PurgeCompanyData>> ConsumeAsync(
+        Guid tenantId, CompanyPurgeStage stage, bool readOnly, IEntitlementProvider? entitlements = null, Guid? headerTenant = null)
     {
         if (entitlements == null)
         {
@@ -113,14 +114,40 @@ public class AdmsCompanyDataTests : IDisposable
             });
         }
         var tenantProvider = Substitute.For<ITenantProvider>();
-        tenantProvider.TenantId.Returns(tenantId);
+        tenantProvider.TenantId.Returns(headerTenant ?? tenantId);
         await using var db = NewContext(tenantId);
         var worker = new PurgeCompanyDataWorker(db, entitlements, tenantProvider, NullLogger<PurgeCompanyDataWorker>.Instance);
         var context = Substitute.For<ConsumeContext<PurgeCompanyData>>();
-        context.Message.Returns(new PurgeCompanyData { TenantId = tenantId, Stage = stage });
+        context.Message.Returns(new PurgeCompanyData { TenantId = tenantId, Stage = stage, OwnerUserId = Owner, SubscriptionId = Subscription });
         context.CancellationToken.Returns(CancellationToken.None);
         await worker.Consume(context);
+        return context;
     }
+
+    private static readonly Guid Owner = Guid.NewGuid();
+    private static readonly Guid Subscription = Guid.NewGuid();
+
+    /// <summary>The answers the worker published, with the headers it set on each.</summary>
+    private static List<(CompanyDataPurged Message, Dictionary<string, object?> Headers)> Answers(ConsumeContext<PurgeCompanyData> context) =>
+        context.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(IPublishEndpoint.Publish) && c.GetArguments()[0] is CompanyDataPurged)
+            .Select(c =>
+            {
+                var headers = new Dictionary<string, object?>();
+                if (c.GetArguments().OfType<IPipe<PublishContext<CompanyDataPurged>>>().FirstOrDefault() is { } pipe)
+                {
+                    var publish = Substitute.For<PublishContext<CompanyDataPurged>>();
+                    var sendHeaders = Substitute.For<SendHeaders>();
+                    sendHeaders.When(h => h.Set(Arg.Any<string>(), Arg.Any<object?>(), Arg.Any<bool>()))
+                        .Do(x => headers[x.ArgAt<string>(0)] = x.ArgAt<object?>(1));
+                    sendHeaders.When(h => h.Set(Arg.Any<string>(), Arg.Any<string>()))
+                        .Do(x => headers[x.ArgAt<string>(0)] = x.ArgAt<string>(1));
+                    publish.Headers.Returns(sendHeaders);
+                    pipe.Send(publish).GetAwaiter().GetResult();
+                }
+                return ((CompanyDataPurged)c.GetArguments()[0]!, headers);
+            })
+            .ToList();
 
     private void SeedAudit(Guid tenantId)
     {
@@ -166,5 +193,70 @@ public class AdmsCompanyDataTests : IDisposable
         AuditRows(CompanyB).Should().Be(1);
         await entitlements.DidNotReceive().GetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await entitlements.Received(1).InvalidateAsync(Arg.Is<IEnumerable<Guid>>(ids => ids.Single() == CompanyA));
+    }
+
+    [Fact]
+    public async Task AnErasure_AnswersTenantService_AsTheDeviceService()
+    {
+        SeedDevice(CompanyA, "A-1");
+
+        var context = await ConsumeAsync(CompanyA, CompanyPurgeStage.HardDelete, readOnly: false);
+
+        var (answer, headers) = Answers(context).Should().ContainSingle().Subject;
+        answer.Succeeded.Should().BeTrue(answer.Error);
+        answer.Stage.Should().Be(CompanyPurgeStage.HardDelete);
+        answer.TenantId.Should().Be(CompanyA);
+        answer.OwnerUserId.Should().Be(Owner);
+        answer.SubscriptionId.Should().Be(Subscription);
+        answer.RowsDeleted.Should().Be(1);
+        headers[PurgeCompanyDataWorker.SourceHeader].Should().Be(PurgeCompanyDataWorker.Source);
+        headers["X-Tenant-ID"].Should().Be(CompanyA.ToString());
+    }
+
+    [Fact]
+    public async Task AnErasureThatFails_IsReported_NotSwallowed()
+    {
+        var entitlements = Substitute.For<IEntitlementProvider>();
+        entitlements.InvalidateAsync(Arg.Any<IEnumerable<Guid>>()).Returns(Task.FromException(new InvalidOperationException("cache down")));
+
+        var context = await ConsumeAsync(CompanyA, CompanyPurgeStage.HardDelete, readOnly: false, entitlements);
+
+        var (answer, headers) = Answers(context).Should().ContainSingle().Subject;
+        answer.Succeeded.Should().BeFalse();
+        answer.Error.Should().Contain("cache down");
+        headers[PurgeCompanyDataWorker.SourceHeader].Should().Be(PurgeCompanyDataWorker.Source);
+    }
+
+    [Fact]
+    public async Task AnErasureForAnotherCompanyThanTheHeader_DeletesNothing_AndIsReportedAsFailed()
+    {
+        SeedDevice(CompanyA, "A-1");
+
+        var context = await ConsumeAsync(CompanyA, CompanyPurgeStage.HardDelete, readOnly: false, headerTenant: CompanyB);
+
+        Devices(CompanyA).Should().Be(1);
+        Answers(context).Should().ContainSingle().Which.Message.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TheYearlyPurge_StaysSilent_HrmsApiAnswersForIt()
+    {
+        SeedDevice(CompanyA, "A-1");
+
+        var context = await ConsumeAsync(CompanyA, CompanyPurgeStage.ArchiveAndPurge, readOnly: true);
+
+        Devices(CompanyA).Should().Be(0);
+        Answers(context).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DestroyingAnArchive_IsNotTheDeviceServicesBusiness()
+    {
+        SeedDevice(CompanyA, "A-1");
+
+        var context = await ConsumeAsync(CompanyA, CompanyPurgeStage.DestroyArchive, readOnly: true);
+
+        Devices(CompanyA).Should().Be(1);
+        Answers(context).Should().BeEmpty();
     }
 }

@@ -48,10 +48,10 @@ public class PayrollReportServiceTests
     // clients maps an employee to their client; an employee not listed has none.
     private static PayrollReportService BuildService(Dictionary<Guid, Guid>? clients, params Payroll[] payrolls)
     {
-        var employees = payrolls.Select(p =>
+        var employees = payrolls.Select(p => p.EmployeeId).Distinct().Select(id =>
         {
-            var employee = BuildEmployee(p.EmployeeId, p.EmployeeId.ToString()[..8]);
-            if (clients != null && clients.TryGetValue(p.EmployeeId, out var clientId)) employee.ClientId = clientId;
+            var employee = BuildEmployee(id, id.ToString()[..8]);
+            if (clients != null && clients.TryGetValue(id, out var clientId)) employee.ClientId = clientId;
             return employee;
         }).ToList();
 
@@ -92,6 +92,67 @@ public class PayrollReportServiceTests
         result.Should().ContainSingle();
         result[0].EmployeeId.Should().Be(mine.EmployeeId);
         result[0].ThirteenthMonthPay.Should().Be(120_000m / 12);
+    }
+
+    // The 13th month payout row "Generate 13th Month" creates: a snapshot of the figure that day.
+    private static Payroll BuildThirteenthMonthPayout(Guid employeeId, int year, decimal gross, decimal netPay, bool posted = true) => new()
+    {
+        Id = Guid.NewGuid(),
+        EmployeeId = employeeId,
+        PostingPeriod = new DateOnly(year, 10, 15),
+        PayPeriodStart = new DateOnly(year, 1, 1),
+        PayPeriodEnd = new DateOnly(year, 12, 31),
+        IsPosted = posted,
+        PayrollType = PayrollType.ThirteenthMonth,
+        GrossIncome = gross,
+        NetPay = netPay,
+    };
+
+    [Fact]
+    public async Task APayoutGeneratedBeforeLaterCutoffs_LeavesTheDifferenceStillUnpaid()
+    {
+        // Generated when basic pay so far was 7,532.40 (-> 627.70); a later cutoff brought it to 14,067.24.
+        var employee = Guid.NewGuid();
+        var early = BuildPayroll(employee, 2026, 7_532.40m);
+        var later = BuildPayroll(employee, 2026, 6_534.84m);
+        later.Id = Guid.NewGuid();
+        var payout = BuildThirteenthMonthPayout(employee, 2026, gross: 627.70m, netPay: 627.70m);
+        var service = BuildService(early, later, payout);
+
+        var row = (await service.GetThirteenthMonthAsync(2026, CancellationToken.None)).Single();
+
+        row.ThirteenthMonthPay.Should().Be(14_067.24m / 12);
+        row.Status.Should().Be("Posted");
+        row.PaidGross.Should().Be(627.70m);
+        row.NetPay.Should().Be(627.70m);
+        row.StillUnpaid.Should().Be(544.57m);
+    }
+
+    [Fact]
+    public async Task APayoutThatCoversEverythingEarned_LeavesNothingUnpaid_EvenWhenTaxWasWithheld()
+    {
+        var employee = Guid.NewGuid();
+        var payroll = BuildPayroll(employee, 2026, 1_200_000m);
+        // 100,000 gross; tax withheld on the part above the ceiling, so the net is lower.
+        var payout = BuildThirteenthMonthPayout(employee, 2026, gross: 100_000m, netPay: 97_500m);
+        var service = BuildService(payroll, payout);
+
+        var row = (await service.GetThirteenthMonthAsync(2026, CancellationToken.None)).Single();
+
+        row.StillUnpaid.Should().Be(0, "the payout's gross, not its after-tax net, is compared");
+        row.NetPay.Should().Be(97_500m);
+    }
+
+    [Fact]
+    public async Task WithoutAPayout_NothingIsPaid_AndNothingIsStillUnpaid()
+    {
+        var service = BuildService(BuildPayroll(Guid.NewGuid(), 2026, 120_000));
+
+        var row = (await service.GetThirteenthMonthAsync(2026, CancellationToken.None)).Single();
+
+        row.Status.Should().Be("NotGenerated");
+        row.PaidGross.Should().BeNull();
+        row.StillUnpaid.Should().Be(0);
     }
 
     [Fact]

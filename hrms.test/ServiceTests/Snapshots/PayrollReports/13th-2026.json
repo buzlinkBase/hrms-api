@@ -9,6 +9,8 @@
     "TotalSpecialBonusesForYear": 945,
     "Status": "NotGenerated",
     "NetPay": null,
+    "PaidGross": null,
+    "StillUnpaid": 0,
     "PayrollId": null,
     "AcknowledgedAt": null
   },
@@ -22,6 +24,8 @@
     "TotalSpecialBonusesForYear": 1300,
     "Status": "Posted",
     "NetPay": 7500.5,
+    "PaidGross": 10000.5,
+    "StillUnpaid": 0,
     "PayrollId": "00000000-0000-0000-0000-000000000104",
     "AcknowledgedAt": null
   },
@@ -35,6 +39,8 @@
     "TotalSpecialBonusesForYear": 735,
     "Status": "NotGenerated",
     "NetPay": null,
+    "PaidGross": null,
+    "StillUnpaid": 0,
     "PayrollId": null,
     "AcknowledgedAt": null
   },
@@ -48,6 +54,8 @@
     "TotalSpecialBonusesForYear": 0,
     "Status": "NotGenerated",
     "NetPay": null,
+    "PaidGross": null,
+    "StillUnpaid": 0,
     "PayrollId": null,
     "AcknowledgedAt": null
   }
