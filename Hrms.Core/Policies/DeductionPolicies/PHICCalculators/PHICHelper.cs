@@ -63,7 +63,7 @@ internal static class PHICHelper
     private static List<PHICContributionModel> GetCurrentMonthContribution(DeductionPayloadContext context)
     {
         context.Payload.PHICContribution.TryGetValue(new EmployeeKey(context.Employee.Id), out var accumulated);
-        accumulated ??= new List<PHICContributionModel>();
-        return accumulated;
+        // Only what was credited to the month this line is credited to (StatutoryMonthResolver).
+        return (accumulated ?? []).Where(x => StatutoryHelper.IsInStatutoryMonth(context, x.PayrollDate)).ToList();
     }
 }

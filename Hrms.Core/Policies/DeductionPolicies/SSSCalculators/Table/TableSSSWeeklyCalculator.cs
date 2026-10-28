@@ -22,7 +22,10 @@
                 return SSSHelper.ApplyTable(context, line, payloadx, context.Payload.FromDate);
             }
 
-            var isCrossMonth = new IsCrossMonth().IsSatisfiedBy(context.Payload);
+            // A week crossing into a new month in a group whose weeks roll over the month by design
+            // (cutoffs 5/12/19/26, see StatutoryMonthResolver) is just a week of the month it ends in.
+            var isCrossMonth = new IsCrossMonth().IsSatisfiedBy(context.Payload)
+                && !StatutoryMonthResolver.RollsOverMonth(context.Employee.PayrollGroup);
 
             // The last configured week of the month (not a cross-month period, which has
             // its own mid-hire proration path below and is a different "boundary" concept)
@@ -81,7 +84,7 @@
                         // "if nothing withheld yet") so it decreases correctly week over week
                         // once prior withholding is actually persisted, instead of sweeping the
                         // entire remaining balance the first time the ledger isn't empty.
-                        divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
+                        divisor = StatutoryHelper.WeeklyDivisor(context);
 
                         if (StatutoryHelper.IsHiredThisMonth(context))
                         {
@@ -92,7 +95,7 @@
                             // If hired in last week → proration will apply
                             if (!(context.Payload.FromDate.IsLastWeekOfMonth() || context.Payload.ToDate.IsLastWeekOfMonth()))
                             {
-                                divisor = context.Payload.FromDate.GetRemainingWeeksInMonth();
+                                divisor = StatutoryHelper.WeeklyDivisor(context);
                             }
                         }
                     }

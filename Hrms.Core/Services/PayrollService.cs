@@ -1,4 +1,5 @@
 ﻿using DocumentFormat.OpenXml.VariantTypes;
+using Hrms.Core.Policies.DeductionPolicies;
 using Hrms.Domain.Entities;
 namespace Hrms.Core.Services;
 
@@ -17,11 +18,16 @@ public class PayrollService : BaseService<Payroll>
     // "invisible" here but "already posted" there -- GetBalance's netting would then subtract
     // a contribution from a bracket lookup that never saw the gross behind it, under-shooting
     // (even flooring to zero) instead of truing up. See StatutoryHelper's Get*GrossBaseRate.
+    //
+    // Covers every month from fromDate's to toDate's (a run's employees may be credited to
+    // different months, see StatutoryMonthResolver); StatutoryHelper keeps only the payrolls of
+    // each employee's own statutory month.
     public async Task<Dictionary<EmployeeKey, List<Payroll>>> LoadPostedPayrollAsync(DateOnly fromDate, DateOnly toDate,
         CancellationToken token)
     {
-        return await GetQueryable(x =>
-                 x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year)
+        var monthStart = StatutoryMonthResolver.MonthStart(fromDate);
+        var monthEnd = StatutoryMonthResolver.MonthEnd(toDate);
+        return await GetQueryable(x => x.PayrollDate >= monthStart && x.PayrollDate <= monthEnd)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))
             .ToDictionaryAsync(x => x.Key, x => x.ToList(), token);
     }

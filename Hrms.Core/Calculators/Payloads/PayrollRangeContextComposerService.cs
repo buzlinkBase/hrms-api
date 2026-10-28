@@ -161,10 +161,16 @@ public class PayrollRangeContextComposerService
             }
 
             // Contributions
-            var payrollsTask = await _payrollService.LoadPostedPayrollAsync(dtrPayload.FromDate, dtrPayload.ToDate, token);
-            var sssContriTask = await _ssscontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
-            var phicContriTask = await _phiccontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
-            var hdmfContriTask = await _hdmfcontriService.LoadContributionsAsync(creditDate, dtrPayload.ToDate, token);
+            // Every month an employee of this run can be credited to: the start month (the company
+            // policy's default), the end month (a group whose periods roll over the month, see
+            // StatutoryMonthResolver) or the pay date's month. Each employee's own month is picked
+            // out of these in StatutoryHelper and the *Helper.GetBalance methods.
+            var statutoryFrom = new[] { dtrPayload.FromDate, creditDate }.Min();
+            var statutoryTo = new[] { dtrPayload.ToDate, creditDate }.Max();
+            var payrollsTask = await _payrollService.LoadPostedPayrollAsync(statutoryFrom, statutoryTo, token);
+            var sssContriTask = await _ssscontriService.LoadContributionsAsync(statutoryFrom, statutoryTo, token);
+            var phicContriTask = await _phiccontriService.LoadContributionsAsync(statutoryFrom, statutoryTo, token);
+            var hdmfContriTask = await _hdmfcontriService.LoadContributionsAsync(statutoryFrom, statutoryTo, token);
             //var taxContriTask = await _taxcontriService.LoadContributionsAsync(wtaxCreditDate, dtrPayload.ToDate, token);
 
             // Gov Tables & Holidays
@@ -195,6 +201,7 @@ public class PayrollRangeContextComposerService
                 ClientStatutoryCaps = clientStatutoryCaps,
                 ClientRetirementDaysPerYear = clientRetirementDaysPerYearTask,
                 PostedPriorPayrolls = payrollsTask,
+                StatutoryCreditPolicy = crossMonthCreditPolicy,
                 Leaves = leavesTask,
                 LeaveCredits = leaveCreditsTask,
                 Deductions = deductionsTask,

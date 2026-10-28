@@ -63,7 +63,7 @@ internal static class HDMFHelper
     private static List<HDMFContributionModel> GetCurrentMonthContribution(DeductionPayloadContext context)
     {
         context.Payload.HDMFContribution.TryGetValue(new EmployeeKey(context.Employee.Id), out var accumulated);
-        accumulated ??= new List<HDMFContributionModel>();
-        return accumulated;
+        // Only what was credited to the month this line is credited to (StatutoryMonthResolver).
+        return (accumulated ?? []).Where(x => StatutoryHelper.IsInStatutoryMonth(context, x.PayrollDate)).ToList();
     }
 }

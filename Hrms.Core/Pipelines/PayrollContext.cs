@@ -30,6 +30,9 @@ public class CalculatorPayload : BasePayloadContext
     // PHICContribution/HDMFContribution below, which are also written at Generate time
     // regardless of posted status.
     public Dictionary<EmployeeKey, List<Payroll>> PostedPriorPayrolls { get; set; } = new();
+    // Company > Cross-month statutory credit policy, so a prior payroll's statutory month can be
+    // worked out the same way the current line's was (StatutoryMonthResolver.CreditDate).
+    public CrossMonthStatutoryCreditPolicy StatutoryCreditPolicy { get; set; } = CrossMonthStatutoryCreditPolicy.CutoffStartMonth;
     public Dictionary<Leavekey, List<LeaveApplication>> Leaves { get; set; } = new();
     public Dictionary<EmployeeLeaveCreditsKey, decimal> LeaveCredits { get; set; } = new();
     public Dictionary<EmployeeKey, List<OtherIncomeInfo>> Incomes { get; set; } = new();

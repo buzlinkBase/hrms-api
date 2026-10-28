@@ -1,3 +1,4 @@
+using Hrms.Core.Policies.DeductionPolicies;
 using System.Text;
 using Hrms.Core.Extensions;
 using Hrms.Domain.Entities;
@@ -66,11 +67,13 @@ public class PHICContributionService : BaseService<PHICContribution>
     public async Task<Dictionary<EmployeeKey, List<PHICContributionModel>>> LoadContributionsAsync(DateOnly fromDate, DateOnly toDate,
         CancellationToken token)
     {
+        // Every month from fromDate's to toDate's: the run's employees may be credited to
+        // different ones (StatutoryMonthResolver); GetBalance keeps each employee's own.
+        var monthStart = StatutoryMonthResolver.MonthStart(fromDate);
+        var monthEnd = StatutoryMonthResolver.MonthEnd(toDate);
         return await GetQueryable()
            .Where(x =>
-                    (x.PayrollDate.Month == fromDate.Month && x.PayrollDate.Year == fromDate.Year)
-                    //(x.PayrollDate.Month == toDate.Month && x.PayrollDate.Year == toDate.Year)
-                    )
+                    x.PayrollDate >= monthStart && x.PayrollDate <= monthEnd)
             //.Where(x => !(x.PayrollDate >= fromDate && x.PayrollDate <= toDate))
             .ProjectToType<PHICContributionModel>(_config)
             .GroupBy(x => new EmployeeKey(x.EmployeeId))

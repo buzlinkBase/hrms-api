@@ -48,7 +48,41 @@ public class StatutoryHelper
     // The same earnings-only runs, counted toward the SSS / PhilHealth / Pag-IBIG base (the
     // NonStatutoryIncomeClasses left out). Withholding tax keeps GetEarningsOnlyPriorGross.
     public static decimal GetEarningsOnlyPriorStatutoryGross(DeductionPayloadContext context) =>
-        EarningsOnlyPriorPayrolls(context).Sum(StatutoryGross);
+        EarningsOnlyPriorPayrolls(context).Where(p => IsInStatutoryMonth(context, p)).Sum(StatutoryGross);
+
+    // ── The statutory month (StatutoryMonthResolver) ─────────────────────────
+    // A line's contributions, its bracket base and the month's earlier withholding must all be
+    // counted against the same month: the one the line is credited to.
+
+    /// <summary>The date the current line's contributions are credited to.</summary>
+    public static DateOnly StatutoryMonth(DeductionPayloadContext context) =>
+        context.PayrollLine.StatutoryCreditDate != default
+            ? context.PayrollLine.StatutoryCreditDate
+            : StatutoryMonthResolver.CreditDate(context.Employee.PayrollGroup, context.Payload.FromDate, context.Payload.ToDate,
+                context.Payload.StatutoryCreditPolicy, null);
+
+    /// <summary>Whether a ledger row credited to <paramref name="creditedTo"/> belongs to the current
+    /// line's month. A row without a date (only hand-built data) counts, as it always did.</summary>
+    public static bool IsInStatutoryMonth(DeductionPayloadContext context, DateOnly creditedTo) =>
+        creditedTo == default || StatutoryMonthResolver.SameMonth(creditedTo, StatutoryMonth(context));
+
+    /// <summary>The employee's earlier payrolls credited to the same month as the current line.</summary>
+    public static List<Payroll> PriorPayrollsOfStatutoryMonth(DeductionPayloadContext context) =>
+        context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var prior)
+            ? prior.Where(p => IsInStatutoryMonth(context, p)).ToList()
+            : [];
+
+    // A regular payroll is credited the way its line was (worked out again: the payroll row doesn't
+    // keep the date); a 13th month, last pay or year-end row by its own payroll date. A row
+    // without its period (only hand-built data) counts, as it always did.
+    private static bool IsInStatutoryMonth(DeductionPayloadContext context, Payroll payroll)
+    {
+        if (payroll.PayrollType != PayrollType.Regular) return IsInStatutoryMonth(context, payroll.PayrollDate);
+        if (payroll.PayPeriodStart == default || payroll.PayPeriodEnd == default) return true;
+        var creditedTo = StatutoryMonthResolver.CreditDate(context.Employee.PayrollGroup, payroll.PayPeriodStart, payroll.PayPeriodEnd,
+            context.Payload.StatutoryCreditPolicy, payroll.PayDate);
+        return StatutoryMonthResolver.SameMonth(creditedTo, StatutoryMonth(context));
+    }
 
     private static IEnumerable<Payroll> EarningsOnlyPriorPayrolls(DeductionPayloadContext context)
     {
@@ -60,7 +94,7 @@ public class StatutoryHelper
     }
     public static decimal GetSemiMonthlyGrossBaseRate(DeductionPayloadContext context)
     {
-        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        var payrol = PriorPayrollsOfStatutoryMonth(context);
         return StatutoryGross(context.PayrollLine) + payrol.Sum(StatutoryGross);
     }
     // Projected whole-month gross for a FIXED employee releasing a full-month statutory
@@ -137,6 +171,20 @@ public class StatutoryHelper
         return GetWeeklyGrossBaseRate(context);
     }
 
+    /// <summary>
+    /// How many shares a Fixed employee's month is split into on a weekly "per payroll" schedule:
+    /// the payroll group's configured weekly cutoffs (7/14/21/EOM -> 4), so every week withholds
+    /// the same share of the month's amount and the last week only trues up the remainder. Weeks
+    /// counted from the period's start date (the old divisor) gave 5, then 4, then 3 shares as the
+    /// month went on -- an uneven split that still added up only because the last week trued up.
+    /// A group without cutoffs falls back to the weeks left in the month.
+    /// </summary>
+    public static int WeeklyDivisor(DeductionPayloadContext context)
+    {
+        var configured = context.Employee.PayrollGroup?.CutoffDays?.Count ?? 0;
+        return configured > 0 ? configured : context.Payload.FromDate.GetRemainingWeeksInMonth();
+    }
+
     public static bool IsOneTimePayLeave(DeductionPayloadContext context)
     {
         if (context.Payload.OneTimeLeavePayouts.TryGetValue(new EmployeeKey(context.Employee.Id), out var apps))
@@ -155,7 +203,7 @@ public class StatutoryHelper
         {
             return StatutoryGross(context.PayrollLine);
         }
-        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        var payrol = PriorPayrollsOfStatutoryMonth(context);
         return StatutoryGross(context.PayrollLine) + payrol.Sum(StatutoryGross);
     }
     public static bool IsHiredThisMonth(DeductionPayloadContext context)
@@ -213,10 +261,7 @@ public class StatutoryHelper
         int remainingDays = daysInMonth - curDay;
 
         // Payroll history
-        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrolls))
-        {
-            payrolls = new List<Payroll>();
-        }
+        var payrolls = PriorPayrollsOfStatutoryMonth(context);
 
         // The statutory income classes only (see NonStatutoryIncomeClasses): no De Minimis,
         // Reimbursement or Special Bonus.
@@ -319,7 +364,7 @@ public class StatutoryHelper
     }
     private static decimal GetAbsencesTotal(DeductionPayloadContext context)
     {
-        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        var payrol = PriorPayrollsOfStatutoryMonth(context);
         var PostedAbsent = payrol.Sum(x => x.AbsencesAmount);
         //current
         if (!context.Payload.CompanyPolicy.ApplyStatutoryOnActualMonth)
@@ -338,10 +383,7 @@ public class StatutoryHelper
     }
     private static decimal GetLWOP(DeductionPayloadContext context)
     {
-        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol))
-        {
-            payrol = new List<Payroll>();
-        }
+        var payrol = PriorPayrollsOfStatutoryMonth(context);
 
         var setting = context.Employee.Settings ?? new EmployeeSettingModel();
         if (context.Employee.SalaryType != SalaryType.FIXED) return 0;
@@ -357,7 +399,7 @@ public class StatutoryHelper
     }
     private static decimal GetLateUTAmount(DeductionPayloadContext context)
     {
-        if (!context.Payload.PostedPriorPayrolls.TryGetValue(new EmployeeKey(context.Employee.Id), out var payrol)) payrol = new List<Payroll>();
+        var payrol = PriorPayrollsOfStatutoryMonth(context);
         var priorLates = payrol.Sum(x => x.LateAmount + x.UnderTimeAmount);
 
         //if (!context.Payload.CompanyPolicy.ApplyStatutoryOnActualMonth)

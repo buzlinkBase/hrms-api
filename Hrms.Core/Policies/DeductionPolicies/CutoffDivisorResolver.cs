@@ -18,11 +18,15 @@ public class FullBalanceNowDivisorRule : ICutoffDivisorRule
 }
 
 // A payroll period that crosses into a new month deducts all remaining balance immediately
-// rather than splitting it further.
+// rather than splitting it further -- except in a group whose periods roll over the month by
+// design (cutoffs 10/25, see StatutoryMonthResolver), where the cross-month run is just the
+// first cutoff of the month it ends in and splits like any other.
 public class CrossMonthDivisorRule : ICutoffDivisorRule
 {
     public int? Resolve(DeductionPayloadContext context, ICutoffPolicyResolver resolver, StatutoryReleaseAction scheduleAction, int configuredCutoffs) =>
-        new IsCrossMonth().IsSatisfiedBy(context.Payload) ? 1 : null;
+        new IsCrossMonth().IsSatisfiedBy(context.Payload) && !StatutoryMonthResolver.RollsOverMonth(context.Employee.PayrollGroup)
+            ? 1
+            : null;
 }
 
 // Employee hired mid-month, after the period's first cutoff. Currently resolves to the same

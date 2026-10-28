@@ -27,6 +27,9 @@ public class PHICContributionModel
     public DateOnly PayrollFrom { get; set; }
     public DateOnly PayrollTo { get; set; }
     public DateOnly Date { get; set; }
+    // The ledger row's PayrollDate: the statutory month it was credited to (same name as the
+    // entity, so Mapster's convention mapping fills it).
+    public DateOnly PayrollDate { get; set; }
     public decimal EmployeeShare { get; set; }
     public decimal EmployerShare { get; set; }
     public decimal TotalContribution { get; set; }

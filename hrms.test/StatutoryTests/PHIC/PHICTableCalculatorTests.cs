@@ -142,16 +142,16 @@ public class PHICTableCalculatorTests : TestContextBase
     }
 
     [Fact]
-    public void Weekly_Fixed_BracketsOffFullMonthlyRate_SplitByRemainingWeeksInMonth()
+    public void Weekly_Fixed_BracketsOffFullMonthlyRate_SplitEvenlyAcrossTheGroupsWeeks()
     {
         // Every non-final week brackets off the projected 30,000 MonthlyRate (bracket B, EE
         // 675) instead of a growing actual-to-date total — see SSSTableCalculatorTests'
-        // equivalent test. Only the divisor shrinks week to week (4, 3, 2), not the bracket.
+        // equivalent test. Each week withholds an equal quarter (the group's four weekly cutoffs).
         var empId = NewEmployeeId();
         decimal postedEE = 0, postedER = 0, priorGross = 0, totalEE = 0;
         var weekGross = 7_500m;
         var starts = new[] { 1, 8, 15, 22 };
-        var expected = new decimal[] { 168.75m, 225m, 281.25m, 0m };
+        var expected = new decimal[] { 168.75m, 168.75m, 168.75m, 168.75m };
 
         for (int i = 0; i < 4; i++)
         {

@@ -184,20 +184,20 @@ public class SSSTableCalculatorTests : TestContextBase
     }
 
     [Fact]
-    public void Weekly_Fixed_BracketsOffFullMonthlyRate_SplitByRemainingWeeksInMonth()
+    public void Weekly_Fixed_BracketsOffFullMonthlyRate_SplitEvenlyAcrossTheGroupsWeeks()
     {
-        // February 2023 (28 days) gives clean remaining-week divisors of 4, 3, 2 for weeks
-        // starting the 1st/8th/15th, with the 22nd as the final true-up week. Every non-final
-        // week now brackets off the projected 30,000 MonthlyRate (bracket B, EE 1,350)
-        // instead of a growing actual-to-date total that used to cross brackets mid-month —
-        // only the divisor shrinks week to week, not the bracket itself.
+        // Every non-final week brackets off the projected 30,000 MonthlyRate (bracket B, EE
+        // 1,350) and withholds an equal share of it: the group has four weekly cutoffs
+        // (StatutoryHelper.WeeklyDivisor), so 1,350 / 4 each week, and the last week trues up
+        // exactly the remainder. (Dividing by the weeks left in the month instead front-loaded
+        // it: 337.5, 450, 562.5, then nothing.)
         var empId = NewEmployeeId();
         decimal totalEE = 0;
         decimal postedEE = 0, postedER = 0, postedEC = 0;
         decimal priorGross = 0;
         var weekGross = 7_500m;
         var starts = new[] { 1, 8, 15, 22 };
-        var expected = new decimal[] { 337.5m, 450m, 562.5m, 0m }; // hand-computed, see class doc
+        var expected = new decimal[] { 337.5m, 337.5m, 337.5m, 337.5m };
 
         for (int i = 0; i < 4; i++)
         {

@@ -110,7 +110,9 @@ public class EmployeePayrollLineService
             PayrollBatchId = payrollBatchId,
             Remarks = remarks,
             PayrollDate = payload.ToDate,
-            StatutoryCreditDate = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, creditPolicy, payDate),
+            // A group whose periods roll over the month (cutoffs 10/25) credits to the month the
+            // period ends in; others follow the company's cross-month policy.
+            StatutoryCreditDate = StatutoryMonthResolver.CreditDate(employee.PayrollGroup, payload.FromDate, payload.ToDate, creditPolicy, payDate),
             PostingPeriod = StatutoryCreditDateResolver.Resolve(payload.FromDate, payload.ToDate, wtaxCreditPolicy, payDate),
             PayDate = payDate,
             PayrollGroupId = employee.PayrollGroupId,

@@ -2,30 +2,25 @@
 
 public class CutoffPolicyResolver : ICutoffPolicyResolver
 {
+    // A period's place in its month is decided by the cutoff it ENDS on: the first configured
+    // cutoff day on or after ToDate's day (end of month resolved in ToDate's month). For the
+    // usual 1-15 / 16-EOM periods that is the same answer the start day gives; for a group
+    // whose cutoffs don't reach month-end (10/25) it is the only one that works -- Feb 26-Mar 10
+    // ends on the 10th, March's first cutoff, although it starts after it.
     public bool IsFirstCutoff(DeductionPayloadContext context)
     {
         var frequency = context.Employee.PayrollFrequency;
-        var cutoffDays = ResolveCutoffModels(context);
-        // Deliberately the period's own start day, not GetReferenceDate's cross-month-
-        // adjusted day — First/Second cutoff answer "which bracket did this period begin
-        // in", while IsLastCutoff/GetCurrentCutoff answer "where does it end up relative
-        // to month-end", which is a different question needing the adjusted date.
-        var currentDay = context.Payload.FromDate.Day;
-
         if (frequency == PayrollFrequency.MONTHLY || frequency == PayrollFrequency.DAILY)
             return true;
 
-        // No usable cutoff configuration — throw the same exception GetCurrentCutoff does
-        // rather than letting cutoffDays.First() throw InvalidOperationException, which
-        // callers (StatutoryScheduleResolver, the Table*SemiMonthlyCalculator classes) don't
-        // catch and would otherwise crash payroll processing instead of failing open.
+        // No usable cutoff configuration — throw the same exception GetCurrentCutoff does,
+        // which callers (StatutoryScheduleResolver, the Table*SemiMonthlyCalculator classes)
+        // catch and fail open on, instead of crashing payroll processing.
+        var cutoffDays = ResolveEndingCutoffDays(context);
         if (cutoffDays.Count == 0)
             throw new CutoffMismatchException($"No cutoff days defined for {context.Employee.PayrollGroup?.Code}");
 
-        // Works for Semi-Monthly's usual two cutoffs and for a Weekly/custom schedule with
-        // any number of configured cutoffs — "first" is just "on or before the first
-        // configured cutoff day".
-        return currentDay <= cutoffDays.First();
+        return EndingSlot(context, cutoffDays) == 0;
     }
 
     public bool IsSecondCutoff(DeductionPayloadContext context)
@@ -34,52 +29,49 @@ public class CutoffPolicyResolver : ICutoffPolicyResolver
         if (frequency == PayrollFrequency.MONTHLY ||
             frequency == PayrollFrequency.DAILY) return false;
 
-        var cutoffDays = ResolveCutoffModels(context);
-        // See IsFirstCutoff — deliberately FromDate.Day, not the cross-month reference date.
-        var currentDay = context.Payload.FromDate.Day;
+        var cutoffDays = ResolveEndingCutoffDays(context);
+        if (cutoffDays.Count < 2) return false;
+        var slot = EndingSlot(context, cutoffDays);
 
-        if (frequency == PayrollFrequency.WEEKLY)
-        {
-            // For Weekly, the "Second Cutoff" is usually the 2nd week.
-            // If there are 4-5 weeks, you may need a more complex 'WeekIndex' check.
-            return cutoffDays.Count > 1 && currentDay > cutoffDays.First() && currentDay <= cutoffDays.Skip(1).First();
-        }
-        // Semi-Monthly logic
-        return cutoffDays.Count > 1 && currentDay > cutoffDays.First();
+        // Weekly: the 2nd configured week. Semi-Monthly: any cutoff after the first.
+        return frequency == PayrollFrequency.WEEKLY ? slot == 1 : slot >= 1;
     }
 
     public bool IsLastCutoff(DeductionPayloadContext context)
     {
-        // 1. Force true if the period crosses into a new month. 
-        // This ensures old month balances are cleared before the new month starts.
-        if (new IsCrossMonth().IsSatisfiedBy(context.Payload))
+        // A period crossing into a new month in a group whose cutoffs end at month-end (15/EOM)
+        // is forced last, so the month it is credited to has its balance cleared before the next
+        // one starts. A group whose periods roll over by design (10/25) doesn't need that: its
+        // cross-month period is simply the first cutoff of the month it ends in.
+        if (new IsCrossMonth().IsSatisfiedBy(context.Payload) && !StatutoryMonthResolver.RollsOverMonth(context.Employee.PayrollGroup))
             return true;
 
         var frequency = context.Employee.PayrollFrequency;
-
         if (frequency == PayrollFrequency.MONTHLY || frequency == PayrollFrequency.DAILY)
             return true;
 
-        var cutoffDays = ResolveCutoffModels(context);
-        if (!cutoffDays.Any()) return false;
+        var cutoffDays = ResolveEndingCutoffDays(context);
+        if (cutoffDays.Count == 0) return false;
 
-        var referenceDate = GetReferenceDate(context);
-        var currentDay = referenceDate.Day;
-        var lastCutoffDay = cutoffDays.Last();
+        return EndingSlot(context, cutoffDays) == cutoffDays.Count - 1;
+    }
 
-        if (frequency == PayrollFrequency.SEMI_MONTHLY)
-        {
-            return currentDay > cutoffDays.First();
-        }
+    // Index of the cutoff the period ends on; past the last configured day counts as the last.
+    private static int EndingSlot(DeductionPayloadContext context, List<int> cutoffDays)
+    {
+        var endDay = context.Payload.ToDate.Day;
+        var slot = cutoffDays.FindIndex(day => endDay <= day);
+        return slot < 0 ? cutoffDays.Count - 1 : slot;
+    }
 
-        if (frequency == PayrollFrequency.WEEKLY)
-        {
-            // Check if we are in the final slot of the configured weekly dates
-            return currentDay >= lastCutoffDay ||
-                   (cutoffDays.Count > 1 && currentDay > cutoffDays[cutoffDays.Count - 2]);
-        }
-
-        return currentDay >= lastCutoffDay;
+    // The configured cutoff days with end of month resolved in the month the period ends in.
+    private static List<int> ResolveEndingCutoffDays(DeductionPayloadContext context)
+    {
+        var end = context.Payload.ToDate;
+        return (context.Employee.PayrollGroup?.CutoffDays ?? [])
+            .Select(cd => cd.IsEndOfMonth ? DateTime.DaysInMonth(end.Year, end.Month) : cd.Day)
+            .OrderBy(d => d)
+            .ToList();
     }
 
 
