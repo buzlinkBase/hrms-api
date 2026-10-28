@@ -124,6 +124,7 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     public DbSet<LeaveCredits> LeaveCredits { get; set; }
     public DbSet<LeaveLedger> LeaveLedgers { get; set; }
     public DbSet<Holiday> Holidays { get; set; }
+    public DbSet<HolidayArea> HolidayAreas { get; set; }
     public DbSet<MinimumWageRate> MinimumWageRates { get; set; }
     public DbSet<ChangeHoliday> ChangeHolidays { get; set; }
     public DbSet<ClientHoliday> ClientHolidays { get; set; }

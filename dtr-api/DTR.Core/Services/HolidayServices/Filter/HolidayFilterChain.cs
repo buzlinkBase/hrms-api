@@ -14,6 +14,7 @@ public class HolidayFilterChain
         };
     }
 
-    public bool IsApplicable(HolidayInfo holiday, EmployeeDTRRun employee)
-        => _strategies.Any(strategy => strategy.IsApplicable(holiday, employee));
+    // dayAreaId: the project site the employee's day is recorded at (DTRLocationResolver).
+    public bool IsApplicable(HolidayInfo holiday, Guid? dayAreaId)
+        => _strategies.Any(strategy => strategy.IsApplicable(holiday, dayAreaId));
 }

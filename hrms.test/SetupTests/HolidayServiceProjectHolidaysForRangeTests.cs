@@ -1,4 +1,4 @@
-using Hrms.Core.Services;
+﻿using Hrms.Core.Services;
 using Hrms.Domain.Entities;
 
 namespace hrms.test.SetupTests;
@@ -112,5 +112,20 @@ public class HolidayServiceProjectHolidaysForRangeTests
         result.Should().ContainSingle();
         result[0].HolDate.Should().Be(new DateOnly(2026, 2, 17));
         result[0].IsRecuring.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ProjectedHoliday_CarriesItsProjectSites()
+    {
+        var sites = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
+        var holiday = NonRecurringHoliday(new DateOnly(2026, 9, 9), "Osmeña Day");
+        foreach (var site in sites)
+        {
+            holiday.Areas.Add(new HolidayArea { AreaId = site });
+        }
+
+        var result = HolidayService.ProjectHolidaysForRange([holiday], new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30));
+
+        result.Should().ContainSingle().Which.AreaIds.Should().BeEquivalentTo(sites);
     }
 }

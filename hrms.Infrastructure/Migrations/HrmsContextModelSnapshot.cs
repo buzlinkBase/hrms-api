@@ -4104,9 +4104,6 @@ namespace Hrms.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid?>("AreaId")
-                        .HasColumnType("char(36)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -4153,11 +4150,49 @@ namespace Hrms.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AreaId");
-
                     b.HasIndex("TenantId", "DeletedAt");
 
                     b.ToTable("Holidays");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.HolidayArea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AreaId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("HolidayId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AreaId");
+
+                    b.HasIndex("HolidayId", "AreaId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("HolidayAreas");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.IncomePayment", b =>
@@ -8485,13 +8520,23 @@ namespace Hrms.Infrastructure.Migrations
                     b.Navigation("Employee");
                 });
 
-            modelBuilder.Entity("Hrms.Domain.Entities.Holiday", b =>
+            modelBuilder.Entity("Hrms.Domain.Entities.HolidayArea", b =>
                 {
                     b.HasOne("Hrms.Domain.Entities.CostCenters", "Area")
                         .WithMany()
-                        .HasForeignKey("AreaId");
+                        .HasForeignKey("AreaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.Holiday", "Holiday")
+                        .WithMany("Areas")
+                        .HasForeignKey("HolidayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Area");
+
+                    b.Navigation("Holiday");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.LeaveApplication", b =>
@@ -8878,6 +8923,11 @@ namespace Hrms.Infrastructure.Migrations
             modelBuilder.Entity("Hrms.Domain.Entities.EmployeeEntities.EmployeeProfileUpdateRequest", b =>
                 {
                     b.Navigation("Documents");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.Holiday", b =>
+                {
+                    b.Navigation("Areas");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.OtherIncomeApplication", b =>

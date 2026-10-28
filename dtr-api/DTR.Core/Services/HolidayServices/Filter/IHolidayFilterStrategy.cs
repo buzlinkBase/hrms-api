@@ -2,5 +2,5 @@
 
 public interface IHolidayFilterStrategy
 {
-    bool IsApplicable(HolidayInfo holiday, EmployeeDTRRun employee);
+    bool IsApplicable(HolidayInfo holiday, Guid? dayAreaId);
 }

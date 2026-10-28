@@ -1,4 +1,4 @@
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 
 namespace DTR.Core.Tests.Services;
@@ -52,6 +52,44 @@ public class HolidayHandlersTests
         result[0].State.Should().Be(ChangeSchedState.REPLACEMENT);
         result[0].HolType.Should().Be(HolidayType.SPECIAL); // from the replacement's Holiday, not the tracked one
         result[0].IsPaid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void OverrideHolidayHandler_Replacement_CarriesTheHolidaysProjectSites()
+    {
+        var employee = new EmployeeDTRRun { Id = Guid.NewGuid() };
+        var holidayId = Guid.NewGuid();
+        var sites = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
+        var tracked = HolidayModel(holidayId, Day, HolidayType.SPECIAL);
+        tracked.AreaIds = sites;
+        var changes = new Dictionary<Holidaykey, List<ChangeHoliday>>
+        {
+            [new Holidaykey(employee.Id, Day)] = new List<ChangeHoliday>
+            {
+                new ChangeHoliday
+                {
+                    HolidayId = holidayId, EmployeeId = employee.Id, PayrollDate = Day,
+                    State = ChangeSchedState.REPLACEMENT, Holiday = new Holiday { HolType = HolidayType.SPECIAL },
+                },
+            },
+        };
+
+        var result = new OverrideHolidayHandler([tracked], changes).Handle(employee, Day);
+
+        result.Should().ContainSingle().Which.AreaIds.Should().BeEquivalentTo(sites);
+    }
+
+    [Fact]
+    public void FallBackHolidayHandler_CarriesTheHolidaysProjectSites()
+    {
+        var employee = new EmployeeDTRRun { Id = Guid.NewGuid() };
+        var sites = new List<Guid> { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        var holiday = HolidayModel(Guid.NewGuid(), Day, HolidayType.SPECIAL);
+        holiday.AreaIds = sites;
+
+        var result = new FallBackHolidayHandler([holiday], new()).Handle(employee, Day);
+
+        result.Should().ContainSingle().Which.AreaIds.Should().BeEquivalentTo(sites);
     }
 
     [Fact]

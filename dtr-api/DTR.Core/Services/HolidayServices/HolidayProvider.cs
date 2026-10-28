@@ -2,16 +2,20 @@
 
 public static class HolidayProviderFactory
 {
-    public static HolidayProviderBase Create(EmployeeDTRRun employee, Dictionary<Holidaykey, List<HolidayInfo>> holidays)
+    // dayAreaId: the project site the day is recorded at (DTRLocationResolver) -- a localized
+    // special holiday applies only when it's one of the holiday's sites.
+    public static HolidayProviderBase Create(EmployeeDTRRun employee, Dictionary<Holidaykey, List<HolidayInfo>> holidays, Guid? dayAreaId)
     {
-        return new DefaultHolidayProvider(holidays);
+        return new DefaultHolidayProvider(holidays, dayAreaId);
     }
 }
 
 public sealed class DefaultHolidayProvider : HolidayProviderBase
 {
-    public DefaultHolidayProvider(Dictionary<Holidaykey, List<HolidayInfo>> holidays) : base(holidays)
+    private readonly Guid? _dayAreaId;
+    public DefaultHolidayProvider(Dictionary<Holidaykey, List<HolidayInfo>> holidays, Guid? dayAreaId) : base(holidays)
     {
+        _dayAreaId = dayAreaId;
     }
     public override TimeRecordCollection GetHolidayDuringDate(HolidayType type, EmployeeDTRRun employee, DateOnly date)
     {
@@ -37,7 +41,7 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
         var holidaySlices = holidayKeys
             .SelectMany(key =>
                 _holidays.TryGetValue(key, out var holidays)
-                    ? holidays?.Where(h => h.HolType == type && filterChain.IsApplicable(h, employee)) ?? []
+                    ? holidays?.Where(h => h.HolType == type && filterChain.IsApplicable(h, _dayAreaId)) ?? []
                     : Enumerable.Empty<HolidayInfo>())
             .GroupBy(h => new { h.HolidayId })
             .Select(g =>
@@ -69,7 +73,7 @@ public sealed class DefaultHolidayProvider : HolidayProviderBase
         var holidaySlices = holidayKeys
             .SelectMany(key =>
                 _holidays.TryGetValue(key, out var holidays)
-                    ? holidays?.Where(h => h.HolType == type && filterChain.IsApplicable(h, employee)) ?? []
+                    ? holidays?.Where(h => h.HolType == type && filterChain.IsApplicable(h, _dayAreaId)) ?? []
                     : Enumerable.Empty<HolidayInfo>())
             .OrderBy(h => h.PayrollDate)
             .ThenByDescending(x => x.WorkType)

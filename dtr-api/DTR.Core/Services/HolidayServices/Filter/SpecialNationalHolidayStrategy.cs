@@ -2,6 +2,6 @@
 
 public class SpecialNationalHolidayStrategy : IHolidayFilterStrategy
 {
-    public bool IsApplicable(HolidayInfo holiday, EmployeeDTRRun employee)
-        => holiday.HolType == HolidayType.SPECIAL && (!holiday.AreaId.HasValue || holiday.AreaId == Guid.Empty);
+    public bool IsApplicable(HolidayInfo holiday, Guid? dayAreaId)
+        => holiday.HolType == HolidayType.SPECIAL && holiday.AreaIds.Count == 0;
 }

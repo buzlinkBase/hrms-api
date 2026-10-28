@@ -2,7 +2,7 @@
 
 public class RegularHolidayStrategy : IHolidayFilterStrategy
 {
-    public bool IsApplicable(HolidayInfo holiday, EmployeeDTRRun employee)
+    public bool IsApplicable(HolidayInfo holiday, Guid? dayAreaId)
         => holiday.HolType == HolidayType.LEGAL;
 
 }

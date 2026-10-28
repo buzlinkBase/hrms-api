@@ -31,6 +31,9 @@ public class CurrentDayDTRPayload
             attendance.AddRange(VirtualTimeComposer.SetLeaveAttendance(currentLeave, curEmployee, currentShift));
         }
         attendance = attendance.OrderBy(p => p.WorkDateTime).ToList();
+        // Same site the day's DTR row is recorded at (CleanDTRDetailProcessor), so a localized
+        // holiday follows where the employee was scheduled/worked, not only their home site.
+        var dayAreaId = DTRLocationResolver.Resolve(currentShift, attendance.FirstOrDefault(), curEmployee).AreaId;
 
         var payload = new DTRProcessorPayloadBuilder()
             .SetEmployee(curEmployee)
@@ -45,7 +48,7 @@ public class CurrentDayDTRPayload
             .SetCurrentTravel(currentTravel)
             .SetOTProvider(new OverTimeServiceProvider(context.OverTimeApplications, curEmployee))
             .SetUTProvider(new UnderTimeServiceProvider(context.UnderTimeApplications, curEmployee))
-            .SetHolidayProvider(HolidayProviderFactory.Create(curEmployee, context.Holidays))
+            .SetHolidayProvider(HolidayProviderFactory.Create(curEmployee, context.Holidays, dayAreaId))
             .SetCompanyPolicy(context.CompanyPolicy)
             .SetClientPolicyProvider(new ClientPolicyProvider(context.ClientPolicies))
             .SetEmployeePolicy(context.EmployeePolicies.TryGetValue(new EmployeePolicyKey(curEmployee.Id), out var policy) ? policy : null)

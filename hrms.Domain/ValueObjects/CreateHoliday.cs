@@ -10,7 +10,7 @@ public class CreateHoliday
     public int? WeekOfMonth { get; set; }
     public DayOfWeek? DayOfWeek { get; set; }
     public bool IsPaid { get; set; }
-    public Guid? AreaId { get; set; }
+    public List<Guid> AreaIds { get; set; } = [];
     public string Status { get; set; }
 }
 public class UpdateHoliday : CreateHoliday

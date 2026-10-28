@@ -1,4 +1,4 @@
-using Hrms.Domain.Entities;
+﻿using Hrms.Domain.Entities;
 
 namespace DTR.Core.Tests.TestSupport;
 
@@ -46,7 +46,7 @@ public abstract class DtrTestBase
             GracePeriodMinutes = gracePeriodMinutes,
         };
         var holidayProvider = HolidayProviderFactory.Create(
-            employee, holidays ?? new Dictionary<Holidaykey, List<HolidayInfo>>());
+            employee, holidays ?? new Dictionary<Holidaykey, List<HolidayInfo>>(), areaId);
         var companyPolicy = new CompanyPolicyRule { HolidayTimeBasis = holidayTimeBasis };
 
         // WorkTypeResolver.Resolve reads Provider.AttendanceProvider.CurrentShiftAttendance()
@@ -201,7 +201,7 @@ public abstract class DtrTestBase
         HolidayType type,
         DateOnly payrollDate,
         HolidayWorkType workType = HolidayWorkType.NonWorking,
-        Guid? areaId = null,
+        IEnumerable<Guid>? areaIds = null,
         Guid? employeeId = null,
         bool isPaid = true) =>
         new HolidayInfo
@@ -210,7 +210,7 @@ public abstract class DtrTestBase
             HolType = type,
             PayrollDate = payrollDate,
             WorkType = workType,
-            AreaId = areaId,
+            AreaIds = areaIds?.ToList() ?? [],
             EmployeeId = employeeId ?? Guid.Empty,
             IsPaid = isPaid,
         };

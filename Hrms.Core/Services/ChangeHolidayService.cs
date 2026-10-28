@@ -1,5 +1,7 @@
 ﻿using Hrms.Domain.Entities;
 using MassTransit.Util;
+using Hrms.Domain.Entities.EmployeeEntities;
+using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.Core.Services;
 
@@ -18,6 +20,7 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
     {
         var Ids = holidayModel.EmployeeIds;
         if (!Ids.Any()) return;
+        await EnsureEmployeesAreCoveredAsync(holidayModel, token);
 
         var batches = GetQueryable()
             .Where(x => Ids.Contains(x.EmployeeId)
@@ -37,6 +40,44 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
         await CommitChangesAsync(token);
     }
 
+    // A localized special holiday can only be moved for employees assigned to one of its
+    // project sites -- for anyone else it isn't their holiday to move (the DTR would also drop the
+    // replacement, since it checks the day's site against the holiday's sites).
+    private async Task EnsureEmployeesAreCoveredAsync(CreateChangeHoliday holidayModel, CancellationToken token)
+    {
+        var holiday = await _uow.Repository.FindAll<Holiday>()
+            .AsNoTracking()
+            .Include(x => x.Areas)
+            .FirstOrDefaultAsync(x => x.Id == holidayModel.HolidayId, token)
+            ?? throw new GuardException("The selected holiday no longer exists.");
+
+        var siteIds = holiday.Areas.Select(a => a.AreaId).ToHashSet();
+        if (holiday.HolType != HolidayType.SPECIAL || siteIds.Count == 0)
+        {
+            return;
+        }
+
+        var employeeIds = holidayModel.EmployeeIds.Distinct().ToList();
+        var uncovered = (await _uow.Repository.FindAll<Employee>()
+                .AsNoTracking()
+                .Where(x => employeeIds.Contains(x.Id))
+                .Select(x => new { x.AreaId, x.LastName, x.FirstName })
+                .ToListAsync(token))
+            .Where(x => !x.AreaId.HasValue || !siteIds.Contains(x.AreaId.Value))
+            .Select(x => $"{x.LastName}, {x.FirstName}")
+            .OrderBy(x => x)
+            .ToList();
+        if (uncovered.Count == 0)
+        {
+            return;
+        }
+
+        var names = string.Join("; ", uncovered.Take(5));
+        var more = uncovered.Count > 5 ? $" and {uncovered.Count - 5} more" : string.Empty;
+        throw new GuardException(
+            $"{holiday.Description} only applies to its project sites. Not assigned to one of them: {names}{more}.");
+    }
+
     public async Task<List<ChangeHolidayModel>> LoadAllAsync(ChangeHolidayQueryPayload payload, CancellationToken token)
     {
         DateTime fromDateTime = payload.FromDate.ToDateTime(TimeOnly.MinValue);
@@ -45,6 +86,7 @@ public class ChangeHolidayService : BaseService<ChangeHoliday>
         var records = await GetQueryable()
             .AsNoTracking()
             .Include(x => x.Employee).ThenInclude(e => e.Client)
+            .Include(x => x.Employee).ThenInclude(e => e.Area)
             .Include(x => x.Holiday)
             .Where(x =>
                 (!payload.EmployeeId.HasValue || x.EmployeeId == payload.EmployeeId) &&

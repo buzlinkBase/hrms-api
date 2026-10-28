@@ -55,7 +55,8 @@ public class WTaxInfo
 public class HolidayInfo
 {
     public Guid HolidayId { get; set; }
-    public Guid? AreaId { get; set; }
+    // Project sites a localized special holiday applies to; empty = nationwide.
+    public IReadOnlyCollection<Guid> AreaIds { get; set; } = [];
     public DateOnly PayrollDate { get; set; }
     public HolidayWorkType WorkType { get; set; } = HolidayWorkType.Working;
     public HolidayType HolType { get; set; }

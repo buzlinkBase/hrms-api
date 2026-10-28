@@ -163,9 +163,11 @@ public class MappingProfile : IRegister
         config.NewConfig<WorkSchedulePlan, WorkSchedulePlanModel>();
 
         config.NewConfig<CreateChangeHoliday, ChangeHoliday>();
-        config.NewConfig<CreateHoliday, Holiday>();
-        config.NewConfig<UpdateHoliday, Holiday>();
-        config.NewConfig<Holiday, HolidayModel>();
+        // Areas <-> AreaIds is set by HolidayService (names differ, so Mapster wouldn't map it).
+        config.NewConfig<CreateHoliday, Holiday>().Ignore(d => d.Areas);
+        config.NewConfig<UpdateHoliday, Holiday>().Ignore(d => d.Areas);
+        config.NewConfig<Holiday, HolidayModel>()
+            .Map(d => d.AreaIds, s => s.Areas.Select(a => a.AreaId).ToList());
 
         config.NewConfig<CreateMinimumWageRate, MinimumWageRate>();
         config.NewConfig<UpdateMinimumWageRate, MinimumWageRate>();

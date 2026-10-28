@@ -52,15 +52,19 @@ public class OverrideHolidayHandler : HolidayHandler
         // Directly query the dictionary for O(1) lookup
         if (Changes.TryGetValue(key, out var keyChanges) && Holidays.Count > 0)
         {
-            var trackedHolidayIds = Holidays.Select(h => h.Id).ToHashSet();
+            // Sites come from the already-loaded holiday list (it carries AreaIds), so the
+            // replacement doesn't lazy-load ChangeHoliday.Holiday.Areas per row.
+            var trackedHolidays = Holidays
+                .GroupBy(h => h.Id)
+                .ToDictionary(g => g.Key, g => g.First().AreaIds);
 
             result = keyChanges
-                .Where(x => x.State == ChangeSchedState.REPLACEMENT && trackedHolidayIds.Contains(x.HolidayId))
+                .Where(x => x.State == ChangeSchedState.REPLACEMENT && trackedHolidays.ContainsKey(x.HolidayId))
                 .Select(x => new HolidayInfo
                 {
                     EmployeeId = x.EmployeeId,
                     HolType = x.Holiday.HolType,
-                    AreaId = x.Holiday.AreaId,
+                    AreaIds = trackedHolidays[x.HolidayId],
                     PayrollDate = x.PayrollDate,
                     State = ChangeSchedState.REPLACEMENT,
                     WorkType = x.Holiday.WorkType,
@@ -113,7 +117,7 @@ public class FallBackHolidayHandler : HolidayHandler
             {
                 EmployeeId = employee.Id,
                 HolType = x.HolType,
-                AreaId = x.AreaId,
+                AreaIds = x.AreaIds,
                 PayrollDate = payrollDate,
                 State = ChangeSchedState.DEFAULT,
                 WorkType = x.WorkType,

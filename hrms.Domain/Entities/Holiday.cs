@@ -16,7 +16,6 @@ public class Holiday : BaseEntity
     public int? WeekOfMonth { get; set; }
     public DayOfWeek? DayOfWeek { get; set; }
     public bool IsPaid { get; set; }
-    public Guid? AreaId { get; set; }
-    //[ForeignKey(nameof(AreaId))]
-    public virtual CostCenters Area { get; set; }
+    // Project sites a localized special holiday applies to; empty = nationwide.
+    public virtual ICollection<HolidayArea> Areas { get; set; } = new List<HolidayArea>();
 }
