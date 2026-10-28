@@ -332,6 +332,34 @@ public class PayrollBatchLifecycleService
         }
     }
 
+    // Withdraws a WHOLE released 13th month / Last Pay run in one command (the per-employee
+    // UnreleasePayoutAsync above, applied to every row) -- the batch-wide cascade in
+    // ExecuteBatchDeletionAsync already reverses posting, ledgers, consumption and DTR paid-stamps
+    // for the entire run, year-lock checked, so it is reused as-is in one transaction.
+    public async Task UnreleaseBatchAsync(Guid payrollBatchId, CancellationToken token)
+    {
+        var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
+            ?? throw new NotFoundException("Payroll batch not found.");
+        if (batch.PayrollType is not (PayrollType.ThirteenthMonth or PayrollType.LastPay))
+            throw new ValidationException("Only a 13th month or last pay run can be unreleased here.");
+        if (!batch.IsPosted)
+            throw new ValidationException("This run hasn't been released yet — delete it instead.");
+
+        try
+        {
+            await ExecuteBatchDeletionAsync(batch, token);
+            await _payrollBatchService.CommitChangesAsync(token);
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
+        }
+    }
+
     // Requesting deletion of an already-posted batch starts a separate PayrollPostingDeletion
     // approval instance instead of deleting outright (a resolved PayrollPosting instance can't be
     // reopened for a second approval cycle -- see ApprovalApplicationType.PayrollPostingDeletion).

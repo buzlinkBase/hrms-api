@@ -506,6 +506,62 @@ public class PayrollBatchLifecycleServiceTests
     }
 
     [Fact]
+    public async Task UnreleaseBatchAsync_RemovesEveryPayoutAndTheBatchHeader_InOneCommand()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var employees = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        var payrolls = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        await SeedThirteenthMonthRunAsync(db, batchId, employees, payrolls);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        await service.UnreleaseBatchAsync(batchId, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.Payrolls.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeFalse();
+        (await verify.TaxContributions.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeFalse();
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UnreleaseBatchAsync_Throws_WhenTheRunIsNotAThirteenthMonthOrLastPayRun()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        await SeedThirteenthMonthRunAsync(db, batchId, [Guid.NewGuid()], [Guid.NewGuid()], PayrollType.Regular);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var act = () => service.UnreleaseBatchAsync(batchId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+        await using var verify = db.NewContext();
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UnreleaseBatchAsync_Throws_WhenTheYearIsLocked()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        await SeedThirteenthMonthRunAsync(db, batchId, [Guid.NewGuid()], [Guid.NewGuid()]);
+        await using (var seed = db.NewContext())
+        {
+            seed.YearLocks.Add(new YearLock { Id = Guid.NewGuid(), Year = 2026, IsLocked = true });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var act = () => service.UnreleaseBatchAsync(batchId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+        await using var verify = db.NewContext();
+        (await verify.Payrolls.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task UnreleasePayoutAsync_Throws_WhenThePayoutIsNotAThirteenthMonthRow()
     {
         using var db = new SqliteHrmsContext();

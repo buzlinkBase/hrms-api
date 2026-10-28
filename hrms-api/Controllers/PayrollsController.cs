@@ -470,6 +470,19 @@ namespace Hrms.Api.Controllers
             return Ok("success");
         }
 
+        // Withdraws every released payout of a 13th month / last pay run at once -- the run-level
+        // counterpart of UnreleasePayout above. Same gate: {RunTypeFeature}:Approve.
+        [HttpPost("batch/{batchId:guid}/unrelease")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UnreleaseBatch(Guid batchId, CancellationToken token)
+        {
+            var violation = await ValidateBatchPermissionAsync(User, batchId, "Approve", token);
+            if (violation != null) return violation;
+
+            await _service.UnreleaseBatchAsync(batchId, token);
+            return Ok("success");
+        }
+
         // An already-posted batch can't be deleted outright (see DeleteBatch above) -- this
         // starts a separate PayrollPostingDeletion approval instance instead. Same permission as
         // the direct delete, since conceptually it's still "I want to delete this," just

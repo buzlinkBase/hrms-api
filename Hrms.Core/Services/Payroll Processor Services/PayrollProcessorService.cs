@@ -226,6 +226,9 @@ public class PayrollProcessorService
     public Task UnreleasePayoutAsync(Guid payrollId, CancellationToken token) =>
         _batchLifecycleService.UnreleasePayoutAsync(payrollId, token);
 
+    public Task UnreleaseBatchAsync(Guid payrollBatchId, CancellationToken token) =>
+        _batchLifecycleService.UnreleaseBatchAsync(payrollBatchId, token);
+
     public Task RequestDeletionAsync(Guid payrollBatchId, Guid requestedByEmployeeId, CancellationToken token) =>
         _batchLifecycleService.RequestDeletionAsync(payrollBatchId, requestedByEmployeeId, token);
 
