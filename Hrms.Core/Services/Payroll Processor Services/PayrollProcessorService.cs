@@ -223,6 +223,9 @@ public class PayrollProcessorService
     public Task DeleteBatchAsync(Guid payrollBatchId, CancellationToken token) =>
         _batchLifecycleService.DeleteBatchAsync(payrollBatchId, token);
 
+    public Task UnreleasePayoutAsync(Guid payrollId, CancellationToken token) =>
+        _batchLifecycleService.UnreleasePayoutAsync(payrollId, token);
+
     public Task RequestDeletionAsync(Guid payrollBatchId, Guid requestedByEmployeeId, CancellationToken token) =>
         _batchLifecycleService.RequestDeletionAsync(payrollBatchId, requestedByEmployeeId, token);
 
@@ -462,7 +465,8 @@ public class PayrollProcessorService
         // loads altogether, so a reliever-heavy run does less work than a normal one.
         var rangePayload = await _payloadComposer
                          .ComposePayload(dateRange, employees, token, payload.PayDate,
-                             carrierDecisions == null ? null : claims.Select(x => x.EmployeeId).ToList())
+                             carrierDecisions == null ? null : claims.Select(x => x.EmployeeId).ToList(),
+                             carrierMode == DeductionCarrierMode.EveryRun ? null : DayClientIds(records))
                           ?? throw new Exception("Unable to load range payload");
 
         // Pay/Release Date is optional: when the policy is PayDate and none is supplied,
@@ -529,6 +533,15 @@ public class PayrollProcessorService
             .ToList();
         return (payrollLines, paidDayIds, dtrBatchCodes, claims);
     }
+
+    // The clients this run's days were worked for -- loaded so a per-client run can price a reliever's
+    // day with that client's settings even when no employee is homed there.
+    private static List<Guid> DayClientIds(Dictionary<EmployeeKey, List<DailyRecordRunModel>> records) =>
+        records.Values.SelectMany(days => days)
+            .Where(d => d.ClientId != null)
+            .Select(d => d.ClientId!.Value)
+            .Distinct()
+            .ToList();
 
     private sealed record CarrierPlan(
         DeductionCarrierDecision Decision, DeductionPeriod Period,

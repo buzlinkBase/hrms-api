@@ -361,7 +361,7 @@ public class ApprovalDelegationTests : IDisposable
             var act = () => engine.RecordActionAsync(
                 ApprovalApplicationType.Leave, applicationId, _ana.Id, _cara.Id, callerHasOverrideAccess: false,
                 ApprovalActionType.Approved, null, default);
-            await act.Should().ThrowAsync<UnauthorizedAccessException>();
+            await act.Should().ThrowAsync<ForbiddenException>();
         }
     }
 

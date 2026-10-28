@@ -49,8 +49,8 @@ public class IncomeAplMainService : BaseService<OtherIncomeApplication>
         Guard.EnsureTrue((model.DayTypes & (int)OtherIncomeDayTypes.All) != 0, "Select at least one day type");
         Guard.EnsureTrue(model.MinQualifyingDays is null or > 0, "Minimum qualifying days must be at least 1");
         if (model.PayMode == OtherIncomePayMode.PeriodicGated)
-            Guard.EnsureTrue(model.FrequencyOfPayment is AllowanceFrequency.Weekly or AllowanceFrequency.Monthly,
-                "A periodic attendance-gated income must be weekly or monthly");
+            Guard.EnsureTrue(model.FrequencyOfPayment is AllowanceFrequency.Weekly or AllowanceFrequency.SemiMonthly or AllowanceFrequency.Monthly,
+                "A periodic attendance-gated income must be weekly, semi-monthly or monthly");
     }
 
     // Rows are only ever added through the Schedule navigation: the parent's Id is still
@@ -201,6 +201,7 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                 x.IncomeId,
                 x.IsTaxable,
                 IncomeClass = (IncomeClassType?)x.Income!.IncomeClass,
+                IncomeName = x.Income!.Name,
             })
             .ToListAsync(token);
 
@@ -222,6 +223,7 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                     IncomeId = x.IncomeId,
                     Taxable = x.IsTaxable,
                     Type = x.IncomeClass,
+                    Name = x.IncomeName,
                 }).ToList());
     }
 

@@ -1,3 +1,5 @@
+using Hrms.Core.Pipelines;
+using Hrms.Core.Policies.DTRPolicies;
 using Hrms.Core.Services;
 using Hrms.Domain.ValueObjects;
 using hrms.test.TestSupport;
@@ -202,6 +204,95 @@ public class PayrollLineComputationTests : TestContextBase
         // from the non-company numerator entirely — an unmapped LeaveId defaults to
         // Company-funded (fail-safe) rather than inflating the non-company split.
         line.NonCompanyPaidLeaves.Should().Be(0);
+    }
+
+    // --- Day client vs home client (per-client runs) -----------------------------------------
+
+    [Fact]
+    public void ComputeRetirementAccrual_PerClientRun_AccruesEachDayUnderTheClientItWasWorkedFor()
+    {
+        var home = Guid.NewGuid();
+        var site = Guid.NewGuid();
+        var employee = new EmployeeModelPayrollRun { ClientId = home, DailyRate = 800m };
+        var payload = new CalculatorPayload
+        {
+            ClientRetirementDaysPerYear = new Dictionary<Guid, decimal?> { [home] = 15m, [site] = 30m },
+            CompanyPolicy = new CompanyPolicyRule { DeductionCarrierMode = DeductionCarrierMode.PrimaryClient },
+        };
+        var days = new List<DailyRecordRunModel>
+        {
+            new() { ClientId = home, RegularNetHours = 120 },
+            new() { ClientId = site, RegularNetHours = 120 },
+        };
+        var line = new PayrollSummaryLine { RegularNetHours = 240 };
+
+        EmployeePayrollLineService.ComputeRetirementAccrual(employee, payload, line, days);
+
+        // 100 x (120 x 15 / 360) + 100 x (120 x 30 / 360) = 500 + 1,000
+        line.RetirementAccrual.Should().Be(1_500m);
+    }
+
+    [Fact]
+    public void ComputeRetirementAccrual_CarrierModeOff_KeepsEveryHourUnderTheHomeClient()
+    {
+        var home = Guid.NewGuid();
+        var site = Guid.NewGuid();
+        var employee = new EmployeeModelPayrollRun { ClientId = home, DailyRate = 800m };
+        var payload = new CalculatorPayload
+        {
+            ClientRetirementDaysPerYear = new Dictionary<Guid, decimal?> { [home] = 15m, [site] = 30m },
+        };
+        var days = new List<DailyRecordRunModel>
+        {
+            new() { ClientId = site, RegularNetHours = 240 },
+        };
+        var line = new PayrollSummaryLine { RegularNetHours = 240 };
+
+        EmployeePayrollLineService.ComputeRetirementAccrual(employee, payload, line, days);
+
+        // 100 x (240 x 15 / 360) = 1,000 -- the legacy formula, untouched by the day's client.
+        line.RetirementAccrual.Should().Be(1_000m);
+    }
+
+    [Theory]
+    [InlineData(DeductionCarrierMode.EveryRun, true)]
+    [InlineData(DeductionCarrierMode.PrimaryClient, false)]
+    public void PayDayClient_FollowsTheDayOnlyInAPerClientRun(DeductionCarrierMode mode, bool expectHome)
+    {
+        var home = Guid.NewGuid();
+        var site = Guid.NewGuid();
+        var context = new PayrollContext
+        {
+            Employee = new EmployeeModelPayrollRun { ClientId = home },
+            DailyRecord = new DailyRecordRunModel { ClientId = site },
+            Payload = new CalculatorPayload { CompanyPolicy = new CompanyPolicyRule { DeductionCarrierMode = mode } },
+        };
+
+        PayDayClient.For(context).Should().Be(expectHome ? home : site);
+    }
+
+    [Fact]
+    public void ClientPremiumRateHandler_PerClientRun_UsesTheDayClientsOverrideNotTheHomeClients()
+    {
+        var home = Guid.NewGuid();
+        var site = Guid.NewGuid();
+        var context = new PayrollContext
+        {
+            Employee = new EmployeeModelPayrollRun { ClientId = home },
+            DailyRecord = new DailyRecordRunModel { ClientId = site },
+            Payload = new CalculatorPayload
+            {
+                CompanyPolicy = new CompanyPolicyRule { DeductionCarrierMode = DeductionCarrierMode.MostDays },
+                ClientPremiumRates = new Dictionary<ClientRateKey, decimal>
+                {
+                    [new ClientRateKey(home, RateType.NIGHTDIFF)] = 1.5m,
+                    [new ClientRateKey(site, RateType.NIGHTDIFF)] = 1.25m,
+                },
+            },
+        };
+
+        new ClientPremiumRateHandler().TryResolve(context, RateType.NIGHTDIFF, out var rate).Should().BeTrue();
+        rate.Should().Be(1.25m);
     }
 
     // --- ComputeRetirementAccrual -----------------------------------------------------------

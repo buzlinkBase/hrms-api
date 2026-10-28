@@ -168,7 +168,7 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
         var existing = await GetOneAsync(id, token);
-        if (existing == null) return;
+        if (existing == null) throw new NotFoundException("Loan application not found.");
         if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This application is not awaiting approval.");
 
@@ -187,7 +187,7 @@ public class DeductionApplicationService : BaseService<DeductionApplication>
         Guid id, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
         var existing = await GetOneAsync(id, token);
-        if (existing == null) return;
+        if (existing == null) throw new NotFoundException("Loan application not found.");
         if (existing.ApprovalStatus != ApprovalStatus.ForApproval)
             throw new InvalidOperationException("This application is not awaiting approval.");
 

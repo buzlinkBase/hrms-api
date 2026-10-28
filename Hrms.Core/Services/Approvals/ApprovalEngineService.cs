@@ -3,6 +3,7 @@ using Hrms.Domain.Entities.Approvals;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Hrms.Core.Messaging;
 using MassTransit;
+using Onepunch.Common.Lib.Exceptions;
 using Onepunch.AuditEngine;
 
 namespace Hrms.Core.Services.Approvals;
@@ -509,11 +510,15 @@ public class ApprovalEngineService
             a.CycleNumber == instance.CycleNumber &&
             (a.OnBehalfOfEmployeeId ?? a.ActorEmployeeId) == callerKey &&
             a.Action != ApprovalActionType.Reassigned);
-        if (alreadyActedOnCurrentStep)
+        // An Owner/Admin stepping in for someone else is an override: it completes the step for
+        // everyone, so it is never mistaken for a repeat of an earlier click of theirs.
+        var isOverride = callerHasOverrideAccess && !standing.Eligible;
+        if (alreadyActedOnCurrentStep && !isOverride)
             return new ApprovalActionResult(instance.Status, instance.CurrentStepNumber);
 
         if (!callerHasOverrideAccess && !standing.Eligible)
-            throw new UnauthorizedAccessException("You are not an eligible approver for this step.");
+            throw new ForbiddenException(
+                $"You are not an approver for this step. It is waiting for {await DescribeCurrentApproversAsync(instance, applicant, token)}.");
 
         var noteRequirement = currentStep?.NoteRequirement ?? NoteRequirement.None;
         if (noteRequirement == NoteRequirement.Required && string.IsNullOrWhiteSpace(note))
@@ -534,10 +539,10 @@ public class ApprovalEngineService
             OnBehalfOfEmployeeId = onBehalfOf,
             GroupId = groupId,
             Action = action,
-            Note = noteRequirement == NoteRequirement.None ? null : note,
+            Note = OverrideNote(noteRequirement == NoteRequirement.None ? null : note, isOverride),
         };
         await _uow.Repository.AddAsync(recorded, token);
-        await AuditActionAsync(instance, applicant, action, noteRequirement == NoteRequirement.None ? null : note, onBehalfOf, token);
+        await AuditActionAsync(instance, applicant, action, noteRequirement == NoteRequirement.None ? null : note, onBehalfOf, isOverride, token);
 
         if (action == ApprovalActionType.Declined)
         {
@@ -575,7 +580,9 @@ public class ApprovalEngineService
         }
         else
         {
-            stepCleared = ApprovalQuorum.IsStepCleared(minApprovals, approverIdsForStep);
+            // An override decides for the whole step, like the parallel case above, however many
+            // approvals the step asks for.
+            stepCleared = isOverride || ApprovalQuorum.IsStepCleared(minApprovals, approverIdsForStep);
         }
 
         if (!stepCleared)
@@ -811,7 +818,7 @@ public class ApprovalEngineService
     // where eligibility has just been confirmed, so it commits with the action itself. The actor
     // (the approver's account) is resolved from the request by the audit pipeline.
     private Task AuditActionAsync(
-        ApprovalInstance instance, Employee applicant, ApprovalActionType action, string? note, Guid? onBehalfOf, CancellationToken token)
+        ApprovalInstance instance, Employee applicant, ApprovalActionType action, string? note, Guid? onBehalfOf, bool isOverride, CancellationToken token)
     {
         if (_audit == null) return Task.CompletedTask;
 
@@ -824,6 +831,7 @@ public class ApprovalEngineService
         };
         if (!string.IsNullOrWhiteSpace(note)) metadata["Note"] = note;
         if (onBehalfOf is { } delegator) metadata["OnBehalfOfEmployeeId"] = delegator.ToString();
+        if (isOverride) metadata["Override"] = "true";
 
         return _audit.WriteAsync(new AuditEvent
         {
@@ -839,6 +847,41 @@ public class ApprovalEngineService
 
     private static ApprovalWorkflowStep? CurrentStep(ApprovalInstance instance) =>
         instance.Workflow?.Steps.SingleOrDefault(s => s.StepNumber == instance.CurrentStepNumber);
+
+    public const string OverrideNotePrefix = "[Owner override]";
+
+    private static string? OverrideNote(string? note, bool isOverride) =>
+        !isOverride ? note : string.IsNullOrWhiteSpace(note) ? OverrideNotePrefix : $"{OverrideNotePrefix} {note}";
+
+    // Who the current step is waiting on, in words, for the error shown to someone who can't act on it.
+    private async Task<string> DescribeCurrentApproversAsync(ApprovalInstance instance, Employee applicant, CancellationToken token)
+    {
+        var step = CurrentStep(instance);
+        var resolvedByPool = new Dictionary<(int Step, Guid? Group), ResolvedApprovers>();
+        if (step != null)
+        {
+            foreach (var pool in ApprovalStepPools.Of(step))
+            {
+                if (await ResolvePoolApproversAsync(pool.Effective, applicant, token) is { } resolved)
+                    resolvedByPool[(step.StepNumber, pool.GroupId)] = resolved;
+            }
+        }
+
+        var nameIds = (instance.ReassignedApproverEmployeeId is { } reassigned ? new[] { reassigned } : [])
+            .Concat(step == null ? [] : ApprovalStepPools.Of(step).Select(p => p.Effective.ApproverEmployeeId).OfType<Guid>())
+            .Concat(resolvedByPool.Values.SelectMany(r => r.EmployeeIds))
+            .Distinct()
+            .ToList();
+        var names = nameIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _uow.Repository.Find<Employee>(e => nameIds.Contains(e.Id)).AsNoTracking().ToListAsync(token))
+                .ToDictionary(e => e.Id, e => $"{e.FirstName} {e.LastName}".Trim());
+
+        var label = instance.ReassignedApproverEmployeeId is { } reassignedId
+            ? names.GetValueOrDefault(reassignedId)
+            : ApprovalStepLabeler.StepLabel(step, names, resolvedByPool, "Applicant");
+        return string.IsNullOrWhiteSpace(label) ? "another approver" : label;
+    }
 
     // Who a step's ApproverType actually resolves to right now, for notification purposes -- the
     // same resolution rules ApproverEligibilityResolver checks against a single caller, just

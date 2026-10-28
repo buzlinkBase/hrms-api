@@ -347,6 +347,11 @@ public class DailyRecordService : BaseService<DailyRecord>
         // Captured before the rows go -- afterwards there is nothing left to say which ones the portal holds.
         var postedIds = await BatchRecords(batchCode).Where(x => x.Posted).Select(x => x.Id).ToListAsync(token);
         await StagePortalRemovalAsync(postedIds, batchCode, ClientPortal.ClientPortalAttendanceRemovalService.BatchDeleted, token);
+        // A draft deleted while its posting approval is still pending would otherwise leave that
+        // request InProgress forever -- pinning its workflow ("1 request pending") with nothing
+        // left to approve. No-op once the instance is resolved (a posted batch's deletion).
+        foreach (var batch in await _dtrBatchService.FindByCodesAsync([batchCode], token))
+            await _approvalEngine.CancelAsync(ApprovalApplicationType.Dtr, batch.Id, token);
         await SaveChangesAsync(token);
         // Every row of the batch, including confidential employees the caller can't see -- the
         // batch header goes too, so none may be left behind (see BatchRecords).

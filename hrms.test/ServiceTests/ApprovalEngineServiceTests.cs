@@ -8,6 +8,7 @@ using MockQueryable.NSubstitute;
 using NSubstitute;
 using Onepunch.AuditEngine;
 using Onepunch.Common.Lib.DTO;
+using Onepunch.Common.Lib.Exceptions;
 
 namespace hrms.test.ServiceTests;
 
@@ -158,7 +159,7 @@ public class ApprovalEngineServiceTests
 
         var ineligible = () => service.RecordActionAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, Stranger.Id,
             callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
-        await ineligible.Should().ThrowAsync<UnauthorizedAccessException>();
+        await ineligible.Should().ThrowAsync<ForbiddenException>();
         audit.Events.Should().BeEmpty("a refused action is not an approval");
 
         // The same approver's click, then a double-click / client retry of it.
@@ -248,7 +249,7 @@ public class ApprovalEngineServiceTests
             ApprovalApplicationType.Leave, applicationId, applicant.Id, stranger.Id,
             callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
 
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        await act.Should().ThrowAsync<ForbiddenException>();
     }
 
     [Fact]
@@ -274,6 +275,59 @@ public class ApprovalEngineServiceTests
             callerHasOverrideAccess: true, ApprovalActionType.Approved, note: null, CancellationToken.None);
 
         result.InstanceStatus.Should().Be(ApprovalInstanceStatus.Approved);
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_OverrideAccess_ClearsAStepThatNeedsSeveralApprovals()
+    {
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee();
+        var admin = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 2, NamedApprovers = [] }],
+        };
+        var (service, _, actions, _) = BuildService([applicant, approver, admin], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+
+        var result = await service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, admin.Id,
+            callerHasOverrideAccess: true, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        result.InstanceStatus.Should().Be(ApprovalInstanceStatus.Approved);
+        actions.Should().ContainSingle(a => a.ActorEmployeeId == admin.Id)
+            .Which.Note.Should().StartWith(ApprovalEngineService.OverrideNotePrefix);
+    }
+
+    [Fact]
+    public async Task RecordActionAsync_Ineligible_NamesTheCurrentApprover()
+    {
+        var applicant = BuildEmployee();
+        var approver = BuildEmployee();
+        var stranger = BuildEmployee();
+        var workflow = new ApprovalWorkflow
+        {
+            Id = Guid.NewGuid(),
+            ApplicationType = ApprovalApplicationType.Leave,
+            IsActive = true,
+            Steps = [new ApprovalWorkflowStep { StepNumber = 1, ApproverType = ApproverType.Person, ApproverEmployeeId = approver.Id, MinApprovals = 1, NamedApprovers = [] }],
+        };
+        var (service, _, _, _) = BuildService([applicant, approver, stranger], [workflow]);
+
+        var applicationId = Guid.NewGuid();
+        await service.StartAsync(ApprovalApplicationType.Leave, applicationId, applicant.Id, CancellationToken.None);
+
+        var act = () => service.RecordActionAsync(
+            ApprovalApplicationType.Leave, applicationId, applicant.Id, stranger.Id,
+            callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<ForbiddenException>())
+            .Which.Message.Should().Contain($"{approver.FirstName} {approver.LastName}".Trim());
     }
 
     [Fact]
@@ -337,7 +391,7 @@ public class ApprovalEngineServiceTests
         var wrongApprover = () => service.RecordActionAsync(
             ApprovalApplicationType.Leave, applicationId, applicant.Id, step1Approver.Id,
             callerHasOverrideAccess: false, ApprovalActionType.Approved, note: null, CancellationToken.None);
-        await wrongApprover.Should().ThrowAsync<UnauthorizedAccessException>();
+        await wrongApprover.Should().ThrowAsync<ForbiddenException>();
 
         var afterStep2 = await service.RecordActionAsync(
             ApprovalApplicationType.Leave, applicationId, applicant.Id, step2Approver.Id,

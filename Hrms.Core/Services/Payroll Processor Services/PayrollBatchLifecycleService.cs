@@ -285,6 +285,53 @@ public class PayrollBatchLifecycleService
         await _payrollBatchService.DeleteAsync(payrollBatchId, token, commit: false);
     }
 
+    // Withdraws ONE employee's released 13th month or Last Pay payout (an erroneous release) so it
+    // can be regenerated -- the run-level deletion below would drop every employee in the batch.
+    // Only a posted row qualifies: a draft never moved balances, so it is deleted with its run.
+    // Posting moved loan balances and retirement funds for a Last Pay (a 13th month line carries
+    // neither), so that is reversed first, exactly as ExecuteBatchDeletionAsync does, but scoped
+    // to this one row. SSS/PHIC/HDMF are never written for either payout type, only the WTax
+    // ledger. The shared batch is removed only once its last row is gone. Same
+    // single-transaction composition as DeleteBatchAsync above.
+    public async Task UnreleasePayoutAsync(Guid payrollId, CancellationToken token)
+    {
+        var row = await _payrollService.GetOneIgnoringConfidentialityAsync(payrollId, token)
+            ?? throw new NotFoundException("Payout not found.");
+        if (row.PayrollType is not (PayrollType.ThirteenthMonth or PayrollType.LastPay))
+            throw new ValidationException("Only a 13th month or last pay payout can be unreleased here.");
+        if (!row.IsPosted)
+            throw new ValidationException("This payout hasn't been released yet — delete its run instead.");
+        var year = row.PostingPeriod.Year;
+        if (await _yearLockService.IsYearLockedAsync(year, token))
+        {
+            throw new ValidationException(
+                $"Payroll for {year} is locked — the Year-End Tax Adjustment has already been posted for " +
+                "this year. Reopen the year first if changes are required.");
+        }
+
+        try
+        {
+            var payrollIds = new List<Guid> { payrollId };
+            await _payrollService.ReversePostingForPayrollsAsync(payrollIds, token);
+            await _taxContributionService.DeleteByBatchAndEmployeeAsync(row.PayrollBatchId, row.EmployeeId, token);
+            await _payrollService.DeleteDeductionDetailsByPayrollIdsAsync(payrollIds, token);
+            await _payrollService.DeleteDtrDetailsByPayrollIdsAsync(payrollIds, token);
+            await _consumptionService.ReleaseAsync(payrollIds, token);
+            await _payrollService.DeleteByIdAsync(payrollId, token);
+            if (await _payrollService.CountInBatchAsync(row.PayrollBatchId, token) == 0)
+                await _payrollBatchService.DeleteAsync(row.PayrollBatchId, token, commit: false);
+            await _payrollBatchService.CommitChangesAsync(token);
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
+        }
+    }
+
     // Requesting deletion of an already-posted batch starts a separate PayrollPostingDeletion
     // approval instance instead of deleting outright (a resolved PayrollPosting instance can't be
     // reopened for a second approval cycle -- see ApprovalApplicationType.PayrollPostingDeletion).

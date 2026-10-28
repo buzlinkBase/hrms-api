@@ -50,9 +50,9 @@ public class DeductionApplicationValidator : AbstractValidator<DeductionApplicat
                 .WithMessage("Minimum qualifying days must be at least 1");
         });
         RuleFor(x => x.FrequencyOfPayment)
-            .Must(f => f is DeductionFrequency.Weekly or DeductionFrequency.Monthly)
+            .Must(f => f is DeductionFrequency.Weekly or DeductionFrequency.SemiMonthly or DeductionFrequency.Monthly)
             .When(x => x.PayMode == OtherIncomePayMode.PeriodicGated)
-            .WithMessage("A periodic attendance-gated deduction must be weekly or monthly");
+            .WithMessage("A periodic attendance-gated deduction must be weekly, semi-monthly or monthly");
 
         RuleFor(x => x.DeductionId)
           .NotEmpty().WithMessage("Deduction type is required")

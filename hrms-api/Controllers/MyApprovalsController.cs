@@ -6,6 +6,7 @@ using Hrms.Domain;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 using Onepunch.Common.Lib.Security;
+using Onepunch.Common.Lib.Exceptions;
 
 namespace Hrms.Api.Controllers;
 
@@ -138,9 +139,9 @@ public class MyApprovalsController : ControllerBase
 
         // Acting as themself needs the type's Approve permission, exactly as on the module's own
         // screen. Acting for a delegator is what delegation grants, so it doesn't.
-        var allowed = standing.Standing.GrantsAccess
-            || ((standing.Standing.Eligible || hasOverride) && User.HasAnyPermission($"{adapter.PermissionPrefix}:Approve"));
-        if (!allowed) return Forbid();
+        // Eligibility itself is enforced by the engine, which names who the step is waiting on.
+        var allowed = standing.Standing.GrantsAccess || User.HasAnyPermission($"{adapter.PermissionPrefix}:Approve");
+        if (!allowed) throw new ForbiddenException("You don't have permission to approve or decline this kind of request.");
 
         if (approve) await adapter.ApproveAsync(applicationId, employeeId, hasOverride, note, token);
         else await adapter.DeclineAsync(applicationId, employeeId, hasOverride, note, token);

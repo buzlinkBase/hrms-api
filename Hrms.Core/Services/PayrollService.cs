@@ -170,6 +170,18 @@ public class PayrollService : BaseService<Payroll>
         await WholeBatch(payrollBatchId).ExecuteDeleteAsync(token);
     }
 
+    /// <summary>One row by id, confidential employees included -- for withdrawing a single payout.</summary>
+    public Task<Payroll?> GetOneIgnoringConfidentialityAsync(Guid payrollId, CancellationToken token) =>
+        Context.IgnoringConfidentiality<Payroll>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == payrollId, token);
+
+    public async Task DeleteByIdAsync(Guid payrollId, CancellationToken token)
+    {
+        await Context.IgnoringConfidentiality<Payroll>().Where(x => x.Id == payrollId).ExecuteDeleteAsync(token);
+    }
+
+    public Task<int> CountInBatchAsync(Guid payrollBatchId, CancellationToken token) =>
+        WholeBatch(payrollBatchId).CountAsync(token);
+
     // A draft that's deleted before posting never had its DeductionApplicationDetail.Balance
     // touched (see PostBatchAsync/ReduceDeductionBalancesAsync below — only Post does that), so
     // this is pure cleanup of the now-orphaned breakdown rows, same reasoning as the SSS/PHIC/
@@ -338,6 +350,15 @@ public class PayrollService : BaseService<Payroll>
     public async Task ReversePostingAsync(Guid payrollBatchId, CancellationToken token)
     {
         var payrollIds = await WholeBatch(payrollBatchId).Select(x => x.Id).ToListAsync(token);
+        await ReversePostingForPayrollsAsync(payrollIds, token);
+    }
+
+    /// <summary>
+    /// <see cref="ReversePostingAsync"/> for specific Payroll rows -- withdrawing one employee's
+    /// posted payout (a Last Pay) without touching the rest of its run. Doesn't commit.
+    /// </summary>
+    public async Task ReversePostingForPayrollsAsync(List<Guid> payrollIds, CancellationToken token)
+    {
         if (payrollIds.Count == 0) return;
 
         await RestoreDeductionBalancesAsync(payrollIds, token);

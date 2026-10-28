@@ -454,6 +454,22 @@ namespace Hrms.Api.Controllers
             return Ok("success");
         }
 
+        // Withdraws one employee's erroneously released 13th month / last pay payout so it can be
+        // regenerated -- the run-level delete above would drop every employee in the batch.
+        // Gated like the run's own approval: {RunTypeFeature}:Approve of the payout's run type.
+        [HttpDelete("payout/{payrollId:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UnreleasePayout(Guid payrollId, CancellationToken token)
+        {
+            var row = await _payrollService.GetOneIgnoringConfidentialityAsync(payrollId, token);
+            if (row == null) return NotFound();
+            if (!RunTypeFeature.TryGetValue(row.PayrollType, out var feature) || !User.HasAnyPermission($"{feature}:Approve"))
+                return Forbid();
+
+            await _service.UnreleasePayoutAsync(payrollId, token);
+            return Ok("success");
+        }
+
         // An already-posted batch can't be deleted outright (see DeleteBatch above) -- this
         // starts a separate PayrollPostingDeletion approval instance instead. Same permission as
         // the direct delete, since conceptually it's still "I want to delete this," just

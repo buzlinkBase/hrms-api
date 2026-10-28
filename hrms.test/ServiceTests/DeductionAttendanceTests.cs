@@ -384,6 +384,20 @@ public class DeductionAttendanceTests : IDisposable
     }
 
     [Fact]
+    public async Task AddAsync_AcceptsASemiMonthlyPeriodicGate()
+    {
+        var s = await SeedAsync();
+        var form = Form(s);
+        form.PayMode = OtherIncomePayMode.PeriodicGated;
+        form.FrequencyOfPayment = DeductionFrequency.SemiMonthly;
+        form.Breakdown = [new() { Date = Sunday, Principal = 100m, Amount = 100m, PeriodStart = Monday, PeriodEnd = Sunday }];
+
+        var app = await AddAsync(form);
+
+        app.FrequencyOfPayment.Should().Be(DeductionFrequency.SemiMonthly);
+    }
+
+    [Fact]
     public async Task AddAsync_RefusesAPeriodicGateThatIsNotWeeklyOrMonthly()
     {
         var s = await SeedAsync();
@@ -393,7 +407,7 @@ public class DeductionAttendanceTests : IDisposable
 
         var act = () => AddAsync(form);
 
-        await act.Should().ThrowAsync<Exception>().WithMessage("*weekly or monthly*");
+        await act.Should().ThrowAsync<Exception>().WithMessage("*semi-monthly*");
     }
 
     [Fact]

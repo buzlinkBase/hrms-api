@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Exceptions;
 using Hrms.Core.Services;
 using Hrms.Core.Services.Approvals;
 using Hrms.Domain.Entities;
@@ -91,6 +92,38 @@ public class DailyRecordServiceApprovalTests
         savedRecord.Posted.Should().BeFalse("Save Draft persists as an unposted draft until approved");
         (await verify.ApprovalInstances.AnyAsync(x => x.ApplicationId == batch.Id && x.ApplicationType == ApprovalApplicationType.Dtr))
             .Should().BeTrue("StartAsync should have created the approval instance at Save Draft time");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_CancelsThePendingPostingApproval_SoItNoLongerPinsTheWorkflow()
+    {
+        using var db = new SqliteHrmsContext();
+        Guid payrollGroupId;
+        Employee generator;
+        await using (var seed = db.NewContext())
+        {
+            (payrollGroupId, generator, _) = SeedEmployees(seed);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var uow = new UnitOfWorkService(context);
+        var service = BuildService(uow);
+
+        var batchCode = "DTRJan012026-Jan152026 TS:pending-delete";
+        var records = new List<DailyRecord>
+        {
+            new() { Id = Guid.NewGuid(), EmployeeId = generator.Id, WorkDate = new DateOnly(2026, 1, 1), BatchCode = batchCode, PayrollGroupId = payrollGroupId },
+        };
+        var batch = await service.SaveDraftAsync(
+            records, batchCode, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15),
+            payrollGroupId, generator.Id, CancellationToken.None);
+
+        await service.DeleteAsync(batchCode, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        var instance = await verify.ApprovalInstances.FirstAsync(x => x.ApplicationId == batch.Id && x.ApplicationType == ApprovalApplicationType.Dtr);
+        instance.Status.Should().Be(ApprovalInstanceStatus.Cancelled, "deleting the draft must not leave its approval request InProgress");
     }
 
     [Fact]
@@ -268,7 +301,7 @@ public class DailyRecordServiceApprovalTests
     }
 
     [Fact]
-    public async Task ApproveBatchAsync_ThrowsUnauthorizedAccessException_WhenApproverIsIneligible()
+    public async Task ApproveBatchAsync_ThrowsForbiddenException_WhenApproverIsIneligible()
     {
         using var db = new SqliteHrmsContext();
         var batchId = Guid.NewGuid();
@@ -328,7 +361,7 @@ public class DailyRecordServiceApprovalTests
         var service = BuildService(uow);
         var act = () => service.ApproveBatchAsync(batchId, ineligibleApprover.Id, approverHasOverride: false, note: null, CancellationToken.None);
 
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        await act.Should().ThrowAsync<ForbiddenException>();
 
         await using var verify = db.NewContext();
         var batch = await verify.DTRBatches.FindAsync(batchId);

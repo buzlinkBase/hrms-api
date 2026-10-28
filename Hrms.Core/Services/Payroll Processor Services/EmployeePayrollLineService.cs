@@ -53,7 +53,7 @@ public class EmployeePayrollLineService
         // paid, so payslip hours x rate stopped matching the amounts.
         var paidDtr = SelectPaidRecords(empDtr, employee.Id, dateRange.FromDate, dateRange.ToDate);
         ComputeHoursBreakdown(paidDtr, payrollLine);
-        ComputeRetirementAccrual(employee, rangePayload, payrollLine);
+        ComputeRetirementAccrual(employee, rangePayload, payrollLine, paidDtr);
         payrollLine.PaidLeaveBreakdown = BuildPaidLeaveBreakdown(empLeaveInfo);
         ComputeBasicSalary(dateRange, paidDtr, employee, rangePayload, payrollLine, leavePaySourceMap);
         rangePayload.Leaves.TryGetValue(new Leavekey(employee.Id), out var employeeLeaveApps);
@@ -195,15 +195,35 @@ public class EmployeePayrollLineService
     // PayrollService.ProcessRetirementFundActivityAsync), mirroring why DeductionApplicationDetail.
     // Balance is deferred to Post: a regenerated or deleted draft must never corrupt a running
     // balance.
+    //
+    // days: the paid DTR days. In a per-client run (deduction carrier mode on) the hours accrue under
+    // the client each day was worked for; otherwise all hours accrue under the employee's own client.
     internal static void ComputeRetirementAccrual(
-        EmployeeModelPayrollRun employee, CalculatorPayload rangePayload, PayrollSummaryLine payrollLine)
+        EmployeeModelPayrollRun employee, CalculatorPayload rangePayload, PayrollSummaryLine payrollLine,
+        IReadOnlyCollection<DailyRecordRunModel>? days = null)
     {
-        if (employee.ClientId is not { } clientId) return;
-        if (!rangePayload.ClientRetirementDaysPerYear.TryGetValue(clientId, out var daysPerYear) || daysPerYear is not { } days)
-            return; // no key, or a null value, means this client gives no retirement benefit
+        var hoursByClient = new Dictionary<Guid, decimal>();
+        if (days != null && rangePayload.CompanyPolicy.DeductionCarrierMode != DeductionCarrierMode.EveryRun)
+        {
+            foreach (var day in days)
+            {
+                if ((day.ClientId ?? employee.ClientId) is not { } dayClient) continue;
+                hoursByClient[dayClient] = hoursByClient.GetValueOrDefault(dayClient) + (decimal)day.RegularNetHours;
+            }
+        }
+        else if (employee.ClientId is { } clientId)
+        {
+            hoursByClient[clientId] = payrollLine.RegularNetHours;
+        }
 
         var hourlyRate = employee.DailyRate / 8m;
-        payrollLine.RetirementAccrual = hourlyRate * (payrollLine.RegularNetHours * days / 12m / 30m);
+        foreach (var (clientId, hours) in hoursByClient)
+        {
+            // no key, or a null value, means this client gives no retirement benefit
+            if (!rangePayload.ClientRetirementDaysPerYear.TryGetValue(clientId, out var daysPerYear) || daysPerYear is not { } perYear)
+                continue;
+            payrollLine.RetirementAccrual += hourlyRate * (hours * perYear / 12m / 30m);
+        }
     }
 
     // Which leave type(s) made up this run's PaidLeaves/UnpaidLeaves totals, and how many
@@ -463,6 +483,8 @@ public class EmployeePayrollLineService
         if (employee.SalaryType != SalaryType.FIXED)
         {
             payrollLine.BasicPay = TimeCalcResult.Sum(x => x.RegularDayPay);
+            payrollLine.AddSource("basicPay", "Regular day pay",
+                payrollLine.BasicPay, $"{TimeCalcResult.Count(x => x.RegularDayPay > 0)} day(s)");
             return;
         }
         var divisor = GetDivisor(payrollLine.PayPeriodStart, employee);
@@ -485,6 +507,15 @@ public class EmployeePayrollLineService
         var oneTimeLeaveDeduction = Math.Max(0, oneTimeLeaveDays) * employee.DailyRate;
         basicTotal = basicTotal - deductions - oneTimeLeaveDeduction;
         payrollLine.BasicPay = Math.Max(0, basicTotal);
+        payrollLine.AddSource("basicPay", "Fixed salary (period share)", payrollLine.FixedBasicSalary);
+        payrollLine.AddSource("basicPay", "Late", -TimeCalcResult.Sum(x => x.LateAmount));
+        payrollLine.AddSource("basicPay", "Under time", -TimeCalcResult.Sum(x => x.UTAmount));
+        payrollLine.AddSource("basicPay", "Absent", -TimeCalcResult.Sum(x => x.AbsentAmount));
+        payrollLine.AddSource("basicPay", "Unpaid leave", -TimeCalcResult.Sum(x => x.UnpaidLeave));
+        payrollLine.AddSource("basicPay", "One-time leave payout days",
+            -oneTimeLeaveDeduction, $"{Math.Max(0, oneTimeLeaveDays)} day(s) paid separately");
+        // The cuts exceeded the salary share, so Basic is floored at zero.
+        payrollLine.AddSource("basicPay", "Floored at zero", payrollLine.BasicPay - basicTotal);
     }
 
     // Sums the calendar days of this employee's approved OneTime-payout leave application(s)
@@ -531,6 +562,16 @@ public class EmployeePayrollLineService
         }
     }
 
+    // One source line per income type, summed across its schedule rows in this cutoff.
+    private static void AddIncomeSources(PayrollSummaryLine payrollLine, string key, List<OtherIncomeInfo> items)
+    {
+        foreach (var g in items.GroupBy(x => x.IncomeId))
+        {
+            var name = g.Select(x => x.Name).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? "Other Income";
+            payrollLine.AddSource(key, name, g.Sum(x => x.Amount), g.Count() > 1 ? $"{g.Count()} entries" : null);
+        }
+    }
+
     private AllowancePipeData ComputeAllowances(
         DateRangePayload payload,
         CalculatorPayload rangePayload,
@@ -554,6 +595,12 @@ public class EmployeePayrollLineService
         payrollLine.Reimbursement = IncomeCalcResult.Reimbursements.Sum(x => x.Amount);
         payrollLine.TotalRegularAllowances = IncomeCalcResult.RegularAllowances.Sum(x => x.Amount);
         payrollLine.OtherIncomeCollection = IncomeCalcResult.AllIncome;
+        AddIncomeSources(payrollLine, "totalRegularAllowances", IncomeCalcResult.RegularAllowances);
+        AddIncomeSources(payrollLine, "totalBonuses", IncomeCalcResult.Bonuses);
+        AddIncomeSources(payrollLine, "totalCommissions", IncomeCalcResult.Commissions);
+        AddIncomeSources(payrollLine, "totalDeminimises", IncomeCalcResult.Deminimises);
+        AddIncomeSources(payrollLine, "totalOtherIncome", IncomeCalcResult.OtherIncome);
+        AddIncomeSources(payrollLine, "reimbursement", IncomeCalcResult.Reimbursements);
         payrollLine.RegularAllowanceProrated = CaptureProratedAllowance(pp, payrollLine.TotalRegularAllowances);
         payrollLine.TotalAllIncome = IncomeCalcResult.RunningTotal;
         IdentifyTaxableIncome(payrollLine, IncomeCalcResult);
@@ -590,6 +637,10 @@ public class EmployeePayrollLineService
         payrollLine.WithholdingTax = deductionPipeLine.TaxInfo.TaxDue;
         payrollLine.CashBondDeduction = deductionPipeLine.CashBond;
         payrollLine.OtherDeductions = deductionPipeLine.ScheduledDeductions.Sum(x => x.Amount);
+        foreach (var d in deductionPipeLine.ScheduledDeductions)
+            payrollLine.AddSource("otherDeductions",
+                d.Type == DeductionInfoType.Loan ? "Loan" : "Scheduled deduction", d.Amount,
+                string.IsNullOrWhiteSpace(d.Remarks) ? null : d.Remarks);
         payrollLine.TotalLoans = deductionPipeLine.ScheduledDeductions
             .Where(x => x.Type == DeductionInfoType.Loan)
             .Sum(x => x.Amount);
@@ -695,16 +746,19 @@ public class EmployeePayrollLineService
             switch (adj.AdjustmentType)
             {
                 case SalaryAdjustmentType.Salary:
+                    payrollLine.AddSource("basicPay", "Salary adjustment", adj.Amount, adj.Remarks);
                     payrollLine.BasicPay += adj.Amount;
                     payrollLine.GrossIncome += adj.Amount;
                     payrollLine.NetPay += adj.Amount;
                     break;
                 case SalaryAdjustmentType.Allowance:
+                    payrollLine.AddSource("totalOtherIncome", "Allowance adjustment", adj.Amount, adj.Remarks);
                     payrollLine.TotalOtherIncome += adj.Amount;
                     payrollLine.GrossIncome += adj.Amount;
                     payrollLine.NetPay += adj.Amount;
                     break;
                 case SalaryAdjustmentType.Deduction:
+                    payrollLine.AddSource("otherDeductions", "Deduction adjustment", adj.Amount, adj.Remarks);
                     payrollLine.OtherDeductions += adj.Amount;
                     payrollLine.TotalDeductions += adj.Amount;
                     payrollLine.NetPay -= adj.Amount;

@@ -11,6 +11,10 @@ public class OtherClientDays
     public int UnpaidDays { get; set; }
 }
 
+// One piece of what a payroll amount is made of (preview breakdown). Amount is signed: a cut
+// (late, absent, ...) is negative.
+public record PayrollSourceItem(string Label, decimal Amount, string? Note = null);
+
 public class PayrollSummaryLine
 {
     public DateOnly PayPeriodStart { get; set; }
@@ -50,6 +54,17 @@ public class PayrollSummaryLine
     // The other clients this employee worked in the same deduction period (not paid by this run),
     // for the preview's "also worked at" chips. Preview-only.
     public List<OtherClientDays> OtherClients { get; set; } = [];
+    // What each complex amount is made of, keyed by the amount's field name on the response
+    // (e.g. "basicPay", "totalRegularAllowances"). Preview-only, like the reason above: Payroll
+    // has no member of this name, so Mapster never persists it.
+    public Dictionary<string, List<PayrollSourceItem>> Sources { get; set; } = new();
+
+    public void AddSource(string key, string label, decimal amount, string? note = null)
+    {
+        if (amount == 0m) return;
+        if (!Sources.TryGetValue(key, out var items)) Sources[key] = items = new();
+        items.Add(new PayrollSourceItem(label, amount, note));
+    }
     public string FullName { get; set; } = string.Empty;
     public string PayrollPeriod { get; set; } = string.Empty;
     public SalaryType SalaryType { get; set; }

@@ -80,12 +80,14 @@ public class PayrollRangeContextComposerService
     // deductionEmployeeIds: the employees whose deductions / other income / salary adjustments this
     // run carries. Null = everyone (the default). Earnings-only employees are left out of those
     // three loads entirely, so a run full of relievers does less work, not more.
+    // dayClientIds: clients the run's DTR days were worked for, loaded alongside the employees' own.
     public async Task<CalculatorPayload?> ComposePayload(
     DateRangePayload dtrPayload,
     List<EmployeeModelPayrollRun> employees,
     CancellationToken token,
     DateOnly? payDate = null,
-    IReadOnlyCollection<Guid>? deductionEmployeeIds = null)
+    IReadOnlyCollection<Guid>? deductionEmployeeIds = null,
+    IReadOnlyCollection<Guid>? dayClientIds = null)
     {
         // 1. Validate inputs early to avoid unnecessary DB calls
         if (employees == null || !employees.Any()) return null;
@@ -96,6 +98,9 @@ public class PayrollRangeContextComposerService
             // 2. Start all tasks in parallel (I/O Bound)
             var ratesTask = await _rateTableService.FindAllAsync(token);
             var clientIds = employees.Where(e => e.ClientId.HasValue).Select(e => e.ClientId!.Value).ToHashSet();
+            // A per-client run also prices days by the client they were worked for (PayDayClient),
+            // which may be no one's home client.
+            if (dayClientIds != null) clientIds.UnionWith(dayClientIds);
             var clientRatesTask = await _clientRateTableService.FindByClientsAsync(clientIds, token);
             var clientSettingsTask = await _generalSettingService.GetSettingsAsync(
                 "Client", clientIds.Select(id => id.ToString()).ToHashSet());

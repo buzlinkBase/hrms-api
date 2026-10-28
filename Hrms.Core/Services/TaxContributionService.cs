@@ -100,5 +100,10 @@ public class TaxContributionService : BaseService<WTaxContribution>
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token) =>
         // Every employee's rows, confidential ones included -- the whole run is being removed.
         await ExecuteDeleteForEveryoneAsync<WTaxContribution>(x => x.PayrollBatchId == payrollBatchId, token);
+
+    // One employee's slice of a run, for withdrawing a single payout (13th month unrelease).
+    public async Task DeleteByBatchAndEmployeeAsync(Guid payrollBatchId, Guid employeeId, CancellationToken token) =>
+        await ExecuteDeleteForEveryoneAsync<WTaxContribution>(
+            x => x.PayrollBatchId == payrollBatchId && x.EmployeeId == employeeId, token);
 }
 

@@ -257,6 +257,25 @@ public class IncomeAplMainServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AddAsync_ASemiMonthlyPeriodicGate_IsAccepted()
+    {
+        var form = CreateForm(payments: 2);
+        form.PayMode = OtherIncomePayMode.PeriodicGated;
+        form.FrequencyOfPayment = AllowanceFrequency.SemiMonthly;
+        form.AttendanceBasis = OtherIncomeAttendanceBasis.Worked;
+        foreach (var row in form.Schedule)
+        {
+            row.PeriodStart = row.Date.AddDays(-14);
+            row.PeriodEnd = row.Date;
+        }
+
+        var app = await RunAsync(s => s.AddAsync(form, CancellationToken.None));
+
+        app.FrequencyOfPayment.Should().Be(AllowanceFrequency.SemiMonthly);
+        (await AllRowsAsync()).Should().HaveCount(2);
+    }
+
+    [Fact]
     public async Task AddAsync_APeriodicGateThatIsNotWeeklyOrMonthly_IsRefused()
     {
         var form = CreateForm();
@@ -265,7 +284,7 @@ public class IncomeAplMainServiceTests : IDisposable
         form.FrequencyOfPayment = AllowanceFrequency.Daily;
 
         await RunAsync(s => s.Invoking(x => x.AddAsync(form, CancellationToken.None))
-            .Should().ThrowAsync<Exception>().WithMessage("*weekly or monthly*"));
+            .Should().ThrowAsync<Exception>().WithMessage("*semi-monthly*"));
     }
 
     [Fact]

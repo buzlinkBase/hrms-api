@@ -72,4 +72,6 @@ public class OtherIncomeInfo
     public DateOnly PayrollDate { get; set; }
     public decimal Amount { get; set; }
     public bool Taxable { get; set; }
+    // The income type's name, for the payroll run preview's "what is this made of" breakdown.
+    public string? Name { get; set; }
 }
