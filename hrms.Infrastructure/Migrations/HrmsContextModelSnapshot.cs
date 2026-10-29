@@ -1228,6 +1228,9 @@ namespace Hrms.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<int>("PunchMode")
+                        .HasColumnType("int");
+
                     b.Property<string>("RegionCode")
                         .HasColumnType("longtext");
 
@@ -2002,6 +2005,9 @@ namespace Hrms.Infrastructure.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<int?>("PunchMode")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()

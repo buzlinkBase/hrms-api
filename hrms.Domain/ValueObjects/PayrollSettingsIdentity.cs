@@ -35,4 +35,7 @@ public static class PayrollSettingsIdentity
     public const string KeyPortalShowPunch = "PortalShowPunch";
     public const string KeyPortalPunchCooldownMinutes = "PortalPunchCooldownMinutes";
     public const int DefaultPortalPunchCooldownMinutes = 5;
+    // Lets branches / project sites restrict the mobile app punch (geofence, QR, NFC). OFF until the
+    // company turns it on; while off every mobile punch is Open and the stored modes are ignored.
+    public const string KeyMobilePunchModesEnabled = "MobilePunchModesEnabled";
 }

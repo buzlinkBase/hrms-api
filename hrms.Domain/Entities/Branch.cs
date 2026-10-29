@@ -26,6 +26,9 @@ public class Branch : BaseEntity
     // back to the region's general (class-less) rate. See
     // PayrollReportService.ResolveRegionRate.
     public string? WageOrderClass { get; set; }
+    // How employees of this branch may punch from the mobile app. A Project Site under the branch
+    // can override it; see MobilePunchPolicy.
+    public MobilePunchMode PunchMode { get; set; } = MobilePunchMode.OPEN;
 
 }
 

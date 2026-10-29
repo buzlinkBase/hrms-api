@@ -68,6 +68,8 @@ public class PayrollSettingsController : ControllerBase
             PortalPunchCooldownMinutes = settings.TryGetValue(PayrollSettingsIdentity.KeyPortalPunchCooldownMinutes, out var cooldown)
                 ? GeneralSettingsUtil.ParseInt(cooldown.Value, PayrollSettingsIdentity.DefaultPortalPunchCooldownMinutes)
                 : PayrollSettingsIdentity.DefaultPortalPunchCooldownMinutes,
+            MobilePunchModesEnabled = settings.TryGetValue(PayrollSettingsIdentity.KeyMobilePunchModesEnabled, out var mobileModes)
+                && GeneralSettingsUtil.ParseBool(mobileModes.Value, false),
         });
     }
 
@@ -99,6 +101,7 @@ public class PayrollSettingsController : ControllerBase
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowLoanApplications, Value = request.PortalShowLoanApplications.ToString() },
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowPunch, Value = request.PortalShowPunch.ToString() },
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalPunchCooldownMinutes, Value = Math.Clamp(request.PortalPunchCooldownMinutes, 1, 120).ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyMobilePunchModesEnabled, Value = request.MobilePunchModesEnabled.ToString() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync(IdentityType, incoming, null, token);
@@ -131,4 +134,5 @@ public class PayrollSettingsDto
     public bool PortalShowLoanApplications { get; set; } = true;
     public bool PortalShowPunch { get; set; }
     public int PortalPunchCooldownMinutes { get; set; } = PayrollSettingsIdentity.DefaultPortalPunchCooldownMinutes;
+    public bool MobilePunchModesEnabled { get; set; }
 }

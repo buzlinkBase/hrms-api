@@ -20,4 +20,6 @@ public class CostCenters : BaseEntity
     public virtual Client? Client { get; set; }
     // The employee who heads this site -- what "Applicant's project site head" resolves to.
     public Guid? HeadEmployeeId { get; set; }
+    // How employees of this site may punch from the mobile app. Null = follow the site's branch.
+    public MobilePunchMode? PunchMode { get; set; }
 }

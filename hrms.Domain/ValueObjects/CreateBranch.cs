@@ -16,6 +16,7 @@ public class CreateBranch
     public string? RegionCode { get; set; }
     public string? WageOrderClass { get; set; }
     public Guid? HeadEmployeeId { get; set; }
+    public MobilePunchMode PunchMode { get; set; } = MobilePunchMode.OPEN;
 }
 public class UpdateBranch : CreateBranch
 {

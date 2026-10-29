@@ -531,6 +531,18 @@ public enum LOGSOURCE
     // Punched from the Employee Portal (appended last: the column stores the number).
     PORTAL
 }
+// How a branch / project site lets employees punch from the mobile app. The column stores the
+// number, so only append. GEOFENCE_* modes need BOTH the location and the tag to pass.
+public enum MobilePunchMode
+{
+    // Tap Punch anytime, anywhere -- same as My Portal.
+    OPEN,
+    GEOFENCE,
+    QR,
+    NFC,
+    GEOFENCE_QR,
+    GEOFENCE_NFC
+}
 // What a user did to an uploaded/synced log whose original is kept in AttendanceOriginalLog.
 public enum ATTENDANCE_ORIGINAL_ACTION
 {

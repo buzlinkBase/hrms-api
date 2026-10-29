@@ -11,6 +11,8 @@ public class CreateCostCenter
     public string Status { get; set; } = "Active";
     public Guid? BranchId { get; set; }
     public Guid? HeadEmployeeId { get; set; }
+    // Null = follow the branch's mode.
+    public MobilePunchMode? PunchMode { get; set; }
 }
 
 public class UpdateCostCenter : CreateCostCenter
