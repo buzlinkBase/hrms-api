@@ -42,6 +42,12 @@ public class PayrollReportService : BaseService<Payroll>
     private IQueryable<Payroll> ForClient(IQueryable<Payroll> payrolls, Guid? clientId) =>
         clientId is { } c ? payrolls.Where(x => ClientEmployeeIds(c).Contains(x.EmployeeId)) : payrolls;
 
+    // Same shape for the optional department filter: the employee's CURRENT department.
+    private IQueryable<Payroll> ForDepartment(IQueryable<Payroll> payrolls, Guid? departmentId) =>
+        departmentId is { } d
+            ? payrolls.Where(x => _uow.Repository.FindAll<Employee>().AsNoTracking().Where(e => e.DepartmentId == d).Select(e => e.Id).Contains(x.EmployeeId))
+            : payrolls;
+
     // For reports that fold in per-employee dictionaries (opening balances) after the SQL step.
     private async Task<HashSet<Guid>?> ClientEmployeeSetAsync(Guid? clientId, CancellationToken token) =>
         clientId is { } c ? (await ClientEmployeeIds(c).ToListAsync(token)).ToHashSet() : null;
@@ -50,9 +56,9 @@ public class PayrollReportService : BaseService<Payroll>
         clientEmployees == null ? map : map.Where(x => clientEmployees.Contains(x.Key)).ToDictionary(x => x.Key, x => x.Value);
 
     public async Task<List<BankDisbursementModel>> GetBankDisbursementAsync(
-        DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null)
+        DateOnly from, DateOnly to, CancellationToken token, Guid? clientId = null, Guid? departmentId = null)
     {
-        var rows = await ForClient(GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted), clientId)
+        var rows = await ForDepartment(ForClient(GetQueryable(x => x.PayPeriodStart >= from && x.PayPeriodEnd <= to && x.IsPosted), clientId), departmentId)
             .Select(x => new { x.EmployeeId, x.PayPeriodStart, x.PayPeriodEnd, x.NetPay })
             .ToListAsync(token);
         var employeeMap = await LoadEmployeeMapAsync(rows.Select(x => x.EmployeeId), token);

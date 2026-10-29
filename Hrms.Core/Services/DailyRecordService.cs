@@ -18,7 +18,10 @@ public class DailyRecordService : BaseService<DailyRecord>
     private readonly DTRBatchService _dtrBatchService;
     private readonly ApprovalEngineService _approvalEngine;
     private readonly ClientPortal.ClientPortalAttendanceRemovalService? _portalRemoval;
+    private readonly Subscriptions.ICompanyWriteGuard? _writeGuard;
 
+    /// <param name="writeGuard">Refuses every DTR change while the company is read-only -- including the
+    /// queued Save Draft and approvals from My Approvals. Supplied by DI; omitted in unit tests.</param>
     public DailyRecordService(IUnitOfWorkService uow,
         TypeAdapterConfig config,
         IMapper mapper,
@@ -27,8 +30,10 @@ public class DailyRecordService : BaseService<DailyRecord>
         PayrollBatchService payrollBatchService,
         DTRBatchService dtrBatchService,
         ApprovalEngineService approvalEngine,
-        ClientPortal.ClientPortalAttendanceRemovalService? portalRemoval = null) : base(uow)
+        ClientPortal.ClientPortalAttendanceRemovalService? portalRemoval = null,
+        Subscriptions.ICompanyWriteGuard? writeGuard = null) : base(uow)
     {
+        _writeGuard = writeGuard;
         _config = config;
         _mapper = mapper;
         _logger = logger;
@@ -38,6 +43,9 @@ public class DailyRecordService : BaseService<DailyRecord>
         _approvalEngine = approvalEngine;
         _portalRemoval = portalRemoval;
     }
+
+    private Task EnsureWritableAsync(CancellationToken token) =>
+        _writeGuard?.EnsureWritableAsync(token) ?? Task.CompletedTask;
 
     // Posted rows are the only ones the Client Portal ever received, so they are the ones it must drop. Staged in the
     // caller's unit of work (outbox), so the message leaves only if the delete/unpost commits.
@@ -118,6 +126,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // PayrollBatchService.AddAsync's commit parameter.
     public async Task AddRangeAsync(List<DailyRecord> records, CancellationToken token, bool commit = true)
     {
+        await EnsureWritableAsync(token);
         var employeeIds = records.Select(x => x.EmployeeId).Distinct().ToList();
         var minDate = records.Min(x => x.WorkDate);
         var maxDate = records.Max(x => x.WorkDate);
@@ -172,6 +181,7 @@ public class DailyRecordService : BaseService<DailyRecord>
         Guid? payrollGroupId, Guid generatedByEmployeeId, CancellationToken token,
         Func<DTRBatch, CancellationToken, Task>? beforeCommit = null)
     {
+        await EnsureWritableAsync(token);
         await AddRangeAsync(records, token, commit: false);
 
         var batch = new DTRBatch
@@ -199,6 +209,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // before that point rolls the whole thing back via the still-open ambient transaction.
     public async Task ApproveBatchAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
             ?? throw new NotFoundException("DTR batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
@@ -240,6 +251,7 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     public async Task DeclineBatchAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
             ?? throw new NotFoundException("DTR batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
@@ -313,6 +325,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // RequestDeletionAsync/ApproveDeletionAsync instead -- see below.
     public async Task DeleteAsync(string batchCode, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         // Across the whole batch -- posted days of an employee the caller can't see count too.
         var hasPosted = await BatchRecords(batchCode).AnyAsync(x => x.Posted, token);
         if (hasPosted)
@@ -343,6 +356,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // header goes with its last employee, and the posting approval it was waiting on is cancelled.
     public async Task DeleteEmployeeFromBatchAsync(string batchCode, Guid employeeId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var employeeRecords = BatchRecords(batchCode).Where(x => x.EmployeeId == employeeId);
         // Already gone -- a second click or a stale list; the desired end state holds.
         if (!await employeeRecords.AnyAsync(token)) return;
@@ -400,6 +414,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // request is pending -- PendingDeletion is purely informational until it clears.
     public async Task RequestDeletionAsync(Guid dtrBatchId, Guid requestedByEmployeeId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
             ?? throw new NotFoundException("DTR batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.Approved || !batch.IsPosted)
@@ -421,6 +436,7 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     public async Task ApproveDeletionAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
             ?? throw new NotFoundException("DTR batch not found.");
         if (!batch.PendingDeletion)
@@ -457,6 +473,7 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     public async Task DeclineDeletionAsync(Guid dtrBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _dtrBatchService.FineOneAsync(dtrBatchId, token)
             ?? throw new NotFoundException("DTR batch not found.");
         if (!batch.PendingDeletion)
@@ -734,6 +751,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // day was paid by another run since this one loaded it, which rolls the whole run back.
     public async Task MarkPaidAsync(IReadOnlyCollection<Guid> dailyRecordIds, Guid payrollBatchId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         if (dailyRecordIds.Count == 0) return;
         var stamped = 0;
         foreach (var chunk in dailyRecordIds.Chunk(1000))
@@ -759,6 +777,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // MarkPaidAsync. The days stay approved/posted; nothing needs to be re-approved.
     public async Task ReleasePaidAsync(Guid payrollBatchId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var records = await Context.IgnoringConfidentiality<DailyRecord>()
             .Where(x => x.PayrollBatchId == payrollBatchId)
             .ToListAsync(token);
@@ -770,6 +789,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // Everyone else's days stay stamped by the run.
     public async Task ReleasePaidForEmployeeAsync(Guid payrollBatchId, Guid employeeId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var records = await Context.IgnoringConfidentiality<DailyRecord>()
             .Where(x => x.PayrollBatchId == payrollBatchId && x.EmployeeId == employeeId)
             .ToListAsync(token);
@@ -913,6 +933,7 @@ public class DailyRecordService : BaseService<DailyRecord>
 
     public async Task PostAsync(string batchCode, CancellationToken token, bool commit = true)
     {
+        await EnsureWritableAsync(token);
         var records = await BatchRecords(batchCode)
             .Where(x => !x.Posted)
             .Include(x => x.LeavesInfo)
@@ -935,6 +956,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // PayrollBatchService.PostAsync's commit parameter.
     public async Task UnpostAsync(string batchCode, CancellationToken token, bool commit = true)
     {
+        await EnsureWritableAsync(token);
         var records = await BatchRecords(batchCode)
             .Where(x => x.Posted)
             .ToListAsync(token);
@@ -958,6 +980,7 @@ public class DailyRecordService : BaseService<DailyRecord>
     // after the DTR for that period was already posted).
     public async Task<int> UnpostByDateRangeAsync(Guid employeeId, DateOnly from, DateOnly to, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var records = await _uow.Repository
             .Find<DailyRecord>(x =>
                 x.EmployeeId == employeeId &&

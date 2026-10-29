@@ -46,12 +46,18 @@ public class PayrollReportServiceTests
     private static PayrollReportService BuildService(params Payroll[] payrolls) => BuildService(null, payrolls);
 
     // clients maps an employee to their client; an employee not listed has none.
-    private static PayrollReportService BuildService(Dictionary<Guid, Guid>? clients, params Payroll[] payrolls)
+    private static PayrollReportService BuildService(Dictionary<Guid, Guid>? clients, params Payroll[] payrolls) =>
+        BuildService(clients, null, payrolls);
+
+    // departments maps an employee to their department; an employee not listed has none.
+    private static PayrollReportService BuildService(
+        Dictionary<Guid, Guid>? clients, Dictionary<Guid, Guid>? departments, params Payroll[] payrolls)
     {
         var employees = payrolls.Select(p => p.EmployeeId).Distinct().Select(id =>
         {
             var employee = BuildEmployee(id, id.ToString()[..8]);
             if (clients != null && clients.TryGetValue(id, out var clientId)) employee.ClientId = clientId;
+            if (departments != null && departments.TryGetValue(id, out var departmentId)) employee.DepartmentId = departmentId;
             return employee;
         }).ToList();
 
@@ -200,6 +206,26 @@ public class PayrollReportServiceTests
             new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), CancellationToken.None);
 
         filtered.Should().ContainSingle().Which.EmployeeId.Should().Be(inClient.EmployeeId);
+        everyone.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetBankDisbursementAsync_WithDepartmentId_OnlyReturnsThatDepartmentsEmployees()
+    {
+        var department = Guid.NewGuid();
+        var inDepartment = BuildPayroll(Guid.NewGuid(), 2026, 120_000);
+        var otherDepartment = BuildPayroll(Guid.NewGuid(), 2026, 240_000);
+        var service = BuildService(
+            null,
+            new Dictionary<Guid, Guid> { [inDepartment.EmployeeId] = department, [otherDepartment.EmployeeId] = Guid.NewGuid() },
+            inDepartment, otherDepartment);
+
+        var filtered = await service.GetBankDisbursementAsync(
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), CancellationToken.None, departmentId: department);
+        var everyone = await service.GetBankDisbursementAsync(
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), CancellationToken.None);
+
+        filtered.Should().ContainSingle().Which.EmployeeId.Should().Be(inDepartment.EmployeeId);
         everyone.Should().HaveCount(2);
     }
 }

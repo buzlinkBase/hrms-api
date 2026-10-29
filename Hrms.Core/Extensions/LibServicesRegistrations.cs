@@ -56,6 +56,8 @@ public static class LibServicesRegistrations
         services.AddScoped<Services.StorageManager.StoredFileCategoryChain>();
         services.AddScoped<Services.Subscriptions.IPlanLimitGuard,Services.Subscriptions.PlanLimitGuard>();
         services.AddScoped<Services.Subscriptions.IAttendanceSourceGuard, Services.Subscriptions.AttendanceSourceGuard>();
+        // Read-only companies: attendance, DTR and payroll-run writes are refused below the HTTP edge too.
+        services.AddScoped<Services.Subscriptions.ICompanyWriteGuard, Services.Subscriptions.CompanyWriteGuard>();
         // Payroll-run calculators are stateless (context flows through Calculate(), never
         // stored), so they're singletons instead of being `new`'d per employee per run.
         services.AddSingleton<ICalculator<AllowancePipeData, PayrollContext>, AllowancesCalculator>();

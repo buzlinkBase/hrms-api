@@ -10,6 +10,7 @@ namespace Hrms.Core.Services;
 public class AttendanceService : BaseService<Attendance>
 {
     private readonly IAttendanceSourceGuard? _sourceGuard;
+    private readonly ICompanyWriteGuard? _writeGuard;
     private readonly ClientPortal.ClientPortalPunchChangeService? _portalPunches;
     private readonly AttendanceOriginalLogService _originals;
 
@@ -17,9 +18,12 @@ public class AttendanceService : BaseService<Attendance>
     /// attendance). Supplied by DI; omitted only where a plan check is not wanted (unit tests).</param>
     /// <param name="portalPunches">Re-sends the posted days an edited or deleted punch belongs to, to the
     /// Client Portal. Supplied by DI; omitted in unit tests that don't care about the portal.</param>
-    public AttendanceService(IUnitOfWorkService uow, IAttendanceSourceGuard? sourceGuard = null, ClientPortal.ClientPortalPunchChangeService? portalPunches = null) : base(uow)
+    /// <param name="writeGuard">Refuses changes while the company is read-only (device punches follow the
+    /// punch-retention rule). Supplied by DI; omitted in unit tests that don't care about the subscription.</param>
+    public AttendanceService(IUnitOfWorkService uow, IAttendanceSourceGuard? sourceGuard = null, ClientPortal.ClientPortalPunchChangeService? portalPunches = null, ICompanyWriteGuard? writeGuard = null) : base(uow)
     {
         _sourceGuard = sourceGuard;
+        _writeGuard = writeGuard;
         _portalPunches = portalPunches;
         _originals = new AttendanceOriginalLogService(uow);
     }
@@ -30,6 +34,7 @@ public class AttendanceService : BaseService<Attendance>
     /// </summary>
     public async Task Update(UpdateAttendance model, AttendanceLogCaller caller, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var before = await Context.Attendances.AsNoTracking().FirstOrDefaultAsync(x => x.Id == model.Id, token)
             ?? throw new NotFoundException("Attendance log not found.");
 
@@ -54,9 +59,13 @@ public class AttendanceService : BaseService<Attendance>
     /// </summary>
     public async Task RestoreOriginal(Guid originalId, AttendanceLogCaller caller, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var changed = await _originals.RestoreAsync(originalId, caller, token);
         await StagePortalRefreshAsync(changed, token);
     }
+
+    private Task EnsureWritableAsync(CancellationToken token) =>
+        _writeGuard?.EnsureWritableAsync(token) ?? Task.CompletedTask;
 
     // Staged in the caller's unit of work: leaves with its commit (see ClientPortalPunchChangeService).
     private async Task StagePortalRefreshAsync(IReadOnlyCollection<(Guid? EmployeeId, DateTime At)> punches, CancellationToken token)
@@ -75,6 +84,8 @@ public class AttendanceService : BaseService<Attendance>
         // Before anything is deleted or stored: a batch holding a log from a source the plan lacks is refused whole.
         if (_sourceGuard != null)
             await _sourceGuard.EnsureAllowedAsync(attendances.Select(x => x.LogSource), token);
+        if (_writeGuard != null)
+            await _writeGuard.EnsureCanStoreAttendanceAsync(attendances.Select(x => x.LogSource), token);
 
         var toInsert = await RemoveExistingDuplicatesAsync(attendances, token);
 
@@ -196,6 +207,8 @@ public class AttendanceService : BaseService<Attendance>
 
     public async Task AddRange(List<Attendance> models, CancellationToken token)
     {
+        if (_writeGuard != null)
+            await _writeGuard.EnsureCanStoreAttendanceAsync(models.Select(x => x.LogSource), token);
         await CreateRangeAsync(models, token);
     }
 
@@ -299,6 +312,7 @@ public class AttendanceService : BaseService<Attendance>
     }
     public async Task Tag(Attendance attendance, Employee employee, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         // Only the unregistered logs (no employee yet) -- logs already tagged stay with whoever
         // they belong to, e.g. a former employee who held this Bio ID before it was reassigned.
         var logs = await Context.Attendances
@@ -454,6 +468,7 @@ public class AttendanceService : BaseService<Attendance>
     /// </summary>
     public async Task Remove(Guid Id, AttendanceLogCaller caller, string? reason, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var attendance = await Context.Attendances.AsNoTracking().FirstOrDefaultAsync(x => x.Id == Id, token)
             ?? throw new NotFoundException("Attendance log not found.");
 
@@ -472,6 +487,7 @@ public class AttendanceService : BaseService<Attendance>
     /// </summary>
     public async Task RemoveUploadBatch(string batch, AttendanceLogCaller caller, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         if (string.IsNullOrWhiteSpace(batch))
             throw new ValidationException("Choose an upload to delete.");
         AttendanceLogSourcePolicy.EnsureCanDelete(LOGSOURCE.UPLOADED, caller);
@@ -587,6 +603,7 @@ public class AttendanceService : BaseService<Attendance>
     // in a batch with the same code are never deleted this way, same rule as Remove(Guid) above.
     public async Task RemoveBatch(string batch, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var query = Context.Attendances
             .Where(x => x.BatchCode == batch && x.BatchCode != "" && x.LogSource == LOGSOURCE.MANUAL);
         // Read before the delete: afterwards nothing says which posted days these punches backed.
@@ -599,6 +616,7 @@ public class AttendanceService : BaseService<Attendance>
     }
     public async Task Remove(List<Guid> Ids)
     {
+        await EnsureWritableAsync(default);
         //only manual logs can be deleted
         await Uow.Context.Attendances
             .Where(x => Ids.Contains(x.Id))
@@ -607,6 +625,7 @@ public class AttendanceService : BaseService<Attendance>
 
     public async Task Remove(Attendance model)
     {
+        await EnsureWritableAsync(default);
         await RemoveAsync(model);
     }
 }

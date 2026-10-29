@@ -6,10 +6,18 @@ namespace Hrms.Core.Services;
 public class PayrollService : BaseService<Payroll>
 {
     private readonly IMapper _mapper;
-    public PayrollService(IUnitOfWorkService uow, IMapper mapper) : base(uow)
+    private readonly Subscriptions.ICompanyWriteGuard? _writeGuard;
+
+    /// <param name="writeGuard">Refuses saving, posting, reversing or deleting payrolls while the company is
+    /// read-only -- the chokepoint every run type saves through. Supplied by DI; omitted in unit tests.</param>
+    public PayrollService(IUnitOfWorkService uow, IMapper mapper, Subscriptions.ICompanyWriteGuard? writeGuard = null) : base(uow)
     {
         _mapper = mapper;
+        _writeGuard = writeGuard;
     }
+
+    private Task EnsureWritableAsync(CancellationToken token) =>
+        _writeGuard?.EnsureWritableAsync(token) ?? Task.CompletedTask;
 
     // Deliberately NOT gated on IsPosted: the SSS/PHIC/HDMF contribution ledger this feeds
     // alongside (SSSContributionService.LoadContributionsAsync et al.) is written
@@ -144,6 +152,7 @@ public class PayrollService : BaseService<Payroll>
 
     public async Task Delete(Guid Id, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         await RemoveAsync(Id, token);
     }
 
@@ -167,6 +176,7 @@ public class PayrollService : BaseService<Payroll>
 
     public async Task DeleteByBatchIdAsync(Guid payrollBatchId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         await WholeBatch(payrollBatchId).ExecuteDeleteAsync(token);
     }
 
@@ -176,6 +186,7 @@ public class PayrollService : BaseService<Payroll>
 
     public async Task DeleteByIdAsync(Guid payrollId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         await Context.IgnoringConfidentiality<Payroll>().Where(x => x.Id == payrollId).ExecuteDeleteAsync(token);
     }
 
@@ -189,6 +200,7 @@ public class PayrollService : BaseService<Payroll>
     // DeleteBatchAsync alongside this call.
     public async Task DeleteDeductionDetailsByPayrollIdsAsync(List<Guid> payrollIds, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         if (payrollIds.Count == 0) return;
         await Context.PayrollDeductionDetails.Where(x => payrollIds.Contains(x.PayrollId)).ExecuteDeleteAsync(token);
     }
@@ -199,6 +211,7 @@ public class PayrollService : BaseService<Payroll>
     // DeleteBatchAsync even though DeductionDetails already got cleaned up alongside it.
     public async Task DeleteDtrDetailsByPayrollIdsAsync(List<Guid> payrollIds, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         if (payrollIds.Count == 0) return;
         await Context.IgnoringConfidentiality<PayrollDtrDetail>().Where(x => payrollIds.Contains(x.PayrollId)).ExecuteDeleteAsync(token);
     }
@@ -214,6 +227,7 @@ public class PayrollService : BaseService<Payroll>
     // final CommitChangesAsync so the whole Post either fully succeeds or fully rolls back.
     public async Task PostBatchAsync(Guid payrollBatchId, CancellationToken token, bool commit = true)
     {
+        await EnsureWritableAsync(token);
         // GetQueryable defaults to AsNoTracking — must opt into tracking here (noTracking:
         // false), or mutating IsPosted below never gets picked up by SaveChanges and this
         // silently no-ops: no exception, no rows actually updated. ModifyRangeAsync/UpdateRange
@@ -349,6 +363,7 @@ public class PayrollService : BaseService<Payroll>
     /// </summary>
     public async Task ReversePostingAsync(Guid payrollBatchId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var payrollIds = await WholeBatch(payrollBatchId).Select(x => x.Id).ToListAsync(token);
         await ReversePostingForPayrollsAsync(payrollIds, token);
     }
@@ -359,6 +374,7 @@ public class PayrollService : BaseService<Payroll>
     /// </summary>
     public async Task ReversePostingForPayrollsAsync(List<Guid> payrollIds, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         if (payrollIds.Count == 0) return;
 
         await RestoreDeductionBalancesAsync(payrollIds, token);
@@ -438,6 +454,7 @@ public class PayrollService : BaseService<Payroll>
     public async Task AdjustRetirementBalanceAsync(
         Guid employeeId, decimal amount, bool isAddition, string particulars, DateOnly entryDate, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var fund = await Context.RetirementFunds.FirstOrDefaultAsync(x => x.EmployeeId == employeeId, token);
         if (fund == null)
         {
@@ -486,6 +503,7 @@ public class PayrollService : BaseService<Payroll>
     // ONE atomic unit — see AddAsync's doc comment for why (closes the orphaned-empty-batch gap).
     public async Task SavePayrollsAsync(IEnumerable<Payroll> payrolls, CancellationToken token, bool commit = true)
     {
+        await EnsureWritableAsync(token);
         await Uow.Repository.AddRangeAsync(payrolls, token);
         await Uow.SaveChangesAsync(token);
         if (commit) await CommitChangesAsync(token);

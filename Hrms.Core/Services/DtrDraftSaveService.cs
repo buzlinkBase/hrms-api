@@ -29,14 +29,19 @@ public class DtrDraftSaveService
     private readonly ApprovalEngineService _approvals;
     private readonly IPublishEndpoint _publisher;
     private readonly IMapper _mapper;
+    private readonly Subscriptions.ICompanyWriteGuard? _writeGuard;
 
+    /// <param name="writeGuard">Refuses the save while the company is read-only -- both when it's queued and
+    /// when the worker gets to it, since the company may lapse in between. Supplied by DI; omitted in unit tests.</param>
     public DtrDraftSaveService(
         DailyRecordService records,
         IDtrRowSource rows,
         ApprovalEngineService approvals,
         IPublishEndpoint publisher,
-        IMapper mapper)
+        IMapper mapper,
+        Subscriptions.ICompanyWriteGuard? writeGuard = null)
     {
+        _writeGuard = writeGuard;
         _records = records;
         _rows = rows;
         _approvals = approvals;
@@ -44,12 +49,16 @@ public class DtrDraftSaveService
         _mapper = mapper;
     }
 
+    private Task EnsureWritableAsync(CancellationToken token) =>
+        _writeGuard?.EnsureWritableAsync(token) ?? Task.CompletedTask;
+
     /// <summary>
     /// Queues the save. Published through the outbox, so it leaves with the commit here -- a request
     /// that fails after this never leaves a save behind.
     /// </summary>
     public async Task QueueAsync(SaveDtrDraftRequest request, Guid userId, Guid generatedByEmployeeId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         await _publisher.Publish(new SaveDtrDraftRequested
         {
             FromDate = request.FromDate,
@@ -74,6 +83,8 @@ public class DtrDraftSaveService
     /// </summary>
     public async Task<DtrDraftSaveResult> SaveAsync(SaveDtrDraftRequested request, CancellationToken token)
     {
+        // Before the (heavy) recompute: nothing is worth computing for a save that would be refused.
+        await EnsureWritableAsync(token);
         var wanted = request.EmployeeIds.ToHashSet();
         var computed = (await _rows.ComputeAsync(new DTRRequestPayload
         {

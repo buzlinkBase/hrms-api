@@ -1,3 +1,4 @@
+using Onepunch.Common.Lib.Subscriptions;
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,7 +51,8 @@ public class SaveDtrDraftWorker : IConsumer<SaveDtrDraftRequested>
     // the notice goes out through a fresh scope set to this message's company, like DailyBenefitsWorker's steps.
     private async Task NotifyFailureAsync(SaveDtrDraftRequested request, Exception ex, CancellationToken token)
     {
-        var reason = ex is ValidationException
+        // A refusal the requester can act on (bad input, or the company went read-only) is told as is.
+        var reason = ex is ValidationException or PlanRestrictionException
             ? ex.Message
             : "Something went wrong while saving. Nothing was saved -- please try again.";
         try

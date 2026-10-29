@@ -22,6 +22,7 @@ public class PayrollBatchLifecycleService
     private readonly ApprovalEngineService _approvalEngine;
     private readonly DTRBatchService _dtrBatchService;
     private readonly PayrollDeductionClaimService _claimService;
+    private readonly Subscriptions.ICompanyWriteGuard? _writeGuard;
 
     public PayrollBatchLifecycleService(
         IUnitOfWorkService uow,
@@ -36,8 +37,11 @@ public class PayrollBatchLifecycleService
         YearLockService yearLockService,
         ApprovalEngineService approvalEngine,
         DTRBatchService dtrBatchService,
-        PayrollDeductionClaimService claimService)
+        PayrollDeductionClaimService claimService,
+        // Refuses every batch change while the company is read-only. Supplied by DI; omitted in unit tests.
+        Subscriptions.ICompanyWriteGuard? writeGuard = null)
     {
+        _writeGuard = writeGuard;
         _claimService = claimService;
         _uow = uow;
         _payrollBatchService = payrollBatchService;
@@ -52,6 +56,9 @@ public class PayrollBatchLifecycleService
         _approvalEngine = approvalEngine;
         _dtrBatchService = dtrBatchService;
     }
+
+    private Task EnsureWritableAsync(CancellationToken token) =>
+        _writeGuard?.EnsureWritableAsync(token) ?? Task.CompletedTask;
 
     // Locks a whole Generate run in as final — an employee's payroll is never posted on its
     // own, since it was never generated on its own either. Updates the canonical
@@ -106,6 +113,7 @@ public class PayrollBatchLifecycleService
     // back via the still-open ambient transaction.
     public async Task ApproveBatchAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
             ?? throw new NotFoundException("Payroll batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
@@ -145,6 +153,7 @@ public class PayrollBatchLifecycleService
 
     public async Task DeclineBatchAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
             ?? throw new NotFoundException("Payroll batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.ForApproval)
@@ -201,6 +210,7 @@ public class PayrollBatchLifecycleService
     // back via the still-open ambient transaction.
     public async Task DeleteBatchAsync(Guid payrollBatchId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token);
         // Already gone -- a second click, a stale list, or a concurrent delete got there
         // first. The caller's desired end state (this run no longer exists) already holds,
@@ -295,6 +305,7 @@ public class PayrollBatchLifecycleService
     // single-transaction composition as DeleteBatchAsync above.
     public async Task UnreleasePayoutAsync(Guid payrollId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var row = await _payrollService.GetOneIgnoringConfidentialityAsync(payrollId, token)
             ?? throw new NotFoundException("Payout not found.");
         if (row.PayrollType is not (PayrollType.ThirteenthMonth or PayrollType.LastPay))
@@ -341,6 +352,7 @@ public class PayrollBatchLifecycleService
     // only once its last employee is gone. Same single-transaction composition as DeleteBatchAsync.
     public async Task UnsaveEmployeeAsync(Guid payrollBatchId, Guid payrollId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var row = await _payrollService.GetOneIgnoringConfidentialityAsync(payrollId, token);
         // Already gone -- a second click or a stale list; the desired end state holds.
         if (row == null) return;
@@ -401,6 +413,7 @@ public class PayrollBatchLifecycleService
     // for the entire run, year-lock checked, so it is reused as-is in one transaction.
     public async Task UnreleaseBatchAsync(Guid payrollBatchId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
             ?? throw new NotFoundException("Payroll batch not found.");
         if (batch.PayrollType is not (PayrollType.ThirteenthMonth or PayrollType.LastPay))
@@ -431,6 +444,7 @@ public class PayrollBatchLifecycleService
     // it clears. Mirrors DailyRecordService.RequestDeletionAsync exactly.
     public async Task RequestDeletionAsync(Guid payrollBatchId, Guid requestedByEmployeeId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
             ?? throw new NotFoundException("Payroll batch not found.");
         if (batch.ApprovalStatus != ApprovalStatus.Approved || !batch.IsPosted)
@@ -449,6 +463,7 @@ public class PayrollBatchLifecycleService
 
     public async Task ApproveDeletionAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
             ?? throw new NotFoundException("Payroll batch not found.");
         if (!batch.PendingDeletion)
@@ -484,6 +499,7 @@ public class PayrollBatchLifecycleService
 
     public async Task DeclineDeletionAsync(Guid payrollBatchId, Guid? approverEmployeeId, bool approverHasOverride, string? note, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
             ?? throw new NotFoundException("Payroll batch not found.");
         if (!batch.PendingDeletion)

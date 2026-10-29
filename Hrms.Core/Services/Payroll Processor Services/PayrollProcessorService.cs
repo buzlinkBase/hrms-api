@@ -15,6 +15,7 @@ namespace Hrms.Core.Services;
 public class PayrollProcessorService
 {
     private readonly DailyRecordService _dtrServie;
+    private readonly Subscriptions.ICompanyWriteGuard? _writeGuard;
     private readonly PayrollRangeContextComposerService _payloadComposer;
     private readonly PayrollService _payrollService;
     private readonly IMapper _mapper;
@@ -53,8 +54,11 @@ public class PayrollProcessorService
         ApprovalEngineService approvalEngine,
         DTRBatchService dtrBatchService,
         EmployeeService employeeService,
-        PayrollDeductionClaimService claimService)
+        PayrollDeductionClaimService claimService,
+        // Refuses every run while the company is read-only (previews stay open). Supplied by DI; omitted in unit tests.
+        Subscriptions.ICompanyWriteGuard? writeGuard = null)
     {
+        _writeGuard = writeGuard;
         _claimService = claimService;
         _employeeService = employeeService;
         _dtrServie = dtrServie;
@@ -76,8 +80,12 @@ public class PayrollProcessorService
         _dtrBatchService = dtrBatchService;
     }
 
+    private Task EnsureWritableAsync(CancellationToken token) =>
+        _writeGuard?.EnsureWritableAsync(token) ?? Task.CompletedTask;
+
     public async Task<List<PayrollSummaryLine>> GenerateAsync(PayrollRunPayload payload, Guid batch, Guid generatedByEmployeeId, CancellationToken token)
     {
+        await EnsureWritableAsync(token);
         ValidatePayload(payload);
         // Legacy batch mode only -- cutoff mode pays by day instead (Posted == approved, and
         // PayrollBatchId == null == not paid yet), so there are no whole batches to check.
@@ -188,17 +196,26 @@ public class PayrollProcessorService
         return lines;
     }
 
-    public Task<List<PayrollSummaryLine>> GenerateThirteenthMonthAsync(ThirteenthMonthRunPayload payload, Guid generatedByEmployeeId, CancellationToken token) =>
-        _thirteenthMonthPayrollService.GenerateAsync(payload, generatedByEmployeeId, token);
+    public async Task<List<PayrollSummaryLine>> GenerateThirteenthMonthAsync(ThirteenthMonthRunPayload payload, Guid generatedByEmployeeId, CancellationToken token)
+    {
+        await EnsureWritableAsync(token);
+        return await _thirteenthMonthPayrollService.GenerateAsync(payload, generatedByEmployeeId, token);
+    }
 
-    public Task<List<PayrollSummaryLine>> GenerateLastPayAsync(LastPayRunPayload payload, Guid generatedByEmployeeId, CancellationToken token) =>
-        _lastPayrollService.GenerateAsync(payload, generatedByEmployeeId, token);
+    public async Task<List<PayrollSummaryLine>> GenerateLastPayAsync(LastPayRunPayload payload, Guid generatedByEmployeeId, CancellationToken token)
+    {
+        await EnsureWritableAsync(token);
+        return await _lastPayrollService.GenerateAsync(payload, generatedByEmployeeId, token);
+    }
 
     public Task<List<TaxAnnualizationPreviewModel>> PreviewYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, CancellationToken token) =>
         _taxAnnualizationService.PreviewAsync(payload, token);
 
-    public Task<List<PayrollSummaryLine>> GenerateYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, Guid generatedByEmployeeId, CancellationToken token) =>
-        _taxAnnualizationService.GenerateAsync(payload, generatedByEmployeeId, token);
+    public async Task<List<PayrollSummaryLine>> GenerateYearEndAdjustmentAsync(TaxAnnualizationRunPayload payload, Guid generatedByEmployeeId, CancellationToken token)
+    {
+        await EnsureWritableAsync(token);
+        return await _taxAnnualizationService.GenerateAsync(payload, generatedByEmployeeId, token);
+    }
 
     // Review-step data for the Last Pay generation screen — see LastPayrollService's own
     // doc comments on these two.

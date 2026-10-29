@@ -87,9 +87,9 @@ namespace Hrms.Api.Controllers
         [CompensationData]
         [HttpGet("bank-disbursement")]
         [RequirePermission("Payroll Reports:View")]
-        public async Task<IActionResult> BankDisbursement([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, CancellationToken token)
+        public async Task<IActionResult> BankDisbursement([FromQuery] DateTime from, [FromQuery] DateTime to, [FromQuery] Guid? clientId, [FromQuery] Guid? departmentId, CancellationToken token)
         {
-            var data = await _reportService.GetBankDisbursementAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId);
+            var data = await _reportService.GetBankDisbursementAsync(DateOnly.FromDateTime(from), DateOnly.FromDateTime(to), token, clientId, departmentId);
             return Ok(new { data, total = data.Count });
         }
 
