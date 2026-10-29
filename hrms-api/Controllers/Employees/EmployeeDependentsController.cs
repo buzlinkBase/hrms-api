@@ -38,6 +38,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<DependentModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateDependent payload, CancellationToken token)
         {
@@ -48,6 +49,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Workforce Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<DependentModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateDependent payload, CancellationToken token)
         {
@@ -57,6 +59,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Workforce Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

@@ -46,6 +46,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Holiday Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateHoliday payload, CancellationToken token)
         {
@@ -54,6 +55,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Holiday Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateHoliday payload, CancellationToken token)
         {
@@ -62,6 +64,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Holiday Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
@@ -70,6 +73,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("all")]
+        [RequirePermission("Holiday Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> DeleteAll([FromQuery] int year, CancellationToken token)
         {

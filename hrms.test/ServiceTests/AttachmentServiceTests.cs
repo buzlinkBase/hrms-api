@@ -53,7 +53,7 @@ public class AttachmentFilesTests
 }
 
 /// <summary>
-/// Attachments live in file storage under the company; the switch per feature defaults to off,
+/// Attachments live in file storage under the company; every feature is on until the company switches it off,
 /// access follows the record's owner rules, and staged files can only be claimed by their uploader.
 /// </summary>
 public class AttachmentServiceTests : IDisposable
@@ -144,20 +144,21 @@ public class AttachmentServiceTests : IDisposable
         WithServiceAsync(s => s.UploadAsync(type, ownerId, new MemoryStream(Pdf), Pdf.Length, name, caller, default), quota);
 
     [Fact]
-    public async Task EveryFeatureIsOffByDefault_AndTheSettingsOnlyListFeaturesThatCanTakeFiles()
+    public async Task EveryFeatureIsOnByDefault_AndTheSettingsOnlyListFeaturesThatCanTakeFiles()
     {
         var settings = await WithServiceAsync(s => s.GetSettingsAsync(default));
 
         settings.Select(x => x.OwnerType).Should().BeEquivalentTo(
             [AttachmentOwnerType.AssignAsset, AttachmentOwnerType.EmployeeRecord]);
-        settings.Should().OnlyContain(x => !x.Enabled);
+        settings.Should().OnlyContain(x => x.Enabled);
     }
 
     [Fact]
-    public async Task AnUpload_IsRefused_WhileTheFeatureIsOff_AndAllowedOnceAnAdminTurnsItOn()
+    public async Task AnUpload_IsAllowedByDefault_RefusedOnceAnAdminTurnsTheFeatureOff_AndAllowedAgainWhenOn()
     {
         var assetId = await SeedAssetAsync();
 
+        await EnableAsync(AttachmentOwnerType.AssignAsset, enabled: false);
         var off = () => UploadAsync(AttachmentOwnerType.AssignAsset, assetId, Hr());
         await off.Should().ThrowAsync<GuardException>().WithMessage("*turned off*");
 

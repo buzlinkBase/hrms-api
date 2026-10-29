@@ -30,6 +30,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<CreateEmployeeSetting>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateEmployeeSetting payload, CancellationToken token)
         {
@@ -40,6 +41,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Workforce Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<EmployeeSettingModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmployeeSetting payload, CancellationToken token)
         {

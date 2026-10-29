@@ -74,6 +74,7 @@ public class PayrollSettingsController : ControllerBase
     }
 
     [HttpPut]
+    [RequirePermission("Organization Setup:Edit")]
     [ProducesResponseType(typeof(ResponseModel<PayrollSettingsDto>), 200)]
     public async Task<IActionResult> Put([FromBody] PayrollSettingsDto request, CancellationToken token)
     {

@@ -30,6 +30,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("employee/{employeeId:guid}/day/{dayName}")]
+        [RequirePermission("Workforce Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<EmployeeFixedScheduleModel>), 200)]
         public async Task<IActionResult> SetDay(Guid employeeId, DayName dayName, [FromBody] SetEmployeeFixedScheduleDay payload, CancellationToken token)
         {
@@ -37,6 +38,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("employee/{employeeId:guid}/day/{dayName}")]
+        [RequirePermission("Workforce Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> UnassignDay(Guid employeeId, DayName dayName, CancellationToken token)
         {

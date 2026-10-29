@@ -46,6 +46,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Statutory Tables:Create")]
         [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateRateTable payload, CancellationToken token)
         {
@@ -57,6 +58,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Statutory Tables:Edit")]
         [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateRateTable payload, CancellationToken token)
         {
@@ -66,6 +68,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Statutory Tables:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
@@ -74,6 +77,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("bulk")]
+        [RequirePermission("Statutory Tables:Edit", "Organization Setup:Edit")]
         [ProducesResponseType(204)]
         public async Task<IActionResult> BulkReplace([FromBody] List<CreateRateTable> payload, CancellationToken token)
         {
@@ -83,6 +87,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete]
+        [RequirePermission("Statutory Tables:Delete")]
         [ProducesResponseType(204)]
         public async Task<IActionResult> ClearAll(CancellationToken token)
         {
@@ -99,6 +104,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("client/{clientId:guid}/bulk")]
+        [RequirePermission("Workforce Setup:Edit")]
         [ProducesResponseType(204)]
         public async Task<IActionResult> BulkReplaceClientRates(Guid clientId, [FromBody] List<ClientRateEntry> payload, CancellationToken token)
         {

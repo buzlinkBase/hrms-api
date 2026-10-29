@@ -20,9 +20,8 @@ public sealed record AttachmentDownload(Uri? Url, Stream? Content, string FileNa
 /// company's file storage under <c>tenants/{companyId}/attachments/…</c>; the database keeps only
 /// the key, name and size. Every feature plugs in through an <see cref="IAttachmentOwnerHandler"/>.
 ///
-/// A company must switch a feature on before it accepts new files (nothing is on by default, so no
-/// company spends purchased storage by accident). Switching it off never deletes what is already
-/// there. Every upload is checked against the plan's storage limit first.
+/// Every feature accepts new files until the company switches it off (a feature with no saved
+/// setting counts as on). Switching it off never deletes what is already there. Every upload is checked against the plan's storage limit first.
 ///
 /// A form whose record isn't saved yet uploads "staged" files (no owner); the record then claims
 /// them by id once it exists (<see cref="LinkAsync"/>). Staged files are private to the user who
@@ -55,7 +54,7 @@ public class AttachmentService
         var saved = await _uow.Context.AttachmentSettings.AsNoTracking().ToListAsync(token);
         return _handlers.Keys
             .OrderBy(t => t)
-            .Select(t => new AttachmentSettingDto(t, saved.Any(s => s.OwnerType == t && s.Enabled)))
+            .Select(t => new AttachmentSettingDto(t, saved.All(s => s.OwnerType != t || s.Enabled)))
             .ToList();
     }
 
@@ -75,7 +74,7 @@ public class AttachmentService
     }
 
     public async Task<bool> IsEnabledAsync(AttachmentOwnerType type, CancellationToken token) =>
-        await _uow.Context.AttachmentSettings.AsNoTracking().AnyAsync(s => s.OwnerType == type && s.Enabled, token);
+        await _uow.Context.AttachmentSettings.AsNoTracking().AllAsync(s => s.OwnerType != type || s.Enabled, token);
 
     // ── Upload / list / open / delete ────────────────────────────────────────
 

@@ -64,6 +64,7 @@ public class GeneralSettingsController : ControllerBase
     }
 
     [HttpPut("company")]
+    [RequirePermission("Organization Setup:Edit")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> UpdateCompanyPolicy(
         [FromBody] UpdateCompanyPolicyRequest request,
@@ -130,6 +131,7 @@ public class GeneralSettingsController : ControllerBase
     // submitting the full ClientPolicyFormValues object in one PUT regardless of which tab was
     // edited.
     [HttpPut("client/{clientId:guid}")]
+    [RequirePermission("Organization Setup:Edit")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> UpdateClientPolicy(Guid clientId, [FromBody] ClientPolicyRequest request, CancellationToken token)
     {

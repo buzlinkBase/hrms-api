@@ -76,6 +76,7 @@ public class CompanySettingsController : ControllerBase
     }
 
     [HttpPut]
+    [RequirePermission("Organization Setup:Edit")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> Put([FromBody] CreateCompany payload, CancellationToken token)
     {

@@ -27,6 +27,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost("{year}/reopen")]
+        [RequirePermission("Year-End Adjustment Run:Create")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Reopen(int year, CancellationToken token)
         {

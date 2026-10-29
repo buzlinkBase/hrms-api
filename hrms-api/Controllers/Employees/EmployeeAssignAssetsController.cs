@@ -76,6 +76,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Workforce Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<AssignAssetModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateAssignAsset payload, CancellationToken token)
         {
@@ -87,6 +88,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Workforce Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<AssignAssetModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateAssignAsset payload, CancellationToken token)
         {
@@ -98,6 +100,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Workforce Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {

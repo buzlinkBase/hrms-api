@@ -32,8 +32,12 @@ public class TenantProviderAccessor : ITenantProvider
                 return _tenantId;
             }
 
-            // 2. Fallback: Try to get from Header ("X-Tenant-ID") last
-            // Cleaned up using your new 'GetHeader' extension method!
+            // 2. Fallback: the "X-Tenant-ID" header, only for callers that carry no JWT (internal
+            // ApiKey/service calls). An authenticated user without a tenant claim must not be able
+            // to pick a tenant by header.
+            if (context.User?.Identity?.IsAuthenticated == true)
+                return Guid.Empty;
+
             var header = context.Request.GetHeader("X-Tenant-ID");
             if (Guid.TryParse(header, out var headerId) && headerId != Guid.Empty)
             {

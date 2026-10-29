@@ -21,6 +21,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Organization Setup:Edit")]
         [ProducesResponseType(204)]
         [ProducesResponseType(401)]
         public async Task<IActionResult> Get([FromBody] MigrationPayload payload, CancellationToken token)

@@ -342,7 +342,8 @@ public static class ServiceRegistrationsExt
                  ValidateAudience = true,
                  ValidAudience = "Onepunch.AuthService",
                  ValidateLifetime = true,
-                 ValidateIssuerSigningKey = true
+                 ValidateIssuerSigningKey = true,
+                 ClockSkew = TimeSpan.FromSeconds(30)
              };
          });
 

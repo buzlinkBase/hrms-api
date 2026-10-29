@@ -38,6 +38,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Minimum Wage Setup:Create")]
         [ProducesResponseType(typeof(ResponseModel<MinimumWageRateModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateMinimumWageRate payload, CancellationToken token)
         {
@@ -46,6 +47,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission("Minimum Wage Setup:Edit")]
         [ProducesResponseType(typeof(ResponseModel<MinimumWageRateModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateMinimumWageRate payload, CancellationToken token)
         {
@@ -55,6 +57,7 @@ namespace Hrms.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission("Minimum Wage Setup:Delete")]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken token)
         {
