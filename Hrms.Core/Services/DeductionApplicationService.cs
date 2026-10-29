@@ -293,6 +293,7 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
                 detail.Balance,
                 detail.DeductionId,
                 detail.RecordOrder,
+                DeductionName = deduction != null ? deduction.Name : null,
                 DeductionTypeCode = category != null ? category.Code : null,
             })
             .ToListAsync(token);
@@ -320,6 +321,7 @@ public class DeductionAplDtlService : BaseService<DeductionApplicationDetail>
                     PayrollDate = x.Date,
                     Amount = x.Balance,
                     DeductionId = x.DeductionId,
+                    Name = x.DeductionName,
                     Type = x.DeductionTypeCode != null && x.DeductionTypeCode.Contains("LOAN")
                         ? DeductionInfoType.Loan
                         : DeductionInfoType.Others,

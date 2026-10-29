@@ -90,6 +90,11 @@ public class HDMFContributionService : BaseService<HDMFContribution>
         // Every employee's rows, confidential ones included -- the whole run is being removed.
         await ExecuteDeleteForEveryoneAsync<HDMFContribution>(x => x.PayrollBatchId == payrollBatchId, token);
 
+    // One employee's slice of a run, for unsaving a single employee from a draft run.
+    public async Task DeleteByBatchAndEmployeeAsync(Guid payrollBatchId, Guid employeeId, CancellationToken token) =>
+        await ExecuteDeleteForEveryoneAsync<HDMFContribution>(
+            x => x.PayrollBatchId == payrollBatchId && x.EmployeeId == employeeId, token);
+
     // Pag-IBIG Virtual Pag-IBIG MCRF (Member's Contribution Remittance Form) upload file.
     // Column layout implemented from general knowledge of the MCRF template, NOT against a
     // live reference spec — diff against the current portal template before first real

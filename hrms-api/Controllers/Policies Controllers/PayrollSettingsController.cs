@@ -63,6 +63,11 @@ public class PayrollSettingsController : ControllerBase
             PortalShowOfficialBusiness = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowOfficialBusiness),
             PortalShowPassSlip = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowPassSlip),
             PortalShowLoanApplications = ReadFlag(settings, PayrollSettingsIdentity.KeyPortalShowLoanApplications),
+            PortalShowPunch = settings.TryGetValue(PayrollSettingsIdentity.KeyPortalShowPunch, out var punch)
+                && GeneralSettingsUtil.ParseBool(punch.Value, false),
+            PortalPunchCooldownMinutes = settings.TryGetValue(PayrollSettingsIdentity.KeyPortalPunchCooldownMinutes, out var cooldown)
+                ? GeneralSettingsUtil.ParseInt(cooldown.Value, PayrollSettingsIdentity.DefaultPortalPunchCooldownMinutes)
+                : PayrollSettingsIdentity.DefaultPortalPunchCooldownMinutes,
         });
     }
 
@@ -92,6 +97,8 @@ public class PayrollSettingsController : ControllerBase
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowOfficialBusiness, Value = request.PortalShowOfficialBusiness.ToString() },
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowPassSlip, Value = request.PortalShowPassSlip.ToString() },
             new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowLoanApplications, Value = request.PortalShowLoanApplications.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalShowPunch, Value = request.PortalShowPunch.ToString() },
+            new() { IdentityType = IdentityType, Description = PayrollSettingsIdentity.KeyPortalPunchCooldownMinutes, Value = Math.Clamp(request.PortalPunchCooldownMinutes, 1, 120).ToString() },
         };
 
         await _settingService.ReplaceByIdentityTypeAsync(IdentityType, incoming, null, token);
@@ -122,4 +129,6 @@ public class PayrollSettingsDto
     public bool PortalShowOfficialBusiness { get; set; } = true;
     public bool PortalShowPassSlip { get; set; } = true;
     public bool PortalShowLoanApplications { get; set; } = true;
+    public bool PortalShowPunch { get; set; }
+    public int PortalPunchCooldownMinutes { get; set; } = PayrollSettingsIdentity.DefaultPortalPunchCooldownMinutes;
 }

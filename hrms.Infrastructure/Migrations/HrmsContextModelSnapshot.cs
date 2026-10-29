@@ -6820,6 +6820,46 @@ namespace Hrms.Infrastructure.Migrations
                     b.ToTable("Sections");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.Entities.SupervisorSiteGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AreaId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AreaId");
+
+                    b.HasIndex("EmployeeId", "AreaId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DeletedAt");
+
+                    b.ToTable("SupervisorSiteGrants");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Entities.TaxTable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8734,6 +8774,25 @@ namespace Hrms.Infrastructure.Migrations
                         .HasForeignKey("DepartmentId");
 
                     b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.Entities.SupervisorSiteGrant", b =>
+                {
+                    b.HasOne("Hrms.Domain.Entities.CostCenters", "Area")
+                        .WithMany()
+                        .HasForeignKey("AreaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hrms.Domain.Entities.EmployeeEntities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Area");
+
+                    b.Navigation("Employee");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Entities.ThirteenthMonthLedger", b =>

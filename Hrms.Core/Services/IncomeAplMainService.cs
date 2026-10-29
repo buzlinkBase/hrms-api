@@ -261,17 +261,7 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
     {
         if (payrollIds.Count == 0) return new();
 
-        var rows = await (
-            from row in Context.IgnoringConfidentiality<OtherIncomeSchedules>()
-            join income in Context.Allowances.IgnoreQueryFilters()
-                on row.IncomeId equals income.Id into incomeJoin
-            from income in incomeJoin.DefaultIfEmpty()
-            where row.ConsumedByPayrollId != null && payrollIds.Contains(row.ConsumedByPayrollId.Value)
-                && !row.IsSkipped
-                && (income == null || income.IncomeClass == IncomeClassType.Others)
-            select new { PayrollId = row.ConsumedByPayrollId!.Value, row.IncomeId, Name = income != null ? income.Name : null, row.Amount })
-            .AsNoTracking()
-            .ToListAsync(token);
+        var rows = await PaidOtherIncomeRowsAsync(payrollIds, token);
 
         return rows
             .GroupBy(x => x.PayrollId)
@@ -283,6 +273,43 @@ public class IncomeAplDtlService : BaseService<OtherIncomeSchedules>
                     t.Sum(x => x.Amount)))
                 .ToList());
     }
+
+    // The same paid rows, unsummed and dated, for the saved run's breakdown popup.
+    public async Task<Dictionary<Guid, List<PayrollSourceRow>>> GetOtherIncomeSourcesAsync(
+        List<Guid> payrollIds, CancellationToken token)
+    {
+        if (payrollIds.Count == 0) return new();
+
+        var rows = await PaidOtherIncomeRowsAsync(payrollIds, token);
+
+        return rows
+            .GroupBy(x => x.PayrollId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(x => x.Date)
+                .Select(x => PayrollSourceRow.Scheduled(
+                    string.IsNullOrWhiteSpace(x.Name) ? "Other Income" : x.Name!, x.Amount, x.Date))
+                .ToList());
+    }
+
+    // What the Payroll Summary's "Other Income" column is made of: only the IncomeClassType.Others
+    // types, only rows these payrolls consumed and did not skip.
+    private async Task<List<PaidOtherIncomeRow>> PaidOtherIncomeRowsAsync(List<Guid> payrollIds, CancellationToken token)
+    {
+        return await (
+            from row in Context.IgnoringConfidentiality<OtherIncomeSchedules>()
+            join income in Context.Allowances.IgnoreQueryFilters()
+                on row.IncomeId equals income.Id into incomeJoin
+            from income in incomeJoin.DefaultIfEmpty()
+            where row.ConsumedByPayrollId != null && payrollIds.Contains(row.ConsumedByPayrollId.Value)
+                && !row.IsSkipped
+                && (income == null || income.IncomeClass == IncomeClassType.Others)
+            select new PaidOtherIncomeRow(
+                row.ConsumedByPayrollId!.Value, row.IncomeId, income != null ? income.Name : null, row.Date, row.Amount))
+            .AsNoTracking()
+            .ToListAsync(token);
+    }
+
+    private sealed record PaidOtherIncomeRow(Guid PayrollId, Guid IncomeId, string? Name, DateOnly Date, decimal Amount);
 
     // Loads the specific rows HR confirmed in the Last Pay review step — re-checks
     // ConsumedByPayrollId == null so a row consumed by something else between the review

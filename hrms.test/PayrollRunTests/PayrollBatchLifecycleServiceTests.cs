@@ -505,6 +505,197 @@ public class PayrollBatchLifecycleServiceTests
         (await verify.Payrolls.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeFalse();
     }
 
+    // Unsaving one employee from a DRAFT run: only that employee's rows, ledgers, claim and consumed
+    // inputs go; everyone else in the run and the run itself stay. Posted runs and locked years are
+    // refused.
+    private static async Task SeedDraftRunAsync(
+        SqliteHrmsContext db, Guid batchId, Guid[] employeeIds, Guid[] payrollIds, bool posted = false, bool pendingDeletion = false)
+    {
+        await using var seed = db.NewContext();
+        // Only the rows under test matter, not the employees / adjustments they point at, so the FKs
+        // are switched off for this seed (same as PayrollSummaryBreakdownTests).
+        await seed.Database.OpenConnectionAsync();
+        await seed.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = OFF");
+        seed.PayrollBatches.Add(new PayrollBatch
+        {
+            Id = batchId,
+            PayPeriodStart = new DateOnly(2026, 10, 1),
+            PayPeriodEnd = new DateOnly(2026, 10, 15),
+            PayrollType = PayrollType.Regular,
+            IsPosted = posted,
+            PendingDeletion = pendingDeletion,
+        });
+        for (var i = 0; i < employeeIds.Length; i++)
+        {
+            seed.Payrolls.Add(new Payroll
+            {
+                Id = payrollIds[i],
+                PayrollBatchId = batchId,
+                EmployeeId = employeeIds[i],
+                PayrollType = PayrollType.Regular,
+                IsPosted = posted,
+                PostingPeriod = new DateOnly(2026, 10, 15),
+            });
+            seed.PayrollDtrDetails.Add(new PayrollDtrDetail
+            {
+                Id = Guid.NewGuid(), PayrollId = payrollIds[i], EmployeeId = employeeIds[i], Date = new DateOnly(2026, 10, 5),
+            });
+            seed.PayrollDeductionDetails.Add(new PayrollDeductionDetail
+            {
+                Id = Guid.NewGuid(), PayrollId = payrollIds[i], DeductionApplicationDetailId = Guid.NewGuid(),
+                DeductionId = Guid.NewGuid(), Amount = 100,
+            });
+            seed.SSSContributions.Add(new SSSContribution { Id = Guid.NewGuid(), PayrollBatchId = batchId, EmployeeId = employeeIds[i] });
+            seed.TaxContributions.Add(new WTaxContribution { Id = Guid.NewGuid(), PayrollBatchId = batchId, EmployeeId = employeeIds[i], Amount = 10 });
+            seed.PayrollDeductionClaims.Add(new PayrollDeductionClaim
+            {
+                Id = Guid.NewGuid(), EmployeeId = employeeIds[i], PeriodStart = new DateOnly(2026, 10, 1),
+                PeriodEnd = new DateOnly(2026, 10, 15), PayrollBatchId = batchId,
+            });
+            seed.SalaryAdjustments.Add(new SalaryAdjustment
+            {
+                Id = Guid.NewGuid(), EmployeeId = employeeIds[i], PayrollDate = new DateOnly(2026, 10, 15),
+                ConsumedByPayrollId = payrollIds[i],
+            });
+        }
+        await seed.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task UnsaveEmployeeAsync_RemovesOnlyThatEmployee_AndFreesTheirClaimAndInputs()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var employees = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        var payrolls = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        await SeedDraftRunAsync(db, batchId, employees, payrolls);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        await service.UnsaveEmployeeAsync(batchId, payrolls[0], CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.Payrolls.AnyAsync(x => x.Id == payrolls[0])).Should().BeFalse();
+        (await verify.Payrolls.AnyAsync(x => x.Id == payrolls[1])).Should().BeTrue("the other employee stays in the run");
+        (await verify.PayrollDtrDetails.AnyAsync(x => x.PayrollId == payrolls[0])).Should().BeFalse();
+        (await verify.PayrollDtrDetails.AnyAsync(x => x.PayrollId == payrolls[1])).Should().BeTrue();
+        (await verify.PayrollDeductionDetails.AnyAsync(x => x.PayrollId == payrolls[0])).Should().BeFalse();
+        (await verify.PayrollDeductionDetails.AnyAsync(x => x.PayrollId == payrolls[1])).Should().BeTrue();
+        (await verify.SSSContributions.AnyAsync(x => x.EmployeeId == employees[0])).Should().BeFalse();
+        (await verify.SSSContributions.AnyAsync(x => x.EmployeeId == employees[1])).Should().BeTrue();
+        (await verify.TaxContributions.AnyAsync(x => x.EmployeeId == employees[0])).Should().BeFalse();
+        (await verify.TaxContributions.AnyAsync(x => x.EmployeeId == employees[1])).Should().BeTrue();
+        (await verify.PayrollDeductionClaims.AnyAsync(x => x.EmployeeId == employees[0])).Should().BeFalse(
+            "the freed period can be carried by another run");
+        (await verify.PayrollDeductionClaims.AnyAsync(x => x.EmployeeId == employees[1])).Should().BeTrue();
+        (await verify.SalaryAdjustments.SingleAsync(x => x.EmployeeId == employees[0])).ConsumedByPayrollId.Should().BeNull(
+            "the adjustment is available to the next run again");
+        (await verify.SalaryAdjustments.SingleAsync(x => x.EmployeeId == employees[1])).ConsumedByPayrollId.Should().Be(payrolls[1]);
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UnsaveEmployeeAsync_RemovesTheBatchHeader_WhenItWasTheLastEmployee()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+        await SeedDraftRunAsync(db, batchId, [Guid.NewGuid()], [payrollId]);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        await service.UnsaveEmployeeAsync(batchId, payrollId, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.PayrollBatches.FindAsync(batchId)).Should().BeNull();
+        (await verify.Payrolls.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UnsaveEmployeeAsync_IsANoOp_WhenTheEmployeeIsAlreadyGone()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        await SeedDraftRunAsync(db, batchId, [Guid.NewGuid()], [Guid.NewGuid()]);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        await service.UnsaveEmployeeAsync(batchId, Guid.NewGuid(), CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.Payrolls.CountAsync(x => x.PayrollBatchId == batchId)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task UnsaveEmployeeAsync_Refuses_APostedRun()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+        await SeedDraftRunAsync(db, batchId, [Guid.NewGuid()], [payrollId], posted: true);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var act = () => service.UnsaveEmployeeAsync(batchId, payrollId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+        await using var verify = db.NewContext();
+        (await verify.Payrolls.AnyAsync(x => x.Id == payrollId)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UnsaveEmployeeAsync_Refuses_ARunWithAPendingDeletion()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+        await SeedDraftRunAsync(db, batchId, [Guid.NewGuid()], [payrollId], pendingDeletion: true);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var act = () => service.UnsaveEmployeeAsync(batchId, payrollId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public async Task UnsaveEmployeeAsync_Refuses_AnEmployeeOfADifferentRun()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+        await SeedDraftRunAsync(db, batchId, [Guid.NewGuid()], [payrollId]);
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var act = () => service.UnsaveEmployeeAsync(Guid.NewGuid(), payrollId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public async Task UnsaveEmployeeAsync_RollsBackNothing_WhenAYearLockBlocksIt()
+    {
+        using var db = new SqliteHrmsContext();
+        var batchId = Guid.NewGuid();
+        var payrollId = Guid.NewGuid();
+        await SeedDraftRunAsync(db, batchId, [Guid.NewGuid()], [payrollId]);
+        await using (var seed = db.NewContext())
+        {
+            seed.YearLocks.Add(new YearLock { Id = Guid.NewGuid(), Year = 2026, IsLocked = true });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var act = () => service.UnsaveEmployeeAsync(batchId, payrollId, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+        await using var verify = db.NewContext();
+        (await verify.Payrolls.AnyAsync(x => x.Id == payrollId)).Should().BeTrue();
+        (await verify.SSSContributions.AnyAsync(x => x.PayrollBatchId == batchId)).Should().BeTrue();
+    }
+
     [Fact]
     public async Task UnreleaseBatchAsync_RemovesEveryPayoutAndTheBatchHeader_InOneCommand()
     {

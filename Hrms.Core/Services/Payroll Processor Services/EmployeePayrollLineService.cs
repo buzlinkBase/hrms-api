@@ -562,13 +562,17 @@ public class EmployeePayrollLineService
         }
     }
 
-    // One source line per income type, summed across its schedule rows in this cutoff.
-    private static void AddIncomeSources(PayrollSummaryLine payrollLine, string key, List<OtherIncomeInfo> items)
+    // "Oct 16, 2026" -- how a schedule date reads in a breakdown note.
+    private static string ScheduleDate(DateOnly date) => date.ToString("MMM d, yyyy");
+
+    // One source line per schedule row in this cutoff, named after its income type and dated by
+    // the day it is scheduled for, so two rows of the same type stay distinguishable.
+    internal static void AddIncomeSources(PayrollSummaryLine payrollLine, string key, List<OtherIncomeInfo> items)
     {
-        foreach (var g in items.GroupBy(x => x.IncomeId))
+        foreach (var item in items.OrderBy(x => x.PayrollDate))
         {
-            var name = g.Select(x => x.Name).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? "Other Income";
-            payrollLine.AddSource(key, name, g.Sum(x => x.Amount), g.Count() > 1 ? $"{g.Count()} entries" : null);
+            var name = string.IsNullOrWhiteSpace(item.Name) ? "Other Income" : item.Name;
+            payrollLine.AddSource(key, name, item.Amount, $"Scheduled {ScheduleDate(item.PayrollDate)}");
         }
     }
 
@@ -638,9 +642,7 @@ public class EmployeePayrollLineService
         payrollLine.CashBondDeduction = deductionPipeLine.CashBond;
         payrollLine.OtherDeductions = deductionPipeLine.ScheduledDeductions.Sum(x => x.Amount);
         foreach (var d in deductionPipeLine.ScheduledDeductions)
-            payrollLine.AddSource("otherDeductions",
-                d.Type == DeductionInfoType.Loan ? "Loan" : "Scheduled deduction", d.Amount,
-                string.IsNullOrWhiteSpace(d.Remarks) ? null : d.Remarks);
+            payrollLine.AddSource("otherDeductions", DeductionSourceLabel(d), d.Amount, DeductionSourceNote(d));
         payrollLine.TotalLoans = deductionPipeLine.ScheduledDeductions
             .Where(x => x.Type == DeductionInfoType.Loan)
             .Sum(x => x.Amount);
@@ -746,19 +748,19 @@ public class EmployeePayrollLineService
             switch (adj.AdjustmentType)
             {
                 case SalaryAdjustmentType.Salary:
-                    payrollLine.AddSource("basicPay", "Salary adjustment", adj.Amount, adj.Remarks);
+                    payrollLine.AddSource("basicPay", "Salary adjustment", adj.Amount, AdjustmentNote(adj.PayrollDate, adj.Remarks));
                     payrollLine.BasicPay += adj.Amount;
                     payrollLine.GrossIncome += adj.Amount;
                     payrollLine.NetPay += adj.Amount;
                     break;
                 case SalaryAdjustmentType.Allowance:
-                    payrollLine.AddSource("totalOtherIncome", "Allowance adjustment", adj.Amount, adj.Remarks);
+                    payrollLine.AddSource("totalOtherIncome", "Allowance adjustment", adj.Amount, AdjustmentNote(adj.PayrollDate, adj.Remarks));
                     payrollLine.TotalOtherIncome += adj.Amount;
                     payrollLine.GrossIncome += adj.Amount;
                     payrollLine.NetPay += adj.Amount;
                     break;
                 case SalaryAdjustmentType.Deduction:
-                    payrollLine.AddSource("otherDeductions", "Deduction adjustment", adj.Amount, adj.Remarks);
+                    payrollLine.AddSource("otherDeductions", "Deduction adjustment", adj.Amount, AdjustmentNote(adj.PayrollDate, adj.Remarks));
                     payrollLine.OtherDeductions += adj.Amount;
                     payrollLine.TotalDeductions += adj.Amount;
                     payrollLine.NetPay -= adj.Amount;
@@ -766,6 +768,22 @@ public class EmployeePayrollLineService
             }
         }
     }
+
+    // The deduction's own name; the generic label is only the fallback for one with no name.
+    internal static string DeductionSourceLabel(DeductionInfo d) =>
+        !string.IsNullOrWhiteSpace(d.Name)
+            ? d.Name
+            : d.Type == DeductionInfoType.Loan ? "Loan" : "Scheduled deduction";
+
+    // When the installment is scheduled for, plus any remarks.
+    internal static string DeductionSourceNote(DeductionInfo d)
+    {
+        var due = $"Scheduled {ScheduleDate(d.PayrollDate)}";
+        return string.IsNullOrWhiteSpace(d.Remarks) ? due : $"{due} · {d.Remarks}";
+    }
+
+    private static string AdjustmentNote(DateOnly date, string? remarks) =>
+        string.IsNullOrWhiteSpace(remarks) ? ScheduleDate(date) : $"{ScheduleDate(date)} · {remarks}";
 
     private List<ProratedAllowanceModel> CaptureProratedAllowance(PayrollCalcPayload payload, decimal regularAllowance)
     {

@@ -58,7 +58,47 @@ public class PortalVisibilityServiceTests
     [Fact]
     public void EverySwitchIsCoveredByATest()
     {
-        Switches.Select(s => s.Page).Should().BeEquivalentTo(Enum.GetValues<PortalPage>());
+        // Punch is opt-in (off until switched on), so it has its own tests below.
+        Switches.Select(s => s.Page).Should().BeEquivalentTo(Enum.GetValues<PortalPage>().Where(p => p != PortalPage.Punch));
+    }
+
+    [Fact]
+    public async Task PunchIsHiddenUntilTheCompanySwitchesItOn()
+    {
+        using var db = new SqliteHrmsContext();
+        await using var context = db.NewContext();
+
+        var result = await Service(context).GetAsync();
+
+        result.ShowPunch.Should().BeFalse();
+        result.IsVisible(PortalPage.Punch).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PunchIsVisible_WhenTheCompanySwitchesItOn_AndNothingElseChanges()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var seed = db.NewContext())
+            await Save(seed, PayrollSettingsIdentity.KeyPortalShowPunch, "True");
+
+        await using var context = db.NewContext();
+        var result = await Service(context).GetAsync();
+
+        result.IsVisible(PortalPage.Punch).Should().BeTrue();
+        result.Should().Be(new PortalVisibilityModel { ShowPunch = true });
+    }
+
+    [Fact]
+    public async Task AnUnreadablePunchValueFallsBackToHidden()
+    {
+        using var db = new SqliteHrmsContext();
+        await using (var seed = db.NewContext())
+            await Save(seed, PayrollSettingsIdentity.KeyPortalShowPunch, "maybe");
+
+        await using var context = db.NewContext();
+        var result = await Service(context).GetAsync();
+
+        result.ShowPunch.Should().BeFalse();
     }
 
     [Fact]
@@ -70,7 +110,7 @@ public class PortalVisibilityServiceTests
         var result = await Service(context).GetAsync();
 
         result.Should().Be(new PortalVisibilityModel());
-        Enum.GetValues<PortalPage>().Should().OnlyContain(p => result.IsVisible(p));
+        Enum.GetValues<PortalPage>().Where(p => p != PortalPage.Punch).Should().OnlyContain(p => result.IsVisible(p));
     }
 
     [Theory]
@@ -85,7 +125,7 @@ public class PortalVisibilityServiceTests
         var result = await Service(context).GetAsync();
 
         result.IsVisible(page).Should().BeFalse();
-        Enum.GetValues<PortalPage>().Where(p => p != page).Should().OnlyContain(p => result.IsVisible(p));
+        Enum.GetValues<PortalPage>().Where(p => p != page && p != PortalPage.Punch).Should().OnlyContain(p => result.IsVisible(p));
     }
 
     [Fact]

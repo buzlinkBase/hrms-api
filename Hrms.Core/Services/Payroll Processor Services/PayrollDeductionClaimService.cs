@@ -51,6 +51,13 @@ public class PayrollDeductionClaimService : BaseService<PayrollDeductionClaim>
         }));
     }
 
+    // One employee's slice of ReleaseByBatchAsync. An employee this run paid earnings only holds no
+    // claim in it (another run carries them), so nothing of theirs is released here.
+    public Task ReleaseByBatchAndEmployeeAsync(Guid payrollBatchId, Guid employeeId, CancellationToken token) =>
+        Context.PayrollDeductionClaims
+            .Where(x => x.PayrollBatchId == payrollBatchId && x.EmployeeId == employeeId)
+            .ExecuteDeleteAsync(token);
+
     // Deleting a run frees every period it carried so another run can take them.
     public Task ReleaseByBatchAsync(Guid payrollBatchId, CancellationToken token) =>
         Context.PayrollDeductionClaims

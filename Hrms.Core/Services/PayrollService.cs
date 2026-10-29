@@ -618,11 +618,16 @@ public class PayrollService : BaseService<Payroll>
             join category in Context.DeductionTypes.IgnoreQueryFilters().AsNoTracking()
                 on deduction!.CategoryId equals category.Id into categoryJoin
             from category in categoryJoin.DefaultIfEmpty()
+            // The installment's scheduled day. A left join: the installment may be gone since.
+            join installment in Context.DeductionApplicationDetails.IgnoreQueryFilters().AsNoTracking()
+                on detail.DeductionApplicationDetailId equals installment.Id into installmentJoin
+            from installment in installmentJoin.DefaultIfEmpty()
             where ids.Contains(detail.PayrollId)
             select new
             {
                 detail.PayrollId,
                 detail.DeductionId,
+                ScheduledDate = installment != null ? (DateOnly?)installment.Date : null,
                 Name = deduction != null ? deduction.Name : null,
                 CategoryCode = category != null ? category.Code : null,
                 detail.Amount,
@@ -641,12 +646,39 @@ public class PayrollService : BaseService<Payroll>
                     t.First().CategoryCode?.Contains("LOAN") == true))
                 .ToList());
 
+        // Loans and other deductions are separate Payroll Summary columns, so each gets its own list.
+        var sourcesByPayroll = rows
+            .GroupBy(x => x.PayrollId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(x => x.ScheduledDate ?? DateOnly.MaxValue)
+                .GroupBy(x => x.CategoryCode?.Contains("LOAN") == true ? "loans" : "otherDeductions")
+                .ToDictionary(k => k.Key, k => k
+                    .Select(x => PayrollSourceRow.Scheduled(
+                        string.IsNullOrWhiteSpace(x.Name) ? "Deduction" : x.Name!, x.Amount, x.ScheduledDate))
+                    .ToList()));
+
         foreach (var payroll in payrolls)
+        {
             payroll.DeductionItems = byPayroll.GetValueOrDefault(payroll.Id) ?? new();
+            if (sourcesByPayroll.TryGetValue(payroll.Id, out var sources))
+                foreach (var (key, list) in sources)
+                    payroll.SavedSources[key] = list;
+        }
     }
 
     // Companion to AttachDeductionItemsAsync for Other Income, whose rows come from
     // IncomeAplDtlService.GetOtherIncomeItemsAsync (a different aggregate/service).
+    // Itemized (dated) Other Income lines for the saved run's breakdown popup.
+    public static void AttachIncomeSources(
+        List<Payroll> payrolls, Dictionary<Guid, List<PayrollSourceRow>> sourcesByPayroll)
+    {
+        foreach (var payroll in payrolls)
+        {
+            if (sourcesByPayroll.TryGetValue(payroll.Id, out var sources))
+                payroll.SavedSources["totalOtherIncome"] = sources;
+        }
+    }
+
     public static void AttachIncomeItems(
         List<Payroll> payrolls, Dictionary<Guid, List<PayrollBreakdownItem>> itemsByPayroll)
     {

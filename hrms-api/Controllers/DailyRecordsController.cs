@@ -360,6 +360,17 @@ public class DailyRecordsController : ControllerBase
         return Ok(result);
     }
 
+    // Takes one employee out of an unposted batch so just they can be calculated again; refused for
+    // a posted batch or days payroll already paid.
+    [HttpDelete("employee")]
+    [RequirePermission("DTR Master:Manage")]
+    [ProducesResponseType(typeof(ResponseModel<string>), 200)]
+    public async Task<IActionResult> DeleteEmployeeFromBatch([FromQuery] string batchCode, [FromQuery] Guid employeeId, CancellationToken token)
+    {
+        await _service.DeleteEmployeeFromBatchAsync(batchCode, employeeId, token);
+        return Ok("Success");
+    }
+
     // Only deletes an unposted draft (ForApproval/Declined) directly -- an already-posted batch
     // throws, pointing the caller at RequestDeletion/ApproveDeletion above instead.
     [HttpDelete()]

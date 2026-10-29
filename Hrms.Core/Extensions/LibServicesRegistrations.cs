@@ -28,6 +28,7 @@ public static class LibServicesRegistrations
         services.AddScoped<Messaging.InstanceProvisioner>();
         services.AddScoped<Messaging.DedicatedProvisioner>();
         AddAnnouncementAudience(services);
+        AddScheduleScope(services);
         // One per request; HrmsContext's query filter reads it (see ConfidentialAccessScope).
         services.AddScoped<Services.Security.ConfidentialAccessScope>();
         services.AddScoped<IConfidentialAccess>(sp => sp.GetRequiredService<Services.Security.ConfidentialAccessScope>());
@@ -69,6 +70,14 @@ public static class LibServicesRegistrations
     }
 
     // One IAudienceRuleStrategy per way of targeting employees; AudienceResolver composes them.
+    // One IScheduleScopeRule per way a supervisor can reach employees' schedules; ScheduleScopeService
+    // unions them.
+    public static void AddScheduleScope(IServiceCollection services)
+    {
+        services.AddScoped<Services.WorkRotation.IScheduleScopeRule, Services.WorkRotation.DirectReportScopeRule>();
+        services.AddScoped<Services.WorkRotation.IScheduleScopeRule, Services.WorkRotation.GrantedSiteScopeRule>();
+    }
+
     public static void AddAnnouncementAudience(IServiceCollection services)
     {
         services.AddSingleton<Services.Announcements.Audience.IAudienceRuleStrategy, Services.Announcements.Audience.AllEmployeesAudienceRule>();

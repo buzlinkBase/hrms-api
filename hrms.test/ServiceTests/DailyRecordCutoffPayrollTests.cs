@@ -205,6 +205,150 @@ public class DailyRecordCutoffPayrollTests
     }
 
     [Fact]
+    public async Task ReleasePaidForEmployeeAsync_ReleasesOnlyThatEmployeesDays_OfThatRun()
+    {
+        using var db = new SqliteHrmsContext();
+        Guid firstEmployeeDay, secondEmployeeDay, otherRunDay;
+        Guid firstEmployeeId;
+        var run = Guid.NewGuid();
+        await using (var seed = db.NewContext())
+        {
+            (var groupId, firstEmployeeId, firstEmployeeDay, _) = Seed(seed);
+            var second = new Employee { Id = Guid.NewGuid(), PayrollGroupId = groupId };
+            seed.Employees.Add(second);
+            var secondDay = new DailyRecord
+            {
+                Id = Guid.NewGuid(), EmployeeId = second.Id, WorkDate = new DateOnly(2026, 1, 5),
+                BatchCode = "DTR-clientA", FullName = "Second Employee", Posted = true, PayrollBatchId = run,
+            };
+            // Same employee, but paid by a different run: must stay paid.
+            var elsewhere = new DailyRecord
+            {
+                Id = Guid.NewGuid(), EmployeeId = firstEmployeeId, WorkDate = new DateOnly(2026, 1, 7),
+                BatchCode = "DTR-clientA", FullName = "Test Employee", Posted = true, PayrollBatchId = Guid.NewGuid(),
+            };
+            seed.DailyTimeRecords.AddRange(secondDay, elsewhere);
+            await seed.SaveChangesAsync();
+            (await seed.DailyTimeRecords.SingleAsync(x => x.Id == firstEmployeeDay)).PayrollBatchId = run;
+            await seed.SaveChangesAsync();
+            secondEmployeeDay = secondDay.Id;
+            otherRunDay = elsewhere.Id;
+        }
+
+        await using (var context = db.NewContext())
+        {
+            var uow = new UnitOfWorkService(context);
+            await BuildService(uow).ReleasePaidForEmployeeAsync(run, firstEmployeeId, CancellationToken.None);
+            await uow.CommitChangesAsync("", CancellationToken.None);
+        }
+
+        await using var verify = db.NewContext();
+        (await verify.DailyTimeRecords.SingleAsync(x => x.Id == firstEmployeeDay)).PayrollBatchId.Should().BeNull();
+        (await verify.DailyTimeRecords.SingleAsync(x => x.Id == secondEmployeeDay)).PayrollBatchId.Should().Be(run,
+            "another employee's days stay paid by the run");
+        (await verify.DailyTimeRecords.SingleAsync(x => x.Id == otherRunDay)).PayrollBatchId.Should().NotBeNull(
+            "a day paid by a different run is not this run's to release");
+        (await verify.DailyTimeRecords.SingleAsync(x => x.Id == firstEmployeeDay)).Posted.Should().BeTrue();
+    }
+
+    // Removing one employee from an unposted DTR batch: only their days go, the batch stays while
+    // others remain, and its header goes with the last employee. A posted batch or paid days block it.
+    private static async Task<(Guid First, Guid Second)> SeedDraftBatchAsync(
+        SqliteHrmsContext db, string code, bool posted = false, Guid? paidByRun = null)
+    {
+        await using var seed = db.NewContext();
+        await seed.Database.OpenConnectionAsync();
+        await seed.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = OFF");
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        seed.DTRBatches.Add(new DTRBatch { Id = Guid.NewGuid(), BatchCode = code });
+        seed.DailyTimeRecords.AddRange(
+            new DailyRecord { Id = Guid.NewGuid(), EmployeeId = first, WorkDate = new DateOnly(2026, 10, 5), BatchCode = code, FullName = "First", Posted = posted, PayrollBatchId = paidByRun },
+            new DailyRecord { Id = Guid.NewGuid(), EmployeeId = first, WorkDate = new DateOnly(2026, 10, 6), BatchCode = code, FullName = "First", Posted = posted, PayrollBatchId = paidByRun },
+            new DailyRecord { Id = Guid.NewGuid(), EmployeeId = second, WorkDate = new DateOnly(2026, 10, 5), BatchCode = code, FullName = "Second", Posted = posted });
+        await seed.SaveChangesAsync();
+        return (first, second);
+    }
+
+    [Fact]
+    public async Task DeleteEmployeeFromBatchAsync_RemovesOnlyThatEmployeesDays_AndKeepsTheBatch()
+    {
+        using var db = new SqliteHrmsContext();
+        var (first, second) = await SeedDraftBatchAsync(db, "DTR-draft");
+
+        await using (var context = db.NewContext())
+            await BuildService(new UnitOfWorkService(context)).DeleteEmployeeFromBatchAsync("DTR-draft", first, CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.DailyTimeRecords.AnyAsync(x => x.EmployeeId == first)).Should().BeFalse();
+        (await verify.DailyTimeRecords.CountAsync(x => x.EmployeeId == second)).Should().Be(1);
+        (await verify.DTRBatches.AnyAsync(x => x.BatchCode == "DTR-draft")).Should().BeTrue("another employee is still in the batch");
+    }
+
+    [Fact]
+    public async Task DeleteEmployeeFromBatchAsync_RemovesTheBatchHeader_WithTheLastEmployee()
+    {
+        using var db = new SqliteHrmsContext();
+        var (first, second) = await SeedDraftBatchAsync(db, "DTR-draft");
+
+        await using (var context = db.NewContext())
+        {
+            var service = BuildService(new UnitOfWorkService(context));
+            await service.DeleteEmployeeFromBatchAsync("DTR-draft", first, CancellationToken.None);
+            await service.DeleteEmployeeFromBatchAsync("DTR-draft", second, CancellationToken.None);
+        }
+
+        await using var verify = db.NewContext();
+        (await verify.DailyTimeRecords.AnyAsync(x => x.BatchCode == "DTR-draft")).Should().BeFalse();
+        (await verify.DTRBatches.AnyAsync(x => x.BatchCode == "DTR-draft")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteEmployeeFromBatchAsync_IsANoOp_WhenTheEmployeeHasNoDaysInTheBatch()
+    {
+        using var db = new SqliteHrmsContext();
+        await SeedDraftBatchAsync(db, "DTR-draft");
+
+        await using (var context = db.NewContext())
+            await BuildService(new UnitOfWorkService(context)).DeleteEmployeeFromBatchAsync("DTR-draft", Guid.NewGuid(), CancellationToken.None);
+
+        await using var verify = db.NewContext();
+        (await verify.DailyTimeRecords.CountAsync(x => x.BatchCode == "DTR-draft")).Should().Be(3);
+    }
+
+    [Fact]
+    public async Task DeleteEmployeeFromBatchAsync_Refuses_APostedBatch()
+    {
+        using var db = new SqliteHrmsContext();
+        var (first, _) = await SeedDraftBatchAsync(db, "DTR-posted", posted: true);
+
+        await using var context = db.NewContext();
+        var act = () => BuildService(new UnitOfWorkService(context)).DeleteEmployeeFromBatchAsync("DTR-posted", first, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+        await using var verify = db.NewContext();
+        (await verify.DailyTimeRecords.CountAsync(x => x.BatchCode == "DTR-posted")).Should().Be(3);
+    }
+
+    [Fact]
+    public async Task DeleteEmployeeFromBatchAsync_Refuses_WhenPayrollAlreadyPaidTheEmployeesDays()
+    {
+        using var db = new SqliteHrmsContext();
+        var (first, second) = await SeedDraftBatchAsync(db, "DTR-paid", paidByRun: Guid.NewGuid());
+
+        await using var context = db.NewContext();
+        var service = BuildService(new UnitOfWorkService(context));
+        var act = () => service.DeleteEmployeeFromBatchAsync("DTR-paid", first, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ValidationException>();
+        // The other employee has no paid days, so they are free to be removed.
+        await service.DeleteEmployeeFromBatchAsync("DTR-paid", second, CancellationToken.None);
+        await using var verify = db.NewContext();
+        (await verify.DailyTimeRecords.CountAsync(x => x.EmployeeId == first)).Should().Be(2);
+        (await verify.DailyTimeRecords.AnyAsync(x => x.EmployeeId == second)).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task GetBatches_FlagsPayrollGeneratedOnlyWhenEveryDayOfTheBatchIsPaid()
     {
         using var db = new SqliteHrmsContext();

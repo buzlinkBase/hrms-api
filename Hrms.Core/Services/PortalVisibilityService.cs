@@ -23,6 +23,7 @@ public enum PortalPage
     OfficialBusiness,
     PassSlip,
     LoanApplications,
+    Punch,
 }
 
 /// <summary>Every page is on unless the company saved its switch off.</summary>
@@ -45,6 +46,8 @@ public record PortalVisibilityModel
     public bool ShowOfficialBusiness { get; init; } = true;
     public bool ShowPassSlip { get; init; } = true;
     public bool ShowLoanApplications { get; init; } = true;
+    // The only page that starts hidden: employees punching from a browser is opt-in.
+    public bool ShowPunch { get; init; }
 
     public bool IsVisible(PortalPage page) => page switch
     {
@@ -65,6 +68,7 @@ public record PortalVisibilityModel
         PortalPage.OfficialBusiness => ShowOfficialBusiness,
         PortalPage.PassSlip => ShowPassSlip,
         PortalPage.LoanApplications => ShowLoanApplications,
+        PortalPage.Punch => ShowPunch,
         _ => true,
     };
 }
@@ -109,6 +113,8 @@ public class PortalVisibilityService
             ShowOfficialBusiness = Read(PayrollSettingsIdentity.KeyPortalShowOfficialBusiness),
             ShowPassSlip = Read(PayrollSettingsIdentity.KeyPortalShowPassSlip),
             ShowLoanApplications = Read(PayrollSettingsIdentity.KeyPortalShowLoanApplications),
+            ShowPunch = s.TryGetValue(PayrollSettingsIdentity.KeyPortalShowPunch, out var punch)
+                && GeneralSettingsUtil.ParseBool(punch.Value, false),
         };
     }
 }

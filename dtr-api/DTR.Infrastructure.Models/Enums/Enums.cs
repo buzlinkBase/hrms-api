@@ -92,7 +92,8 @@ public enum LOGSOURCE
     ADMS,
     GEOFENCE,
     MOBILE,
-    OTHER
+    OTHER,
+    PORTAL
 }
 public enum DTRSOURCE
 {

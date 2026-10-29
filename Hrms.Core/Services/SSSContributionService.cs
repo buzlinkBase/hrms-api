@@ -105,6 +105,11 @@ public class SSSContributionService : BaseService<SSSContribution>
         // Every employee's rows, confidential ones included -- the whole run is being removed.
         await ExecuteDeleteForEveryoneAsync<SSSContribution>(x => x.PayrollBatchId == payrollBatchId, token);
 
+    // One employee's slice of a run, for unsaving a single employee from a draft run.
+    public async Task DeleteByBatchAndEmployeeAsync(Guid payrollBatchId, Guid employeeId, CancellationToken token) =>
+        await ExecuteDeleteForEveryoneAsync<SSSContribution>(
+            x => x.PayrollBatchId == payrollBatchId && x.EmployeeId == employeeId, token);
+
     // SSS R3 (Contribution Collection List) electronic file for upload via the My.SSS
     // employer portal. Column layout implemented from general knowledge of the My.SSS R3
     // upload template, NOT against a live reference spec — diff against the current portal

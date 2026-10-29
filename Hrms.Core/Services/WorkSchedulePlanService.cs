@@ -1,5 +1,6 @@
 ﻿
 using Hrms.Domain.Entities;
+using Hrms.Domain.Entities.EmployeeEntities;
 using Mapster;
 using MassTransit.Initializers;
 namespace Hrms.Core.Services;
@@ -22,19 +23,7 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
         if (models == null || !models.Any())
             return;
 
-        // 1. Get distinct employee & date pairs
-        var keys = models
-            .Select(x => new { x.EmployeeId, x.PayrollDate })
-            .Distinct()
-            .ToList();
-
-        // 2. Loop through each key and delete matching records directly in SQL
-        foreach (var key in keys)
-        {
-            await GetQueryable()
-                .Where(x => x.EmployeeId == key.EmployeeId && x.PayrollDate == key.PayrollDate)
-                .ExecuteDeleteAsync(token);
-        }
+        await DeleteExistingAsync(models.Select(x => (x.EmployeeId, x.PayrollDate)), token);
 
         var minDate = models.Min(x => x.PayrollDate);
         var maxDate = models.Max(x => x.PayrollDate);
@@ -47,6 +36,106 @@ public class WorkSchedulePlanService : BaseService<WorkSchedulePlan>
         // 3. Add new records and persist
         await CreateRangeAsync(models, token);
         await CommitChangesAsync(token);
+    }
+
+    // Replaces whatever the employees already have on those days: one delete per employee (all of
+    // that employee's dates at once) instead of one per employee-day.
+    private async Task DeleteExistingAsync(IEnumerable<(Guid EmployeeId, DateOnly PayrollDate)> keys, CancellationToken token)
+    {
+        foreach (var byEmployee in keys.Distinct().GroupBy(k => k.EmployeeId))
+        {
+            var employeeId = byEmployee.Key;
+            var dates = byEmployee.Select(k => k.PayrollDate).ToList();
+            await GetQueryable()
+                .Where(x => x.EmployeeId == employeeId && dates.Contains(x.PayrollDate))
+                .ExecuteDeleteAsync(token);
+        }
+    }
+
+    // Quick Schedule grid save. Every entry's day is replaced; entries without a shift only clear
+    // the day. All saved rows share one batch code so the whole save can be undone.
+    public async Task<ApplyWorkRotationGridResult> ApplyGridAsync(List<WorkRotationGridEntry> entries, CancellationToken token)
+    {
+        if (entries == null || entries.Count == 0)
+            return new ApplyWorkRotationGridResult();
+
+        // The last entry for a cell wins, so a repeated cell can't be inserted twice.
+        var cells = entries
+            .GroupBy(e => (e.EmployeeId, e.PayrollDate))
+            .Select(g => g.Last())
+            .ToList();
+
+        await DeleteExistingAsync(cells.Select(c => (c.EmployeeId, c.PayrollDate)), token);
+
+        var models = cells
+            .Where(c => c.TimeShiftId.HasValue)
+            .Select(c => new WorkSchedulePlan
+            {
+                EmployeeId = c.EmployeeId,
+                PayrollDate = c.PayrollDate,
+                TimeShiftId = c.TimeShiftId!.Value,
+                OperationAreaId = c.OperationAreaId,
+                ClientId = c.ClientId,
+            })
+            .ToList();
+
+        string? batchCode = null;
+        if (models.Count > 0)
+        {
+            batchCode = GetBatchCode(models.Min(x => x.PayrollDate), models.Max(x => x.PayrollDate));
+            foreach (var model in models)
+            {
+                model.BatchCode = batchCode;
+            }
+            await CreateRangeAsync(models, token);
+        }
+        await CommitChangesAsync(token);
+
+        return new ApplyWorkRotationGridResult
+        {
+            BatchCode = batchCode,
+            Saved = models.Count,
+            Cleared = cells.Count - models.Count,
+        };
+    }
+
+    // The grid shows what an employee actually has on each day, so this reads by PayrollDate (the
+    // list's FindAllAsync filters by when the entry was created).
+    public async Task<List<WorkSchedulePlanModel>> FindGridAsync(WorkRotationGridFilter filter, CancellationToken token)
+    {
+        var query = GetQueryable()
+            .AsNoTracking()
+            .Include(x => x.OperationArea)
+            .Include(x => x.Client)
+            .Include(x => x.TimeShift)
+            .Include(x => x.Employee)
+            .Where(x => x.PayrollDate >= filter.FromDate && x.PayrollDate <= filter.ToDate);
+
+        if (filter.EmployeeIds is { Count: > 0 } ids)
+        {
+            query = query.Where(x => ids.Contains(x.EmployeeId));
+        }
+
+        var data = await query.ToListAsync(token);
+        return data.Select(ToModel).ToList();
+    }
+
+    public async Task<bool> AllShiftsExistAsync(IEnumerable<Guid> shiftIds, CancellationToken token)
+    {
+        var ids = shiftIds.Distinct().ToList();
+        if (ids.Count == 0) return true;
+        var found = await _uow.Repository.FindAll<TimeShift>().AsNoTracking()
+            .CountAsync(x => ids.Contains(x.Id), token);
+        return found == ids.Count;
+    }
+
+    public async Task<bool> AllEmployeesExistAsync(IEnumerable<Guid> employeeIds, CancellationToken token)
+    {
+        var ids = employeeIds.Distinct().ToList();
+        if (ids.Count == 0) return true;
+        var found = await _uow.Repository.FindAll<Employee>().AsNoTracking()
+            .CountAsync(x => ids.Contains(x.Id), token);
+        return found == ids.Count;
     }
 
     private string GetBatchCode(DateOnly minDate, DateOnly maxDate)

@@ -335,6 +335,37 @@ public class DailyRecordService : BaseService<DailyRecord>
         await ExecuteBatchDeletionAsync(batchCode, token);
     }
 
+    // Takes ONE employee out of a DTR batch that has not been posted yet (a wrong calculation, a late
+    // correction) so just their days can be calculated again -- DeleteAsync would drop the whole
+    // batch. Nothing of a draft is final or consumed (leave is only consumed on posting), so this is
+    // a plain scoped delete, with the same hard blocks as DeleteAsync: a posted batch, a batch a
+    // payroll run was saved from, or any of the employee's days already paid by a run. The batch's
+    // header goes with its last employee, and the posting approval it was waiting on is cancelled.
+    public async Task DeleteEmployeeFromBatchAsync(string batchCode, Guid employeeId, CancellationToken token)
+    {
+        var employeeRecords = BatchRecords(batchCode).Where(x => x.EmployeeId == employeeId);
+        // Already gone -- a second click or a stale list; the desired end state holds.
+        if (!await employeeRecords.AnyAsync(token)) return;
+
+        if (await BatchRecords(batchCode).AnyAsync(x => x.Posted, token))
+            throw new ValidationException("This DTR batch has already been posted — request its deletion for approval instead.");
+
+        var usedBatchCodes = await _payrollBatchService.GetUsedDtrBatchCodesAsync(token);
+        if (usedBatchCodes.Contains(batchCode) || await employeeRecords.AnyAsync(x => x.PayrollBatchId != null, token))
+            throw new ValidationException("Cannot remove this employee — payroll has already been generated and saved from this DTR. Unsave them from the payroll run first if you need to recalculate.");
+
+        await employeeRecords.ExecuteDeleteAsync(token);
+
+        if (!await BatchRecords(batchCode).AnyAsync(token))
+        {
+            foreach (var batch in await _dtrBatchService.FindByCodesAsync([batchCode], token))
+                await _approvalEngine.CancelAsync(ApprovalApplicationType.Dtr, batch.Id, token);
+            await SaveChangesAsync(token);
+            await _dtrBatchService.DeleteByCodeAsync(batchCode, token, commit: false);
+        }
+        await CommitChangesAsync(token);
+    }
+
     // The actual cascade, shared by the direct-delete path above (an unposted draft) and
     // ApproveDeletionAsync below (an already-posted batch, once its deletion request itself
     // clears approval).
@@ -730,6 +761,17 @@ public class DailyRecordService : BaseService<DailyRecord>
     {
         var records = await Context.IgnoringConfidentiality<DailyRecord>()
             .Where(x => x.PayrollBatchId == payrollBatchId)
+            .ToListAsync(token);
+        foreach (var r in records) r.PayrollBatchId = null;
+        await SaveChangesAsync(token);
+    }
+
+    // One employee's slice of ReleasePaidAsync, for unsaving a single employee from a draft run.
+    // Everyone else's days stay stamped by the run.
+    public async Task ReleasePaidForEmployeeAsync(Guid payrollBatchId, Guid employeeId, CancellationToken token)
+    {
+        var records = await Context.IgnoringConfidentiality<DailyRecord>()
+            .Where(x => x.PayrollBatchId == payrollBatchId && x.EmployeeId == employeeId)
             .ToListAsync(token);
         foreach (var r in records) r.PayrollBatchId = null;
         await SaveChangesAsync(token);

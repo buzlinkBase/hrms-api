@@ -65,8 +65,9 @@ namespace Hrms.Api.Controllers
         private async Task AttachBreakdownsAsync(List<Payroll> data, IncomeAplDtlService otherIncomeService, CancellationToken token)
         {
             await _payrollService.AttachDeductionItemsAsync(data, token);
-            PayrollService.AttachIncomeItems(
-                data, await otherIncomeService.GetOtherIncomeItemsAsync(data.Select(x => x.Id).ToList(), token));
+            var payrollIds = data.Select(x => x.Id).ToList();
+            PayrollService.AttachIncomeItems(data, await otherIncomeService.GetOtherIncomeItemsAsync(payrollIds, token));
+            PayrollService.AttachIncomeSources(data, await otherIncomeService.GetOtherIncomeSourcesAsync(payrollIds, token));
         }
 
         // Looks up batchId's actual run type and checks the caller holds "{run type}:{action}"
@@ -451,6 +452,21 @@ namespace Hrms.Api.Controllers
             if (violation != null) return violation;
 
             await _service.DeleteBatchAsync(batchId, token);
+            return Ok("success");
+        }
+
+        // Takes one employee out of a saved run that hasn't been posted yet so just they can be
+        // generated again. Gated like the run's own delete: {RunTypeFeature}:Create of the run's type;
+        // a posted run is refused by the service (it needs the run-level deletion approval).
+        [HttpDelete("batch/{batchId:guid}/employee/{payrollId:guid}")]
+        [ProducesResponseType(typeof(ResponseModel<object>), 200)]
+        public async Task<IActionResult> UnsaveEmployee(Guid batchId, Guid payrollId, CancellationToken token)
+        {
+            var violation = await ValidateBatchPermissionAsync(User, batchId, "Create", token);
+            if (violation is NotFoundResult or NotFoundObjectResult) return Ok("success");
+            if (violation != null) return violation;
+
+            await _service.UnsaveEmployeeAsync(batchId, payrollId, token);
             return Ok("success");
         }
 

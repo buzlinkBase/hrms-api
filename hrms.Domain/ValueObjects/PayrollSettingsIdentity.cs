@@ -30,4 +30,9 @@ public static class PayrollSettingsIdentity
     public const string KeyPortalShowOfficialBusiness = "PortalShowOfficialBusiness";
     public const string KeyPortalShowPassSlip = "PortalShowPassSlip";
     public const string KeyPortalShowLoanApplications = "PortalShowLoanApplications";
+    // Punch In/Out from My Portal. Unlike the pages above this one is OFF until the company turns
+    // it on, and consecutive punches must be at least PortalPunchCooldownMinutes apart (default 5).
+    public const string KeyPortalShowPunch = "PortalShowPunch";
+    public const string KeyPortalPunchCooldownMinutes = "PortalPunchCooldownMinutes";
+    public const int DefaultPortalPunchCooldownMinutes = 5;
 }

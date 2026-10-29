@@ -527,7 +527,9 @@ public enum LOGSOURCE
     SYNC,
     GEOFENCE,
     MOBILE,
-    OTHER
+    OTHER,
+    // Punched from the Employee Portal (appended last: the column stores the number).
+    PORTAL
 }
 // What a user did to an uploaded/synced log whose original is kept in AttendanceOriginalLog.
 public enum ATTENDANCE_ORIGINAL_ACTION

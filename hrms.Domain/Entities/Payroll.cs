@@ -279,6 +279,10 @@ public class Payroll: BaseEntity, IPostedFilter, IDateFilter, IEmployeeOwned, IC
     // PayrollService.AttachBreakdownsAsync for the Payroll Summary list and print-out.
     [NotMapped] public List<PayrollBreakdownItem> DeductionItems { get; set; } = new();
     [NotMapped] public List<PayrollBreakdownItem> IncomeItems { get; set; } = new();
+    // Itemized lines per Payroll Summary column ("otherDeductions", "totalOtherIncome"), one per
+    // scheduled installment with its date, for the saved run's breakdown popup. Read-side only,
+    // and named apart from PayrollSummaryLine.Sources so Mapster never copies it.
+    [NotMapped] public Dictionary<string, List<PayrollSourceRow>> SavedSources { get; set; } = new();
     public bool IsPosted { get; set; }
     // Setup > Payslip/13th Month/Last Pay > Received by Employee — set once the employee
     // confirms receipt of this row's document in the Employee Portal (MeController.

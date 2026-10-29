@@ -4,6 +4,7 @@ using Asp.Versioning;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
 using Hrms.Core.Services;
+using Hrms.Core.Services.WorkRotation;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
@@ -22,11 +23,13 @@ public class WorkSchedulePlansController : ControllerBase
 {
     private readonly WorkSchedulePlanService _service;
     private readonly EmployeeService _employeeService;
+    private readonly ScheduleScopeService _scope;
     private readonly IMapper _mapper;
-    public WorkSchedulePlansController(WorkSchedulePlanService service, EmployeeService employeeService, IMapper mapper)
+    public WorkSchedulePlansController(WorkSchedulePlanService service, EmployeeService employeeService, ScheduleScopeService scope, IMapper mapper)
     {
         _service = service;
         _employeeService = employeeService;
+        _scope = scope;
         _mapper = mapper;
     }
 
@@ -74,7 +77,10 @@ public class WorkSchedulePlansController : ControllerBase
     // directly, so this authorization decision is unit-testable on its own -- exercising it
     // through the full PostBatch action would also require _service.AddRange's ExecuteDeleteAsync
     // to run against a real relational provider, which a plain mocked-repository test can't do.
-    internal async Task<IActionResult?> ValidateTeamScopeAsync(ClaimsPrincipal user, List<Guid> employeeIds, CancellationToken token)
+    // Reach = direct reports plus employees at the sites the supervisor was granted
+    // (ScheduleScopeService). A supervisor with granted sites may also only send people to those
+    // sites; one without any keeps the direct-reports-only behavior, any site allowed.
+    internal async Task<IActionResult?> ValidateTeamScopeAsync(ClaimsPrincipal user, List<Guid> employeeIds, CancellationToken token, IEnumerable<Guid>? areaIds = null)
     {
         if (user.HasPermission("Work Rotation:Create")) return null;
         if (!user.HasPermission("Work Rotation:ManageOwnTeam")) return null;
@@ -85,9 +91,8 @@ public class WorkSchedulePlansController : ControllerBase
             return Forbid();
         }
 
-        var directReports = await _employeeService.Filter(new EmployeeFilter { ManagerId = myEmployeeId }, token);
-        var allowedIds = directReports.Select(x => x.Id).ToHashSet();
-        if (employeeIds.Any(id => !allowedIds.Contains(id)))
+        var scope = await _scope.ResolveAsync(myEmployeeId.Value, token);
+        if (!scope.CanSchedule(employeeIds) || !scope.CanUseAreas(areaIds ?? []))
         {
             return Forbid();
         }
@@ -95,11 +100,24 @@ public class WorkSchedulePlansController : ControllerBase
         return null;
     }
 
+    // What a team-scoped caller can schedule: the employees to list in the grid and the sites they
+    // may send people to (empty = any site).
+    [HttpGet("scope")]
+    [ProducesResponseType(typeof(ResponseModel<ScheduleScopeModel>), 200)]
+    public async Task<IActionResult> GetScope(CancellationToken token)
+    {
+        var myEmployeeId = await _employeeService.ResolveEmployeeIdAsync(User.GetRequiredUserId(), User.GetUserClaim("email"), token);
+        if (myEmployeeId == null) return Forbid();
+
+        var scope = await _scope.ResolveAsync(myEmployeeId.Value, token);
+        return Ok(new ScheduleScopeModel(scope.Employees, scope.AllowedAreaIds.ToList()));
+    }
+
     [HttpPost("batch")]
     [ProducesResponseType(typeof(ResponseModel<List<WorkSchedulePlanModel>>), 200)]
     public async Task<IActionResult> PostBatch([FromBody] CreateWorkRotationPlanBatch payload, CancellationToken token)
     {
-        var scopeViolation = await ValidateTeamScopeAsync(User, payload.EmployeeIds, token);
+        var scopeViolation = await ValidateTeamScopeAsync(User, payload.EmployeeIds, token, payload.OperationAreaId.HasValue ? [payload.OperationAreaId.Value] : null);
         if (scopeViolation != null) return scopeViolation;
 
         if (payload.OperationAreaId is { } areaId && !await _service.AreaExistsAsync(areaId, token))
@@ -131,6 +149,67 @@ public class WorkSchedulePlansController : ControllerBase
         return Ok(respModel);
     }
 
+    private const int MaxGridEntries = 5000;
+
+    // What the Quick Schedule grid preloads. Open to anyone who can view or manage rotations; a
+    // team-scoped caller must name the employees (the same scope check as saving) so they can't
+    // read anyone else's roster through it.
+    // A POST (not a GET) because the employee list can be hundreds of ids -- too long for a URL.
+    [HttpPost("grid/query")]
+    [ProducesResponseType(typeof(ResponseModel<List<WorkSchedulePlanModel>>), 200)]
+    public async Task<IActionResult> QueryGrid([FromBody] WorkRotationGridFilter filter, CancellationToken token)
+    {
+        var (fromDate, toDate, employeeIds) = filter;
+        if (!User.HasPermission("Work Rotation:View") && !User.HasPermission("Work Rotation:Create") && !User.HasPermission("Work Rotation:ManageOwnTeam"))
+        {
+            return Forbid();
+        }
+        if (toDate < fromDate) return BadRequest("The end date is before the start date.");
+
+        var isTeamScoped = !User.HasPermission("Work Rotation:Create") && User.HasPermission("Work Rotation:ManageOwnTeam");
+        if (isTeamScoped && (employeeIds == null || employeeIds.Count == 0))
+        {
+            return BadRequest("Select the employees to load.");
+        }
+
+        var scopeViolation = await ValidateTeamScopeAsync(User, employeeIds ?? [], token);
+        if (scopeViolation != null) return scopeViolation;
+
+        var data = await _service.FindGridAsync(filter, token);
+        return Ok(data);
+    }
+
+    // Quick Schedule save: many employees x days, each with its own shift (or cleared). Scope is
+    // the same rule as /batch, applied to every distinct employee in the payload.
+    [HttpPost("grid")]
+    [ProducesResponseType(typeof(ResponseModel<ApplyWorkRotationGridResult>), 200)]
+    public async Task<IActionResult> PostGrid([FromBody] ApplyWorkRotationGrid payload, CancellationToken token)
+    {
+        if (payload.Entries == null || payload.Entries.Count == 0) return BadRequest("There is nothing to save.");
+        if (payload.Entries.Count > MaxGridEntries) return BadRequest($"Too many changes at once (max {MaxGridEntries}). Save in smaller parts.");
+
+        var employeeIds = payload.Entries.Select(e => e.EmployeeId).Distinct().ToList();
+        var scopeViolation = await ValidateTeamScopeAsync(User, employeeIds, token, payload.Entries.Where(e => e.TimeShiftId.HasValue && e.OperationAreaId.HasValue).Select(e => e.OperationAreaId!.Value));
+        if (scopeViolation != null) return scopeViolation;
+
+        if (!await _service.AllEmployeesExistAsync(employeeIds, token))
+            return BadRequest("One or more employees do not exist.");
+        if (!await _service.AllShiftsExistAsync(payload.Entries.Where(e => e.TimeShiftId.HasValue).Select(e => e.TimeShiftId!.Value), token))
+            return BadRequest("One or more time shifts do not exist.");
+
+        foreach (var areaId in payload.Entries.Where(e => e.OperationAreaId.HasValue).Select(e => e.OperationAreaId!.Value).Distinct())
+        {
+            if (!await _service.AreaExistsAsync(areaId, token)) return BadRequest("The selected area does not exist.");
+        }
+        foreach (var clientId in payload.Entries.Where(e => e.ClientId.HasValue).Select(e => e.ClientId!.Value).Distinct())
+        {
+            if (!await _service.ClientExistsAsync(clientId, token)) return BadRequest("The selected client does not exist.");
+        }
+
+        var result = await _service.ApplyGridAsync(payload.Entries, token);
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}")]
     [RequirePermission("Work Rotation:View")]
     [ProducesResponseType(typeof(ResponseModel<WorkSchedulePlanModel>), 200)]
@@ -149,7 +228,7 @@ public class WorkSchedulePlansController : ControllerBase
         var existing = await _service.GetModelAsync(id, token);
         if (existing == null) return NotFound();
 
-        var scopeViolation = await ValidateTeamScopeAsync(User, [existing.EmployeeId], token);
+        var scopeViolation = await ValidateTeamScopeAsync(User, [existing.EmployeeId], token, payload.OperationAreaId.HasValue ? [payload.OperationAreaId.Value] : null);
         if (scopeViolation != null) return scopeViolation;
 
         if (payload.OperationAreaId is { } areaId && !await _service.AreaExistsAsync(areaId, token))

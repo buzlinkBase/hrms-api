@@ -332,6 +332,69 @@ public class PayrollBatchLifecycleService
         }
     }
 
+    // Takes ONE employee out of a saved run that has not been posted yet (a wrong figure, a
+    // missing input, a late DTR fix) so just that employee can be generated again -- deleting the
+    // run would drop everyone in it. Posted runs are refused: posting moved loan balances and
+    // retirement funds, so they keep the run-level "request deletion" approval. A draft never moved
+    // balances, so unsaving is cleanup, scoped to this row: the same steps as ExecuteBatchDeletionAsync
+    // with every batch-wide helper swapped for its per-employee version. The run's header is removed
+    // only once its last employee is gone. Same single-transaction composition as DeleteBatchAsync.
+    public async Task UnsaveEmployeeAsync(Guid payrollBatchId, Guid payrollId, CancellationToken token)
+    {
+        var row = await _payrollService.GetOneIgnoringConfidentialityAsync(payrollId, token);
+        // Already gone -- a second click or a stale list; the desired end state holds.
+        if (row == null) return;
+        if (row.PayrollBatchId != payrollBatchId)
+            throw new ValidationException("This employee's payroll doesn't belong to that run.");
+
+        var batch = await _payrollBatchService.FineOneAsync(payrollBatchId, token)
+            ?? throw new NotFoundException("Payroll batch not found.");
+        if (batch.IsPosted || row.IsPosted)
+            throw new ValidationException("This payroll run has already been posted -- request its deletion for approval instead.");
+        if (batch.PendingDeletion)
+            throw new ValidationException("This payroll run has a deletion request pending approval.");
+
+        var year = row.PostingPeriod.Year;
+        if (await _yearLockService.IsYearLockedAsync(year, token))
+        {
+            throw new ValidationException(
+                $"Payroll for {year} is locked -- the Year-End Tax Adjustment has already been posted for " +
+                "this year. Reopen the year first if changes are required.");
+        }
+
+        try
+        {
+            var payrollIds = new List<Guid> { payrollId };
+            await _sssContributionService.DeleteByBatchAndEmployeeAsync(payrollBatchId, row.EmployeeId, token);
+            await _phicContributionService.DeleteByBatchAndEmployeeAsync(payrollBatchId, row.EmployeeId, token);
+            await _hdmfContributionService.DeleteByBatchAndEmployeeAsync(payrollBatchId, row.EmployeeId, token);
+            await _taxContributionService.DeleteByBatchAndEmployeeAsync(payrollBatchId, row.EmployeeId, token);
+            await _payrollService.DeleteDeductionDetailsByPayrollIdsAsync(payrollIds, token);
+            await _payrollService.DeleteDtrDetailsByPayrollIdsAsync(payrollIds, token);
+            // Un-consumes the salary adjustments / other income / loan installments this row claimed.
+            await _consumptionService.ReleaseAsync(payrollIds, token);
+            await _payrollService.DeleteByIdAsync(payrollId, token);
+            // Frees the deduction period this employee carried (if they carried one) for another run,
+            // and the DTR days this row paid so they can be paid again. The days stay approved/posted.
+            await _claimService.ReleaseByBatchAndEmployeeAsync(payrollBatchId, row.EmployeeId, token);
+            await _dtrServie.ReleasePaidForEmployeeAsync(payrollBatchId, row.EmployeeId, token);
+
+            if (await _payrollService.CountInBatchAsync(payrollBatchId, token) == 0)
+                await _payrollBatchService.DeleteAsync(payrollBatchId, token, commit: false);
+            await _payrollBatchService.CommitChangesAsync(token);
+            Log.Information("Unsaved employee {EmployeeId} (payroll {PayrollId}) from draft payroll run {BatchId}",
+                row.EmployeeId, payrollId, payrollBatchId);
+        }
+        catch
+        {
+            if (_uow.CurrentTransaction != null)
+            {
+                await _uow.CurrentTransaction.RollbackAsync(token);
+            }
+            throw;
+        }
+    }
+
     // Withdraws a WHOLE released 13th month / Last Pay run in one command (the per-employee
     // UnreleasePayoutAsync above, applied to every row) -- the batch-wide cascade in
     // ExecuteBatchDeletionAsync already reverses posting, ledgers, consumption and DTR paid-stamps

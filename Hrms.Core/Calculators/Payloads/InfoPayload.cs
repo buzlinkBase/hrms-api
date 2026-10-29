@@ -11,6 +11,8 @@ public class DeductionInfo
     public DateOnly PayrollDate { get; set; }
     public decimal Amount { get; set; }
     public string Remarks { get; set; } = string.Empty;
+    // The deduction's name (e.g. "Cash Advance"), for the payroll run preview's breakdown.
+    public string? Name { get; set; }
 }
 public class SSSInfo
 {

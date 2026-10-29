@@ -96,6 +96,11 @@ public class PHICContributionService : BaseService<PHICContribution>
         // Every employee's rows, confidential ones included -- the whole run is being removed.
         await ExecuteDeleteForEveryoneAsync<PHICContribution>(x => x.PayrollBatchId == payrollBatchId, token);
 
+    // One employee's slice of a run, for unsaving a single employee from a draft run.
+    public async Task DeleteByBatchAndEmployeeAsync(Guid payrollBatchId, Guid employeeId, CancellationToken token) =>
+        await ExecuteDeleteForEveryoneAsync<PHICContribution>(
+            x => x.PayrollBatchId == payrollBatchId && x.EmployeeId == employeeId, token);
+
     // PhilHealth EPRS (Electronic Premium Remittance System) upload file. Column layout
     // implemented from general knowledge of the EPRS CSV template, NOT against a live
     // reference spec — diff against the current portal template before first real submission.

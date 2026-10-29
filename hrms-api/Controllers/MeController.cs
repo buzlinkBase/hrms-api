@@ -296,6 +296,30 @@ namespace Hrms.Api.Controllers
             return Ok(result);
         }
 
+        // Punch In/Out from My Portal (company opt-in, see PortalPage.Punch). The employee is always
+        // the caller; the time is the server's, never the client's.
+        [PortalPage(PortalPage.Punch)]
+        [HttpGet("punch/status")]
+        [ProducesResponseType(typeof(ResponseModel<PortalPunchStatus>), 200)]
+        public async Task<IActionResult> GetMyPunchStatus([FromServices] PortalPunchService punches, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+            return Ok(await punches.GetStatusAsync(employeeId.Value, token));
+        }
+
+        [PortalPage(PortalPage.Punch)]
+        [HttpPost("punch")]
+        [ProducesResponseType(typeof(ResponseModel<PortalPunchStatus>), 200)]
+        public async Task<IActionResult> Punch([FromServices] PortalPunchService punches, CancellationToken token)
+        {
+            var employeeId = await ResolveMyEmployeeIdAsync(token);
+            if (employeeId == null) return NotFound();
+            await punches.PunchAsync(employeeId.Value, token);
+            await punches.CommitChangesAsync(token);
+            return Ok(await punches.GetStatusAsync(employeeId.Value, token));
+        }
+
         [PortalPage(PortalPage.ShiftSchedule)]
         [HttpGet("fixed-schedule")]
         [ProducesResponseType(typeof(ResponseModel<List<EmployeeFixedScheduleModel>>), 200)]
