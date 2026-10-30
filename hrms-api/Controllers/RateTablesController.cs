@@ -1,4 +1,6 @@
 using Asp.Versioning;
+using Hrms.Api.Extensions;
+using Hrms.Core.Services.Compliance;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,17 +18,28 @@ namespace Hrms.Api.Controllers
         private readonly RateTableService _service;
         private readonly ClientRateTableService _clientRateService;
         private readonly AccountInitService _accountInitService;
+        private readonly ComplianceAcknowledgmentService _compliance;
         private readonly IMapper _mapper;
 
         public RateTablesController(RateTableService service,
             ClientRateTableService clientRateService,
             AccountInitService accountInitService,
+            ComplianceAcknowledgmentService compliance,
             IMapper mapper)
         {
             _service = service;
             _clientRateService = clientRateService;
             _accountInitService = accountInitService;
+            _compliance = compliance;
             _mapper = mapper;
+        }
+
+        // Rates below the DOLE minimum premiums must be acknowledged once (409 until they are).
+        private Task EnsureRatesAcknowledgedAsync(string scope, IEnumerable<(RateType Type, decimal Rate)> rates, bool acknowledged, CancellationToken token)
+        {
+            var byType = rates.GroupBy(r => r.Type).ToDictionary(g => g.Key, g => g.Last().Rate);
+            return _compliance.EnsureAcknowledgedAsync(scope, StatutoryDeviationRules.Evaluate(new RateSubject(byType)),
+                acknowledged, HttpContext.ToComplianceActor(), token);
         }
 
         [HttpGet]
@@ -48,8 +61,10 @@ namespace Hrms.Api.Controllers
         [HttpPost]
         [RequirePermission("Statutory Tables:Create")]
         [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
-        public async Task<IActionResult> Post([FromBody] CreateRateTable payload, CancellationToken token)
+        public async Task<IActionResult> Post([FromBody] CreateRateTable payload, CancellationToken token, [FromQuery] bool acknowledgeDeviations = false)
         {
+            await EnsureRatesAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope,
+                [(payload.Type, payload.Rate)], acknowledgeDeviations, token);
             var data = _mapper.Map<RateTable>(payload);
             data.Description = payload.Type.ToString();
             await _service.AddAsync(data, token);
@@ -60,9 +75,11 @@ namespace Hrms.Api.Controllers
         [HttpPut("{id}")]
         [RequirePermission("Statutory Tables:Edit")]
         [ProducesResponseType(typeof(ResponseModel<RateTableModel>), 200)]
-        public async Task<IActionResult> Put(Guid id, [FromBody] UpdateRateTable payload, CancellationToken token)
+        public async Task<IActionResult> Put(Guid id, [FromBody] UpdateRateTable payload, CancellationToken token, [FromQuery] bool acknowledgeDeviations = false)
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await EnsureRatesAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope,
+                [(payload.Type, payload.Rate)], acknowledgeDeviations, token);
             await _service.UpdateAsync(payload, token);
             return Ok(_mapper.Map<RateTableModel>(payload));
         }
@@ -79,8 +96,10 @@ namespace Hrms.Api.Controllers
         [HttpPost("bulk")]
         [RequirePermission("Statutory Tables:Edit", "Organization Setup:Edit")]
         [ProducesResponseType(204)]
-        public async Task<IActionResult> BulkReplace([FromBody] List<CreateRateTable> payload, CancellationToken token)
+        public async Task<IActionResult> BulkReplace([FromBody] List<CreateRateTable> payload, CancellationToken token, [FromQuery] bool acknowledgeDeviations = false)
         {
+            await EnsureRatesAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope,
+                payload.Select(p => (p.Type, p.Rate)), acknowledgeDeviations, token);
             var entities = _mapper.Map<List<RateTable>>(payload);
             await _service.BulkReplaceAsync(entities, token);
             return NoContent();
@@ -106,8 +125,10 @@ namespace Hrms.Api.Controllers
         [HttpPost("client/{clientId:guid}/bulk")]
         [RequirePermission("Workforce Setup:Edit")]
         [ProducesResponseType(204)]
-        public async Task<IActionResult> BulkReplaceClientRates(Guid clientId, [FromBody] List<ClientRateEntry> payload, CancellationToken token)
+        public async Task<IActionResult> BulkReplaceClientRates(Guid clientId, [FromBody] List<ClientRateEntry> payload, CancellationToken token, [FromQuery] bool acknowledgeDeviations = false)
         {
+            await EnsureRatesAcknowledgedAsync(ComplianceAcknowledgmentService.ClientScope(clientId),
+                payload.Select(p => (p.Type, p.Rate)), acknowledgeDeviations, token);
             var entities = payload.Select(p => new ClientRateTable { ClientId = clientId, Type = p.Type, Rate = p.Rate }).ToList();
             await _clientRateService.BulkReplaceForClientAsync(clientId, entities, token);
             return NoContent();

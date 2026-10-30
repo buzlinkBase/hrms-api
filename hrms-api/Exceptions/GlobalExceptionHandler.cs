@@ -1,4 +1,5 @@
 ﻿using Hrms.Api.Extensions;
+using Hrms.Core.Services.Compliance;
 using MessagePack;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,7 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             UnauthorizedException => StatusCodes.Status401Unauthorized,
             NotFoundException => StatusCodes.Status404NotFound,
             ForbiddenException => StatusCodes.Status403Forbidden,
+            DeviationAcknowledgmentRequiredException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError,
         };
 
@@ -49,6 +51,25 @@ public sealed class GlobalExceptionHandler(IHostEnvironment env) : IExceptionHan
             errorDetail.Type = restriction.ProblemType;
             errorDetail.Title = "Not included in your plan";
             foreach (var (key, value) in restriction.Extensions) errorDetail.Extensions[key] = value;
+            await WriteAsync(httpContext, new ResponseModel<ProblemDetails> { Status = statusCode, Message = "Error", Data = errorDetail }, cancellationToken);
+            return true;
+        }
+
+        // A setting that differs from the DOLE defaults: the frontend lists the deviations, asks the
+        // admin to acknowledge them, and repeats the request with acknowledgeDeviations=true.
+        if (exception is DeviationAcknowledgmentRequiredException deviation)
+        {
+            errorDetail.Type = DeviationAcknowledgmentRequiredException.ProblemType;
+            errorDetail.Title = "Acknowledgment required";
+            // Plain dictionaries rather than the record, so MessagePack serializes them without a resolver.
+            errorDetail.Extensions["deviations"] = deviation.Deviations.Select(d => new Dictionary<string, string>
+            {
+                ["key"] = d.Key,
+                ["label"] = d.Label,
+                ["statutoryValue"] = d.StatutoryValue,
+                ["configuredValue"] = d.ConfiguredValue,
+                ["note"] = d.Note,
+            }).ToList();
             await WriteAsync(httpContext, new ResponseModel<ProblemDetails> { Status = statusCode, Message = "Error", Data = errorDetail }, cancellationToken);
             return true;
         }

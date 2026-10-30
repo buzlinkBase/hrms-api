@@ -145,6 +145,14 @@ public static class ServiceRegistrationsExt
 
         // Subscription entitlements, resolved by Tenant Service and cached here -- read by
         // RequireFeatureAttribute, SubscriptionAccessMiddleware and the plan limit guards.
+        // Whether the Terms of Service are live, for the DOLE-deviation acknowledgment.
+        builder.Services.AddHttpClient(Hrms.Core.Services.Compliance.TenantTermsLiveness.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri(builder.Configuration["ApiServices:TenantService"]!);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
+        builder.Services.AddScoped<Hrms.Core.Services.Compliance.ITermsLiveness, Hrms.Core.Services.Compliance.TenantTermsLiveness>();
+
         builder.Services.AddTenantEntitlements(
             builder.Configuration["ApiServices:TenantService"]!,
             builder.Configuration["ApiServices:TenantServiceApiKey"]);

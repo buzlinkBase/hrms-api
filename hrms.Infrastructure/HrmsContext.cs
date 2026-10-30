@@ -83,6 +83,7 @@ public class HrmsContext : DbContext, IDbContext, ICurrentTenantContext, IConfid
     public DbSet<RetirementLedger> RetirementLedgers { get; set; }
     public DbSet<CashBondAdjustment> CashBondAdjustments { get; set; }
     public DbSet<CashBondRateChange> CashBondRateChanges { get; set; }
+    public DbSet<ComplianceAcknowledgment> ComplianceAcknowledgments { get; set; }
     public DbSet<UniformAllowanceFund> UniformAllowanceFunds { get; set; }
     public DbSet<UniformAllowanceLedger> UniformAllowanceLedgers { get; set; }
     public DbSet<UniformAllowancePolicy> UniformAllowancePolicies { get; set; }

@@ -1,5 +1,7 @@
 using Asp.Versioning;
 using DTR.Core;
+using Hrms.Api.Extensions;
+using Hrms.Core.Services.Compliance;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,11 +18,16 @@ public class GeneralSettingsController : ControllerBase
 {
     private readonly GeneralSettingService _settingService;
     private readonly CompanyPolicyService _policyService;
+    private readonly ComplianceAcknowledgmentService _compliance;
 
-    public GeneralSettingsController(GeneralSettingService settingService, CompanyPolicyService policyService)
+    public GeneralSettingsController(
+        GeneralSettingService settingService,
+        CompanyPolicyService policyService,
+        ComplianceAcknowledgmentService compliance)
     {
         _settingService = settingService;
         _policyService = policyService;
+        _compliance = compliance;
     }
 
     [HttpGet("company")]
@@ -68,8 +75,15 @@ public class GeneralSettingsController : ControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> UpdateCompanyPolicy(
         [FromBody] UpdateCompanyPolicyRequest request,
-        CancellationToken token)
+        CancellationToken token,
+        [FromQuery] bool acknowledgeDeviations = false)
     {
+        var method = GeneralSettingsUtil.ParseEnum(request.OtNdCalculationMethod, OtNdCalculationMethodDefaults.Default);
+        await _compliance.EnsureAcknowledgedAsync(
+            ComplianceAcknowledgmentService.CompanyScope,
+            StatutoryDeviationRules.Evaluate(new CompanyPolicySubject(method)),
+            acknowledgeDeviations, HttpContext.ToComplianceActor(), token);
+
         var settings = new List<GeneralSetting>
         {
             new() { IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = request.OtInclusionPolicy },
@@ -133,8 +147,17 @@ public class GeneralSettingsController : ControllerBase
     [HttpPut("client/{clientId:guid}")]
     [RequirePermission("Organization Setup:Edit")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
-    public async Task<IActionResult> UpdateClientPolicy(Guid clientId, [FromBody] ClientPolicyRequest request, CancellationToken token)
+    public async Task<IActionResult> UpdateClientPolicy(
+        Guid clientId,
+        [FromBody] ClientPolicyRequest request,
+        CancellationToken token,
+        [FromQuery] bool acknowledgeDeviations = false)
     {
+        await _compliance.EnsureAcknowledgedAsync(
+            ComplianceAcknowledgmentService.ClientScope(clientId),
+            StatutoryDeviationRules.Evaluate(new StatutoryCapSubject(request.MaxSSSCapping, request.MaxPhilHealthCapping, request.MaxPagIbigCapping)),
+            acknowledgeDeviations, HttpContext.ToComplianceActor(), token);
+
         var settings = new List<GeneralSetting>();
         if (!string.IsNullOrWhiteSpace(request.OtEligibility))
             settings.Add(new() { IdentityType = "Client", IdentityTypeId = clientId.ToString(), Description = SettingKey.OTEligibility.ToString(), Value = request.OtEligibility });
