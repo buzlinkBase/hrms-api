@@ -104,6 +104,7 @@ public class PaidRecordsHoursTests
         {
             DailyRate = 540m,
             SalaryType = SalaryType.VARIABLE,
+            OtNdCalculationMethod = OtNdCalculationMethod.Additive,
             RegularNetHours = 112,
             BasicPay = 112 * hourly, // 7,560.00
             TimeHourPayResults = PaidDays(14, 8 * hourly),

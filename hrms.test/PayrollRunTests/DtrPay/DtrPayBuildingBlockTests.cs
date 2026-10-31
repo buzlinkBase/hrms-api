@@ -68,10 +68,10 @@ public class DtrPayBuildingBlockTests
     }
 
     [Fact]
-    public void Default_IsAdditive_ForEveryFallback()
+    public void Default_IsCompounded_ForEveryFallback()
     {
-        OtNdCalculationMethodDefaults.Default.Should().Be(OtNdCalculationMethod.Additive);
-        new CompanyPolicyRule().OtNdCalculationMethod.Should().Be(OtNdCalculationMethod.Additive);
+        OtNdCalculationMethodDefaults.Default.Should().Be(OtNdCalculationMethod.Compounded);
+        new CompanyPolicyRule().OtNdCalculationMethod.Should().Be(OtNdCalculationMethod.Compounded);
         // Already-generated runs keep their recorded method -- a row with none is a legacy Compounded run.
         new Payroll().OtNdCalculationMethod.Should().Be(OtNdCalculationMethod.Compounded);
     }

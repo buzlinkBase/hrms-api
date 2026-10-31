@@ -20,11 +20,11 @@ public sealed class ComplianceAcknowledgmentModel
 
 public sealed record ComplianceAcknowledgmentPage(List<ComplianceAcknowledgmentModel> Items, int Total, int Page, int PageSize);
 
-// Settings that differ from the statutory (DOLE) defaults must be acknowledged once per value: the
-// first save that brings one in is refused (DeviationAcknowledgmentRequiredException) until the
-// caller confirms, and the confirmation is recorded. Saving the same value again asks nothing.
-// Only while the Terms of Service are live (ITermsLiveness); before that nothing is asked or recorded.
-// Doesn't commit: the caller's save does, so the setting and its acknowledgment land together.
+// Settings that differ from the statutory (DOLE) defaults are logged: who set which value and when.
+// Nothing is asked -- accepting the Terms of Service covers it. A row is added when a setting's value
+// differs from the last one logged for it (same scope), so re-saving an unchanged value adds nothing.
+// Only while the Terms of Service are live (ITermsLiveness); before that nothing is recorded.
+// Doesn't commit: the caller's save does, so the setting and its log row land together.
 public class ComplianceAcknowledgmentService : BaseService<ComplianceAcknowledgment>
 {
     public const string CompanyScope = "company";
@@ -39,25 +39,26 @@ public class ComplianceAcknowledgmentService : BaseService<ComplianceAcknowledgm
         _clock = clock ?? TimeProvider.System;
     }
 
-    public async Task EnsureAcknowledgedAsync(
+    public async Task RecordDeviationsAsync(
         string scope,
         IReadOnlyList<StatutoryDeviation> deviations,
-        bool acknowledged,
         ComplianceActor actor,
         CancellationToken token = default)
     {
         if (deviations.Count == 0 || !await _terms.IsLiveAsync(token)) return;
 
-        var keys = deviations.Select(d => d.Key).ToList();
-        var done = await Context.ComplianceAcknowledgments.AsNoTracking()
+        var keys = deviations.Select(d => d.Key).Distinct().ToList();
+        var logged = await Context.ComplianceAcknowledgments.AsNoTracking()
             .Where(a => a.Scope == scope && keys.Contains(a.SettingKey))
-            .Select(a => new { a.SettingKey, a.ConfiguredValue })
+            .Select(a => new { a.SettingKey, a.ConfiguredValue, a.AcknowledgedAtUtc })
             .ToListAsync(token);
+        var lastValue = logged
+            .GroupBy(a => a.SettingKey)
+            .ToDictionary(g => g.Key, g => g.MaxBy(a => a.AcknowledgedAtUtc)!.ConfiguredValue);
         var pending = deviations
-            .Where(d => !done.Any(a => a.SettingKey == d.Key && a.ConfiguredValue == d.ConfiguredValue))
+            .Where(d => !lastValue.TryGetValue(d.Key, out var last) || last != d.ConfiguredValue)
             .ToList();
         if (pending.Count == 0) return;
-        if (!acknowledged) throw new DeviationAcknowledgmentRequiredException(pending);
 
         var now = _clock.GetUtcNow().UtcDateTime;
         await Context.ComplianceAcknowledgments.AddRangeAsync(pending.Select(d => new ComplianceAcknowledgment

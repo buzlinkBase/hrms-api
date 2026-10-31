@@ -7,12 +7,13 @@ namespace hrms.test.ServiceTests;
 
 /// <summary>
 /// Settings that differ from the Philippine statutory (DOLE) defaults: which ones the rules flag, and
-/// that a save bringing one in is refused until an admin acknowledges it -- once per value, recorded.
+/// that saving one is never refused but logged -- who set which value and when.
 /// </summary>
 public class ComplianceAcknowledgmentTests
 {
     private static readonly Guid CompanyId = Guid.NewGuid();
     private static readonly ComplianceActor Admin = new(Guid.NewGuid(), "admin@acme.ph", "203.0.113.7");
+    private readonly Clock _clock = new();
 
     private static IReadOnlyList<StatutoryDeviation> OvertimeAt(decimal rate) =>
         StatutoryDeviationRules.Evaluate(new RateSubject(new Dictionary<RateType, decimal> { [RateType.OVERTIME] = rate }));
@@ -22,13 +23,21 @@ public class ComplianceAcknowledgmentTests
         public Task<bool> IsLiveAsync(CancellationToken token = default) => Task.FromResult(live);
     }
 
-    private static async Task WithServiceAsync(
+    // Each read is a minute after the last, so "the last logged value" is never a tie.
+    private sealed class Clock : TimeProvider
+    {
+        public static readonly DateTimeOffset Start = new(2026, 10, 31, 0, 0, 0, TimeSpan.Zero);
+        private int _ticks;
+        public override DateTimeOffset GetUtcNow() => Start.AddMinutes(_ticks++);
+    }
+
+    private async Task WithServiceAsync(
         SqliteHrmsContext db, Func<ComplianceAcknowledgmentService, Task> action, bool commit = true, bool live = true)
     {
         // Production-like: the tenant interceptor stamps TenantId on the new rows, as in the API.
         await using var context = db.NewProductionLikeContext(CompanyId);
         var uow = new UnitOfWorkService(context);
-        var service = new ComplianceAcknowledgmentService(uow, new FixedTerms(live));
+        var service = new ComplianceAcknowledgmentService(uow, new FixedTerms(live), _clock);
         await action(service);
         if (commit) await service.CommitChangesAsync();
     }
@@ -99,28 +108,15 @@ public class ComplianceAcknowledgmentTests
         StatutoryDeviationRules.Evaluate(new StatutoryCapSubject(null, null, null)).Should().BeEmpty();
     }
 
-    // ── Acknowledging ────────────────────────────────────────────────────────
+    // ── Logging ──────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task ANewDeviation_WithoutAcknowledgment_IsRefused_AndNothingIsRecorded()
-    {
-        using var db = new SqliteHrmsContext();
-
-        var act = () => WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), false, Admin));
-
-        (await act.Should().ThrowAsync<DeviationAcknowledgmentRequiredException>())
-            .Which.Deviations.Should().ContainSingle().Which.Key.Should().Be("rate.OVERTIME");
-        (await RowsAsync(db)).Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task Acknowledging_RecordsWhoWhenAndWhat()
+    public async Task ANewDeviation_IsSavedWithoutAsking_AndLogsWhoWhenAndWhat()
     {
         using var db = new SqliteHrmsContext();
 
         await WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), true, Admin));
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), Admin));
 
         var row = (await RowsAsync(db)).Should().ContainSingle().Subject;
         row.TenantId.Should().Be(CompanyId);
@@ -130,35 +126,47 @@ public class ComplianceAcknowledgmentTests
         row.ConfiguredValue.Should().Be("1.10");
         row.UserEmail.Should().Be("admin@acme.ph");
         row.IpAddress.Should().Be("203.0.113.7");
+        row.AcknowledgedAtUtc.Should().Be(Clock.Start.UtcDateTime);
     }
 
     [Fact]
-    public async Task TheSameValue_IsNotAskedAgain_ADifferentValueIs()
+    public async Task ReSavingTheSameValue_LogsNothing_ADifferentValueIsLogged()
     {
         using var db = new SqliteHrmsContext();
         await WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), true, Admin));
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), Admin));
 
         await WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), false, Admin));
-        var lower = () => WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.0m), false, Admin));
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), Admin));
+        await WithServiceAsync(db, s =>
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.0m), Admin));
 
-        await lower.Should().ThrowAsync<DeviationAcknowledgmentRequiredException>();
-        (await RowsAsync(db)).Should().ContainSingle();
+        (await RowsAsync(db)).Select(r => r.ConfiguredValue).Should().BeEquivalentTo(["1.10", "1.00"]);
     }
 
     [Fact]
-    public async Task AClientsAcknowledgment_DoesNotCoverTheCompany()
+    public async Task ChangingBackToAnEarlierValue_IsLoggedAgain()
+    {
+        using var db = new SqliteHrmsContext();
+        foreach (var rate in new[] { 1.1m, 1.0m, 1.1m })
+            await WithServiceAsync(db, s =>
+                s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(rate), Admin));
+
+        (await RowsAsync(db)).OrderBy(r => r.AcknowledgedAtUtc).Select(r => r.ConfiguredValue)
+            .Should().Equal("1.10", "1.00", "1.10");
+    }
+
+    [Fact]
+    public async Task AClientsLog_IsSeparateFromTheCompanys()
     {
         using var db = new SqliteHrmsContext();
         await WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.ClientScope(Guid.NewGuid()), OvertimeAt(1.1m), true, Admin));
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.ClientScope(Guid.NewGuid()), OvertimeAt(1.1m), Admin));
 
-        var company = () => WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), false, Admin));
+        await WithServiceAsync(db, s =>
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), Admin));
 
-        await company.Should().ThrowAsync<DeviationAcknowledgmentRequiredException>();
+        (await RowsAsync(db)).Select(r => r.Scope).Should().Contain("company").And.HaveCount(2);
     }
 
     [Fact]
@@ -166,25 +174,27 @@ public class ComplianceAcknowledgmentTests
     {
         using var db = new SqliteHrmsContext();
         await WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope,
-                StatutoryDeviationRules.Evaluate(new CompanyPolicySubject(OtNdCalculationMethod.Additive)), true, Admin));
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope,
+                StatutoryDeviationRules.Evaluate(new CompanyPolicySubject(OtNdCalculationMethod.Additive)), Admin));
+        await WithServiceAsync(db, s =>
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), Admin));
 
         ComplianceAcknowledgmentPage? page = null;
         await WithServiceAsync(db, async s => page = await s.ListAsync(1, 20), commit: false);
 
-        page!.Total.Should().Be(1);
-        page.Items.Single().SettingLabel.Should().Be("OT/ND calculation method");
+        page!.Total.Should().Be(2);
+        page.Items.Select(i => i.SettingKey).Should().Equal("rate.OVERTIME", "policy.ot-nd-method");
     }
 
     // ── The Terms' live switch ───────────────────────────────────────────────
 
     [Fact]
-    public async Task WhileTheTermsAreNotLive_ADeviationSavesWithoutAcknowledgment_AndNothingIsRecorded()
+    public async Task WhileTheTermsAreNotLive_NothingIsLogged()
     {
         using var db = new SqliteHrmsContext();
 
         await WithServiceAsync(db, s =>
-            s.EnsureAcknowledgedAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), false, Admin), live: false);
+            s.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, OvertimeAt(1.1m), Admin), live: false);
 
         (await RowsAsync(db)).Should().BeEmpty();
     }

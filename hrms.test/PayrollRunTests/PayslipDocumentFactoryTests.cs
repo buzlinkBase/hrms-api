@@ -30,29 +30,25 @@ public class PayslipDocumentFactoryTests
         doc.Should().BeOfType<PayslipFixedDocument>();
     }
 
-    [Fact]
-    public void VariableAdditive_KeepsTheHoursLayout()
+    [Theory]
+    [InlineData(OtNdCalculationMethod.Compounded)]
+    [InlineData(OtNdCalculationMethod.Additive)]
+    public void VariableRegularPayroll_UsesTheHoursLayout_WhateverTheOtNdMethod(OtNdCalculationMethod method)
     {
-        var doc = PayslipDocumentFactory.Create(Row(SalaryType.VARIABLE, PayrollType.Regular, OtNdCalculationMethod.Additive), Employee, null);
+        var doc = PayslipDocumentFactory.Create(Row(SalaryType.VARIABLE, PayrollType.Regular, method), Employee, null);
 
         doc.Should().BeOfType<PayslipHoursDocument>();
     }
 
-    [Fact]
-    public void VariableCompounded_KeepsTheStandardLayout()
-    {
-        var doc = PayslipDocumentFactory.Create(Row(SalaryType.VARIABLE, PayrollType.Regular, OtNdCalculationMethod.Compounded), Employee, null);
-
-        doc.Should().BeOfType<PayslipDocument>();
-    }
-
     [Theory]
-    [InlineData(PayrollType.ThirteenthMonth)]
-    [InlineData(PayrollType.LastPay)]
-    [InlineData(PayrollType.YearEndAdjustment)]
-    public void FixedLumpSumPayrollTypes_KeepTheSharedLumpSumLayout(PayrollType type)
+    [InlineData(SalaryType.FIXED, PayrollType.ThirteenthMonth, OtNdCalculationMethod.Compounded)]
+    [InlineData(SalaryType.FIXED, PayrollType.LastPay, OtNdCalculationMethod.Compounded)]
+    [InlineData(SalaryType.FIXED, PayrollType.YearEndAdjustment, OtNdCalculationMethod.Compounded)]
+    [InlineData(SalaryType.VARIABLE, PayrollType.ThirteenthMonth, OtNdCalculationMethod.Additive)]
+    [InlineData(SalaryType.VARIABLE, PayrollType.LastPay, OtNdCalculationMethod.Compounded)]
+    public void LumpSumPayrollTypes_KeepTheSharedLumpSumLayout(SalaryType salary, PayrollType type, OtNdCalculationMethod method)
     {
-        var doc = PayslipDocumentFactory.Create(Row(SalaryType.FIXED, type, OtNdCalculationMethod.Compounded), Employee, null);
+        var doc = PayslipDocumentFactory.Create(Row(salary, type, method), Employee, null);
 
         doc.Should().BeOfType<PayslipDocument>();
     }

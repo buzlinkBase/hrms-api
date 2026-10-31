@@ -1,19 +1,37 @@
 ﻿
 using DTR.Core;
+using Hrms.Core.Services.Compliance;
 using Hrms.Domain.Entities;
 using Hrms.Infrastructure.Migrations;
 namespace Hrms.Core.Services;
 
+// What the owner chose on Create Company (carried by TenantSetInitData). OtNdMethod is a
+// OtNdCalculationMethod name; blank or unknown means the default.
+public sealed record TenantInitOptions(string? OtNdMethod = null, Guid? UserId = null)
+{
+    public static readonly TenantInitOptions Defaults = new();
+
+    // Additive is a DOLE deviation, covered by the owner's Terms of Service acceptance; it is
+    // logged against the owner when seeded (SetDefaultAttendancePayrollPolicy).
+    public OtNdCalculationMethod ResolveOtNdMethod() =>
+        GeneralSettingsUtil.ParseEnum(OtNdMethod, OtNdCalculationMethodDefaults.Default);
+}
+
 public class AccountInitService : BaseService<Company>
 {
     private readonly GeneralSettingService _settingService;
+    private readonly ComplianceAcknowledgmentService _compliance;
     public AccountInitService(IUnitOfWorkService uow,
-        GeneralSettingService settingService) : base(uow)
+        GeneralSettingService settingService,
+        ComplianceAcknowledgmentService compliance) : base(uow)
     {
         _settingService = settingService;
+        _compliance = compliance;
     }
 
-    public async Task Create(CancellationToken token)
+    public Task Create(CancellationToken token) => Create(TenantInitOptions.Defaults, token);
+
+    public async Task Create(TenantInitOptions options, CancellationToken token)
     {
         await SetDefaultLeaves(token);
         await SetDefaultRates(token);
@@ -32,7 +50,7 @@ public class AccountInitService : BaseService<Company>
         await SetDefaultTimeShifts(token);
         await PayrollSettings(token);
         await SetDefaultStatutoryCreditPolicy(token);
-        await SetDefaultAttendancePayrollPolicy(token);
+        await SetDefaultAttendancePayrollPolicy(options, token);
         //await SetDefaultPayrollInclusionDefaults(token);
     }
 
@@ -124,10 +142,19 @@ public class AccountInitService : BaseService<Company>
     /// late policy, night diff threshold, attendance-fill and holiday-eligibility rules) so
     /// every new tenant starts with explicit, editable rows instead of relying solely on the
     /// runtime fallback defaults in DTR.Core.CompanyPolicyService — which this mirrors value
-    /// for value. Internal (not private) so it can be tested without a database.
+    /// for value. The OT/ND method is the one chosen on Create Company (see TenantInitOptions);
+    /// an Additive choice is logged against the owner (who and when).
+    /// Internal (not private) so it can be tested without a database.
     /// </summary>
-    internal async Task SetDefaultAttendancePayrollPolicy(CancellationToken token)
+    internal async Task SetDefaultAttendancePayrollPolicy(TenantInitOptions options, CancellationToken token)
     {
+        var otNdMethod = options.ResolveOtNdMethod();
+
+        var deviations = StatutoryDeviationRules.Evaluate(new CompanyPolicySubject(otNdMethod));
+        if (deviations.Count > 0)
+            await _compliance.RecordDeviationsAsync(ComplianceAcknowledgmentService.CompanyScope, deviations,
+                new ComplianceActor(options.UserId, null, null), token);
+
         var settings = new List<GeneralSetting>
         {
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.OTInclusion.ToString(), Value = OvertimeInclusionPolicy.UsePostShiftWork.ToString() },
@@ -144,7 +171,7 @@ public class AccountInitService : BaseService<Company>
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.DoublePunchGap.ToString(), Value = 2.ToString() },
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.CheckAfterHoliday.ToString(), Value = false.ToString() },
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.WaivePriorDayRequirement.ToString(), Value = false.ToString() },
-            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.OtNdCalculationMethod.ToString(), Value = OtNdCalculationMethodDefaults.Default.ToString() },
+            new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.OtNdCalculationMethod.ToString(), Value = otNdMethod.ToString() },
             new() { Id = Guid.CreateVersion7(), IdentityType = "Company", Description = SettingKey.HourlyRateDivisor.ToString(), Value = HourlyRateDivisorDefaults.Default.ToString() },
         };
         await _uow.Repository.AddRangeAsync(settings, token);

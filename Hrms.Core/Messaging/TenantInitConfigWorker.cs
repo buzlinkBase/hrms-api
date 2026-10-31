@@ -23,7 +23,8 @@ public class TenantInitConfigWorker : IConsumer<TenantSetInitData>
         _tenantConnectionInfo.TenantId = message.TenantId;
         _tenantConnectionInfo.ConnectionString = message.ConnectionString;
         _tenantProvider.SetTenantId(message.TenantId);
-        await _accountInitService.Create(context.CancellationToken);
+        var options = new TenantInitOptions(message.OtNdCalculationMethod, message.UserId);
+        await _accountInitService.Create(options, context.CancellationToken);
         await _accountInitService.CommitChangesAsync(context.CancellationToken);
     }
 }

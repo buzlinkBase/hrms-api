@@ -152,6 +152,13 @@ public static class ServiceRegistrationsExt
             client.Timeout = TimeSpan.FromSeconds(5);
         });
         builder.Services.AddScoped<Hrms.Core.Services.Compliance.ITermsLiveness, Hrms.Core.Services.Compliance.TenantTermsLiveness>();
+        // Where OutstandingDeviationService looks for DOLE deviations nobody confirmed: one per settings area.
+        builder.Services.AddScoped<Hrms.Core.Services.Compliance.IDeviationSource, CompanyPolicyDeviationSource>();
+        builder.Services.AddScoped<Hrms.Core.Services.Compliance.IDeviationSource, Hrms.Core.Services.Compliance.CompanyRateDeviationSource>();
+        builder.Services.AddScoped<Hrms.Core.Services.Compliance.IDeviationSource, Hrms.Core.Services.Compliance.ClientDeviationSource>();
+        builder.Services.AddScoped<Hrms.Core.Services.Compliance.IDeviationSource, Hrms.Core.Services.Compliance.TimeShiftDeviationSource>();
+        builder.Services.AddScoped<Hrms.Core.Services.Compliance.IDeviationSource, Hrms.Core.Services.Compliance.LeaveDeviationSource>();
+        builder.Services.AddScoped<Hrms.Core.Services.Compliance.IDeviationSource, Hrms.Core.Services.Compliance.EmployeePayDeviationSource>();
 
         builder.Services.AddTenantEntitlements(
             builder.Configuration["ApiServices:TenantService"]!,

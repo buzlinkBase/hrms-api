@@ -1,5 +1,7 @@
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.Compliance;
 using Hrms.Core.Messaging.LeaveWorkers;
 using Hrms.Domain.Entities;
 using Hrms.Domain.ValueObjects;
@@ -21,12 +23,25 @@ namespace Hrms.Api.Controllers
         private readonly LeaveLedgerService _leaveLedgerService;
         private readonly IMapper _mapper;
 
-        public LeavesController(LeaveService service, LeaveLedgerService leaveLedgerService, IMapper mapper)
+        private readonly ComplianceAcknowledgmentService _compliance;
+
+        public LeavesController(LeaveService service, LeaveLedgerService leaveLedgerService, IMapper mapper,
+            ComplianceAcknowledgmentService compliance)
         {
             _service = service;
             _leaveLedgerService = leaveLedgerService;
             _mapper  = mapper;
+            _compliance = compliance;
         }
+
+        // A Service Incentive Leave below the Labor Code minimum is logged (who and when).
+        private Task RecordDeviationsAsync(CreateLeave leave, CancellationToken token) =>
+            _compliance.RecordDeviationsAsync(
+                ComplianceAcknowledgmentService.CompanyScope,
+                StatutoryDeviationRules.Evaluate(new LeaveSubject(
+                    leave.Code, leave.AccrualBasis, leave.Credits, leave.AccrualRate, leave.MinServiceMonths,
+                    leave.ConvertToCash, leave.CashConversionRate)),
+                HttpContext.ToComplianceActor(), token);
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<LeaveModel>>), 200)]
@@ -49,6 +64,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<LeaveModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateLeave payload, CancellationToken token)
         {
+            await RecordDeviationsAsync(payload, token);
             var data = _mapper.Map<Leave>(payload);
             await _service.AddAsync(data, token);
             var respModel = _mapper.Map<LeaveModel>(data);
@@ -60,6 +76,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<LeaveModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateLeave payload, CancellationToken token)
         {
+            await RecordDeviationsAsync(payload, token);
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
             await _service.UpdateAsync(payload, token);
             return Ok(_mapper.Map<LeaveModel>(payload));

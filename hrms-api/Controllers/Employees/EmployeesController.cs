@@ -4,6 +4,7 @@ using Asp.Versioning;
 using Hrms.Api.Documents;
 using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.Compliance;
 using Hrms.Core.Services.Storage;
 using Hrms.Domain.Entities.EmployeeEntities;
 using Microsoft.AspNetCore.Authorization;
@@ -30,6 +31,9 @@ namespace Hrms.Api.Controllers
         private readonly IMapper _mapper;
         private readonly OrganizationImageService _images;
         private readonly ImageUrlResolver _imageUrls;
+        // Statutory contributions turned off, mandatory benefits excluded or pay below the minimum
+        // wage: logged per company per setting (who and when).
+        private readonly EmployeePayDeviationService _payDeviations;
 
         public EmployeesController(EmployeeService service,
             EmployeeImportService employeeImportService,
@@ -39,7 +43,8 @@ namespace Hrms.Api.Controllers
             IWebHostEnvironment hostEnvironment,
             IMapper mapper,
             OrganizationImageService images,
-            ImageUrlResolver imageUrls)
+            ImageUrlResolver imageUrls,
+            EmployeePayDeviationService payDeviations)
         {
             _service = service;
             _employeeImportService = employeeImportService;
@@ -50,6 +55,7 @@ namespace Hrms.Api.Controllers
             _mapper = mapper;
             _images = images;
             _imageUrls = imageUrls;
+            _payDeviations = payDeviations;
         }
 
         // Dev/test-only bulk fake-data seeding -- gated like any other Create/Delete action
@@ -155,6 +161,8 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateEmployee payload, CancellationToken token)
         {
+            await _payDeviations.RecordDeviationsAsync(
+                [EmployeePayCheck.From(payload)], HttpContext.ToComplianceActor(), token);
             var employee = _mapper.Map<Employee>(payload);
             // Only a caller with confidential clearance may tag an employee as confidential.
             if (!User.HasConfidentialClearance()) employee.IsConfidential = false;
@@ -168,6 +176,8 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<EmployeeModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateEmployee payload, CancellationToken token)
         {
+            await _payDeviations.RecordDeviationsAsync(
+                [EmployeePayCheck.From(payload)], HttpContext.ToComplianceActor(), token);
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
             await _service.UpdateAsync(payload, token, canChangeConfidentiality: User.HasConfidentialClearance());
             return Ok(_mapper.Map<EmployeeModel>(payload));
@@ -220,6 +230,12 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
         public async Task<IActionResult> CommitPreviewUpload([FromBody] List<EmployeeImportPreviewRow> rows, CancellationToken token)
         {
+            // The whole upload is logged once: every row below the minimum wage, deduplicated.
+            await _payDeviations.RecordDeviationsAsync(
+                rows.Where(r => r.Errors is not { Count: > 0 })
+                    .Select(r => new EmployeePayCheck(null, r.BranchCode, r.DailyRate))
+                    .ToList(),
+                HttpContext.ToComplianceActor(), token);
             await _employeeImportService.CommitPreviewAsync(rows, token);
             return Ok("success");
         }

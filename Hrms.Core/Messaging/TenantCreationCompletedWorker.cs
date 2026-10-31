@@ -96,11 +96,7 @@ public class InstanceProvisioner : ITenantProvisioner
             Status = "Active",
             ProvisionedAtUtc = DateTime.UtcNow
         }, context.CancellationToken);
-        var payload = new TenantSetInitData
-        {
-            ConnectionString = connectionString,
-            TenantId = message.TenantId,
-        };
+        var payload = TenantInitData.From(message, connectionString);
         await context.Publish(payload, context.CancellationToken);
         await _uow.CommitChangesAsync("", context.CancellationToken);
     }
@@ -199,11 +195,7 @@ public class DedicatedProvisioner : ITenantProvisioner
                 ProvisionedAtUtc = DateTime.UtcNow
             }, context.CancellationToken);
 
-            var payload = new TenantSetInitData
-            {
-                ConnectionString = connectionModel.ConnectionString,
-                TenantId = message.TenantId,
-            };
+            var payload = TenantInitData.From(message, connectionModel.ConnectionString);
             await context.Publish(payload, context.CancellationToken);
         }
         catch (Exception ex)
@@ -212,6 +204,19 @@ public class DedicatedProvisioner : ITenantProvisioner
             throw; // Let MassTransit retry policy handle redelivery
         }
     }
+}
+
+// The settings-seed message both provisioners publish, carrying the policy choices the owner made
+// on Create Company through to AccountInitService (TenantInitConfigWorker).
+internal static class TenantInitData
+{
+    public static TenantSetInitData From(TenantCreationCompleted message, string connectionString) => new()
+    {
+        ConnectionString = connectionString,
+        TenantId = message.TenantId,
+        UserId = message.UserId,
+        OtNdCalculationMethod = message.Profile?.OtNdCalculationMethod,
+    };
 }
 
 // -------------------------------------------------------------

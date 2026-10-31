@@ -1,5 +1,7 @@
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.Compliance;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers
@@ -15,11 +17,22 @@ namespace Hrms.Api.Controllers
         private readonly TimeShiftService _service;
         private readonly IMapper _mapper;
 
-        public TimeShiftsController(TimeShiftService service, IMapper mapper)
+        private readonly ComplianceAcknowledgmentService _compliance;
+
+        public TimeShiftsController(TimeShiftService service, IMapper mapper, ComplianceAcknowledgmentService compliance)
         {
             _service = service;
             _mapper = mapper;
+            _compliance = compliance;
         }
+
+        // OT thresholds/caps, an ND threshold or unpaid short breaks are logged (who and when).
+        private Task RecordDeviationsAsync(CreateTimeShift shift, CancellationToken token) =>
+            _compliance.RecordDeviationsAsync(
+                ComplianceAcknowledgmentService.CompanyScope,
+                StatutoryDeviationRules.Evaluate(new TimeShiftSubject(
+                    shift.OverTimeThreshold, shift.MaxOvertimeHours, shift.NightDiffThreshold, shift.WithAMBreak, shift.WithPMBreak)),
+                HttpContext.ToComplianceActor(), token);
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<object>), 200)]
@@ -42,6 +55,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<TimeShiftModel>), 200)]
         public async Task<IActionResult> Post([FromBody] CreateTimeShift payload, CancellationToken token)
         {
+            await RecordDeviationsAsync(payload, token);
             return Ok(await _service.AddAsync(payload, token));
         }
 
@@ -50,6 +64,7 @@ namespace Hrms.Api.Controllers
         [ProducesResponseType(typeof(ResponseModel<TimeShiftModel>), 200)]
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateTimeShift payload, CancellationToken token)
         {
+            await RecordDeviationsAsync(payload, token);
             var data = await _service.UpdateAsync(id, payload, token);
             return Ok(data);
         }

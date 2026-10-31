@@ -649,9 +649,10 @@ public static class HourlyRateDivisorDefaults
 // (Hrms.Core/Calculators/DtrPay), picked by IDtrPayCalculatorFactory.
 // The DTR stores natural hours (Hrs/OT include their night part, ND = all night hours, NDOT = the
 // night-OT subset of OT and ND); each day-type policy branches on the method (DayTypeHours).
-// - Compounded (DOLE-standard): the hours separated into daytime / night buckets, each at its fully
-//   compounded rate -- daytime Hrs x day, OT x day x OT, ND x day x ND, NDOT x day x OT x ND.
-// - Additive (the default, see OtNdCalculationMethodDefaults): the natural hours (NDOT = 0), each
+// - Compounded (DOLE-standard, the default -- see OtNdCalculationMethodDefaults): the hours
+//   separated into daytime / night buckets, each at its fully compounded rate -- daytime Hrs x day,
+//   OT x day x OT, ND x day x ND, NDOT x day x OT x ND.
+// - Additive: the natural hours (NDOT = 0), each
 //   at one rate and added up -- Hrs x day rate, OT x raw OT rate (no day-type multiplier),
 //   ND x (ND rate - 1). Confirmed against the company's own manual
 //   payroll worksheet; computes LESS than Compounded for any category whose day rate isn't 1.0, so
@@ -665,9 +666,10 @@ public enum OtNdCalculationMethod
 // The method a company uses until it saves one of its own -- the single source for every fallback
 // (new-company seed, unset setting, Company Policy screen). Runs already generated keep the method
 // recorded on them (Payroll.OtNdCalculationMethod), so changing this never re-prices history.
+// The DOLE-standard method; Additive is a deviation a company opts into (and acknowledges).
 public static class OtNdCalculationMethodDefaults
 {
-    public const OtNdCalculationMethod Default = OtNdCalculationMethod.Additive;
+    public const OtNdCalculationMethod Default = OtNdCalculationMethod.Compounded;
 }
 
 // Which statutory contribution a ClientStatutoryCapKey caps — see StatutoryCapHelper.

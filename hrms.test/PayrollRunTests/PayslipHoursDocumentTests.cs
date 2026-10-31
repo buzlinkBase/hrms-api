@@ -22,10 +22,12 @@ public class PayslipHoursDocumentTests
     private const decimal DailyRate = 540m;
     private const decimal HourlyRate = 67.5m; // DailyRate / 8
 
+    // The client's sample is an Additive payslip (flat single-rate OT and ND figures).
     private static Payroll BuildSamplePayroll() => new()
     {
         DailyRate = DailyRate,
         SalaryType = SalaryType.VARIABLE,
+        OtNdCalculationMethod = OtNdCalculationMethod.Additive,
         RegularNetHours = 168, // natural: 96 daytime + 72 night
         RegularOTHours = 48,
         RegularOTBasePay = 48 * HourlyRate * 1.25m, // 4,050.00
@@ -142,8 +144,6 @@ public class PayslipHoursDocumentTests
     [Fact]
     public void AdditiveMode_TotalItemizedEqualsGrossIncomeExactly_ForACategoryWithAllFourHourBuckets()
     {
-        // The whole point of Additive mode: unlike Compounded mode (where the itemized rows can
-        // legitimately fall short of GROSS INCOME whenever a premium category has OT/ND hours),
         // Additive mode drops the day-type multiplier for OT-involving hours entirely, so
         // FlatOvertimeBase already equals the whole OT-bucket/NDOT-bucket contribution (same
         // formula Compounded mode has always used for these segregated fields) -- the itemized
@@ -194,6 +194,56 @@ public class PayslipHoursDocumentTests
         var nightDiff = rows.Single(r => r.Label == "Night Diff.");
         nightDiff.Hours.Should().Be(8); // natural ND, as stored (NDOT already included)
         nightDiff.Amount.Should().Be(54.00m); // 33.75 (ND) + 20.25 (NDOT)
+    }
+
+    [Fact]
+    public void CompoundedMode_TotalItemizedEqualsGrossIncomeExactly_ForACategoryWithAllFourHourBuckets()
+    {
+        // Compounded (DOLE-standard) prices OT at day x OT and night OT at day x OT x ND, so the
+        // flat single-rate figures would understate it. The OT row shows the OT + NDOT pay actually
+        // given, and Night Diff. the ND pay above its day-rate portion, over the night hours that
+        // aren't OT -- together with the base row they add back up to Gross Income.
+        const decimal dayRate = 1.30m, otRate = 1.30m, ndRate = 1.10m;
+        var payroll = new Payroll
+        {
+            DailyRate = DailyRate,
+            SalaryType = SalaryType.VARIABLE,
+            OtNdCalculationMethod = OtNdCalculationMethod.Compounded,
+
+            SpecialHolHours = 13, // natural: 8 daytime + 5 night
+            SpecialPay = 8 * HourlyRate * dayRate, // 702.00
+
+            SpecialHolOTHours = 7, // natural: 4 daytime + 3 NDOT
+            SpecialOTPay = 4 * HourlyRate * dayRate * otRate, // 456.30
+            SpecialOTBasePay = 4 * HourlyRate * otRate, // 351.00 -- flat, not what was paid
+
+            SpecialHolNightDiffHours = 8, // natural: 5 night regular + 3 NDOT
+            SpecialNDPay = 5 * HourlyRate * dayRate * ndRate, // 482.625
+            SpecialNDBasePay = 5 * HourlyRate * dayRate, // 438.75
+            SpecialNDPremiumPay = 5 * HourlyRate * (ndRate - 1.0m), // 33.75 -- flat, not what was paid
+
+            SpecialHolNightDiffOTHours = 3,
+            SpecialNDOTPay = 3 * HourlyRate * dayRate * otRate * ndRate, // 376.4475
+            SpecialNDOTBasePay = 3 * HourlyRate * otRate, // 263.25 -- flat, not what was paid
+            SpecialNDOTPremiumPay = 3 * HourlyRate * (ndRate - 1.0m), // 20.25 -- flat, not what was paid
+        };
+        payroll.GrossIncome = payroll.SpecialPay + payroll.SpecialOTPay + payroll.SpecialNDPay + payroll.SpecialNDOTPay; // 2,017.3725
+
+        var rows = new PayslipHoursDocument(payroll, new EmployeeFullModel()).BuildRows();
+
+        rows.Where(r => !r.IsGroupHeader).Sum(r => r.Amount).Should().Be(payroll.GrossIncome);
+
+        var special = rows.Single(r => r.Label == "Special Holiday");
+        special.Hours.Should().Be(13);
+        special.Amount.Should().Be(1140.75m); // 702.00 + 438.75
+
+        var otSpecial = rows.Single(r => r.Label == "Special Holiday OT");
+        otSpecial.Hours.Should().Be(7);
+        otSpecial.Amount.Should().Be(832.7475m); // 456.30 + 376.4475
+
+        var nightDiff = rows.Single(r => r.Label == "Night Diff.");
+        nightDiff.Hours.Should().Be(5); // the 3 NDOT hours are paid in full in the OT row
+        nightDiff.Amount.Should().Be(43.875m); // 482.625 - 438.75
     }
 
     [Fact]

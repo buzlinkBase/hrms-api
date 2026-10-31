@@ -1,6 +1,8 @@
 using Onepunch.Common.Lib.Subscriptions;
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Api.Filters;
+using Hrms.Core.Services.Compliance;
 using Hrms.Api.RateLimiting;
 using Hrms.Core.Services.Storage;
 using Hrms.Domain.Entities;
@@ -24,14 +26,24 @@ namespace Hrms.Api.Controllers
         private readonly OrganizationImageService _images;
         private readonly ImageUrlResolver _imageUrls;
         public ClientsController(ClientService service, ClientBillingInfoService billingService, IMapper mapper,
-            OrganizationImageService images, ImageUrlResolver imageUrls)
+            OrganizationImageService images, ImageUrlResolver imageUrls, ComplianceAcknowledgmentService compliance)
         {
             _service = service;
             _billingService = billingService;
             _mapper = mapper;
             _images = images;
             _imageUrls = imageUrls;
+            _compliance = compliance;
         }
+
+        private readonly ComplianceAcknowledgmentService _compliance;
+
+        // A retirement accrual below RA 7641's 22.5 days a year is logged against the client (who and when).
+        private Task RecordDeviationsAsync(Guid clientId, CreateClient client, CancellationToken token) =>
+            _compliance.RecordDeviationsAsync(
+                ComplianceAcknowledgmentService.ClientScope(clientId),
+                StatutoryDeviationRules.Evaluate(new ClientSubject(client.RetirementDaysPerYear)),
+                HttpContext.ToComplianceActor(), token);
 
         [HttpGet]
         [ProducesResponseType(typeof(ResponseModel<List<ClientModel>>), 200)]
@@ -98,6 +110,7 @@ namespace Hrms.Api.Controllers
         public async Task<IActionResult> Put(Guid id, [FromBody] UpdateClient payload, CancellationToken token)
         {
             payload.Id = payload.Id == Guid.Empty ? id : payload.Id;
+            await RecordDeviationsAsync(payload.Id, payload, token);
             await _service.UpdateAsync(payload, token);
             var reloaded = await _service.FindOneWithAreasAsync(payload.Id, token);
             return Ok(reloaded is null ? _mapper.Map<ClientModel>(payload) : _mapper.Map<ClientModel>(reloaded));

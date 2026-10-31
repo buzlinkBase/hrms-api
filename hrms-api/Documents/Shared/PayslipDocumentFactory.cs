@@ -37,24 +37,24 @@ internal static class PayslipDocumentFactory
 
     // FIXED employees aren't paid by the hour, so "hours x rate" doesn't apply whatever the
     // company's OT/ND method is. Lump-sum payroll types (13th Month, Last Pay, Year-End
-    // Adjustment) have no basic-salary breakdown, so they keep the shared lump-sum layout.
+    // Adjustment) have no basic-salary breakdown, so they fall through to the lump-sum layout.
     internal sealed class FixedSalaryPayslipLayout : IPayslipLayout
     {
         public bool Handles(Payroll p) => p.SalaryType == SalaryType.FIXED && p.PayrollType == PayrollType.Regular;
         public IDocument Create(Payroll p, EmployeeFullModel e, Company? c, PayslipOtherIncome o, byte[]? logo) => new PayslipFixedDocument(p, e, c, o, logo);
     }
 
-    // Follows the OT/ND method actually used for the run (recorded per row on
-    // Payroll.OtNdCalculationMethod, not the live company setting, so an old payslip reprints in
-    // the format it was originally correct for): Additive's itemized rows reconcile to Gross
-    // Income exactly.
+    // Every regular run prints the hours breakdown, whatever its OT/ND method: PayslipHoursDocument
+    // prices its rows by the method recorded on the row (Payroll.OtNdCalculationMethod, not the live
+    // company setting), so the itemized rows reconcile to Gross Income for both.
     internal sealed class HoursPayslipLayout : IPayslipLayout
     {
-        public bool Handles(Payroll p) => p.OtNdCalculationMethod == OtNdCalculationMethod.Additive;
+        public bool Handles(Payroll p) => p.PayrollType == PayrollType.Regular;
         public IDocument Create(Payroll p, EmployeeFullModel e, Company? c, PayslipOtherIncome o, byte[]? logo) => new PayslipHoursDocument(p, e, c, o, logo);
     }
 
-    // Compounded's Standard format is the client-approved default.
+    // The lump-sum payroll types (13th Month, Last Pay, Year-End Adjustment), with their tax
+    // treatment breakdown.
     internal sealed class StandardPayslipLayout : IPayslipLayout
     {
         public bool Handles(Payroll p) => true;

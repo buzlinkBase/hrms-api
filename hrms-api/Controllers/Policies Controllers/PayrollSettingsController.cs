@@ -1,6 +1,7 @@
 using Onepunch.Common.Lib.Subscriptions;
 using Hrms.Api.Filters;
 using Asp.Versioning;
+using Hrms.Api.Extensions;
 using Hrms.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 namespace Hrms.Api.Controllers;
@@ -76,7 +77,9 @@ public class PayrollSettingsController : ControllerBase
     [HttpPut]
     [RequirePermission("Organization Setup:Edit")]
     [ProducesResponseType(typeof(ResponseModel<PayrollSettingsDto>), 200)]
-    public async Task<IActionResult> Put([FromBody] PayrollSettingsDto request, CancellationToken token)
+    public async Task<IActionResult> Put(
+        [FromBody] PayrollSettingsDto request,
+        CancellationToken token)
     {
         var incoming = new List<GeneralSetting>
         {

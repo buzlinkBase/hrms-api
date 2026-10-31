@@ -70,19 +70,30 @@ public class GeneralSettingsController : ControllerBase
         return Ok(response);
     }
 
+    // Blank = inherit / not set: nothing to evaluate.
+    private static OvertimeEligibilityRule? ParseOtEligibility(string? value) =>
+        Enum.TryParse<OvertimeEligibilityRule>(value, true, out var rule) ? rule : null;
+
     [HttpPut("company")]
     [RequirePermission("Organization Setup:Edit")]
     [ProducesResponseType(typeof(ResponseModel<object>), 200)]
     public async Task<IActionResult> UpdateCompanyPolicy(
         [FromBody] UpdateCompanyPolicyRequest request,
-        CancellationToken token,
-        [FromQuery] bool acknowledgeDeviations = false)
+        CancellationToken token)
     {
-        var method = GeneralSettingsUtil.ParseEnum(request.OtNdCalculationMethod, OtNdCalculationMethodDefaults.Default);
-        await _compliance.EnsureAcknowledgedAsync(
+        var policy = new CompanyPolicySubject(
+            GeneralSettingsUtil.ParseEnum(request.OtNdCalculationMethod, OtNdCalculationMethodDefaults.Default),
+            GeneralSettingsUtil.ParseEnum(request.HourlyRateDivisor, HourlyRateDivisorDefaults.Default),
+            ParseOtEligibility(request.OtEligibility),
+            request.IsHalfDayLateOn,
+            request.IsWholeDayLateOn,
+            request.NightDiffThreshold,
+            request.RequiredTakehomePercentage,
+            GeneralSettingsUtil.ParseEnum(request.DeductionCarrierMode, DeductionCarrierMode.EveryRun));
+        await _compliance.RecordDeviationsAsync(
             ComplianceAcknowledgmentService.CompanyScope,
-            StatutoryDeviationRules.Evaluate(new CompanyPolicySubject(method)),
-            acknowledgeDeviations, HttpContext.ToComplianceActor(), token);
+            StatutoryDeviationRules.Evaluate(policy),
+            HttpContext.ToComplianceActor(), token);
 
         var settings = new List<GeneralSetting>
         {
@@ -150,13 +161,15 @@ public class GeneralSettingsController : ControllerBase
     public async Task<IActionResult> UpdateClientPolicy(
         Guid clientId,
         [FromBody] ClientPolicyRequest request,
-        CancellationToken token,
-        [FromQuery] bool acknowledgeDeviations = false)
+        CancellationToken token)
     {
-        await _compliance.EnsureAcknowledgedAsync(
+        await _compliance.RecordDeviationsAsync(
             ComplianceAcknowledgmentService.ClientScope(clientId),
-            StatutoryDeviationRules.Evaluate(new StatutoryCapSubject(request.MaxSSSCapping, request.MaxPhilHealthCapping, request.MaxPagIbigCapping)),
-            acknowledgeDeviations, HttpContext.ToComplianceActor(), token);
+            [
+                .. StatutoryDeviationRules.Evaluate(new StatutoryCapSubject(request.MaxSSSCapping, request.MaxPhilHealthCapping, request.MaxPagIbigCapping)),
+                .. StatutoryDeviationRules.Evaluate(new OvertimeEligibilitySubject(ParseOtEligibility(request.OtEligibility))),
+            ],
+            HttpContext.ToComplianceActor(), token);
 
         var settings = new List<GeneralSetting>();
         if (!string.IsNullOrWhiteSpace(request.OtEligibility))

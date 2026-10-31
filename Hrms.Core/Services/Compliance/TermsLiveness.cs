@@ -9,6 +9,20 @@ namespace Hrms.Core.Services.Compliance;
 public interface ITermsLiveness
 {
     Task<bool> IsLiveAsync(CancellationToken token = default);
+
+    // Why the acknowledgments are or aren't being asked for -- shown on Company Settings >
+    // Acknowledged Deviations so a silent "not live" is visible.
+    async Task<TermsLivenessState> GetStateAsync(CancellationToken token = default) =>
+        await IsLiveAsync(token) ? TermsLivenessState.Live : TermsLivenessState.NotLive;
+}
+
+public enum TermsLivenessState
+{
+    Live,
+    // The Terms aren't in effect (the Platform Console switch is off, or nothing is published).
+    NotLive,
+    // Tenant Service couldn't be reached, so the Terms count as not live for now.
+    Unreachable,
 }
 
 // Asks Tenant Service's public legal/terms/current, which answers 404 while the Terms aren't live
@@ -22,29 +36,35 @@ public sealed class TenantTermsLiveness(IHttpClientFactory httpClients, ICacheSe
     private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan FailOpenFor = TimeSpan.FromSeconds(30);
 
-    public async Task<bool> IsLiveAsync(CancellationToken token = default)
-    {
-        var cached = await TryCacheGetAsync();
-        if (cached != null) return cached == "true";
+    public async Task<bool> IsLiveAsync(CancellationToken token = default) =>
+        await GetStateAsync(token) == TermsLivenessState.Live;
 
-        bool live;
+    public async Task<TermsLivenessState> GetStateAsync(CancellationToken token = default)
+    {
+        if (Enum.TryParse<TermsLivenessState>(await TryCacheGetAsync(), out var cached)) return cached;
+
+        TermsLivenessState state;
         var expiry = CacheFor;
+        var client = httpClients.CreateClient(HttpClientName);
         try
         {
-            using var response = await httpClients.CreateClient(HttpClientName).GetAsync("api/v1/legal/terms/current", token);
+            using var response = await client.GetAsync("api/v1/legal/terms/current", token);
             if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.NotFound))
                 throw new HttpRequestException($"Tenant Service answered {(int)response.StatusCode}.");
-            live = response.StatusCode == HttpStatusCode.OK;
+            state = response.StatusCode == HttpStatusCode.OK ? TermsLivenessState.Live : TermsLivenessState.NotLive;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            Log.Logger.Warning(ex, "Couldn't ask Tenant Service whether the Terms are live; treating them as not live for now");
-            live = false;
+            // An error, not a warning: until it's fixed every DOLE deviation saves without being
+            // asked for or recorded. Usually ApiServices:TenantService points somewhere unreachable.
+            Log.Logger.Error(ex, "Couldn't ask Tenant Service at {BaseAddress} whether the Terms are live; "
+                + "DOLE deviations are saved without acknowledgment until it answers", client.BaseAddress);
+            state = TermsLivenessState.Unreachable;
             expiry = FailOpenFor;
         }
 
-        await TryCacheSetAsync(live ? "true" : "false", expiry);
-        return live;
+        await TryCacheSetAsync(state.ToString(), expiry);
+        return state;
     }
 
     private async Task<string?> TryCacheGetAsync()
