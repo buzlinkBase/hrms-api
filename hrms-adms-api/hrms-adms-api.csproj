@@ -4,7 +4,7 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<RootNamespace>Hrms.adms</RootNamespace>
-		<UserSecretsId>86b0bb2c-6312-466e-9a1f-b89ccbb70ac6</UserSecretsId>
+		<UserSecretsId>86b0bb2c-6312-466e-9a1f-b89ccbb70ac7</UserSecretsId>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<PropertyGroup>
